@@ -57,3 +57,10 @@ export const criteria = [
     ]
   },
 ];
+
+export const guidanceDocuments = [
+  { id: 'VB001', name: 'Nghị định số 59/2012/NĐ-CP về theo dõi tình hình thi hành pháp luật', number: '59/2012/NĐ-CP', issueDate: '09/07/2012' },
+  { id: 'VB002', name: 'Thông tư số 14/2014/TT-BTP quy định chi tiết thi hành Nghị định số 59/2012/NĐ-CP', number: '14/2014/TT-BTP', issueDate: '29/08/2014' },
+  { id: 'VB003', name: 'Quyết định số 25/2021/QĐ-TTg về xã, phường, thị trấn đạt chuẩn tiếp cận pháp luật', number: '25/2021/QĐ-TTg', issueDate: '22/07/2021' },
+  { id: 'VB004', name: 'Thông tư số 09/2021/TT-BTP hướng dẫn thi hành Quyết định số 25/2021/QĐ-TTg', number: '09/2021/TT-BTP', issueDate: '15/11/2021' },
+];
