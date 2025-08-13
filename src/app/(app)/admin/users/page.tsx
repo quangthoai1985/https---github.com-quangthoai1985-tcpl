@@ -41,19 +41,26 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { users, units } from '@/lib/data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import React from 'react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
+import { useData } from '@/context/DataContext';
 
-type User = typeof users[0];
+type User = {
+  id: string;
+  name: string;
+  email: string;
+  unitId: string;
+  role: string;
+};
 
 function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (user: Partial<User>) => void, onCancel: () => void }) {
   const [formData, setFormData] = React.useState(user);
+  const { units } = useData();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -116,6 +123,7 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
 }
 
 function UserTable({ users, onEdit, onResetPassword }: { users: User[], onEdit: (user: User) => void, onResetPassword: (user: User) => void }) {
+  const { units } = useData();
   const getUnitName = (unitId: string) => {
     return units.find(u => u.id === unitId)?.name || 'Không xác định';
   }
@@ -204,7 +212,7 @@ function UserTable({ users, onEdit, onResetPassword }: { users: User[], onEdit: 
 }
 
 export default function UserManagementPage() {
-  const [userList, setUserList] = React.useState(users);
+  const { users, setUsers } = useData();
   const [editingUser, setEditingUser] = React.useState<Partial<User> | null>(null);
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = React.useState(false);
   const [resettingUser, setResettingUser] = React.useState<User | null>(null);
@@ -232,18 +240,20 @@ export default function UserManagementPage() {
 
   const handleSaveUser = (userToSave: Partial<User>) => {
     if (userToSave.id) {
-      setUserList(userList.map(u => u.id === userToSave.id ? {...u, ...userToSave} : u));
+      setUsers(users.map(u => u.id === userToSave.id ? {...u, ...userToSave} as User : u));
+       toast({ title: "Thành công!", description: "Đã cập nhật thông tin người dùng."});
     } else {
       // Add new user logic
       const newUser = {
         ...userToSave,
-        id: `USR${String(userList.length + 1).padStart(3, '0')}`,
+        id: `USR${String(users.length + 1).padStart(3, '0')}`,
         email: userToSave.email || '',
         name: userToSave.name || '',
         unitId: userToSave.unitId || '',
         role: userToSave.role || 'Cán bộ Xã',
       } as User;
-      setUserList([...userList, newUser]);
+      setUsers([...users, newUser]);
+       toast({ title: "Thành công!", description: "Đã tạo người dùng mới."});
     }
     setEditingUser(null);
     setIsNewUserDialogOpen(false);
@@ -254,8 +264,8 @@ export default function UserManagementPage() {
     setIsNewUserDialogOpen(false);
   }
   
-  const adminUsers = userList.filter(u => u.role === 'Cán bộ Tỉnh');
-  const communeUsers = userList.filter(u => u.role === 'Cán bộ Xã');
+  const adminUsers = users.filter(u => u.role === 'Cán bộ Tỉnh');
+  const communeUsers = users.filter(u => u.role === 'Cán bộ Xã');
 
   return (
     <>
@@ -302,7 +312,7 @@ export default function UserManagementPage() {
         </div>
       </div>
       <TabsContent value="all">
-        <UserTable users={userList} onEdit={handleEdit} onResetPassword={handleResetPassword} />
+        <UserTable users={users} onEdit={handleEdit} onResetPassword={handleResetPassword} />
       </TabsContent>
       <TabsContent value="admin">
         <UserTable users={adminUsers} onEdit={handleEdit} onResetPassword={handleResetPassword} />

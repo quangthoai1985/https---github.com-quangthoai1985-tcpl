@@ -35,11 +35,14 @@ import {
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { units as initialUnits } from '@/lib/data';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useData } from '@/context/DataContext';
 
-type Unit = typeof initialUnits[0];
+type Unit = {
+    id: string;
+    name: string;
+};
 
 function UnitForm({ unit, onSave, onCancel }: { unit: Partial<Unit>, onSave: (unit: Partial<Unit>) => void, onCancel: () => void }) {
   const [formData, setFormData] = React.useState(unit);
@@ -73,7 +76,7 @@ function UnitForm({ unit, onSave, onCancel }: { unit: Partial<Unit>, onSave: (un
 
 
 export default function UnitManagementPage() {
-    const [units, setUnits] = React.useState(initialUnits);
+    const { units, setUnits } = useData();
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [editingUnit, setEditingUnit] = React.useState<Partial<Unit> | null>(null);
     const [deletingUnit, setDeletingUnit] = React.useState<Unit | null>(null);
