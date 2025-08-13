@@ -15,9 +15,11 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { useData } from "@/context/DataContext";
 
 export default function AssessmentDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const { role } = useData();
   const id = params.id;
   const { toast } = useToast();
   // In a real app, you would fetch this from a server and use state management.
@@ -193,7 +195,7 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
             ))}
           </Accordion>
           
-          {assessment.status === 'Chờ duyệt' && (
+          {assessment.status === 'Chờ duyệt' && role === 'admin' && (
             <>
                 <Separator className="my-6" />
                 <div className="grid gap-4">
@@ -209,8 +211,12 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => router.back()}>Quay lại</Button>
-            <Button variant="destructive" onClick={() => setIsRejectDialogOpen(true)} disabled={isActionDisabled}><ThumbsDown className="mr-2 h-4 w-4" />Từ chối</Button>
-            <Button className="bg-green-600 hover:bg-green-700" onClick={handleApprove} disabled={isActionDisabled}><ThumbsUp className="mr-2 h-4 w-4" />Phê duyệt</Button>
+            {role === 'admin' && (
+              <>
+                <Button variant="destructive" onClick={() => setIsRejectDialogOpen(true)} disabled={isActionDisabled}><ThumbsDown className="mr-2 h-4 w-4" />Từ chối</Button>
+                <Button className="bg-green-600 hover:bg-green-700" onClick={handleApprove} disabled={isActionDisabled}><ThumbsUp className="mr-2 h-4 w-4" />Phê duyệt</Button>
+              </>
+            )}
         </CardFooter>
       </Card>
     </div>
@@ -268,3 +274,5 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
     </>
   );
 }
+
+    
