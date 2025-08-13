@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  File,
   ListFilter,
   MoreHorizontal,
   PlusCircle,
