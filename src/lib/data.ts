@@ -42,25 +42,81 @@ export const criteria = [
     id: 'TC01',
     name: 'Tiêu chí 1: Công khai, minh bạch, dễ tiếp cận thông tin',
     indicators: [
-      { id: 'CT1.1', name: 'Chỉ tiêu 1: Công khai thông tin theo quy định của Luật Tiếp cận thông tin', type: 'Boolean' },
-      { id: 'CT1.2', name: 'Chỉ tiêu 2: Cung cấp thông tin theo yêu cầu', type: 'Percentage' },
+      {
+        id: 'CT1.1',
+        name: 'Chỉ tiêu 1: Công khai thông tin theo quy định của Luật Tiếp cận thông tin',
+        description: 'Đánh giá việc công khai các thông tin mà cơ quan nhà nước có trách nhiệm công khai theo quy định pháp luật.',
+        standardLevel: 'Đạt',
+        inputType: 'boolean',
+        calculationFormula: null,
+        evidenceRequirement: 'Danh mục các thông tin đã được công khai, hình ảnh chụp màn hình trang thông tin điện tử, hoặc các văn bản công khai khác.'
+      },
+      {
+        id: 'CT1.2',
+        name: 'Chỉ tiêu 2: Cung cấp thông tin theo yêu cầu',
+        description: 'Đánh giá tỷ lệ yêu cầu cung cấp thông tin của công dân, tổ chức được giải quyết đúng hạn.',
+        standardLevel: '>= 90%',
+        inputType: 'number',
+        calculationFormula: '(Số yêu cầu được giải quyết đúng hạn / Tổng số yêu cầu đã nhận) * 100',
+        evidenceRequirement: 'Sổ theo dõi hoặc báo cáo tổng hợp về việc tiếp nhận và giải quyết yêu cầu cung cấp thông tin.'
+      },
     ]
   },
   {
     id: 'TC02',
     name: 'Tiêu chí 2: Hạ tầng, thiết bị và ứng dụng công nghệ thông tin',
     indicators: [
-      { id: 'CT2.1', name: 'Chỉ tiêu 1: Trang thông tin điện tử của xã', type: 'Checklist' },
-      { id: 'CT2.2', name: 'Chỉ tiêu 2: Hệ thống loa truyền thanh', type: 'Boolean' },
-      { id: 'CT2.3', name: 'Chỉ tiêu 3: Nhà văn hóa, điểm sinh hoạt cộng đồng', type: 'Numeric' },
+      {
+        id: 'CT2.1',
+        name: 'Chỉ tiêu 1: Trang thông tin điện tử của xã',
+        description: 'Đảm bảo trang thông tin điện tử của xã có đầy đủ các chuyên mục, chức năng theo quy định và hoạt động ổn định.',
+        standardLevel: 'Đạt',
+        inputType: 'select',
+        calculationFormula: null,
+        evidenceRequirement: 'Địa chỉ URL của trang thông tin điện tử. Báo cáo tự đánh giá về các chuyên mục và chức năng.'
+      },
+      {
+        id: 'CT2.2',
+        name: 'Chỉ tiêu 2: Hệ thống loa truyền thanh',
+        description: 'Kiểm tra tình trạng hoạt động và phạm vi phủ sóng của hệ thống loa truyền thanh cơ sở.',
+        standardLevel: 'Hoạt động tốt',
+        inputType: 'boolean',
+        calculationFormula: null,
+        evidenceRequirement: 'Biên bản kiểm tra tình trạng kỹ thuật, hình ảnh hệ thống loa.'
+      },
+      {
+        id: 'CT2.3',
+        name: 'Chỉ tiêu 3: Nhà văn hóa, điểm sinh hoạt cộng đồng',
+        description: 'Thống kê số lượng nhà văn hóa, điểm sinh hoạt cộng đồng có trang thiết bị phục vụ việc tiếp cận thông tin, pháp luật.',
+        standardLevel: '>= 1',
+        inputType: 'number',
+        calculationFormula: null,
+        evidenceRequirement: 'Danh sách các nhà văn hóa, điểm sinh hoạt và trang thiết bị đi kèm.'
+      },
     ]
   },
    {
     id: 'TC03',
     name: 'Tiêu chí 3: Dân chủ ở cơ sở và hòa giải ở cơ sở',
     indicators: [
-      { id: 'CT3.1', name: 'Chỉ tiêu 1: Thực hiện dân chủ ở cơ sở', type: 'Boolean' },
-      { id: 'CT3.2', name: 'Chỉ tiêu 2: Hoạt động hòa giải ở cơ sở', type: 'Percentage' },
+      {
+        id: 'CT3.1',
+        name: 'Chỉ tiêu 1: Thực hiện dân chủ ở cơ sở',
+        description: 'Đánh giá việc tổ chức các cuộc họp, đối thoại định kỳ với nhân dân và công khai các nội dung theo quy chế dân chủ ở cơ sở.',
+        standardLevel: 'Đạt',
+        inputType: 'boolean',
+        calculationFormula: null,
+        evidenceRequirement: 'Biên bản các cuộc họp, hình ảnh, báo cáo thực hiện quy chế dân chủ.'
+      },
+      {
+        id: 'CT3.2',
+        name: 'Chỉ tiêu 2: Hoạt động hòa giải ở cơ sở',
+        description: 'Tỷ lệ vụ việc hòa giải thành công trên tổng số vụ việc được đưa ra hòa giải tại cơ sở.',
+        standardLevel: '>= 80%',
+        inputType: 'number',
+        calculationFormula: '(Số vụ hòa giải thành / Tổng số vụ hòa giải) * 100',
+        evidenceRequirement: 'Sổ theo dõi, báo cáo thống kê của các tổ hòa giải.'
+      },
     ]
   },
 ];

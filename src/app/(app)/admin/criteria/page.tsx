@@ -32,12 +32,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { Textarea } from '@/components/ui/textarea';
 
 
 type Indicator = {
   id: string;
   name: string;
-  type: 'Boolean' | 'Percentage' | 'Numeric' | 'Checklist';
+  description: string;
+  standardLevel: string;
+  inputType: 'number' | 'text' | 'boolean' | 'select';
+  calculationFormula: string | null;
+  evidenceRequirement: string;
 };
 
 type Criterion = {
@@ -79,13 +84,13 @@ function CriterionForm({ criterion, onSave, onCancel }: { criterion: Partial<Cri
 function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Indicator>, onSave: (indicator: Partial<Indicator>) => void, onCancel: () => void }) {
   const [formData, setFormData] = React.useState(indicator);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
     setFormData(prev => ({ ...prev, [id]: value }));
   };
-
+  
   const handleSelectChange = (value: string) => {
-    setFormData(prev => ({ ...prev, type: value as Indicator['type'] }));
+    setFormData(prev => ({ ...prev, inputType: value as Indicator['inputType'] }));
   };
 
   return (
@@ -96,24 +101,40 @@ function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Ind
           {indicator.id ? 'Cập nhật thông tin chi tiết cho chỉ tiêu này.' : 'Điền thông tin để tạo chỉ tiêu mới.'}
         </DialogDescription>
       </DialogHeader>
-      <div className="grid gap-4 py-4">
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="name" className="text-right">Tên chỉ tiêu</Label>
-          <Input id="name" value={formData.name || ''} onChange={handleChange} className="col-span-3" />
+      <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-6">
+        <div className="grid grid-cols-4 items-start gap-4">
+          <Label htmlFor="name" className="text-right pt-2">Tên</Label>
+          <Textarea id="name" value={formData.name || ''} onChange={handleChange} className="col-span-3" />
+        </div>
+        <div className="grid grid-cols-4 items-start gap-4">
+          <Label htmlFor="description" className="text-right pt-2">Mô tả</Label>
+          <Textarea id="description" value={formData.description || ''} onChange={handleChange} className="col-span-3" />
         </div>
         <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="type" className="text-right">Loại chỉ tiêu</Label>
-          <Select value={formData.type} onValueChange={handleSelectChange}>
+          <Label htmlFor="standardLevel" className="text-right">Mức độ đạt chuẩn</Label>
+          <Input id="standardLevel" value={formData.standardLevel || ''} onChange={handleChange} className="col-span-3" placeholder="Ví dụ: '100%', '>=85%', 'Đạt'"/>
+        </div>
+        <div className="grid grid-cols-4 items-center gap-4">
+          <Label htmlFor="inputType" className="text-right">Loại dữ liệu đầu vào</Label>
+          <Select value={formData.inputType} onValueChange={handleSelectChange}>
             <SelectTrigger className="col-span-3">
-              <SelectValue placeholder="Chọn loại" />
+              <SelectValue placeholder="Chọn loại dữ liệu" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="Boolean">Đạt/Không đạt</SelectItem>
-              <SelectItem value="Percentage">Tỷ lệ %</SelectItem>
-              <SelectItem value="Numeric">Số lượng</SelectItem>
-              <SelectItem value="Checklist">Danh mục kiểm tra</SelectItem>
+              <SelectItem value="text">Văn bản</SelectItem>
+              <SelectItem value="number">Số</SelectItem>
+              <SelectItem value="boolean">Đúng/Sai</SelectItem>
+              <SelectItem value="select">Lựa chọn</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="grid grid-cols-4 items-center gap-4">
+          <Label htmlFor="calculationFormula" className="text-right">Công thức tính (nếu có)</Label>
+          <Input id="calculationFormula" value={formData.calculationFormula || ''} onChange={handleChange} className="col-span-3" />
+        </div>
+        <div className="grid grid-cols-4 items-start gap-4">
+          <Label htmlFor="evidenceRequirement" className="text-right pt-2">Yêu cầu hồ sơ minh chứng</Label>
+          <Textarea id="evidenceRequirement" value={formData.evidenceRequirement || ''} onChange={handleChange} className="col-span-3" />
         </div>
       </div>
       <DialogFooter>
@@ -132,21 +153,6 @@ export default function CriteriaManagementPage() {
   const [editingIndicator, setEditingIndicator] = React.useState<{criterionId: string, indicator: Partial<Indicator>} | null>(null);
   const [addingIndicatorTo, setAddingIndicatorTo] = React.useState<string | null>(null);
   const { toast } = useToast();
-
-  const getIndicatorTypeLabel = (type: string) => {
-    switch (type) {
-      case 'Boolean':
-        return 'Đạt/Không đạt';
-      case 'Percentage':
-        return 'Tỷ lệ %';
-      case 'Numeric':
-        return 'Số lượng';
-      case 'Checklist':
-        return 'Danh mục kiểm tra';
-      default:
-        return 'Không xác định';
-    }
-  };
   
   const handleEditCriterion = (criterion: Criterion) => {
     setEditingCriterion(criterion);
@@ -206,7 +212,11 @@ export default function CriteriaManagementPage() {
        const newIndicator: Indicator = {
         id: `CT${Math.random().toString(36).substring(2, 9)}`,
         name: indicatorToSave.name || "Chỉ tiêu mới",
-        type: indicatorToSave.type || "Boolean"
+        description: indicatorToSave.description || "",
+        standardLevel: indicatorToSave.standardLevel || "",
+        inputType: indicatorToSave.inputType || "text",
+        calculationFormula: indicatorToSave.calculationFormula || null,
+        evidenceRequirement: indicatorToSave.evidenceRequirement || "",
       };
 
       setCriteria(prevCriteria => 
@@ -281,32 +291,43 @@ export default function CriteriaManagementPage() {
                 </div>
               </div>
               <AccordionContent>
-                <div className="space-y-4 pl-8 pr-4">
+                <div className="space-y-4 pl-8 pr-4 py-4">
                   {criterion.indicators.map((indicator) => (
                     <div
                       key={indicator.id}
-                      className="flex items-center justify-between rounded-md border bg-card p-4 shadow-sm"
+                      className="grid gap-3 rounded-md border bg-card p-4 shadow-sm"
                     >
-                      <div>
-                        <p className="font-semibold">{indicator.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          Loại: {getIndicatorTypeLabel(indicator.type)}
-                        </p>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleEditIndicator(criterion.id, indicator)}>Sửa chỉ tiêu</DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive">
-                            Xóa chỉ tiêu
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                        <div className="flex justify-between items-start">
+                            <h4 className="font-semibold text-base flex-1 pr-4">{indicator.name}</h4>
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon" className='h-8 w-8 flex-shrink-0'>
+                                    <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>Hành động</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => handleEditIndicator(criterion.id, indicator)}>Sửa chỉ tiêu</DropdownMenuItem>
+                                <DropdownMenuItem className="text-destructive">
+                                    Xóa chỉ tiêu
+                                </DropdownMenuItem>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        </div>
+                      
+                        <p className="text-sm text-muted-foreground">{indicator.description}</p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                            <div><strong>Mức độ đạt chuẩn:</strong> <Badge variant="outline">{indicator.standardLevel}</Badge></div>
+                            <div><strong>Loại dữ liệu:</strong> <Badge variant="outline">{indicator.inputType}</Badge></div>
+                            {indicator.calculationFormula && <div><strong>Công thức tính:</strong> <code className="text-xs bg-muted p-1 rounded">{indicator.calculationFormula}</code></div>}
+                        </div>
+                        
+                        <div>
+                            <p className="font-medium text-sm">Yêu cầu hồ sơ minh chứng:</p>
+                            <p className="text-sm text-muted-foreground">{indicator.evidenceRequirement}</p>
+                        </div>
+
                     </div>
                   ))}
                 </div>
@@ -330,7 +351,7 @@ export default function CriteriaManagementPage() {
     </Dialog>
 
     <Dialog open={!!editingIndicator || !!addingIndicatorTo} onOpenChange={(open) => !open && handleCancelEditIndicator()}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
             {(editingIndicator || addingIndicatorTo) && (
                 <IndicatorForm 
                     indicator={editingIndicator?.indicator || {}}
