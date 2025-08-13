@@ -76,27 +76,6 @@ export default function AppSidebar() {
             ))}
           </nav>
         </div>
-        <div className="mt-auto p-4">
-          <nav className='grid items-start text-sm font-medium'>
-             <Link
-                href="/profile"
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
-                  pathname === "/profile" && 'bg-muted text-primary'
-                )}
-              >
-                <Settings className="h-4 w-4" />
-                Hồ sơ & Cài đặt
-              </Link>
-              <Link
-                href="/"
-                className="flex items-center gap-3 rounded-lg px-3 py-2 text-destructive transition-all hover:text-primary"
-              >
-                <LogOut className="h-4 w-4" />
-                Đăng xuất
-              </Link>
-          </nav>
-        </div>
       </div>
     </div>
   );

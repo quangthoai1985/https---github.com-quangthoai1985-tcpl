@@ -5,9 +5,11 @@ import Link from 'next/link';
 import {
   Bell,
   Home,
+  LogOut,
   Menu,
   Package2,
   Search,
+  Settings,
   Users,
 } from 'lucide-react';
 
@@ -59,7 +61,7 @@ export default function AppHeader() {
       case '/documents':
         return 'Văn bản Hướng dẫn';
       case '/profile':
-        return 'Hồ sơ';
+        return 'Hồ sơ cá nhân';
       default:
         return 'Legal Access Tracker';
     }
@@ -96,10 +98,9 @@ export default function AppHeader() {
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>Tài khoản của tôi</DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem asChild><Link href="/profile">Hồ sơ</Link></DropdownMenuItem>
-          <DropdownMenuItem>Hỗ trợ</DropdownMenuItem>
+          <DropdownMenuItem asChild><Link href="/profile" className='flex items-center gap-2'><Settings className='h-4 w-4' />Hồ sơ</Link></DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem asChild><Link href="/">Đăng xuất</Link></DropdownMenuItem>
+          <DropdownMenuItem asChild><Link href="/" className='flex items-center gap-2'><LogOut className='h-4 w-4' />Đăng xuất</Link></DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
     </header>
