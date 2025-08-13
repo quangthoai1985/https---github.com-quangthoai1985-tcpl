@@ -43,10 +43,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { users } from '@/lib/data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import React from 'react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { useToast } from '@/hooks/use-toast';
 
 type User = typeof users[0];
 
@@ -104,7 +106,7 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
   )
 }
 
-function UserTable({ users, onEdit }: { users: User[], onEdit: (user: User) => void }) {
+function UserTable({ users, onEdit, onResetPassword }: { users: User[], onEdit: (user: User) => void, onResetPassword: (user: User) => void }) {
   return (
     <Card>
       <CardHeader>
@@ -136,7 +138,7 @@ function UserTable({ users, onEdit }: { users: User[], onEdit: (user: User) => v
                 <TableCell className="hidden sm:table-cell">
                   <Avatar className="h-9 w-9">
                     <AvatarImage src={`https://placehold.co/100x100.png?text=${user.name.charAt(0)}`} data-ai-hint="user avatar" />
-                    <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                    <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}></AvatarFallback>
                   </Avatar>
                 </TableCell>
                 <TableCell className="font-medium">
@@ -166,7 +168,7 @@ function UserTable({ users, onEdit }: { users: User[], onEdit: (user: User) => v
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Hành động</DropdownMenuLabel>
                       <DropdownMenuItem onClick={() => onEdit(user)}>Sửa</DropdownMenuItem>
-                      <DropdownMenuItem>Đặt lại mật khẩu</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onResetPassword(user)}>Đặt lại mật khẩu</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-destructive">
                         Xóa
@@ -192,9 +194,27 @@ export default function UserManagementPage() {
   const [userList, setUserList] = React.useState(users);
   const [editingUser, setEditingUser] = React.useState<Partial<User> | null>(null);
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = React.useState(false);
+  const [resettingUser, setResettingUser] = React.useState<User | null>(null);
+  const { toast } = useToast();
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
+  };
+
+  const handleResetPassword = (user: User) => {
+    setResettingUser(user);
+  };
+  
+  const confirmResetPassword = () => {
+    if (resettingUser) {
+        // In a real app, this would trigger an API call.
+        // For now, we'll just show a success toast.
+        toast({
+            title: "Thành công!",
+            description: `Đã gửi email đặt lại mật khẩu cho ${resettingUser.name}.`,
+        });
+        setResettingUser(null);
+    }
   };
 
   const handleSaveUser = (userToSave: Partial<User>) => {
@@ -269,13 +289,13 @@ export default function UserManagementPage() {
         </div>
       </div>
       <TabsContent value="all">
-        <UserTable users={userList} onEdit={handleEdit} />
+        <UserTable users={userList} onEdit={handleEdit} onResetPassword={handleResetPassword} />
       </TabsContent>
       <TabsContent value="admin">
-        <UserTable users={adminUsers} onEdit={handleEdit} />
+        <UserTable users={adminUsers} onEdit={handleEdit} onResetPassword={handleResetPassword} />
       </TabsContent>
       <TabsContent value="commune">
-        <UserTable users={communeUsers} onEdit={handleEdit} />
+        <UserTable users={communeUsers} onEdit={handleEdit} onResetPassword={handleResetPassword} />
       </TabsContent>
     </Tabs>
 
@@ -290,6 +310,26 @@ export default function UserManagementPage() {
         {editingUser && <UserForm user={editingUser} onSave={handleSaveUser} onCancel={handleCancel} />}
       </DialogContent>
     </Dialog>
+
+    {/* Reset Password Alert Dialog */}
+    <AlertDialog open={!!resettingUser} onOpenChange={(open) => !open && setResettingUser(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Xác nhận đặt lại mật khẩu</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Bạn có chắc chắn muốn đặt lại mật khẩu cho người dùng <strong>{resettingUser?.name}</strong>?
+                    Hành động này sẽ gửi một email hướng dẫn đến địa chỉ {resettingUser?.email}.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setResettingUser(null)}>Hủy</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmResetPassword}>Xác nhận</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+
     </>
   );
 }
+
+    
