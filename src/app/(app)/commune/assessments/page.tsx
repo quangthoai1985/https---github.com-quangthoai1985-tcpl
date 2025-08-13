@@ -12,6 +12,7 @@ import { criteria } from "@/lib/data";
 import { UploadCloud, File as FileIcon, X } from "lucide-react";
 import React from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useToast } from "@/hooks/use-toast";
 
 function FileUploadComponent() {
     const [files, setFiles] = React.useState<File[]>([]);
@@ -94,6 +95,22 @@ const renderInput = (indicator: any) => {
 
 
 export default function SelfAssessmentPage() {
+  const { toast } = useToast();
+
+  const handleSaveDraft = () => {
+    toast({
+      title: "Lưu nháp thành công!",
+      description: "Bạn có thể tiếp tục chỉnh sửa sau.",
+    });
+  };
+
+  const handleSubmit = () => {
+    toast({
+      title: "Gửi đánh giá thành công!",
+      description: "Hồ sơ của bạn đã được gửi đến Cán bộ Tỉnh để xem xét.",
+    });
+  };
+
   return (
     <div className="grid gap-6">
         <Card>
@@ -139,8 +156,8 @@ export default function SelfAssessmentPage() {
                 </Accordion>
             </CardContent>
             <CardFooter className="flex justify-end gap-2">
-                <Button variant="outline">Lưu nháp</Button>
-                <Button>Gửi đánh giá</Button>
+                <Button variant="outline" onClick={handleSaveDraft}>Lưu nháp</Button>
+                <Button onClick={handleSubmit}>Gửi đánh giá</Button>
             </CardFooter>
         </Card>
     </div>
