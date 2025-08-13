@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -27,7 +28,7 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import { assessmentStatusChartData, criteria } from '@/lib/data';
-import { Download, ChevronDown, ListFilter, Calendar as CalendarIcon } from 'lucide-react';
+import { Download, ListFilter, Calendar as CalendarIcon } from 'lucide-react';
 import { Pie, PieChart, Cell, BarChart, XAxis, YAxis, Bar, CartesianGrid, Tooltip } from 'recharts';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
