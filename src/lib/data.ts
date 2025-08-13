@@ -134,10 +134,16 @@ export const assessmentPeriods = [
     { id: 'DOT002', name: 'Đợt đánh giá 6 tháng cuối năm 2023', startDate: '01/07/2023', endDate: '31/12/2023', status: 'Inactive' },
 ];
 
-export const notifications = [
-    { id: 'N001', title: 'Hồ sơ Xã Tân Triều đã được duyệt', time: '5 phút trước', read: false },
-    { id: 'N002', title: 'Hồ sơ Phường Dịch Vọng Hậu bị từ chối', time: '1 giờ trước', read: false },
-    { id: 'N003', title: 'Bạn có 2 hồ sơ mới đang chờ duyệt', time: 'Hôm qua', read: true },
+export const communeNotifications = [
+    { id: 'N001', title: 'Hồ sơ của bạn đã được duyệt', time: '5 phút trước', read: false },
+    { id: 'N002', title: 'Hồ sơ của bạn đã bị từ chối, vui lòng kiểm tra và gửi lại.', time: '1 giờ trước', read: false },
+    { id: 'N003', title: 'Nhắc nhở: Sắp đến hạn nộp hồ sơ đánh giá.', time: 'Hôm qua', read: true },
+];
+
+export const adminNotifications = [
+    { id: 'N001', title: 'Xã An Khánh vừa gửi hồ sơ đánh giá.', time: '15 phút trước', read: false },
+    { id: 'N002', title: 'Xã Tân Triều vừa cập nhật hồ sơ bị từ chối.', time: '2 giờ trước', read: false },
+    { id: 'N003', title: 'Phường Bách Khoa vừa gửi hồ sơ đánh giá.', time: 'Hôm qua', read: true },
 ];
 
     

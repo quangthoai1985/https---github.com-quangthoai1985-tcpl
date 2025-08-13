@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  FileUp,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -28,13 +29,14 @@ import AppSidebar from './app-sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useData } from '@/context/DataContext';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { notifications } from '@/lib/data';
+import { adminNotifications, communeNotifications } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
 
 export default function AppHeader() {
   const pathname = usePathname();
   const { role } = useData();
+  const notifications = role === 'admin' ? adminNotifications : communeNotifications;
   const unreadNotifications = notifications.filter(n => !n.read).length;
 
 
@@ -76,15 +78,17 @@ export default function AppHeader() {
     return role === 'admin' ? 'Admin' : 'Cán bộ';
   }
 
-  const notificationIcons = {
+  const notificationIcons: {[key: string]: React.ReactNode} = {
       'đã được duyệt': <CheckCircle2 className="h-4 w-4 text-green-500" />,
       'bị từ chối': <XCircle className="h-4 w-4 text-red-500" />,
-      'chờ duyệt': <Clock className="h-4 w-4 text-yellow-500" />
+      'chờ duyệt': <Clock className="h-4 w-4 text-yellow-500" />,
+      'đã gửi': <FileUp className="h-4 w-4 text-primary" />,
   }
 
   const getNotificationIcon = (title: string) => {
       if (title.includes('đã được duyệt')) return notificationIcons['đã được duyệt'];
       if (title.includes('bị từ chối')) return notificationIcons['bị từ chối'];
+      if (title.includes('vừa gửi')) return notificationIcons['đã gửi'];
       return notificationIcons['chờ duyệt'];
   }
 
@@ -128,7 +132,7 @@ export default function AppHeader() {
                 {notifications.map(notification => (
                     <div key={notification.id} className={cn(
                         "mb-1 flex items-start gap-4 rounded-lg p-3 text-sm transition-colors hover:bg-muted/50",
-                        !notification.read && "bg-blue-50"
+                        !notification.read && "bg-blue-50/50"
                     )}>
                         <div className="mt-1">
                            {getNotificationIcon(notification.title)}
@@ -168,5 +172,3 @@ export default function AppHeader() {
     </header>
   );
 }
-
-    
