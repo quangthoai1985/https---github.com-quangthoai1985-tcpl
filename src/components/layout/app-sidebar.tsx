@@ -26,7 +26,6 @@ const adminNavItems = [
   { href: '/admin/criteria', icon: FileCheck2, label: 'Quản lý Tiêu chí' },
   { href: '/admin/reviews', icon: GanttChartSquare, label: 'Duyệt Đánh giá', badge: '6' },
   { href: '/admin/reports', icon: FileText, label: 'Báo cáo & Thống kê' },
-  { href: '/ai-assistant', icon: Bot, label: 'Trợ lý AI' },
   { href: '/documents', icon: Book, label: 'Văn bản Hướng dẫn' },
 ];
 
