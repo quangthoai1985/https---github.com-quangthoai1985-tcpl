@@ -20,10 +20,9 @@ import { useData } from "@/context/DataContext";
 export default function AssessmentDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { role } = useData();
-  const id = params.id;
   const { toast } = useToast();
   // In a real app, you would fetch this from a server and use state management.
-  const [assessment, setAssessment] = useState(recentAssessments.find((a) => a.id === id));
+  const [assessment, setAssessment] = useState(recentAssessments.find((a) => a.id === params.id));
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState(assessment?.rejectionReason || "");
   const [communeExplanation, setCommuneExplanation] = useState(assessment?.communeExplanation || "");
@@ -44,7 +43,7 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
 
   const handleApprove = () => {
     const updatedAssessment = { ...assessment, status: 'Đã duyệt' };
-    const index = recentAssessments.findIndex(a => a.id === id);
+    const index = recentAssessments.findIndex(a => a.id === params.id);
     if(index !== -1) recentAssessments[index] = updatedAssessment as any;
     setAssessment(updatedAssessment as any);
     
@@ -65,7 +64,7 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
         return;
     }
     const updatedAssessment = { ...assessment, status: 'Bị từ chối', rejectionReason: rejectionReason, communeExplanation: "" };
-    const index = recentAssessments.findIndex(a => a.id === id);
+    const index = recentAssessments.findIndex(a => a.id === params.id);
     if(index !== -1) recentAssessments[index] = updatedAssessment as any;
     setAssessment(updatedAssessment as any);
     
@@ -79,7 +78,7 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
   
   const handleResubmit = () => {
       const updatedAssessment = { ...assessment, status: 'Chờ duyệt', communeExplanation: communeExplanation };
-      const index = recentAssessments.findIndex(a => a.id === id);
+      const index = recentAssessments.findIndex(a => a.id === params.id);
       if(index !== -1) recentAssessments[index] = updatedAssessment as any;
       setAssessment(updatedAssessment as any);
       toast({
