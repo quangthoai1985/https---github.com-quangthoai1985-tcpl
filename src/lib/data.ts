@@ -122,8 +122,8 @@ export const criteria = [
 ];
 
 export const guidanceDocuments = [
-  { id: 'VB001', name: 'Nghị định số 59/2012/NĐ-CP về theo dõi tình hình thi hành pháp luật', number: '59/2012/NĐ-CP', issueDate: '09/07/2012' },
-  { id: 'VB002', name: 'Thông tư số 14/2014/TT-BTP quy định chi tiết thi hành Nghị định số 59/2012/NĐ-CP', number: '14/2014/TT-BTP', issueDate: '29/08/2014' },
-  { id: 'VB003', name: 'Quyết định số 25/2021/QĐ-TTg về xã, phường, thị trấn đạt chuẩn tiếp cận pháp luật', number: '25/2021/QĐ-TTg', issueDate: '22/07/2021' },
-  { id: 'VB004', name: 'Thông tư số 09/2021/TT-BTP hướng dẫn thi hành Quyết định số 25/2021/QĐ-TTg', number: '09/2021/TT-BTP', issueDate: '15/11/2021' },
+  { id: 'VB001', name: 'Quyết định số 25/2021/QĐ-TTg về xã, phường, thị trấn đạt chuẩn tiếp cận pháp luật', number: '25/2021/QĐ-TTg', issueDate: '22/07/2021', excerpt: 'Quy định về tiêu chí xã, phường, thị trấn đạt chuẩn tiếp cận pháp luật và việc đánh giá, công nhận xã, phường, thị trấn đạt chuẩn tiếp cận pháp luật.' },
+  { id: 'VB002', name: 'Thông tư số 09/2021/TT-BTP hướng dẫn thi hành Quyết định số 25/2021/QĐ-TTg', number: '09/2021/TT-BTP', issueDate: '15/11/2021', excerpt: 'Hướng dẫn chi tiết về nội dung các tiêu chí tiếp cận pháp luật, quy trình đánh giá, và biểu mẫu sử dụng.' },
+  { id: 'VB003', name: 'Luật Tiếp cận thông tin năm 2016', number: '104/2016/QH13', issueDate: '06/04/2016', excerpt: 'Quy định về việc thực hiện quyền tiếp cận thông tin của công dân, nguyên tắc, trình tự, thủ tục thực hiện quyền tiếp cận thông tin.'},
+  { id: 'VB004', name: 'Luật Hòa giải ở cơ sở năm 2013', number: '59/2013/QH13', issueDate: '20/06/2013', excerpt: 'Quy định về nguyên tắc, chính sách của Nhà nước về hòa giải ở cơ sở; hòa giải viên; tổ chức và hoạt động hòa giải ở cơ sở.' },
 ];
