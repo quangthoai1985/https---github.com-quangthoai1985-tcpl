@@ -46,6 +46,36 @@ type Criterion = {
   indicators: Indicator[];
 };
 
+function CriterionForm({ criterion, onSave, onCancel }: { criterion: Partial<Criterion>, onSave: (criterion: Partial<Criterion>) => void, onCancel: () => void }) {
+  const [formData, setFormData] = React.useState(criterion);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({ ...prev, [id]: value }));
+  };
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>{criterion.id ? 'Chỉnh sửa tiêu chí' : 'Tạo tiêu chí mới'}</DialogTitle>
+        <DialogDescription>
+          {criterion.id ? 'Cập nhật thông tin chi tiết cho tiêu chí này.' : 'Điền thông tin để tạo tiêu chí mới.'}
+        </DialogDescription>
+      </DialogHeader>
+      <div className="grid gap-4 py-4">
+        <div className="grid grid-cols-4 items-center gap-4">
+          <Label htmlFor="name" className="text-right">Tên tiêu chí</Label>
+          <Input id="name" value={formData.name || ''} onChange={handleChange} className="col-span-3" />
+        </div>
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onCancel}>Hủy</Button>
+        <Button type="submit" onClick={() => onSave(formData)}>{criterion.id ? 'Lưu thay đổi' : 'Tạo mới'}</Button>
+      </DialogFooter>
+    </>
+  );
+}
+
 function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Indicator>, onSave: (indicator: Partial<Indicator>) => void, onCancel: () => void }) {
   const [formData, setFormData] = React.useState(indicator);
 
@@ -97,6 +127,7 @@ function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Ind
 
 export default function CriteriaManagementPage() {
   const [criteria, setCriteria] = React.useState<Criterion[]>(initialCriteria);
+  const [editingCriterion, setEditingCriterion] = React.useState<Criterion | null>(null);
   const [editingIndicator, setEditingIndicator] = React.useState<{criterionId: string, indicator: Partial<Indicator>} | null>(null);
   const { toast } = useToast();
 
@@ -114,12 +145,32 @@ export default function CriteriaManagementPage() {
         return 'Không xác định';
     }
   };
+  
+  const handleEditCriterion = (criterion: Criterion) => {
+    setEditingCriterion(criterion);
+  };
+  
+  const handleCancelEditCriterion = () => {
+    setEditingCriterion(null);
+  }
+
+  const handleSaveCriterion = (criterionToSave: Partial<Criterion>) => {
+    if (criterionToSave.id) {
+        setCriteria(prevCriteria => 
+            prevCriteria.map(c => 
+                c.id === criterionToSave.id ? { ...c, ...criterionToSave } as Criterion : c
+            )
+        );
+        toast({ title: "Thành công!", description: "Đã cập nhật thông tin tiêu chí."});
+    }
+    setEditingCriterion(null);
+  };
 
   const handleEditIndicator = (criterionId: string, indicator: Indicator) => {
     setEditingIndicator({ criterionId, indicator });
   };
   
-  const handleCancelEdit = () => {
+  const handleCancelEditIndicator = () => {
     setEditingIndicator(null);
   };
 
@@ -170,7 +221,7 @@ export default function CriteriaManagementPage() {
                       Tiêu chí {index + 1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}
                     </span>
                 </AccordionTrigger>
-                <div className="flex items-center gap-4 flex-shrink-0">
+                <div className="flex items-center gap-4 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                   <Badge variant="secondary" className="mr-4">
                     {criterion.indicators.length} chỉ tiêu
                   </Badge>
@@ -182,7 +233,7 @@ export default function CriteriaManagementPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                      <DropdownMenuItem>Sửa tiêu chí</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleEditCriterion(criterion)}>Sửa tiêu chí</DropdownMenuItem>
                       <DropdownMenuItem>Thêm chỉ tiêu</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-destructive">
@@ -229,13 +280,25 @@ export default function CriteriaManagementPage() {
       </CardContent>
     </Card>
 
-    <Dialog open={!!editingIndicator} onOpenChange={(open) => !open && handleCancelEdit()}>
+    <Dialog open={!!editingCriterion} onOpenChange={(open) => !open && handleCancelEditCriterion()}>
+      <DialogContent>
+        {editingCriterion && (
+          <CriterionForm
+            criterion={editingCriterion}
+            onSave={handleSaveCriterion}
+            onCancel={handleCancelEditCriterion}
+          />
+        )}
+      </DialogContent>
+    </Dialog>
+
+    <Dialog open={!!editingIndicator} onOpenChange={(open) => !open && handleCancelEditIndicator()}>
         <DialogContent>
             {editingIndicator && (
                 <IndicatorForm 
                     indicator={editingIndicator.indicator}
                     onSave={handleSaveIndicator}
-                    onCancel={handleCancelEdit}
+                    onCancel={handleCancelEditIndicator}
                 />
             )}
         </DialogContent>
