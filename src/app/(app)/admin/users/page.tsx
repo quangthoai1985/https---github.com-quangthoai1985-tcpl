@@ -48,6 +48,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import React from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useData } from '@/context/DataContext';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 type User = {
   id: string;
@@ -121,7 +122,7 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
   )
 }
 
-function UserTable({ users, onEdit, onResetPassword }: { users: User[], onEdit: (user: User) => void, onResetPassword: (user: User) => void }) {
+function UserTable({ users, onEdit, onResetPassword, onDelete }: { users: User[], onEdit: (user: User) => void, onResetPassword: (user: User) => void, onDelete: (user: User) => void }) {
   const { units } = useData();
   const getUnitName = (unitId: string) => {
     return units.find(u => u.id === unitId)?.name || 'Không xác định';
@@ -191,7 +192,7 @@ function UserTable({ users, onEdit, onResetPassword }: { users: User[], onEdit: 
                       <DropdownMenuItem onClick={() => onEdit(user)}>Sửa</DropdownMenuItem>
                       <DropdownMenuItem onClick={() => onResetPassword(user)}>Đặt lại mật khẩu</DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive">
+                      <DropdownMenuItem onClick={() => onDelete(user)} className="text-destructive">
                         Xóa
                       </DropdownMenuItem>
                     </DropdownMenuContent>
@@ -249,10 +250,26 @@ export default function UserManagementPage() {
   const [editingUser, setEditingUser] = React.useState<Partial<User> | null>(null);
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = React.useState(false);
   const [resettingUser, setResettingUser] = React.useState<User | null>(null);
+  const [deletingUser, setDeletingUser] = React.useState<User | null>(null);
   const { toast } = useToast();
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
+  };
+
+  const handleDelete = (user: User) => {
+    setDeletingUser(user);
+  };
+
+  const confirmDelete = () => {
+    if (deletingUser) {
+        setUsers(users.filter(u => u.id !== deletingUser.id));
+        toast({
+            title: "Thành công!",
+            description: `Đã xóa người dùng "${deletingUser.name}".`,
+        });
+        setDeletingUser(null);
+    }
   };
 
   const handleResetPassword = (user: User) => {
@@ -346,13 +363,13 @@ export default function UserManagementPage() {
         </div>
       </div>
       <TabsContent value="all">
-        <UserTable users={users} onEdit={handleEdit} onResetPassword={handleResetPassword} />
+        <UserTable users={users} onEdit={handleEdit} onResetPassword={handleResetPassword} onDelete={handleDelete} />
       </TabsContent>
       <TabsContent value="admin">
-        <UserTable users={adminUsers} onEdit={handleEdit} onResetPassword={handleResetPassword} />
+        <UserTable users={adminUsers} onEdit={handleEdit} onResetPassword={handleResetPassword} onDelete={handleDelete} />
       </TabsContent>
       <TabsContent value="commune">
-        <UserTable users={communeUsers} onEdit={handleEdit} onResetPassword={handleResetPassword} />
+        <UserTable users={communeUsers} onEdit={handleEdit} onResetPassword={handleResetPassword} onDelete={handleDelete} />
       </TabsContent>
     </Tabs>
 
@@ -380,6 +397,23 @@ export default function UserManagementPage() {
             )}
         </DialogContent>
     </Dialog>
+
+    {/* Delete User Dialog */}
+    <AlertDialog open={!!deletingUser} onOpenChange={(open) => !open && setDeletingUser(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Bạn có chắc chắn muốn xóa người dùng <strong>{deletingUser?.name}</strong>?
+                    Hành động này không thể hoàn tác.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setDeletingUser(null)}>Hủy</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">Xác nhận Xóa</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
 
     </>
   );
