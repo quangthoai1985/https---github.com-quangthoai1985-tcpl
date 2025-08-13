@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/table';
 import { recentAssessments } from '@/lib/data';
 import { Eye, CheckCircle, XCircle, MoreHorizontal } from 'lucide-react';
+import Link from 'next/link';
 
 export default function ReviewAssessmentsPage() {
   const pendingAssessments = recentAssessments.filter(
@@ -56,9 +57,11 @@ export default function ReviewAssessmentsPage() {
                     {assessment.submissionDate}
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm">
-                      <Eye className="mr-2 h-4 w-4" />
-                      Xem chi tiết
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/admin/reviews/${assessment.id}`}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        Xem chi tiết
+                      </Link>
                     </Button>
                   </TableCell>
                 </TableRow>
