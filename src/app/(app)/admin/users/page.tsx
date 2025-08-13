@@ -43,7 +43,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { users } from '@/lib/data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import React from 'react';
@@ -138,7 +138,7 @@ function UserTable({ users, onEdit, onResetPassword }: { users: User[], onEdit: 
                 <TableCell className="hidden sm:table-cell">
                   <Avatar className="h-9 w-9">
                     <AvatarImage src={`https://placehold.co/100x100.png?text=${user.name.charAt(0)}`} data-ai-hint="user avatar" />
-                    <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}></AvatarFallback>
+                    <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
                   </Avatar>
                 </TableCell>
                 <TableCell className="font-medium">
@@ -331,5 +331,7 @@ export default function UserManagementPage() {
     </>
   );
 }
+
+    
 
     
