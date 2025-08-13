@@ -199,7 +199,7 @@ export default function UnitManagementPage() {
       }
     }}>
       <DialogContent>
-        {editingUnit && <UnitForm user={editingUnit} onSave={handleSave} onCancel={handleCancel} />}
+        {editingUnit && <UnitForm unit={editingUnit} onSave={handleSave} onCancel={handleCancel} />}
       </DialogContent>
     </Dialog>
 
