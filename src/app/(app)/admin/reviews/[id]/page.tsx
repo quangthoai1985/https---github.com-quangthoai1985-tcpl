@@ -201,7 +201,7 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
                 <div className="grid gap-4">
                     <h3 className="text-lg font-headline">Thẩm định và Phê duyệt</h3>
                     <div className="grid gap-2">
-                         <label htmlFor="review-notes" className="font-medium">Ghi chú thẩm định (nếu có)</label>
+                         <Label htmlFor="review-notes" className="font-medium">Ghi chú thẩm định (nếu có)</Label>
                         <Textarea id="review-notes" placeholder="Nhập ý kiến thẩm định của bạn..." />
                     </div>
                 </div>
@@ -274,5 +274,3 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
     </>
   );
 }
-
-    

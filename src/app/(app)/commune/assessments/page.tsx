@@ -146,11 +146,6 @@ export default function SelfAssessmentPage() {
                                                 {renderInput(indicator)}
                                             </div>
 
-                                            <div className="grid gap-2">
-                                                <Label htmlFor={`${indicator.id}-notes`}>Ghi chú/Giải trình</Label>
-                                                <Textarea id={`${indicator.id}-notes`} placeholder="Thêm ghi chú, giải trình về kết quả nếu cần..." />
-                                            </div>
-
                                              <div className="grid gap-2">
                                                 <p className="text-sm"><strong>Yêu cầu hồ sơ minh chứng:</strong> {indicator.evidenceRequirement}</p>
                                                 <FileUploadComponent />
@@ -171,5 +166,3 @@ export default function SelfAssessmentPage() {
     </div>
   );
 }
-
-    
