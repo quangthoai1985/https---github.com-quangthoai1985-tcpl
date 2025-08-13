@@ -37,6 +37,9 @@ export default function AppHeader() {
   const pathname = usePathname();
 
   const getPageTitle = () => {
+    if (pathname.startsWith('/admin/reviews/')) {
+        return 'Chi tiết Đánh giá';
+    }
     switch (pathname) {
       case '/dashboard':
         return 'Tổng quan';
