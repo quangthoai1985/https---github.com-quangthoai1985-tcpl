@@ -214,8 +214,7 @@ const CommuneDashboard = () => {
                                         </TableCell>
                                         <TableCell className="text-right">
                                              <Button variant="outline" size="sm" asChild>
-                                                {/* In a real app, this would link to a read-only or editable version of the assessment */}
-                                                <Link href="#">
+                                                <Link href={`/admin/reviews/${assessment.id}`}>
                                                     <Eye className="mr-2 h-4 w-4" />
                                                     Xem chi tiết
                                                 </Link>
