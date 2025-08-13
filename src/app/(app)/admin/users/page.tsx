@@ -156,9 +156,10 @@ function UserTable({ users, onEdit, onResetPassword }: { users: User[], onEdit: 
             {users.map((user) => (
               <TableRow key={user.id}>
                 <TableCell className="hidden sm:table-cell">
-                  <Avatar className="h-9 w-9">
-                    <AvatarImage src={`https://placehold.co/100x100.png?text=${user.name.charAt(0)}`} data-ai-hint="user avatar" />
-                    <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                   <Avatar className="h-9 w-9">
+                    <AvatarFallback className={user.role === 'Cán bộ Tỉnh' ? 'bg-primary text-primary-foreground' : ''}>
+                        {user.name.split(' ').map(n => n[0]).slice(-2).join('').toUpperCase()}
+                    </AvatarFallback>
                   </Avatar>
                 </TableCell>
                 <TableCell className="font-medium">
@@ -338,7 +339,7 @@ export default function UserManagementPage() {
           </DropdownMenu>
           <Button size="sm" className="h-10 gap-1" onClick={() => setIsNewUserDialogOpen(true)}>
             <PlusCircle className="h-3.5 w-3.5" />
-            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+            <span className="sr-only sm:not-sr-only sm:whitespace-rap">
               Thêm người dùng
             </span>
           </Button>
@@ -383,3 +384,5 @@ export default function UserManagementPage() {
     </>
   );
 }
+
+    
