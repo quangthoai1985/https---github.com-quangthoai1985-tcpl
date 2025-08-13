@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -11,10 +12,11 @@ import {
 } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShieldCheck, ArrowLeft } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import React from 'react';
+import Image from 'next/image';
 
 export default function ForgotPasswordPage() {
   const { toast } = useToast();
@@ -35,7 +37,7 @@ export default function ForgotPasswordPage() {
       <Card className="mx-auto w-full max-w-sm shadow-2xl">
         <CardHeader className="text-center">
            <div className="mb-4 flex justify-center">
-            <ShieldCheck className="h-12 w-12 text-primary" />
+            <Image src="/logo.png" alt="Logo" width={64} height={64} data-ai-hint="logo" />
           </div>
           <CardTitle className="text-2xl font-headline">Quên mật khẩu</CardTitle>
           <CardDescription>

@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { recentAssessments } from '@/lib/data';
+import Image from 'next/image';
 
 const adminNavItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Tổng quan' },
@@ -51,7 +52,7 @@ export default function AppSidebar() {
       <div className="flex h-full max-h-screen flex-col gap-2">
         <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-            <ShieldCheck className="h-6 w-6 text-primary" />
+            <Image src="/logo.png" alt="Logo" width={32} height={32} data-ai-hint="logo" />
             <span className="font-headline">Tiếp Cận Pháp Luật</span>
           </Link>
         </div>
