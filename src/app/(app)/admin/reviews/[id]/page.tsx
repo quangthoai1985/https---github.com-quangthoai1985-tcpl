@@ -8,84 +8,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { criteria, recentAssessments } from "@/lib/data";
-import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Bot } from "lucide-react";
+import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye } from "lucide-react";
 import React, { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
-
-function AIBotSection({ assessment }: { assessment: any }) {
-  const [isAiDialogOpen, setIsAiDialogOpen] = useState(false);
-  const [summary, setSummary] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-
-  const handleGenerateSummary = () => {
-    setIsLoading(true);
-    // In a real app, this would be an API call to a Genkit flow.
-    setTimeout(() => {
-      const generatedSummary = `
-        <p>Hồ sơ của <strong>${assessment.communeName}</strong> có những điểm mạnh sau:</p>
-        <ul class="list-disc pl-5 mt-2">
-          <li><strong>Công khai thông tin:</strong> Đã công khai đầy đủ thông tin theo quy định, đạt chỉ tiêu 1.1.</li>
-          <li><strong>Hòa giải ở cơ sở:</strong> Tỷ lệ hòa giải thành công đạt 75%, gần đạt mức chuẩn (>=80%). Cần có thêm các buổi tập huấn nghiệp vụ cho các hòa giải viên để nâng cao tỷ lệ.</li>
-        </ul>
-        <p class="mt-2">Tuy nhiên, vẫn còn tồn tại một số điểm cần cải thiện:</p>
-        <ul class="list-disc pl-5 mt-2">
-          <li><strong>Cung cấp thông tin theo yêu cầu:</strong> Tỷ lệ phản hồi đúng hạn cao (95%), tuy nhiên vẫn có một số trường hợp chậm trễ.</li>
-          <li><strong>Hạ tầng CNTT:</strong> Giao diện Cổng thông tin điện tử chưa tối ưu cho thiết bị di động, hệ thống loa truyền thanh đã cũ. Đây là những điểm quan trọng cần được ưu tiên khắc phục trong thời gian tới.</li>
-        </ul>
-        <p class="mt-4"><strong>Đề xuất:</strong> Chấp thuận có điều kiện, yêu cầu xã ${assessment.communeName} gửi báo cáo khắc phục các vấn đề về hạ tầng CNTT trong vòng 3 tháng.</p>
-      `;
-      setSummary(generatedSummary);
-      setIsLoading(false);
-    }, 1500);
-  };
-
-  return (
-    <>
-      <div className="flex justify-end">
-        <Button variant="outline" onClick={() => {
-          setIsAiDialogOpen(true);
-          handleGenerateSummary();
-        }}>
-          <Bot className="mr-2 h-4 w-4" />
-          Trợ lý AI Phân tích & Đề xuất
-        </Button>
-      </div>
-      <Dialog open={isAiDialogOpen} onOpenChange={setIsAiDialogOpen}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Bot />
-              Phân tích và Đề xuất từ Trợ lý AI
-            </DialogTitle>
-            <DialogDescription>
-              AI đã phân tích hồ sơ và đưa ra các đề xuất dựa trên dữ liệu được cung cấp.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4 prose prose-sm max-w-none max-h-[60vh] overflow-y-auto">
-            {isLoading ? (
-              <div className="flex items-center justify-center h-40">
-                <p>Đang phân tích, vui lòng đợi...</p>
-              </div>
-            ) : (
-              <div dangerouslySetInnerHTML={{ __html: summary }} />
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAiDialogOpen(false)}>Đóng</Button>
-            <Button disabled={isLoading}>
-              <Download className="mr-2 h-4 w-4" />
-              Tải xuống Word
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
-
+import Image from "next/image";
 
 export default function AssessmentDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -95,6 +24,7 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
   const [assessment, setAssessment] = useState(recentAssessments.find((a) => a.id === id));
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
 
   if (!assessment) {
     return (
@@ -153,12 +83,12 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
   const getIndicatorResult = (indicatorId: string) => {
     // Mock data for demonstration
     const results: { [key: string]: any } = {
-      'CT1.1': { value: true, note: 'Đã công khai đầy đủ trên cổng thông tin điện tử.', files: ['quyet-dinh-cong-khai.pdf'] },
+      'CT1.1': { value: true, note: 'Đã công khai đầy đủ trên cổng thông tin điện tử.', files: [{name: 'quyet-dinh-cong-khai.pdf', url: 'https://placehold.co/800x1100.png?text=Quyet+Dinh'}] },
       'CT1.2': { value: '95%', note: 'Tỷ lệ trả lời đúng hạn cao, còn một vài trường hợp chậm do chờ xác minh.', files: [] },
-      'CT2.1': { value: ['check1'], note: 'Giao diện chưa thân thiện trên di động.', files: ['bao-cao-ha-tang.docx'] },
+      'CT2.1': { value: ['check1'], note: 'Giao diện chưa thân thiện trên di động.', files: [{name: 'bao-cao-ha-tang.docx', url: 'https://placehold.co/800x1100.png?text=Bao+Cao'}] },
       'CT2.2': { value: false, note: 'Hệ thống loa đã cũ, cần nâng cấp.', files: [] },
-      'CT3.1': { value: true, note: 'Tổ chức họp định kỳ, có biên bản đầy đủ.', files: ['bien-ban-hop-quy-2.pdf', 'hinh-anh-doi-thoai.jpg']},
-      'CT3.2': { value: '75%', note: 'Một số vụ việc phức tạp chưa hoà giải thành công, cần tập huấn thêm cho hoà giải viên.', files: ['bao-cao-hoa-giai.xlsx']},
+      'CT3.1': { value: true, note: 'Tổ chức họp định kỳ, có biên bản đầy đủ.', files: [{name: 'bien-ban-hop-quy-2.pdf', url: 'https://placehold.co/800x1100.png?text=Bien+Ban'}, {name: 'hinh-anh-doi-thoai.jpg', url: 'https://placehold.co/800x600.png?text=Hinh+Anh'}]},
+      'CT3.2': { value: '75%', note: 'Một số vụ việc phức tạp chưa hoà giải thành công, cần tập huấn thêm cho hoà giải viên.', files: [{name: 'bao-cao-hoa-giai.xlsx', url: 'https://placehold.co/800x1100.png?text=Bao+Cao+Hoa+Giai'}]},
     };
     return results[indicatorId] || { value: 'N/A', note: '', files: [] };
   };
@@ -194,8 +124,7 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
           </div>
         </CardHeader>
         <CardContent>
-          <AIBotSection assessment={assessment} />
-          <Separator className="my-6" />
+          <Separator className="mb-6" />
           <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
             {criteria.map((criterion, index) => (
               <AccordionItem value={criterion.id} key={criterion.id}>
@@ -235,13 +164,18 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
                             <div className="md:col-span-2">
                               {result.files.length > 0 ? (
                                 <div className="space-y-2">
-                                  {result.files.map((file: string, i: number) => (
+                                  {result.files.map((file: {name: string, url: string}, i: number) => (
                                     <div key={i} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
                                       <div className="flex items-center gap-2 truncate">
                                         <FileIcon className="h-4 w-4 flex-shrink-0" />
-                                        <span className="truncate">{file}</span>
+                                        <span className="truncate">{file.name}</span>
                                       </div>
-                                      <Button variant="ghost" size="sm"><Download className="mr-2 h-4 w-4" />Tải xuống</Button>
+                                      <div className="flex items-center">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewFile(file)}>
+                                          <Eye className="h-4 w-4" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8"><Download className="h-4 w-4" /></Button>
+                                      </div>
                                     </div>
                                   ))}
                                 </div>
@@ -305,6 +239,28 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
             <DialogFooter>
                 <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>Hủy</Button>
                 <Button variant="destructive" onClick={handleReject}>Xác nhận từ chối</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+
+    <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
+        <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+            <DialogHeader>
+                <DialogTitle>Xem trước: {previewFile?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 relative">
+                {previewFile && (
+                    <Image 
+                        src={previewFile.url}
+                        alt={`Xem trước ${previewFile.name}`}
+                        fill
+                        style={{ objectFit: 'contain' }}
+                        data-ai-hint="document preview"
+                    />
+                )}
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setPreviewFile(null)}>Đóng</Button>
             </DialogFooter>
         </DialogContent>
     </Dialog>
