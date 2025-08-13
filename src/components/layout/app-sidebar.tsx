@@ -21,13 +21,14 @@ import {
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { recentAssessments } from '@/lib/data';
 
 const adminNavItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Tổng quan' },
   { href: '/admin/users', icon: Users, label: 'Quản lý Người dùng' },
   { href: '/admin/units', icon: Building, label: 'Quản lý Đơn vị' },
   { href: '/admin/criteria', icon: FileCheck2, label: 'Quản lý Tiêu chí' },
-  { href: '/admin/reviews', icon: GanttChartSquare, label: 'Duyệt Đánh giá', badge: '6' },
+  { href: '/admin/reviews', icon: GanttChartSquare, label: 'Duyệt Đánh giá', 'data-testid': 'pending-badge' },
   { href: '/admin/reports', icon: FileText, label: 'Báo cáo & Thống kê' },
   { href: '/documents', icon: Book, label: 'Văn bản Hướng dẫn' },
 ];
@@ -43,6 +44,7 @@ export default function AppSidebar() {
   // In a real app, you'd get this from user context
   const userRole = 'admin'; 
   const navItems = userRole === 'admin' ? adminNavItems : communeNavItems;
+  const pendingCount = recentAssessments.filter(a => a.status === 'Chờ duyệt').length;
 
   return (
     <div className="hidden border-r bg-card md:block">
@@ -67,9 +69,9 @@ export default function AppSidebar() {
               >
                 <item.icon className="h-4 w-4" />
                 {item.label}
-                {item.badge && (
+                {item.href === '/admin/reviews' && pendingCount > 0 && (
                   <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
-                    {item.badge}
+                    {pendingCount}
                   </Badge>
                 )}
               </Link>

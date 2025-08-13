@@ -41,7 +41,7 @@ export default function AppHeader() {
 
   const getPageTitle = () => {
     if (pathname.startsWith('/admin/reviews/')) {
-        return 'Chi tiết Đánh giá';
+        return 'Chi tiết Hồ sơ Đánh giá';
     }
     switch (pathname) {
       case '/dashboard':
@@ -53,7 +53,7 @@ export default function AppHeader() {
       case '/admin/criteria':
         return 'Quản lý Tiêu chí';
       case '/admin/reviews':
-        return 'Duyệt Đánh giá';
+        return 'Duyệt Hồ sơ Đánh giá';
       case '/admin/reports':
         return 'Báo cáo & Thống kê';
       case '/commune/assessments':
