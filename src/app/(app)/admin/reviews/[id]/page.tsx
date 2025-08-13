@@ -5,14 +5,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { criteria, recentAssessments } from "@/lib/data";
 import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle } from "lucide-react";
 import React from "react";
 
-export default function AssessmentDetailPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+export default function AssessmentDetailPage({ params: { id } }: { params: { id: string } }) {
   const assessment = recentAssessments.find((a) => a.id === id);
 
   if (!assessment) {
