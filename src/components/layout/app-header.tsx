@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -45,6 +46,8 @@ export default function AppHeader() {
         return 'Tổng quan';
       case '/admin/users':
         return 'Quản lý Người dùng';
+      case '/admin/units':
+        return 'Quản lý Đơn vị';
       case '/admin/criteria':
         return 'Quản lý Tiêu chí';
       case '/admin/reviews':
@@ -55,8 +58,6 @@ export default function AppHeader() {
         return 'Tự Chấm điểm';
       case '/documents':
         return 'Văn bản Hướng dẫn';
-      case '/ai-assistant':
-        return 'Trợ lý Tuân thủ AI';
       case '/profile':
         return 'Hồ sơ';
       default:

@@ -1,3 +1,4 @@
+
 export const dashboardStats = [
     { title: "Tổng số xã", value: "150", change: "+5 so với kỳ trước", icon: "Users" },
     { title: "Xã đã tự đánh giá", value: "125", change: "83.3%", icon: "FileCheck2" },
@@ -21,13 +22,19 @@ export const assessmentStatusChartData = [
   { name: 'Bị từ chối', value: 10, fill: 'hsl(var(--destructive))' },
 ];
 
+export const units = [
+    { id: 'DVI001', name: 'Sở Tư pháp Tỉnh X' },
+    { id: 'DVI002', name: 'UBND Xã Y, Huyện Z' },
+    { id: 'DVI003', name: 'UBND Xã A, Huyện B' },
+    { id: 'DVI004', name: 'UBND Xã C, Huyện D' },
+];
 
 export const users = [
-    { id: "USR001", name: "Nguyễn Văn A", email: "admin@example.com", unit: "Sở Tư pháp Tỉnh X", role: "Cán bộ Tỉnh" },
-    { id: "USR002", name: "Trần Thị B", email: "thib@commune.gov.vn", unit: "Xã Y, Huyện Z", role: "Cán bộ Xã" },
-    { id: "USR003", name: "Lê Văn C", email: "vanc@commune.gov.vn", unit: "Xã A, Huyện B", role: "Cán bộ Xã" },
-    { id: "USR004", name: "Phạm Thị D", email: "thid@commune.gov.vn", unit: "Xã C, Huyện D", role: "Cán bộ Xã" },
-    { id: "USR005", name: "Hoàng Văn E", email: "admin2@example.com", unit: "Sở Tư pháp Tỉnh X", role: "Cán bộ Tỉnh" },
+    { id: "USR001", name: "Nguyễn Văn A", email: "admin@example.com", unitId: "DVI001", role: "Cán bộ Tỉnh" },
+    { id: "USR002", name: "Trần Thị B", email: "thib@commune.gov.vn", unitId: "DVI002", role: "Cán bộ Xã" },
+    { id: "USR003", name: "Lê Văn C", email: "vanc@commune.gov.vn", unitId: "DVI003", role: "Cán bộ Xã" },
+    { id: "USR004", name: "Phạm Thị D", email: "thid@commune.gov.vn", unitId: "DVI004", role: "Cán bộ Xã" },
+    { id: "USR005", name: "Hoàng Văn E", email: "admin2@example.com", unitId: "DVI001", role: "Cán bộ Tỉnh" },
 ];
 
 export const criteria = [

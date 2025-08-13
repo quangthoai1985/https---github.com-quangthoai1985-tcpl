@@ -41,7 +41,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { users } from '@/lib/data';
+import { users, units } from '@/lib/data';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
@@ -60,8 +60,8 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
     setFormData(prev => ({ ...prev, [id]: value }));
   }
 
-  const handleSelectChange = (value: string) => {
-    setFormData(prev => ({ ...prev, role: value as User['role']}));
+  const handleSelectChange = (id: string) => (value: string) => {
+    setFormData(prev => ({ ...prev, [id]: value }));
   }
 
   return (
@@ -82,12 +82,21 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
               <Input id="email" type="email" value={formData.email || ''} onChange={handleChange} className="col-span-3" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="unit" className="text-right">Đơn vị</Label>
-              <Input id="unit" value={formData.unit || ''} onChange={handleChange} className="col-span-3" />
+              <Label htmlFor="unitId" className="text-right">Đơn vị</Label>
+              <Select value={formData.unitId} onValueChange={handleSelectChange('unitId')}>
+                  <SelectTrigger className="col-span-3">
+                      <SelectValue placeholder="Chọn đơn vị" />
+                  </SelectTrigger>
+                  <SelectContent>
+                      {units.map(unit => (
+                          <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>
+                      ))}
+                  </SelectContent>
+              </Select>
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="role" className="text-right">Vai trò</Label>
-              <Select value={formData.role} onValueChange={handleSelectChange}>
+              <Select value={formData.role} onValueChange={handleSelectChange('role')}>
                   <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Chọn vai trò" />
                   </SelectTrigger>
@@ -107,6 +116,10 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
 }
 
 function UserTable({ users, onEdit, onResetPassword }: { users: User[], onEdit: (user: User) => void, onResetPassword: (user: User) => void }) {
+  const getUnitName = (unitId: string) => {
+    return units.find(u => u.id === unitId)?.name || 'Không xác định';
+  }
+  
   return (
     <Card>
       <CardHeader>
@@ -151,7 +164,7 @@ function UserTable({ users, onEdit, onResetPassword }: { users: User[], onEdit: 
                   <Badge variant="outline">{user.role}</Badge>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
-                  {user.unit}
+                  {getUnitName(user.unitId)}
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>
@@ -227,7 +240,7 @@ export default function UserManagementPage() {
         id: `USR${String(userList.length + 1).padStart(3, '0')}`,
         email: userToSave.email || '',
         name: userToSave.name || '',
-        unit: userToSave.unit || '',
+        unitId: userToSave.unitId || '',
         role: userToSave.role || 'Cán bộ Xã',
       } as User;
       setUserList([...userList, newUser]);
@@ -331,7 +344,3 @@ export default function UserManagementPage() {
     </>
   );
 }
-
-    
-
-    
