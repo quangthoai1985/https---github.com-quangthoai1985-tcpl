@@ -127,8 +127,9 @@ function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Ind
 
 export default function CriteriaManagementPage() {
   const [criteria, setCriteria] = React.useState<Criterion[]>(initialCriteria);
-  const [editingCriterion, setEditingCriterion] = React.useState<Criterion | null>(null);
+  const [editingCriterion, setEditingCriterion] = React.useState<Partial<Criterion> | null>(null);
   const [editingIndicator, setEditingIndicator] = React.useState<{criterionId: string, indicator: Partial<Indicator>} | null>(null);
+  const [addingIndicatorTo, setAddingIndicatorTo] = React.useState<string | null>(null);
   const { toast } = useToast();
 
   const getIndicatorTypeLabel = (type: string) => {
@@ -192,6 +193,38 @@ export default function CriteriaManagementPage() {
     }
   };
 
+  const handleAddIndicator = (criterionId: string) => {
+    setAddingIndicatorTo(criterionId);
+  };
+
+  const handleCancelAddIndicator = () => {
+    setAddingIndicatorTo(null);
+  };
+
+  const handleSaveNewIndicator = (indicatorToAdd: Partial<Indicator>) => {
+    if (addingIndicatorTo) {
+      const newIndicator: Indicator = {
+        id: `CT${Math.random().toString(36).substring(2, 9)}`,
+        name: indicatorToAdd.name || "Chỉ tiêu mới",
+        type: indicatorToAdd.type || "Boolean"
+      };
+
+      setCriteria(prevCriteria => 
+        prevCriteria.map(c => {
+          if (c.id === addingIndicatorTo) {
+            return {
+              ...c,
+              indicators: [...c.indicators, newIndicator]
+            }
+          }
+          return c;
+        })
+      );
+      toast({ title: "Thành công!", description: "Đã thêm chỉ tiêu mới." });
+      setAddingIndicatorTo(null);
+    }
+  };
+
 
   return (
     <>
@@ -234,7 +267,7 @@ export default function CriteriaManagementPage() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Hành động</DropdownMenuLabel>
                       <DropdownMenuItem onClick={() => handleEditCriterion(criterion)}>Sửa tiêu chí</DropdownMenuItem>
-                      <DropdownMenuItem>Thêm chỉ tiêu</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleAddIndicator(criterion.id)}>Thêm chỉ tiêu</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-destructive">
                         Xóa tiêu chí
@@ -302,6 +335,16 @@ export default function CriteriaManagementPage() {
                 />
             )}
         </DialogContent>
+    </Dialog>
+
+    <Dialog open={!!addingIndicatorTo} onOpenChange={(open) => !open && handleCancelAddIndicator()}>
+      <DialogContent>
+        <IndicatorForm 
+          indicator={{}}
+          onSave={handleSaveNewIndicator}
+          onCancel={handleCancelAddIndicator}
+        />
+      </DialogContent>
     </Dialog>
     </>
   );
