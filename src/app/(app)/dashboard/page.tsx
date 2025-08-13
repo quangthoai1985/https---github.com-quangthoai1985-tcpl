@@ -10,6 +10,7 @@ import {
   CheckCircle,
   XCircle,
   Eye,
+  Edit,
 } from 'lucide-react';
 import {
   Card,
@@ -215,8 +216,10 @@ const CommuneDashboard = () => {
                                         <TableCell className="text-right">
                                              <Button variant="outline" size="sm" asChild>
                                                 <Link href={`/admin/reviews/${assessment.id}`}>
-                                                    <Eye className="mr-2 h-4 w-4" />
-                                                    Xem chi tiết
+                                                  {assessment.status === 'Bị từ chối' ? 
+                                                    <><Edit className="mr-2 h-4 w-4" />Giải trình & Gửi lại</> : 
+                                                    <><Eye className="mr-2 h-4 w-4" />Xem chi tiết</>
+                                                  }
                                                 </Link>
                                             </Button>
                                         </TableCell>

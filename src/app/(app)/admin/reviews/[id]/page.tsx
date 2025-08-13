@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { criteria, recentAssessments } from "@/lib/data";
-import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye } from "lucide-react";
+import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote } from "lucide-react";
 import React, { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -25,7 +25,8 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
   // In a real app, you would fetch this from a server and use state management.
   const [assessment, setAssessment] = useState(recentAssessments.find((a) => a.id === id));
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
-  const [rejectionReason, setRejectionReason] = useState("");
+  const [rejectionReason, setRejectionReason] = useState(assessment?.rejectionReason || "");
+  const [communeExplanation, setCommuneExplanation] = useState(assessment?.communeExplanation || "");
   const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
 
   if (!assessment) {
@@ -42,11 +43,10 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
   }
 
   const handleApprove = () => {
-    // In a real app, this would be an API call.
     const updatedAssessment = { ...assessment, status: 'Đã duyệt' };
     const index = recentAssessments.findIndex(a => a.id === id);
-    if(index !== -1) recentAssessments[index] = updatedAssessment;
-    setAssessment(updatedAssessment);
+    if(index !== -1) recentAssessments[index] = updatedAssessment as any;
+    setAssessment(updatedAssessment as any);
     
     toast({
       title: "Phê duyệt thành công!",
@@ -64,13 +64,10 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
         });
         return;
     }
-    // In a real app, this would be an API call.
-    const updatedAssessment = { ...assessment, status: 'Bị từ chối' };
+    const updatedAssessment = { ...assessment, status: 'Bị từ chối', rejectionReason: rejectionReason, communeExplanation: "" };
     const index = recentAssessments.findIndex(a => a.id === id);
-    if(index !== -1) recentAssessments[index] = updatedAssessment;
-    setAssessment(updatedAssessment);
-
-    console.log("Rejection Reason:", rejectionReason); // For demonstration
+    if(index !== -1) recentAssessments[index] = updatedAssessment as any;
+    setAssessment(updatedAssessment as any);
     
     toast({
       title: "Đã từ chối hồ sơ",
@@ -78,8 +75,19 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
       variant: "destructive",
     });
     setIsRejectDialogOpen(false);
-    setRejectionReason("");
   };
+  
+  const handleResubmit = () => {
+      const updatedAssessment = { ...assessment, status: 'Chờ duyệt', communeExplanation: communeExplanation };
+      const index = recentAssessments.findIndex(a => a.id === id);
+      if(index !== -1) recentAssessments[index] = updatedAssessment as any;
+      setAssessment(updatedAssessment as any);
+      toast({
+        title: "Gửi lại thành công",
+        description: "Hồ sơ của bạn đã được gửi lại để xem xét."
+      });
+      router.push('/dashboard');
+  }
 
 
   const getIndicatorResult = (indicatorId: string) => {
@@ -95,7 +103,7 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
     return results[indicatorId] || { value: 'N/A', note: '', files: [] };
   };
 
-   const isActionDisabled = assessment.status === 'Đã duyệt' || assessment.status === 'Bị từ chối';
+   const isActionDisabled = assessment.status === 'Đã duyệt' || (role === 'admin' && assessment.status === 'Bị từ chối');
 
   return (
     <>
@@ -126,6 +134,29 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
           </div>
         </CardHeader>
         <CardContent>
+          {role === 'commune' && assessment.status === 'Bị từ chối' && (
+            <Card className="mb-6 bg-destructive/10 border-destructive">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle /> Lý do từ chối</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm">{assessment.rejectionReason || "Không có lý do cụ thể."}</p>
+                </CardContent>
+            </Card>
+          )}
+
+          {role === 'admin' && assessment.communeExplanation && (
+              <Card className="mb-6 bg-blue-50 border-blue-200">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-blue-800"><MessageSquareQuote /> Giải trình từ xã</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p className="text-sm text-blue-900">{assessment.communeExplanation}</p>
+                </CardContent>
+              </Card>
+          )}
+
+
           <Separator className="mb-6" />
           <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
             {criteria.map((criterion, index) => (
@@ -201,12 +232,32 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
                 <div className="grid gap-4">
                     <h3 className="text-lg font-headline">Thẩm định và Phê duyệt</h3>
                     <div className="grid gap-2">
-                         <Label htmlFor="review-notes" className="font-medium">Ghi chú thẩm định (nếu có)</Label>
-                        <Textarea id="review-notes" placeholder="Nhập ý kiến thẩm định của bạn..." />
+                         <Label htmlFor="review-notes" className="font-medium">Ghi chú thẩm định mới (nếu có)</Label>
+                        <Textarea id="review-notes" placeholder="Nhập ý kiến thẩm định của bạn..." defaultValue={assessment.rejectionReason} />
                     </div>
                 </div>
             </>
           )}
+
+          {role === 'commune' && assessment.status === 'Bị từ chối' && (
+            <>
+                <Separator className="my-6" />
+                <div className="grid gap-4">
+                    <h3 className="text-lg font-headline">Giải trình và Bổ sung</h3>
+                    <div className="grid gap-2">
+                         <Label htmlFor="commune-explanation" className="font-medium">Nội dung giải trình</Label>
+                        <Textarea
+                          id="commune-explanation" 
+                          placeholder="Giải trình về các nội dung bị từ chối và bổ sung thông tin theo yêu cầu..." 
+                          value={communeExplanation}
+                          onChange={(e) => setCommuneExplanation(e.target.value)}
+                          rows={5}
+                        />
+                    </div>
+                </div>
+            </>
+          )}
+
 
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
@@ -216,6 +267,12 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
                 <Button variant="destructive" onClick={() => setIsRejectDialogOpen(true)} disabled={isActionDisabled}><ThumbsDown className="mr-2 h-4 w-4" />Từ chối</Button>
                 <Button className="bg-green-600 hover:bg-green-700" onClick={handleApprove} disabled={isActionDisabled}><ThumbsUp className="mr-2 h-4 w-4" />Phê duyệt</Button>
               </>
+            )}
+            {role === 'commune' && assessment.status === 'Bị từ chối' && (
+                <>
+                    <Button variant="outline">Lưu nháp giải trình</Button>
+                    <Button onClick={handleResubmit}>Gửi lại đánh giá</Button>
+                </>
             )}
         </CardFooter>
       </Card>
