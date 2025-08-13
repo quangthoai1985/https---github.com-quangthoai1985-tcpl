@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -10,9 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { criteria, recentAssessments } from "@/lib/data";
 import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle } from "lucide-react";
+import React from "react";
 
 export default function AssessmentDetailPage({ params }: { params: { id: string } }) {
-  const assessment = recentAssessments.find((a) => a.id === params.id);
+  const { id } = params;
+  const assessment = recentAssessments.find((a) => a.id === id);
 
   if (!assessment) {
     return (
