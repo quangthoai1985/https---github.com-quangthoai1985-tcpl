@@ -8,15 +8,88 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { criteria, recentAssessments } from "@/lib/data";
-import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle } from "lucide-react";
+import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Bot } from "lucide-react";
 import React, { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 
-export default function AssessmentDetailPage({ params: { id } }: { params: { id: string } }) {
+function AIBotSection({ assessment }: { assessment: any }) {
+  const [isAiDialogOpen, setIsAiDialogOpen] = useState(false);
+  const [summary, setSummary] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleGenerateSummary = () => {
+    setIsLoading(true);
+    // In a real app, this would be an API call to a Genkit flow.
+    setTimeout(() => {
+      const generatedSummary = `
+        <p>Hồ sơ của <strong>${assessment.communeName}</strong> có những điểm mạnh sau:</p>
+        <ul class="list-disc pl-5 mt-2">
+          <li><strong>Công khai thông tin:</strong> Đã công khai đầy đủ thông tin theo quy định, đạt chỉ tiêu 1.1.</li>
+          <li><strong>Hòa giải ở cơ sở:</strong> Tỷ lệ hòa giải thành công đạt 75%, gần đạt mức chuẩn (>=80%). Cần có thêm các buổi tập huấn nghiệp vụ cho các hòa giải viên để nâng cao tỷ lệ.</li>
+        </ul>
+        <p class="mt-2">Tuy nhiên, vẫn còn tồn tại một số điểm cần cải thiện:</p>
+        <ul class="list-disc pl-5 mt-2">
+          <li><strong>Cung cấp thông tin theo yêu cầu:</strong> Tỷ lệ phản hồi đúng hạn cao (95%), tuy nhiên vẫn có một số trường hợp chậm trễ.</li>
+          <li><strong>Hạ tầng CNTT:</strong> Giao diện Cổng thông tin điện tử chưa tối ưu cho thiết bị di động, hệ thống loa truyền thanh đã cũ. Đây là những điểm quan trọng cần được ưu tiên khắc phục trong thời gian tới.</li>
+        </ul>
+        <p class="mt-4"><strong>Đề xuất:</strong> Chấp thuận có điều kiện, yêu cầu xã ${assessment.communeName} gửi báo cáo khắc phục các vấn đề về hạ tầng CNTT trong vòng 3 tháng.</p>
+      `;
+      setSummary(generatedSummary);
+      setIsLoading(false);
+    }, 1500);
+  };
+
+  return (
+    <>
+      <div className="flex justify-end">
+        <Button variant="outline" onClick={() => {
+          setIsAiDialogOpen(true);
+          handleGenerateSummary();
+        }}>
+          <Bot className="mr-2 h-4 w-4" />
+          Trợ lý AI Phân tích & Đề xuất
+        </Button>
+      </div>
+      <Dialog open={isAiDialogOpen} onOpenChange={setIsAiDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Bot />
+              Phân tích và Đề xuất từ Trợ lý AI
+            </DialogTitle>
+            <DialogDescription>
+              AI đã phân tích hồ sơ và đưa ra các đề xuất dựa trên dữ liệu được cung cấp.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 prose prose-sm max-w-none max-h-[60vh] overflow-y-auto">
+            {isLoading ? (
+              <div className="flex items-center justify-center h-40">
+                <p>Đang phân tích, vui lòng đợi...</p>
+              </div>
+            ) : (
+              <div dangerouslySetInnerHTML={{ __html: summary }} />
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsAiDialogOpen(false)}>Đóng</Button>
+            <Button disabled={isLoading}>
+              <Download className="mr-2 h-4 w-4" />
+              Tải xuống Word
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+
+export default function AssessmentDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
+  const id = params.id;
   const { toast } = useToast();
   // In a real app, you would fetch this from a server and use state management.
   const [assessment, setAssessment] = useState(recentAssessments.find((a) => a.id === id));
@@ -121,6 +194,8 @@ export default function AssessmentDetailPage({ params: { id } }: { params: { id:
           </div>
         </CardHeader>
         <CardContent>
+          <AIBotSection assessment={assessment} />
+          <Separator className="my-6" />
           <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
             {criteria.map((criterion, index) => (
               <AccordionItem value={criterion.id} key={criterion.id}>
