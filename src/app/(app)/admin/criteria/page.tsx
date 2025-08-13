@@ -50,7 +50,7 @@ function CriterionForm({ criterion, onSave, onCancel }: { criterion: Partial<Cri
   const [formData, setFormData] = React.useState(criterion);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value } = e.target;
+    const { id, value }.e.target;
     setFormData(prev => ({ ...prev, [id]: value }));
   };
 
@@ -80,7 +80,7 @@ function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Ind
   const [formData, setFormData] = React.useState(indicator);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value } = e.target;
+    const { id, value }.e.target;
     setFormData(prev => ({ ...prev, [id]: value }));
   };
 
@@ -128,6 +128,7 @@ function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Ind
 export default function CriteriaManagementPage() {
   const [criteria, setCriteria] = React.useState<Criterion[]>(initialCriteria);
   const [editingCriterion, setEditingCriterion] = React.useState<Partial<Criterion> | null>(null);
+  const [addingCriterion, setAddingCriterion] = React.useState<boolean>(false);
   const [editingIndicator, setEditingIndicator] = React.useState<{criterionId: string, indicator: Partial<Indicator>} | null>(null);
   const [addingIndicatorTo, setAddingIndicatorTo] = React.useState<string | null>(null);
   const { toast } = useToast();
@@ -153,6 +154,7 @@ export default function CriteriaManagementPage() {
   
   const handleCancelEditCriterion = () => {
     setEditingCriterion(null);
+    setAddingCriterion(false);
   }
 
   const handleSaveCriterion = (criterionToSave: Partial<Criterion>) => {
@@ -163,8 +165,17 @@ export default function CriteriaManagementPage() {
             )
         );
         toast({ title: "Thành công!", description: "Đã cập nhật thông tin tiêu chí."});
+        setEditingCriterion(null);
+    } else {
+        const newCriterion: Criterion = {
+            id: `TC${Math.random().toString(36).substring(2, 9)}`,
+            name: criterionToSave.name || "Tiêu chí mới",
+            indicators: []
+        };
+        setCriteria(prevCriteria => [...prevCriteria, newCriterion]);
+        toast({ title: "Thành công!", description: "Đã thêm tiêu chí mới." });
+        setAddingCriterion(false);
     }
-    setEditingCriterion(null);
   };
 
   const handleEditIndicator = (criterionId: string, indicator: Indicator) => {
@@ -238,7 +249,7 @@ export default function CriteriaManagementPage() {
               pháp luật.
             </CardDescription>
           </div>
-          <Button>
+          <Button onClick={() => setAddingCriterion(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Thêm Tiêu chí mới
           </Button>
@@ -313,11 +324,11 @@ export default function CriteriaManagementPage() {
       </CardContent>
     </Card>
 
-    <Dialog open={!!editingCriterion} onOpenChange={(open) => !open && handleCancelEditCriterion()}>
+    <Dialog open={!!editingCriterion || addingCriterion} onOpenChange={(open) => !open && handleCancelEditCriterion()}>
       <DialogContent>
-        {editingCriterion && (
+        {(editingCriterion || addingCriterion) && (
           <CriterionForm
-            criterion={editingCriterion}
+            criterion={editingCriterion || {}}
             onSave={handleSaveCriterion}
             onCancel={handleCancelEditCriterion}
           />
@@ -349,3 +360,5 @@ export default function CriteriaManagementPage() {
     </>
   );
 }
+
+    
