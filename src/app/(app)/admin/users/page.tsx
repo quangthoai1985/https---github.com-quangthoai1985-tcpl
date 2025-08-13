@@ -46,7 +46,6 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogD
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import React from 'react';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useData } from '@/context/DataContext';
 
@@ -211,6 +210,39 @@ function UserTable({ users, onEdit, onResetPassword }: { users: User[], onEdit: 
   )
 }
 
+function ResetPasswordForm({ user, onSave, onCancel }: { user: User, onSave: (password: string) => void, onCancel: () => void }) {
+    const [password, setPassword] = React.useState('');
+
+    return (
+         <>
+            <DialogHeader>
+                <DialogTitle>Đặt lại mật khẩu cho {user.name}</DialogTitle>
+                <DialogDescription>
+                    Nhập mật khẩu mới cho người dùng. Họ sẽ có thể đăng nhập bằng mật khẩu này.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="new-password" className="text-right">
+                        Mật khẩu mới
+                    </Label>
+                    <Input 
+                        id="new-password" 
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="col-span-3"
+                    />
+                </div>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={onCancel}>Hủy</Button>
+                <Button type="submit" onClick={() => onSave(password)}>Lưu mật khẩu mới</Button>
+            </DialogFooter>
+        </>
+    )
+}
+
 export default function UserManagementPage() {
   const { users, setUsers } = useData();
   const [editingUser, setEditingUser] = React.useState<Partial<User> | null>(null);
@@ -226,14 +258,15 @@ export default function UserManagementPage() {
     setResettingUser(user);
   };
   
-  const confirmResetPassword = () => {
+  const handleSavePassword = (password: string) => {
     if (resettingUser) {
-        // In a real app, this would trigger an API call.
+        // In a real app, this would trigger an API call to update the user's password.
         // For now, we'll just show a success toast.
         toast({
             title: "Thành công!",
-            description: `Đã gửi email đặt lại mật khẩu cho ${resettingUser.name}.`,
+            description: `Đã đặt lại mật khẩu cho ${resettingUser.name}.`,
         });
+        console.log(`Password for ${resettingUser.email} set to: ${password}`);
         setResettingUser(null);
     }
   };
@@ -334,22 +367,18 @@ export default function UserManagementPage() {
       </DialogContent>
     </Dialog>
 
-    {/* Reset Password Alert Dialog */}
-    <AlertDialog open={!!resettingUser} onOpenChange={(open) => !open && setResettingUser(null)}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Xác nhận đặt lại mật khẩu</AlertDialogTitle>
-                <AlertDialogDescription>
-                    Bạn có chắc chắn muốn đặt lại mật khẩu cho người dùng <strong>{resettingUser?.name}</strong>?
-                    Hành động này sẽ gửi một email hướng dẫn đến địa chỉ {resettingUser?.email}.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel onClick={() => setResettingUser(null)}>Hủy</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmResetPassword}>Xác nhận</AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
+    {/* Reset Password Dialog */}
+    <Dialog open={!!resettingUser} onOpenChange={(open) => !open && setResettingUser(null)}>
+        <DialogContent>
+            {resettingUser && (
+                <ResetPasswordForm 
+                    user={resettingUser} 
+                    onSave={handleSavePassword}
+                    onCancel={() => setResettingUser(null)} 
+                />
+            )}
+        </DialogContent>
+    </Dialog>
 
     </>
   );
