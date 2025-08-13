@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -62,34 +63,34 @@ export default function CriteriaManagementPage() {
         <Accordion type="multiple" defaultValue={criteria.map((c) => c.id)} className="w-full">
           {criteria.map((criterion, index) => (
             <AccordionItem value={criterion.id} key={criterion.id}>
-              <AccordionTrigger className="text-lg font-headline hover:no-underline">
-                <div className="flex w-full items-center justify-between pr-4">
-                  <span>
-                    Tiêu chí {index + 1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}
-                  </span>
-                  <div className="flex items-center gap-4">
-                    <Badge variant="secondary" className="mr-4">
-                      {criterion.indicators.length} chỉ tiêu
-                    </Badge>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" onClick={(e) => e.stopPropagation()}>
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                        <DropdownMenuItem>Sửa tiêu chí</DropdownMenuItem>
-                        <DropdownMenuItem>Thêm chỉ tiêu</DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem className="text-destructive">
-                          Xóa tiêu chí
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
+              <div className="flex items-center justify-between pr-4 hover:bg-muted/50 rounded-lg">
+                <AccordionTrigger className="text-lg font-headline hover:no-underline flex-1 px-4 py-0">
+                    <span>
+                      Tiêu chí {index + 1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}
+                    </span>
+                </AccordionTrigger>
+                <div className="flex items-center gap-4 flex-shrink-0">
+                  <Badge variant="secondary" className="mr-4">
+                    {criterion.indicators.length} chỉ tiêu
+                  </Badge>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Hành động</DropdownMenuLabel>
+                      <DropdownMenuItem>Sửa tiêu chí</DropdownMenuItem>
+                      <DropdownMenuItem>Thêm chỉ tiêu</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-destructive">
+                        Xóa tiêu chí
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-              </AccordionTrigger>
+              </div>
               <AccordionContent>
                 <div className="space-y-4 pl-8 pr-4">
                   {criterion.indicators.map((indicator) => (
