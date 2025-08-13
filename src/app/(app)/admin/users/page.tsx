@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -103,6 +104,89 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
   )
 }
 
+function UserTable({ users, onEdit }: { users: User[], onEdit: (user: User) => void }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Người dùng</CardTitle>
+        <CardDescription>
+          Quản lý người dùng trong hệ thống.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="hidden w-[100px] sm:table-cell">
+                <span className="sr-only">Avatar</span>
+              </TableHead>
+              <TableHead>Họ và tên</TableHead>
+              <TableHead>Vai trò</TableHead>
+              <TableHead className="hidden md:table-cell">
+                Đơn vị
+              </TableHead>
+              <TableHead>
+                <span className="sr-only">Actions</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {users.map((user) => (
+              <TableRow key={user.id}>
+                <TableCell className="hidden sm:table-cell">
+                  <Avatar className="h-9 w-9">
+                    <AvatarImage src={`https://placehold.co/100x100.png?text=${user.name.charAt(0)}`} data-ai-hint="user avatar" />
+                    <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                </TableCell>
+                <TableCell className="font-medium">
+                    {user.name}
+                    <div className="text-sm text-muted-foreground md:hidden">
+                        {user.email}
+                    </div>
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline">{user.role}</Badge>
+                </TableCell>
+                <TableCell className="hidden md:table-cell">
+                  {user.unit}
+                </TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        aria-haspopup="true"
+                        size="icon"
+                        variant="ghost"
+                      >
+                        <MoreHorizontal className="h-4 w-4" />
+                        <span className="sr-only">Toggle menu</span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Hành động</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => onEdit(user)}>Sửa</DropdownMenuItem>
+                      <DropdownMenuItem>Đặt lại mật khẩu</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem className="text-destructive">
+                        Xóa
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+      <CardFooter>
+        <div className="text-xs text-muted-foreground">
+          Hiển thị <strong>1-{users.length}</strong> trên <strong>{users.length}</strong> người dùng
+        </div>
+      </CardFooter>
+    </Card>
+  )
+}
 
 export default function UserManagementPage() {
   const [userList, setUserList] = React.useState(users);
@@ -121,6 +205,10 @@ export default function UserManagementPage() {
       const newUser = {
         ...userToSave,
         id: `USR${String(userList.length + 1).padStart(3, '0')}`,
+        email: userToSave.email || '',
+        name: userToSave.name || '',
+        unit: userToSave.unit || '',
+        role: userToSave.role || 'Cán bộ Xã',
       } as User;
       setUserList([...userList, newUser]);
     }
@@ -133,6 +221,9 @@ export default function UserManagementPage() {
     setIsNewUserDialogOpen(false);
   }
   
+  const adminUsers = userList.filter(u => u.role === 'Cán bộ Tỉnh');
+  const communeUsers = userList.filter(u => u.role === 'Cán bộ Xã');
+
   return (
     <>
     <Tabs defaultValue="all">
@@ -178,85 +269,13 @@ export default function UserManagementPage() {
         </div>
       </div>
       <TabsContent value="all">
-        <Card>
-          <CardHeader>
-            <CardTitle>Người dùng</CardTitle>
-            <CardDescription>
-              Quản lý người dùng trong hệ thống.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="hidden w-[100px] sm:table-cell">
-                    <span className="sr-only">Avatar</span>
-                  </TableHead>
-                  <TableHead>Họ và tên</TableHead>
-                  <TableHead>Vai trò</TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    Đơn vị
-                  </TableHead>
-                  <TableHead>
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {userList.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="hidden sm:table-cell">
-                      <Avatar className="h-9 w-9">
-                        <AvatarImage src={`https://placehold.co/100x100.png?text=${user.name.charAt(0)}`} data-ai-hint="user avatar" />
-                        <AvatarFallback>{user.name.slice(0, 2).toUpperCase()}</AvatarFallback>
-                      </Avatar>
-                    </TableCell>
-                    <TableCell className="font-medium">
-                        {user.name}
-                        <div className="text-sm text-muted-foreground md:hidden">
-                            {user.email}
-                        </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{user.role}</Badge>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {user.unit}
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            aria-haspopup="true"
-                            size="icon"
-                            variant="ghost"
-                          >
-                            <MoreHorizontal className="h-4 w-4" />
-                            <span className="sr-only">Toggle menu</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                          <DropdownMenuItem onClick={() => handleEdit(user)}>Sửa</DropdownMenuItem>
-                          <DropdownMenuItem>Đặt lại mật khẩu</DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
-                            Xóa
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-          <CardFooter>
-            <div className="text-xs text-muted-foreground">
-              Hiển thị <strong>1-{userList.length}</strong> trên <strong>{userList.length}</strong> người dùng
-            </div>
-          </CardFooter>
-        </Card>
+        <UserTable users={userList} onEdit={handleEdit} />
+      </TabsContent>
+      <TabsContent value="admin">
+        <UserTable users={adminUsers} onEdit={handleEdit} />
+      </TabsContent>
+      <TabsContent value="commune">
+        <UserTable users={communeUsers} onEdit={handleEdit} />
       </TabsContent>
     </Tabs>
 
