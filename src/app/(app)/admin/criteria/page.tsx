@@ -50,7 +50,7 @@ function CriterionForm({ criterion, onSave, onCancel }: { criterion: Partial<Cri
   const [formData, setFormData] = React.useState(criterion);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value }.e.target;
+    const { id, value } = e.target;
     setFormData(prev => ({ ...prev, [id]: value }));
   };
 
@@ -80,7 +80,7 @@ function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Ind
   const [formData, setFormData] = React.useState(indicator);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value }.e.target;
+    const { id, value } = e.target;
     setFormData(prev => ({ ...prev, [id]: value }));
   };
 
@@ -165,7 +165,6 @@ export default function CriteriaManagementPage() {
             )
         );
         toast({ title: "Thành công!", description: "Đã cập nhật thông tin tiêu chí."});
-        setEditingCriterion(null);
     } else {
         const newCriterion: Criterion = {
             id: `TC${Math.random().toString(36).substring(2, 9)}`,
@@ -174,8 +173,9 @@ export default function CriteriaManagementPage() {
         };
         setCriteria(prevCriteria => [...prevCriteria, newCriterion]);
         toast({ title: "Thành công!", description: "Đã thêm tiêu chí mới." });
-        setAddingCriterion(false);
     }
+    setEditingCriterion(null);
+    setAddingCriterion(false);
   };
 
   const handleEditIndicator = (criterionId: string, indicator: Indicator) => {
@@ -184,10 +184,11 @@ export default function CriteriaManagementPage() {
   
   const handleCancelEditIndicator = () => {
     setEditingIndicator(null);
+    setAddingIndicatorTo(null);
   };
 
   const handleSaveIndicator = (indicatorToSave: Partial<Indicator>) => {
-    if (editingIndicator) {
+    if (editingIndicator) { // Editing existing indicator
       setCriteria(prevCriteria => 
         prevCriteria.map(c => {
           if (c.id === editingIndicator.criterionId) {
@@ -201,23 +202,11 @@ export default function CriteriaManagementPage() {
       );
       toast({ title: "Thành công!", description: "Đã cập nhật thông tin chỉ tiêu."});
       setEditingIndicator(null);
-    }
-  };
-
-  const handleAddIndicator = (criterionId: string) => {
-    setAddingIndicatorTo(criterionId);
-  };
-
-  const handleCancelAddIndicator = () => {
-    setAddingIndicatorTo(null);
-  };
-
-  const handleSaveNewIndicator = (indicatorToAdd: Partial<Indicator>) => {
-    if (addingIndicatorTo) {
-      const newIndicator: Indicator = {
+    } else if (addingIndicatorTo) { // Adding new indicator
+       const newIndicator: Indicator = {
         id: `CT${Math.random().toString(36).substring(2, 9)}`,
-        name: indicatorToAdd.name || "Chỉ tiêu mới",
-        type: indicatorToAdd.type || "Boolean"
+        name: indicatorToSave.name || "Chỉ tiêu mới",
+        type: indicatorToSave.type || "Boolean"
       };
 
       setCriteria(prevCriteria => 
@@ -234,6 +223,10 @@ export default function CriteriaManagementPage() {
       toast({ title: "Thành công!", description: "Đã thêm chỉ tiêu mới." });
       setAddingIndicatorTo(null);
     }
+  };
+
+  const handleAddIndicator = (criterionId: string) => {
+    setAddingIndicatorTo(criterionId);
   };
 
 
@@ -324,9 +317,9 @@ export default function CriteriaManagementPage() {
       </CardContent>
     </Card>
 
-    <Dialog open={!!editingCriterion || addingCriterion} onOpenChange={(open) => !open && handleCancelEditCriterion()}>
+    <Dialog open={addingCriterion || !!editingCriterion} onOpenChange={(open) => !open && handleCancelEditCriterion()}>
       <DialogContent>
-        {(editingCriterion || addingCriterion) && (
+        {(addingCriterion || editingCriterion) && (
           <CriterionForm
             criterion={editingCriterion || {}}
             onSave={handleSaveCriterion}
@@ -336,11 +329,11 @@ export default function CriteriaManagementPage() {
       </DialogContent>
     </Dialog>
 
-    <Dialog open={!!editingIndicator} onOpenChange={(open) => !open && handleCancelEditIndicator()}>
+    <Dialog open={!!editingIndicator || !!addingIndicatorTo} onOpenChange={(open) => !open && handleCancelEditIndicator()}>
         <DialogContent>
-            {editingIndicator && (
+            {(editingIndicator || addingIndicatorTo) && (
                 <IndicatorForm 
-                    indicator={editingIndicator.indicator}
+                    indicator={editingIndicator?.indicator || {}}
                     onSave={handleSaveIndicator}
                     onCancel={handleCancelEditIndicator}
                 />
@@ -348,17 +341,6 @@ export default function CriteriaManagementPage() {
         </DialogContent>
     </Dialog>
 
-    <Dialog open={!!addingIndicatorTo} onOpenChange={(open) => !open && handleCancelAddIndicator()}>
-      <DialogContent>
-        <IndicatorForm 
-          indicator={{}}
-          onSave={handleSaveNewIndicator}
-          onCancel={handleCancelAddIndicator}
-        />
-      </DialogContent>
-    </Dialog>
     </>
   );
 }
-
-    
