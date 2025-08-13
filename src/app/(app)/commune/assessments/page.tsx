@@ -13,6 +13,7 @@ import { UploadCloud, File as FileIcon, X } from "lucide-react";
 import React from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
+import { useData } from "@/context/DataContext";
 
 function FileUploadComponent() {
     const [files, setFiles] = React.useState<File[]>([]);
@@ -96,6 +97,8 @@ const renderInput = (indicator: any) => {
 
 export default function SelfAssessmentPage() {
   const { toast } = useToast();
+  const { assessmentPeriods } = useData();
+  const activePeriod = assessmentPeriods.find(p => p.status === 'Active');
 
   const handleSaveDraft = () => {
     toast({
@@ -116,7 +119,12 @@ export default function SelfAssessmentPage() {
         <Card>
             <CardHeader>
                 <CardTitle>Tự chấm điểm và đánh giá</CardTitle>
-                <CardDescription>Kỳ đánh giá 6 tháng đầu năm 2024. Vui lòng hoàn thành trước ngày 30/07/2024.</CardDescription>
+                <CardDescription>
+                  {activePeriod 
+                    ? `Kỳ đánh giá: ${activePeriod.name}. Vui lòng hoàn thành trước ngày ${activePeriod.endDate}.`
+                    : "Hiện tại không có kỳ đánh giá nào đang hoạt động."
+                  }
+                </CardDescription>
             </CardHeader>
             <CardContent>
                 <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
@@ -163,3 +171,5 @@ export default function SelfAssessmentPage() {
     </div>
   );
 }
+
+    

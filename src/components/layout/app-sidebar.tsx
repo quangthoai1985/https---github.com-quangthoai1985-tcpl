@@ -17,6 +17,7 @@ import {
   LogOut,
   LayoutDashboard,
   Building,
+  CalendarClock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -30,6 +31,7 @@ const adminNavItems = [
   { href: '/admin/users', icon: Users, label: 'Quản lý Người dùng' },
   { href: '/admin/units', icon: Building, label: 'Quản lý Đơn vị' },
   { href: '/admin/criteria', icon: FileCheck2, label: 'Quản lý Tiêu chí' },
+  { href: '/admin/assessment-periods', icon: CalendarClock, label: 'Quản lý Đợt đánh giá' },
   { href: '/admin/reviews', icon: GanttChartSquare, label: 'Duyệt Đánh giá', 'data-testid': 'pending-badge' },
   { href: '/admin/reports', icon: FileText, label: 'Báo cáo & Thống kê' },
   { href: '/documents', icon: Book, label: 'Văn bản Hướng dẫn' },
@@ -52,7 +54,7 @@ export default function AppSidebar() {
       <div className="flex h-full max-h-screen flex-col gap-2">
         <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-            <Image src="/logo.png" alt="Logo" width={32} height={32} />
+            <Image src="/logo.png" alt="Logo" width={32} height={32} data-ai-hint="logo" />
             <span className="font-headline">Tiếp Cận Pháp Luật</span>
           </Link>
         </div>
@@ -83,3 +85,5 @@ export default function AppSidebar() {
     </div>
   );
 }
+
+    

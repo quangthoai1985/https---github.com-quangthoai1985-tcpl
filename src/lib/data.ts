@@ -127,3 +127,17 @@ export const guidanceDocuments = [
   { id: 'VB003', name: 'Luật Tiếp cận thông tin năm 2016', number: '104/2016/QH13', issueDate: '06/04/2016', excerpt: 'Quy định về việc thực hiện quyền tiếp cận thông tin của công dân, nguyên tắc, trình tự, thủ tục thực hiện quyền tiếp cận thông tin.'},
   { id: 'VB004', name: 'Luật Hòa giải ở cơ sở năm 2013', number: '59/2013/QH13', issueDate: '20/06/2013', excerpt: 'Quy định về nguyên tắc, chính sách của Nhà nước về hòa giải ở cơ sở; hòa giải viên; tổ chức và hoạt động hòa giải ở cơ sở.' },
 ];
+
+
+export const assessmentPeriods = [
+    { id: 'DOT001', name: 'Đợt đánh giá 6 tháng đầu năm 2024', startDate: '01/01/2024', endDate: '30/07/2024', status: 'Active' },
+    { id: 'DOT002', name: 'Đợt đánh giá 6 tháng cuối năm 2023', startDate: '01/07/2023', endDate: '31/12/2023', status: 'Inactive' },
+];
+
+export const notifications = [
+    { id: 'N001', title: 'Hồ sơ Xã Tân Triều đã được duyệt', time: '5 phút trước', read: false },
+    { id: 'N002', title: 'Hồ sơ Phường Dịch Vọng Hậu bị từ chối', time: '1 giờ trước', read: false },
+    { id: 'N003', title: 'Bạn có 2 hồ sơ mới đang chờ duyệt', time: 'Hôm qua', read: true },
+];
+
+    
