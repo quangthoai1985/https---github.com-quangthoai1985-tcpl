@@ -35,9 +35,11 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { usePathname } from 'next/navigation';
 import AppSidebar from './app-sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { useData } from '@/context/DataContext';
 
 export default function AppHeader() {
   const pathname = usePathname();
+  const { role } = useData();
 
   const getPageTitle = () => {
     if (pathname.startsWith('/admin/reviews/')) {
@@ -66,6 +68,14 @@ export default function AppHeader() {
         return 'Legal Access Tracker';
     }
   };
+  
+  const getAvatarFallback = () => {
+    return role === 'admin' ? 'AD' : 'CB';
+  }
+  
+  const getAvatarAlt = () => {
+    return role === 'admin' ? 'Admin' : 'Cán bộ';
+  }
 
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6">
@@ -89,8 +99,8 @@ export default function AppHeader() {
         <DropdownMenuTrigger asChild>
           <Button variant="secondary" size="icon" className="rounded-full">
             <Avatar>
-                <AvatarImage src="https://placehold.co/100x100.png" alt="Admin" data-ai-hint="user avatar" />
-                <AvatarFallback>AD</AvatarFallback>
+                <AvatarImage src="https://placehold.co/100x100.png" alt={getAvatarAlt()} data-ai-hint="user avatar" />
+                <AvatarFallback className={role === 'admin' ? 'bg-primary text-primary-foreground' : ''}>{getAvatarFallback()}</AvatarFallback>
             </Avatar>
             <span className="sr-only">Mở menu người dùng</span>
           </Button>

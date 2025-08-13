@@ -36,6 +36,7 @@ import {
 import { Pie, PieChart, Cell } from 'recharts';
 import { dashboardStats, recentAssessments, assessmentStatusChartData } from '@/lib/data';
 import Link from 'next/link';
+import { useData } from '@/context/DataContext';
 
 const iconMap = {
   Users: Users,
@@ -233,12 +234,11 @@ const CommuneDashboard = () => {
 
 
 export default function DashboardPage() {
-  // In a real app, you'd get this from user context
-  const userRole = 'admin'; 
+  const { role } = useData();
 
   return (
     <div className="flex flex-1 flex-col gap-4">
-      {userRole === 'admin' ? <AdminDashboard /> : <CommuneDashboard />}
+      {role === 'admin' ? <AdminDashboard /> : <CommuneDashboard />}
     </div>
   );
 }

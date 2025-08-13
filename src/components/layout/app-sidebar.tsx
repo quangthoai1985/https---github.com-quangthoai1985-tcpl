@@ -23,6 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { recentAssessments } from '@/lib/data';
 import Image from 'next/image';
+import { useData } from '@/context/DataContext';
 
 const adminNavItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Tổng quan' },
@@ -42,9 +43,8 @@ const communeNavItems = [
 
 export default function AppSidebar() {
   const pathname = usePathname();
-  // In a real app, you'd get this from user context
-  const userRole = 'admin'; 
-  const navItems = userRole === 'admin' ? adminNavItems : communeNavItems;
+  const { role } = useData();
+  const navItems = role === 'admin' ? adminNavItems : communeNavItems;
   const pendingCount = recentAssessments.filter(a => a.status === 'Chờ duyệt').length;
 
   return (
@@ -70,7 +70,7 @@ export default function AppSidebar() {
               >
                 <item.icon className="h-4 w-4" />
                 {item.label}
-                {item.href === '/admin/reviews' && pendingCount > 0 && (
+                {item.href === '/admin/reviews' && pendingCount > 0 && role === 'admin' && (
                   <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
                     {pendingCount}
                   </Badge>

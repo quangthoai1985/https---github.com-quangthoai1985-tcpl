@@ -17,11 +17,15 @@ type User = {
   role: string;
 };
 
+type Role = 'admin' | 'commune';
+
 interface DataContextType {
   users: User[];
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   units: Unit[];
   setUnits: React.Dispatch<React.SetStateAction<Unit[]>>;
+  role: Role;
+  setRole: React.Dispatch<React.SetStateAction<Role>>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -29,9 +33,10 @@ const DataContext = createContext<DataContextType | undefined>(undefined);
 export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [units, setUnits] = useState<Unit[]>(initialUnits);
+  const [role, setRole] = useState<Role>('admin');
 
   return (
-    <DataContext.Provider value={{ users, setUsers, units, setUnits }}>
+    <DataContext.Provider value={{ users, setUsers, units, setUnits, role, setRole }}>
       {children}
     </DataContext.Provider>
   );

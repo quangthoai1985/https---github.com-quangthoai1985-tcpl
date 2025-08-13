@@ -1,7 +1,9 @@
+
 import type { Metadata } from 'next';
 import { Alegreya } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
+import { DataProvider } from '@/context/DataContext';
 
 const alegreya = Alegreya({
   subsets: ['latin'],
@@ -9,10 +11,16 @@ const alegreya = Alegreya({
   variable: '--font-alegreya',
 });
 
+// Metadata can't be in a client component, so we export it separately.
 export const metadata: Metadata = {
   title: 'Legal Access Tracker',
   description: 'Ứng dụng quản lý đánh giá, công nhận cấp xã đạt chuẩn tiếp cận pháp luật',
 };
+
+// The RootLayout now needs to be a client component to use DataProvider.
+// We keep the 'use client' directive here.
+// eslint-disable-next-line @typescript-eslint/no-unused-expressions
+'use client';
 
 export default function RootLayout({
   children,
@@ -22,8 +30,10 @@ export default function RootLayout({
   return (
     <html lang="vi" className={alegreya.variable}>
       <body className="font-body antialiased">
-        {children}
-        <Toaster />
+        <DataProvider>
+            {children}
+            <Toaster />
+        </DataProvider>
       </body>
     </html>
   );
