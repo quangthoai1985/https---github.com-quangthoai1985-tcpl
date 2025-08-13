@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { criteria, recentAssessments } from "@/lib/data";
-import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X } from "lucide-react";
+import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock } from "lucide-react";
 import React, { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -169,7 +169,7 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
           </div>
         </CardHeader>
         <CardContent>
-          {(role === 'commune' || role === 'admin') && assessment.status === 'Bị từ chối' && assessment.rejectionReason && (
+          {(assessment.status === 'Bị từ chối' || assessment.status === 'Chờ duyệt') && assessment.rejectionReason && (
             <Card className="mb-6 bg-destructive/10 border-destructive">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle /> Lý do từ chối chung</CardTitle>
@@ -272,14 +272,14 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
             ))}
           </Accordion>
           
-          {assessment.status === 'Chờ duyệt' && role === 'admin' && (
+          {role === 'admin' && (assessment.status === 'Chờ duyệt' || assessment.status === 'Bị từ chối') && (
             <>
                 <Separator className="my-6" />
                 <div className="grid gap-4">
                     <h3 className="text-lg font-headline">Thẩm định và Phê duyệt</h3>
                     <div className="grid gap-2">
                          <Label htmlFor="review-notes" className="font-medium">Ghi chú/Lý do từ chối chung (nếu có)</Label>
-                        <Textarea id="review-notes" placeholder="Nhập lý do từ chối chung hoặc các ý kiến thẩm định của bạn..." onChange={(e) => setRejectionReason(e.target.value)} defaultValue={assessment.rejectionReason} />
+                        <Textarea id="review-notes" placeholder="Nhập lý do từ chối chung hoặc các ý kiến thẩm định của bạn..." onChange={(e) => setRejectionReason(e.target.value)} defaultValue={rejectionReason} />
                     </div>
                 </div>
             </>
