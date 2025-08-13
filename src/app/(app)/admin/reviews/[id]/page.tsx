@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { criteria, recentAssessments } from "@/lib/data";
-import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote } from "lucide-react";
+import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X } from "lucide-react";
 import React, { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -16,6 +16,39 @@ import { Label } from "@/components/ui/label";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useData } from "@/context/DataContext";
+import { Input } from "@/components/ui/input";
+
+function FileUploadComponent() {
+    const [files, setFiles] = React.useState<File[]>([]);
+
+    return (
+        <div className="grid gap-2">
+            <Label>Hồ sơ minh chứng bổ sung</Label>
+            <div className="w-full relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-4 text-center hover:border-primary transition-colors">
+                <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground" />
+                <p className="mt-2 text-xs text-muted-foreground">
+                    Kéo và thả tệp, hoặc <span className="font-semibold text-primary">nhấn để chọn</span>
+                </p>
+                <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={(e) => setFiles(Array.from(e.target.files || []))} />
+            </div>
+            {files.length > 0 && (
+                 <div className="space-y-2 mt-2">
+                    {files.map((file, index) => (
+                        <div key={index} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
+                            <div className="flex items-center gap-2 truncate">
+                                <FileIcon className="h-4 w-4 flex-shrink-0" />
+                                <span className="truncate">{file.name}</span>
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setFiles(files.filter(f => f.name !== file.name))}>
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    ))}
+                 </div>
+            )}
+        </div>
+    );
+}
 
 export default function AssessmentDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -77,7 +110,9 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
   };
   
   const handleResubmit = () => {
-      const updatedAssessment = { ...assessment, status: 'Chờ duyệt', communeExplanation: communeExplanation };
+      // In a real app, you would collect all explanations and new files.
+      // For this demo, we just update the status.
+      const updatedAssessment = { ...assessment, status: 'Chờ duyệt', communeExplanation: "Đã giải trình và bổ sung minh chứng." };
       const index = recentAssessments.findIndex(a => a.id === params.id);
       if(index !== -1) recentAssessments[index] = updatedAssessment as any;
       setAssessment(updatedAssessment as any);
@@ -102,7 +137,7 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
     return results[indicatorId] || { value: 'N/A', note: '', files: [] };
   };
 
-   const isActionDisabled = assessment.status === 'Đã duyệt' || (role === 'admin' && assessment.status === 'Bị từ chối');
+   const isActionDisabled = assessment.status === 'Đã duyệt' || (role === 'admin' && assessment.status === 'Bị từ chối' && !assessment.communeExplanation);
 
   return (
     <>
@@ -128,18 +163,19 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
             >
               {assessment.status === 'Đã duyệt' && <CheckCircle className="mr-2 h-4 w-4" />}
               {assessment.status === 'Bị từ chối' && <XCircle className="mr-2 h-4 w-4" />}
+              {assessment.status === 'Chờ duyệt' && <Clock className="mr-2 h-4 w-4" />}
               {assessment.status}
             </Badge>
           </div>
         </CardHeader>
         <CardContent>
-          {role === 'commune' && assessment.status === 'Bị từ chối' && (
+          {(role === 'commune' || role === 'admin') && assessment.status === 'Bị từ chối' && assessment.rejectionReason && (
             <Card className="mb-6 bg-destructive/10 border-destructive">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle /> Lý do từ chối</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle /> Lý do từ chối chung</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <p className="text-sm">{assessment.rejectionReason || "Không có lý do cụ thể."}</p>
+                    <p className="text-sm whitespace-pre-wrap">{assessment.rejectionReason}</p>
                 </CardContent>
             </Card>
           )}
@@ -155,7 +191,6 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
               </Card>
           )}
 
-
           <Separator className="mb-6" />
           <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
             {criteria.map((criterion, index) => (
@@ -167,6 +202,8 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
                   <div className="space-y-6 pl-8 pr-4">
                     {criterion.indicators.map(indicator => {
                       const result = getIndicatorResult(indicator.id);
+                      const isNotMet = (indicator.inputType === 'boolean' && result.value === false);
+
                       return (
                         <div key={indicator.id} className="grid gap-4 p-4 rounded-lg bg-card border shadow-sm">
                           <h4 className="font-semibold">{indicator.name}</h4>
@@ -180,19 +217,17 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
                                   {result.value ? 'Đạt' : 'Không đạt'}
                                 </Badge>
                               )}
-                              {indicator.inputType === 'number' && <span className="font-bold text-primary">{result.value}</span>}
-                               {indicator.inputType === 'select' && <span className="font-bold text-primary">Có</span>}
-
+                              {indicator.inputType !== 'boolean' && <span className="font-bold text-primary">{result.value}</span>}
                             </div>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="md:col-span-1 font-medium text-muted-foreground">Giải trình:</div>
+                            <div className="md:col-span-1 font-medium text-muted-foreground">Giải trình ban đầu:</div>
                             <p className="md:col-span-2 text-sm">{result.note || "Không có giải trình."}</p>
                           </div>
 
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="md:col-span-1 font-medium text-muted-foreground">Minh chứng:</div>
+                            <div className="md:col-span-1 font-medium text-muted-foreground">Minh chứng ban đầu:</div>
                             <div className="md:col-span-2">
                               {result.files.length > 0 ? (
                                 <div className="space-y-2">
@@ -216,6 +251,18 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
                               )}
                             </div>
                           </div>
+                          
+                          {role === 'commune' && assessment.status === 'Bị từ chối' && isNotMet && (
+                              <div className="mt-4 p-4 border-t border-dashed border-amber-500 bg-amber-50/50 rounded-b-lg grid gap-4">
+                                  <h5 className="font-semibold text-amber-800">Giải trình và Bổ sung cho chỉ tiêu này</h5>
+                                  <div className="grid gap-2">
+                                      <Label htmlFor={`explanation-${indicator.id}`} className="text-sm">Nội dung giải trình</Label>
+                                      <Textarea id={`explanation-${indicator.id}`} placeholder="Giải trình về lý do chưa đạt và các biện pháp khắc phục..." />
+                                  </div>
+                                  <FileUploadComponent />
+                              </div>
+                          )}
+
                         </div>
                       )
                     })}
@@ -231,41 +278,24 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
                 <div className="grid gap-4">
                     <h3 className="text-lg font-headline">Thẩm định và Phê duyệt</h3>
                     <div className="grid gap-2">
-                         <Label htmlFor="review-notes" className="font-medium">Ghi chú thẩm định mới (nếu có)</Label>
-                        <Textarea id="review-notes" placeholder="Nhập ý kiến thẩm định của bạn..." defaultValue={assessment.rejectionReason} />
+                         <Label htmlFor="review-notes" className="font-medium">Ghi chú/Lý do từ chối chung (nếu có)</Label>
+                        <Textarea id="review-notes" placeholder="Nhập lý do từ chối chung hoặc các ý kiến thẩm định của bạn..." onChange={(e) => setRejectionReason(e.target.value)} defaultValue={assessment.rejectionReason} />
                     </div>
                 </div>
             </>
           )}
-
-          {role === 'commune' && assessment.status === 'Bị từ chối' && (
-            <>
-                <Separator className="my-6" />
-                <div className="grid gap-4">
-                    <h3 className="text-lg font-headline">Giải trình và Bổ sung</h3>
-                    <div className="grid gap-2">
-                         <Label htmlFor="commune-explanation" className="font-medium">Nội dung giải trình</Label>
-                        <Textarea
-                          id="commune-explanation" 
-                          placeholder="Giải trình về các nội dung bị từ chối và bổ sung thông tin theo yêu cầu..." 
-                          value={communeExplanation}
-                          onChange={(e) => setCommuneExplanation(e.target.value)}
-                          rows={5}
-                        />
-                    </div>
-                </div>
-            </>
-          )}
-
 
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => router.back()}>Quay lại</Button>
-            {role === 'admin' && (
+            {role === 'admin' && assessment.status === 'Chờ duyệt' &&(
               <>
                 <Button variant="destructive" onClick={() => setIsRejectDialogOpen(true)} disabled={isActionDisabled}><ThumbsDown className="mr-2 h-4 w-4" />Từ chối</Button>
                 <Button className="bg-green-600 hover:bg-green-700" onClick={handleApprove} disabled={isActionDisabled}><ThumbsUp className="mr-2 h-4 w-4" />Phê duyệt</Button>
               </>
+            )}
+             {role === 'admin' && assessment.status === 'Bị từ chối' && assessment.communeExplanation && (
+                 <Button className="bg-green-600 hover:bg-green-700" onClick={handleApprove}><ThumbsUp className="mr-2 h-4 w-4" />Phê duyệt lại</Button>
             )}
             {role === 'commune' && assessment.status === 'Bị từ chối' && (
                 <>
@@ -285,17 +315,18 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
                     Xác nhận từ chối hồ sơ
                 </DialogTitle>
                 <DialogDescription>
-                    Bạn có chắc chắn muốn từ chối hồ sơ của <strong>{assessment.communeName}</strong>? Vui lòng cung cấp lý do từ chối. Hành động này sẽ thông báo cho đơn vị.
+                    Bạn có chắc chắn muốn từ chối hồ sơ của <strong>{assessment.communeName}</strong>? Các ghi chú bạn đã nhập sẽ được lưu lại làm lý do. Hành động này sẽ thông báo cho đơn vị.
                 </DialogDescription>
             </DialogHeader>
             <div className="py-4">
-                <Label htmlFor="rejection-reason" className="font-medium">Lý do từ chối</Label>
+                <Label htmlFor="rejection-reason" className="font-medium">Xem lại Lý do từ chối</Label>
                 <Textarea
                     id="rejection-reason"
                     placeholder="Ví dụ: Hồ sơ minh chứng cho Tiêu chí 2.1 không hợp lệ, yêu cầu bổ sung..."
                     className="mt-2"
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
+                    rows={4}
                 />
             </div>
             <DialogFooter>
@@ -330,3 +361,5 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
     </>
   );
 }
+
+    
