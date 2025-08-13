@@ -1,7 +1,6 @@
 
 'use client';
 
-import { DataProvider } from '@/context/DataContext';
 import LoginPageContent from './login-page-content';
 
 

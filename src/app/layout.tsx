@@ -1,4 +1,6 @@
 
+'use client';
+
 import type { Metadata } from 'next';
 import { Alegreya } from 'next/font/google';
 import './globals.css';
@@ -12,15 +14,14 @@ const alegreya = Alegreya({
 });
 
 // Metadata can't be in a client component, so we export it separately.
+// We will handle metadata in a separate file if needed or a parent server component.
+/*
 export const metadata: Metadata = {
   title: 'Legal Access Tracker',
   description: 'Ứng dụng quản lý đánh giá, công nhận cấp xã đạt chuẩn tiếp cận pháp luật',
 };
+*/
 
-// The RootLayout now needs to be a client component to use DataProvider.
-// We keep the 'use client' directive here.
-// eslint-disable-next-line @typescript-eslint/no-unused-expressions
-'use client';
 
 export default function RootLayout({
   children,
