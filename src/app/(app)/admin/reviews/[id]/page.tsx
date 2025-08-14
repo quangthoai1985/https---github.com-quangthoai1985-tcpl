@@ -55,7 +55,8 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
   const { role } = useData();
   const { toast } = useToast();
   // In a real app, you would fetch this from a server and use state management.
-  const [assessment, setAssessment] = useState(recentAssessments.find((a) => a.id === params.id));
+  const id = params.id;
+  const [assessment, setAssessment] = useState(() => recentAssessments.find((a) => a.id === id));
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState(assessment?.rejectionReason || "");
   const [communeExplanation, setCommuneExplanation] = useState(assessment?.communeExplanation || "");
