@@ -37,43 +37,59 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
-import { dashboardStats, recentAssessments, assessmentStatusChartData, progressData } from '@/lib/data';
+import { recentAssessments, progressData, units } from '@/lib/data';
 import Link from 'next/link';
 import { useData } from '@/context/DataContext';
 
-const kpiCards = [
-  { 
-    title: "Tổng số xã", 
-    value: "126", 
-    icon: Users, 
-    color: "bg-blue-500",
-    link: "/admin/units"
-  },
-  { 
-    title: "Chờ duyệt", 
-    value: "8", 
-    icon: FileClock, 
-    color: "bg-gray-500",
-    link: "/admin/reviews"
-  },
-  { 
-    title: "Đã duyệt", 
-    value: "42", 
-    icon: ThumbsUp, 
-    color: "bg-emerald-500",
-    link: "/admin/reviews"
-  },
-  { 
-    title: "Bị từ chối", 
-    value: "5", 
-    icon: ThumbsDown, 
-    color: "bg-red-500",
-    link: "/admin/reviews"
-  },
-];
 
+const AdminDashboard = () => {
+    const { users } = useData();
 
-const AdminDashboard = () => (
+    const totalCommunes = units.filter(u => u.name.toLowerCase().includes('xã')).length;
+    const pendingCount = recentAssessments.filter(a => a.status === 'Chờ duyệt').length;
+    const approvedCount = recentAssessments.filter(a => a.status === 'Đã duyệt').length;
+    const rejectedCount = recentAssessments.filter(a => a.status === 'Bị từ chối').length;
+    const notSentCount = totalCommunes - (pendingCount + approvedCount + rejectedCount);
+
+    const kpiCards = [
+      { 
+        title: "Tổng số xã", 
+        value: totalCommunes.toString(), 
+        icon: Users, 
+        color: "bg-blue-500",
+        link: "/admin/units"
+      },
+      { 
+        title: "Chờ duyệt", 
+        value: pendingCount.toString(), 
+        icon: FileClock, 
+        color: "bg-gray-500",
+        link: "/admin/reviews"
+      },
+      { 
+        title: "Đã duyệt", 
+        value: approvedCount.toString(), 
+        icon: ThumbsUp, 
+        color: "bg-emerald-500",
+        link: "/admin/reviews"
+      },
+      { 
+        title: "Bị từ chối", 
+        value: rejectedCount.toString(), 
+        icon: ThumbsDown, 
+        color: "bg-red-500",
+        link: "/admin/reviews"
+      },
+    ];
+
+    const assessmentStatusChartData = [
+      { name: 'Đã duyệt', value: approvedCount, fill: '#10b981' }, // emerald-500
+      { name: 'Chờ duyệt', value: pendingCount, fill: '#6b7280' }, // gray-500
+      { name: 'Bị từ chối', value: rejectedCount, fill: '#ef4444' }, // red-500
+      { name: 'Chưa gửi', value: notSentCount > 0 ? notSentCount : 0, fill: '#a7f3d0' }, // emerald-200
+    ];
+
+    return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {kpiCards.map((card, index) => {
@@ -200,7 +216,7 @@ const AdminDashboard = () => (
           </CardContent>
         </Card>
     </div>
-);
+)};
 
 const CommuneDashboard = () => {
     const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
