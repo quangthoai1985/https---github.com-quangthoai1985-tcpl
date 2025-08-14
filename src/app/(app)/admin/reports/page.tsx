@@ -26,8 +26,6 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  ChartLegend,
-  ChartLegendContent,
 } from '@/components/ui/chart';
 import { criteria } from '@/lib/data';
 import { Download } from 'lucide-react';
@@ -92,7 +90,7 @@ export default function ReportsPage() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
           <div>
-            <CardTitle>Báo cáo & Thống kê</CardTitle>
+            <CardTitle>Báo cáo &amp; Thống kê</CardTitle>
             <CardDescription>
               Phân tích và xem báo cáo chi tiết về tình hình tiếp cận pháp luật theo từng đợt.
             </CardDescription>
@@ -130,34 +128,37 @@ export default function ReportsPage() {
             <CardTitle>Phân bố trạng thái</CardTitle>
             <CardDescription>Tỷ lệ các xã theo trạng thái đánh giá trong đợt đã chọn.</CardDescription>
           </CardHeader>
-          <CardContent className="flex justify-center">
-            <ChartContainer
-              config={chartConfig}
-              className="mx-auto aspect-square h-[250px]"
-            >
-              <PieChart>
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent hideLabel nameKey="name" />}
-                />
-                <Pie
-                  data={statusData}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={60}
-                  strokeWidth={5}
-                >
-                   {statusData.map((entry) => (
-                      <Cell
-                        key={`cell-${entry.name}`}
-                        fill={entry.fill}
-                        className="stroke-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                      />
-                    ))}
-                </Pie>
-                 <ChartLegend content={<ChartLegendContent nameKey="name" />} />
-              </PieChart>
-            </ChartContainer>
+          <CardContent className="flex justify-center h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+                 <PieChart>
+                    <Pie
+                        data={statusData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                        nameKey="name"
+                    >
+                        {statusData.map((entry) => (
+                        <Cell key={`cell-${entry.name}`} fill={entry.fill} />
+                        ))}
+                    </Pie>
+                    <Tooltip contentStyle={{
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+                        border: '1px solid hsl(var(--border))'
+                    }} />
+                    <Legend
+                        iconType="circle"
+                        layout="vertical"
+                        verticalAlign="middle"
+                        align="right"
+                        wrapperStyle={{ right: -10, paddingLeft: '20px' }}
+                    />
+                </PieChart>
+              </ResponsiveContainer>
           </CardContent>
         </Card>
         
@@ -167,7 +168,7 @@ export default function ReportsPage() {
             <CardDescription>Tỷ lệ % xã đạt các chỉ tiêu trong từng tiêu chí cốt lõi.</CardDescription>
           </CardHeader>
           <CardContent>
-            <ChartContainer config={{}} className="h-[250px] w-full">
+            <ChartContainer config={{}} className="h-[300px] w-full">
                <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={criteriaSuccessRate} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
