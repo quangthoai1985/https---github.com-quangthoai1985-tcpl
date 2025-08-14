@@ -32,7 +32,7 @@ export default function LoginPageContent() {
           <div className="mb-4 flex justify-center">
             <Image src="https://placehold.co/64x64.png" alt="Logo" width={64} height={64} data-ai-hint="logo" />
           </div>
-          <CardTitle className="text-2xl font-headline">Legal Access Tracker</CardTitle>
+          <CardTitle className="text-2xl font-headline">CHUẨN TIẾP CẬN PHÁP LUẬT</CardTitle>
           <CardDescription>
             Đăng nhập vào tài khoản của bạn để tiếp tục
           </CardDescription>
