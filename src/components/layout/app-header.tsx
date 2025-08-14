@@ -35,7 +35,7 @@ import { Separator } from '../ui/separator';
 
 export default function AppHeader() {
   const pathname = usePathname();
-  const { role } = useData();
+  const { role, currentUser } = useData();
   const notifications = role === 'admin' ? adminNotifications : communeNotifications;
   const unreadNotifications = notifications.filter(n => !n.read).length;
 
@@ -71,11 +71,11 @@ export default function AppHeader() {
   };
   
   const getAvatarFallback = () => {
-    return role === 'admin' ? 'AD' : 'CB';
+    return currentUser?.name.split(' ').map(n => n[0]).slice(-2).join('').toUpperCase() || (role === 'admin' ? 'AD' : 'CB');
   }
   
   const getAvatarAlt = () => {
-    return role === 'admin' ? 'Admin' : 'Cán bộ';
+     return currentUser?.name || (role === 'admin' ? 'Admin' : 'Cán bộ');
   }
 
   const notificationIcons: {[key: string]: React.ReactNode} = {
@@ -111,64 +111,72 @@ export default function AppHeader() {
         </h1>
       </div>
 
-       <Popover>
-          <PopoverTrigger asChild>
-             <Button variant="outline" size="icon" className="relative">
+       <div className="flex items-center gap-4">
+        {currentUser && (
+            <div className="hidden text-right lg:block">
+                <p className="font-semibold text-sm">{currentUser.name}</p>
+                <p className="text-xs text-muted-foreground">{currentUser.role}</p>
+            </div>
+        )}
+        <Popover>
+            <PopoverTrigger asChild>
+                <Button variant="outline" size="icon" className="relative">
                 <Bell className="h-4 w-4" />
                 {unreadNotifications > 0 && (
                     <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-xs text-white">
                         {unreadNotifications}
                     </span>
                 )}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent align="end" className="w-80">
-            <div className="p-4">
-                <h4 className="font-medium leading-none">Thông báo</h4>
-                <p className="text-sm text-muted-foreground">Bạn có {unreadNotifications} thông báo mới.</p>
-            </div>
-            <Separator />
-            <div className="p-2 max-h-80 overflow-y-auto">
-                {notifications.map(notification => (
-                    <div key={notification.id} className={cn(
-                        "mb-1 flex items-start gap-4 rounded-lg p-3 text-sm transition-colors hover:bg-muted/50",
-                        !notification.read && "bg-blue-50/50"
-                    )}>
-                        <div className="mt-1">
-                           {getNotificationIcon(notification.title)}
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-80">
+                <div className="p-4">
+                    <h4 className="font-medium leading-none">Thông báo</h4>
+                    <p className="text-sm text-muted-foreground">Bạn có {unreadNotifications} thông báo mới.</p>
+                </div>
+                <Separator />
+                <div className="p-2 max-h-80 overflow-y-auto">
+                    {notifications.map(notification => (
+                        <div key={notification.id} className={cn(
+                            "mb-1 flex items-start gap-4 rounded-lg p-3 text-sm transition-colors hover:bg-muted/50",
+                            !notification.read && "bg-blue-50/50"
+                        )}>
+                            <div className="mt-1">
+                            {getNotificationIcon(notification.title)}
+                            </div>
+                            <div className="flex-1">
+                                <p className="leading-snug">{notification.title}</p>
+                                <p className="text-xs text-muted-foreground">{notification.time}</p>
+                            </div>
                         </div>
-                        <div className="flex-1">
-                            <p className="leading-snug">{notification.title}</p>
-                            <p className="text-xs text-muted-foreground">{notification.time}</p>
-                        </div>
-                    </div>
-                ))}
-            </div>
-            <Separator />
-            <div className="p-2">
-                <Button variant="link" size="sm" className="w-full">Xem tất cả thông báo</Button>
-            </div>
-          </PopoverContent>
+                    ))}
+                </div>
+                <Separator />
+                <div className="p-2">
+                    <Button variant="link" size="sm" className="w-full">Xem tất cả thông báo</Button>
+                </div>
+            </PopoverContent>
         </Popover>
 
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="secondary" size="icon" className="rounded-full">
-            <Avatar>
-                <AvatarImage src="https://placehold.co/100x100.png" alt={getAvatarAlt()} data-ai-hint="user avatar" />
-                <AvatarFallback className={cn('bg-primary text-primary-foreground', role === 'commune' && 'bg-muted-foreground' )}>{getAvatarFallback()}</AvatarFallback>
-            </Avatar>
-            <span className="sr-only">Mở menu người dùng</span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuLabel>Tài khoản của tôi</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild><Link href="/profile" className='flex items-center gap-2'><Settings className='h-4 w-4' />Hồ sơ</Link></DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem asChild><Link href="/" className='flex items-center gap-2'><LogOut className='h-4 w-4' />Đăng xuất</Link></DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+            <Button variant="secondary" size="icon" className="rounded-full">
+                <Avatar>
+                    <AvatarImage src="https://placehold.co/100x100.png" alt={getAvatarAlt()} data-ai-hint="user avatar" />
+                    <AvatarFallback className={cn('bg-primary text-primary-foreground', role === 'commune' && 'bg-muted-foreground' )}>{getAvatarFallback()}</AvatarFallback>
+                </Avatar>
+                <span className="sr-only">Mở menu người dùng</span>
+            </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+            <DropdownMenuLabel>Tài khoản của tôi</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild><Link href="/profile" className='flex items-center gap-2'><Settings className='h-4 w-4' />Hồ sơ</Link></DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild><Link href="/" className='flex items-center gap-2'><LogOut className='h-4 w-4' />Đăng xuất</Link></DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+       </div>
     </header>
   );
 }

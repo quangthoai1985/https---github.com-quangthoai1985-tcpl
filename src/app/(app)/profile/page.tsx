@@ -10,14 +10,17 @@ import { useToast } from "@/hooks/use-toast";
 import React from "react";
 
 export default function ProfilePage() {
-    const { users, setUsers } = useData();
-    // In a real app, you'd get the current logged-in user's ID from an auth context.
-    // For this demo, we'll assume we're editing the first admin user.
-    const currentUser = users.find(u => u.role === 'Cán bộ Tỉnh');
+    const { users, setUsers, currentUser } = useData();
     const { units } = useData();
     const { toast } = useToast();
 
     const [name, setName] = React.useState(currentUser?.name || '');
+    
+    React.useEffect(() => {
+        if (currentUser) {
+            setName(currentUser.name);
+        }
+    }, [currentUser]);
 
     const handleProfileUpdate = (e: React.FormEvent) => {
         e.preventDefault();

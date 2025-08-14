@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { users as initialUsers, units as initialUnits, assessmentPeriods as initialAssessmentPeriods } from '@/lib/data';
 
 type Unit = {
@@ -36,6 +36,7 @@ interface DataContextType {
   setAssessmentPeriods: React.Dispatch<React.SetStateAction<AssessmentPeriod[]>>;
   role: Role;
   setRole: React.Dispatch<React.SetStateAction<Role>>;
+  currentUser: User | null;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -45,9 +46,20 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [units, setUnits] = useState<Unit[]>(initialUnits);
   const [assessmentPeriods, setAssessmentPeriods] = useState<AssessmentPeriod[]>(initialAssessmentPeriods);
   const [role, setRole] = useState<Role>('admin');
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    // This logic simulates fetching the logged-in user based on the role.
+    // In a real app, this would come from an authentication context.
+    if (role === 'admin') {
+      setCurrentUser(users.find(u => u.role === 'Cán bộ Tỉnh') || null);
+    } else {
+      setCurrentUser(users.find(u => u.role === 'Cán bộ Xã') || null);
+    }
+  }, [role, users]);
 
   return (
-    <DataContext.Provider value={{ users, setUsers, units, setUnits, assessmentPeriods, setAssessmentPeriods, role, setRole }}>
+    <DataContext.Provider value={{ users, setUsers, units, setUnits, assessmentPeriods, setAssessmentPeriods, role, setRole, currentUser }}>
       {children}
     </DataContext.Provider>
   );
