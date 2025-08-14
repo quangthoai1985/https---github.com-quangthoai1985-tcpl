@@ -149,7 +149,7 @@ export default function ReportsPage() {
                 >
                    {statusData.map((entry) => (
                       <Cell
-                        key={entry.name}
+                        key={`cell-${entry.name}`}
                         fill={entry.fill}
                         className="stroke-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                       />
@@ -213,4 +213,3 @@ export default function ReportsPage() {
     </div>
   );
 }
-
