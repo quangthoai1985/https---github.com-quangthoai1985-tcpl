@@ -35,13 +35,13 @@ body {
     --chart-4: 0 84% 60%;   /* red-500 */
     --chart-5: 220 8.9% 46.1%; /* gray-500 */
     --radius: 0.5rem;
-    --sidebar-background: 221 39% 11%; /* blue-800 */
-    --sidebar-foreground: 0 0% 98%;
+    --sidebar-background: 240 10% 97%; /* Light purple-blue */
+    --sidebar-foreground: 240 10% 20%; /* Darker text for contrast */
     --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 221 39% 15%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 221 39% 20%;
+    --sidebar-accent: 240 10% 90%; /* Accent color for hover/active */
+    --sidebar-accent-foreground: 240 10% 10%;
+    --sidebar-border: 240 10% 90%;
     --sidebar-ring: 217 91% 60%;
   }
 
@@ -72,13 +72,13 @@ body {
     --chart-3: 38 92% 50%;
     --chart-4: 0 84% 60%;
     --chart-5: 215.4 16.3% 56.9%;
-    --sidebar-background: 221 39% 11%;
+    --sidebar-background: 224 71.4% 6%; /* Dark mode sidebar */
     --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 221 39% 15%;
+    --sidebar-accent: 224 71.4% 10%;
     --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 221 39% 20%;
+    --sidebar-border: 215 27.9% 16.9%;
     --sidebar-ring: 217 91% 60%;
   }
 }
