@@ -34,8 +34,8 @@ import { useState, useMemo } from 'react';
 import { useData } from '@/context/DataContext';
 
 export default function ReportsPage() {
-    const { assessmentPeriods, recentAssessments, units: allUnits } = useData();
-    const [selectedPeriod, setSelectedPeriod] = useState<string | undefined>(assessmentPeriods.find(p => p.status === 'Active')?.id);
+    const { assessmentPeriods, assessments, units: allUnits } = useData();
+    const [selectedPeriod, setSelectedPeriod] = useState<string | undefined>(assessmentPeriods.find(p => p.isActive)?.id);
 
     // Calculate real data for charts based on the selected period
     const { statusData, criteriaSuccessRate, chartConfig } = useMemo(() => {
@@ -43,19 +43,19 @@ export default function ReportsPage() {
             return { statusData: [], criteriaSuccessRate: [], chartConfig: {} };
         }
         
-        const periodAssessments = recentAssessments.filter(a => a.assessmentPeriodId === selectedPeriod);
+        const periodAssessments = assessments.filter(a => a.assessmentPeriodId === selectedPeriod);
 
-        const allCommuneUnits = allUnits.filter(u => u.name.toLowerCase().includes('xã') || u.name.toLowerCase().includes('phường'));
-        const sentCommuneIds = new Set(periodAssessments.map(a => a.unitId));
+        const allCommuneUnits = allUnits.filter(u => u.type === 'commune');
+        const sentCommuneIds = new Set(periodAssessments.map(a => a.communeId));
 
-        const approvedCount = periodAssessments.filter(a => a.status === 'Đã duyệt').length;
-        const pendingCount = periodAssessments.filter(a => a.status === 'Chờ duyệt').length;
-        const rejectedCount = periodAssessments.filter(a => a.status === 'Bị từ chối').length;
+        const approvedCount = periodAssessments.filter(a => a.status === 'approved').length;
+        const pendingCount = periodAssessments.filter(a => a.status === 'pending_review').length;
+        const rejectedCount = periodAssessments.filter(a => a.status === 'rejected').length;
         const notSentCount = allCommuneUnits.length - sentCommuneIds.size;
 
         const statusData = [
             { name: 'Đã duyệt', value: approvedCount, fill: 'hsl(var(--chart-2))' },
-            { name: 'Chờ duyệt', value: pendingCount, fill: 'hsl(var(--chart-5))' },
+            { name: 'Chờ duyệt', value: pendingCount, fill: 'hsl(var(--chart-3))' },
             { name: 'Bị từ chối', value: rejectedCount, fill: 'hsl(var(--chart-4))' },
             { name: 'Chưa gửi', value: notSentCount, fill: 'hsl(var(--muted))' },
         ].filter(d => d.value > 0);
@@ -82,7 +82,7 @@ export default function ReportsPage() {
         
         return { statusData, criteriaSuccessRate, chartConfig };
 
-    }, [selectedPeriod, recentAssessments, allUnits]);
+    }, [selectedPeriod, assessments, allUnits]);
 
 
   return (
