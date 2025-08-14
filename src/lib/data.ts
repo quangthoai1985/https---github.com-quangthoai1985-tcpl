@@ -2,7 +2,7 @@
 export const dashboardStats = [
     { title: "Tổng số xã", value: "150", change: "+5 so với kỳ trước", icon: "Users" },
     { title: "Xã đã tự đánh giá", value: "125", change: "83.3%", icon: "FileCheck2" },
-    { title: "Hồ sơ chờ duyệt", value: "6", change: "+2 trong 24h", icon: "GanttChartSquare" },
+    { title: "Hồ sơ chờ duyệt", value: "8", change: "+2 trong 24h", icon: "GanttChartSquare" },
     { title: "Tỷ lệ đạt chuẩn", value: "75.2%", change: "+3.2% so với kỳ trước", icon: "TrendingUp" },
 ];
 
@@ -15,23 +15,35 @@ export type Assessment = {
   status: 'Chờ duyệt' | 'Đã duyệt' | 'Bị từ chối';
   rejectionReason?: string;
   communeExplanation?: string;
+  submittedBy?: string;
 };
 
 
 export const recentAssessments: Assessment[] = [
-    { id: 'XA001', communeName: "Phường Bách Khoa", districtName: "Hai Bà Trưng", provinceName: "Hà Nội", submissionDate: "20/07/2024", status: "Chờ duyệt" },
-    { id: 'XA002', communeName: "Xã Tân Triều", districtName: "Thanh Trì", provinceName: "Hà Nội", submissionDate: "19/07/2024", status: "Đã duyệt" },
-    { id: 'XA003', communeName: "Phường Dịch Vọng Hậu", districtName: "Cầu Giấy", provinceName: "Hà Nội", submissionDate: "19/07/2024", status: "Bị từ chối", rejectionReason: "Minh chứng cho Chỉ tiêu 2.2 (Hệ thống loa truyền thanh) không hợp lệ. Yêu cầu cung cấp biên bản kiểm tra tình trạng kỹ thuật mới nhất và hình ảnh thực tế." },
-    { id: 'XA004', communeName: "Xã An Khánh", districtName: "Hoài Đức", provinceName: "Hà Nội", submissionDate: "18/07/2024", status: "Chờ duyệt", communeExplanation: "Chúng tôi đã bổ sung biên bản kiểm tra tình trạng kỹ thuật hệ thống loa truyền thanh ngày 15/07/2024 và hình ảnh thực tế của hệ thống. Kính đề nghị quý sở xem xét lại." },
-    { id: 'XA005', communeName: "Phường Quang Trung", districtName: "Hà Đông", provinceName: "Hà Nội", submissionDate: "17/07/2024", status: "Đã duyệt" },
+    { id: 'XA001', communeName: "Phường Bách Khoa", districtName: "Hai Bà Trưng", provinceName: "Hà Nội", submissionDate: "20/07/2024", status: "Chờ duyệt", submittedBy: 'Trần Thị B' },
+    { id: 'XA002', communeName: "Xã Tân Triều", districtName: "Thanh Trì", provinceName: "Hà Nội", submissionDate: "19/07/2024", status: "Đã duyệt", submittedBy: 'Lê Văn C' },
+    { id: 'XA003', communeName: "Phường Dịch Vọng Hậu", districtName: "Cầu Giấy", provinceName: "Hà Nội", submissionDate: "19/07/2024", status: "Bị từ chối", rejectionReason: "Minh chứng cho Chỉ tiêu 2.2 (Hệ thống loa truyền thanh) không hợp lệ. Yêu cầu cung cấp biên bản kiểm tra tình trạng kỹ thuật mới nhất và hình ảnh thực tế.", submittedBy: 'Phạm Thị D' },
+    { id: 'XA004', communeName: "Xã An Khánh", districtName: "Hoài Đức", provinceName: "Hà Nội", submissionDate: "18/07/2024", status: "Chờ duyệt", communeExplanation: "Chúng tôi đã bổ sung biên bản kiểm tra tình trạng kỹ thuật hệ thống loa truyền thanh ngày 15/07/2024 và hình ảnh thực tế của hệ thống. Kính đề nghị quý sở xem xét lại.", submittedBy: 'Nguyễn Thị F' },
+    { id: 'XA005', communeName: "Phường Quang Trung", districtName: "Hà Đông", provinceName: "Hà Nội", submissionDate: "17/07/2024", status: "Đã duyệt", submittedBy: 'Hoàng Văn G' },
+    { id: 'XA006', communeName: "Xã Cự Khê", districtName: "Thanh Oai", provinceName: "Hà Nội", submissionDate: "21/07/2024", status: "Chờ duyệt", submittedBy: 'Bùi Văn H' },
+    { id: 'XA007', communeName: "Phường Vạn Phúc", districtName: "Hà Đông", provinceName: "Hà Nội", submissionDate: "21/07/2024", status: "Chờ duyệt", submittedBy: 'Đỗ Thị K' },
+    { id: 'XA008', communeName: "Xã Tam Hiệp", districtName: "Phúc Thọ", provinceName: "Hà Nội", submissionDate: "22/07/2024", status: "Chờ duyệt", submittedBy: 'Lý Văn L' },
 ];
 
 export const assessmentStatusChartData = [
-  { name: 'Chưa đánh giá', value: 25, fill: 'hsl(var(--muted-foreground))' },
-  { name: 'Đang soạn thảo', value: 15, fill: 'hsl(var(--chart-4))' },
-  { name: 'Chờ duyệt', value: 6, fill: 'hsl(var(--accent))' },
-  { name: 'Đã duyệt', value: 94, fill: 'hsl(var(--primary))' },
-  { name: 'Bị từ chối', value: 10, fill: 'hsl(var(--destructive))' },
+  { name: 'Đã duyệt', value: 42, fill: '#10b981' }, // emerald-500
+  { name: 'Chờ duyệt', value: 8, fill: '#6b7280' }, // gray-500
+  { name: 'Bị từ chối', value: 5, fill: '#ef4444' }, // red-500
+  { name: 'Chưa gửi', value: 71, fill: '#a7f3d0' }, // emerald-200
+];
+
+export const progressData = [
+  { name: 'Tuần 1', 'Số lượng': 5 },
+  { name: 'Tuần 2', 'Số lượng': 12 },
+  { name: 'Tuần 3', 'Số lượng': 9 },
+  { name: 'Tuần 4', 'Số lượng': 15 },
+  { name: 'Tuần 5', 'Số lượng': 13 },
+  { name: 'Tuần 6', 'Số lượng': 20 },
 ];
 
 export const units = [
@@ -157,5 +169,3 @@ export const adminNotifications = [
     { id: 'N002', title: 'Xã Tân Triều vừa cập nhật hồ sơ bị từ chối.', time: '2 giờ trước', read: false },
     { id: 'N003', title: 'Phường Bách Khoa vừa gửi hồ sơ đánh giá.', time: 'Hôm qua', read: true },
 ];
-
-    

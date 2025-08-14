@@ -2,15 +2,17 @@
 'use client';
 import {
   FileCheck2,
-  GanttChartSquare,
-  TrendingUp,
   Users,
-  ArrowRight,
+  Eye,
   Clock,
   CheckCircle,
   XCircle,
-  Eye,
+  TrendingUp,
+  ArrowRight,
   Edit,
+  FileClock,
+  ThumbsUp,
+  ThumbsDown,
 } from 'lucide-react';
 import {
   Card,
@@ -34,83 +36,162 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { Pie, PieChart, Cell } from 'recharts';
-import { dashboardStats, recentAssessments, assessmentStatusChartData } from '@/lib/data';
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
+import { dashboardStats, recentAssessments, assessmentStatusChartData, progressData } from '@/lib/data';
 import Link from 'next/link';
 import { useData } from '@/context/DataContext';
 
-const iconMap = {
-  Users: Users,
-  FileCheck2: FileCheck2,
-  GanttChartSquare: GanttChartSquare,
-  TrendingUp: TrendingUp,
-};
+const kpiCards = [
+  { 
+    title: "Tổng số xã", 
+    value: "126", 
+    icon: Users, 
+    color: "bg-blue-500",
+    link: "/admin/units"
+  },
+  { 
+    title: "Chờ duyệt", 
+    value: "8", 
+    icon: FileClock, 
+    color: "bg-gray-500",
+    link: "/admin/reviews"
+  },
+  { 
+    title: "Đã duyệt", 
+    value: "42", 
+    icon: ThumbsUp, 
+    color: "bg-emerald-500",
+    link: "/admin/reviews"
+  },
+  { 
+    title: "Bị từ chối", 
+    value: "5", 
+    icon: ThumbsDown, 
+    color: "bg-red-500",
+    link: "/admin/reviews"
+  },
+];
+
 
 const AdminDashboard = () => (
-    <>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {dashboardStats.map((stat, index) => {
-          const Icon = iconMap[stat.icon as keyof typeof iconMap] || Users;
+    <div className="flex flex-col gap-6">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {kpiCards.map((card, index) => {
+          const Icon = card.icon;
           return (
-            <Card key={index}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {stat.title}
-                </CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground">{stat.change}</p>
-              </CardContent>
-            </Card>
+            <Link href={card.link} key={index}>
+              <Card className={`${card.color} text-white shadow-lg transition-transform transform hover:scale-102`}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    {card.title}
+                  </CardTitle>
+                  <Icon className="h-5 w-5" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-5xl font-bold">{card.value}</div>
+                </CardContent>
+              </Card>
+            </Link>
           );
         })}
       </div>
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
+      
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Đánh giá gần đây</CardTitle>
-            <CardDescription>
-              Danh sách các xã nộp hồ sơ đánh giá gần nhất.
-            </CardDescription>
+            <CardTitle>Đánh giá các xã</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                 <PieChart>
+                    <Pie
+                        data={assessmentStatusChartData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        outerRadius={100}
+                        fill="#8884d8"
+                        dataKey="value"
+                        nameKey="name"
+                    >
+                        {assessmentStatusChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                        ))}
+                    </Pie>
+                    <Tooltip />
+                    <legend
+                        iconType="circle"
+                        layout="vertical"
+                        verticalAlign="middle"
+                        align="right"
+                        wrapperStyle={{ right: -10 }}
+                    />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle>Tiến độ đánh giá</CardTitle>
+          </CardHeader>
+          <CardContent>
+             <div className="h-[300px] w-full">
+               <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={progressData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="name" tickLine={false} axisLine={{ stroke: '#e5e7eb' }}/>
+                        <YAxis tickLine={false} axisLine={{ stroke: '#e5e7eb' }} />
+                        <Tooltip
+                            contentStyle={{
+                                borderRadius: '8px',
+                                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+                                border: '1px solid #e5e7eb'
+                            }}
+                        />
+                        <Line type="monotone" dataKey="Số lượng" stroke="#3b82f6" strokeWidth={3} dot={{ r: 5 }} activeDot={{ r: 8 }} />
+                    </LineChart>
+                </ResponsiveContainer>
+             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle>Đánh giá chờ duyệt</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
-              <TableHeader>
+              <TableHeader className="bg-gray-50">
                 <TableRow>
-                  <TableHead>Tên xã</TableHead>
-                  <TableHead className="hidden md:table-cell">
-                    Ngày nộp
-                  </TableHead>
-                  <TableHead>Trạng thái</TableHead>
+                  <TableHead className="font-semibold">Xã</TableHead>
+                  <TableHead className="hidden font-semibold md:table-cell">Ngày gửi</TableHead>
+                  <TableHead className="hidden font-semibold lg:table-cell">Người gửi</TableHead>
+                  <TableHead className="font-semibold">Trạng thái</TableHead>
+                  <TableHead><span className="sr-only">Hành động</span></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {recentAssessments.map((assessment) => (
-                  <TableRow key={assessment.id}>
+                {recentAssessments.filter(a => a.status === 'Chờ duyệt').map((assessment) => (
+                  <TableRow key={assessment.id} className="hover:bg-gray-50">
                     <TableCell>
                       <div className="font-medium">{assessment.communeName}</div>
-                      <div className="hidden text-sm text-muted-foreground md:inline">
+                      <div className="text-sm text-muted-foreground">
                         {assessment.districtName}, {assessment.provinceName}
                       </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      {assessment.submissionDate}
+                    <TableCell className="hidden md:table-cell">{assessment.submissionDate}</TableCell>
+                    <TableCell className="hidden lg:table-cell">{assessment.submittedBy}</TableCell>
+                    <TableCell>
+                      <Badge className="bg-amber-500 text-white">Chờ duyệt</Badge>
                     </TableCell>
                     <TableCell>
-                      <Badge
-                        variant={
-                          assessment.status === 'Đã duyệt'
-                            ? 'default'
-                            : assessment.status === 'Bị từ chối'
-                            ? 'destructive'
-                            : 'secondary'
-                        }
-                        className={assessment.status === 'Đã duyệt' ? 'bg-green-600' : ''}
-                      >
-                        {assessment.status}
-                      </Badge>
+                        <Button variant="outline" size="sm" asChild>
+                            <Link href={`/admin/reviews/${assessment.id}`}>Xem chi tiết</Link>
+                        </Button>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -118,45 +199,14 @@ const AdminDashboard = () => (
             </Table>
           </CardContent>
         </Card>
-        <Card className="col-span-4 lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Tổng quan trạng thái</CardTitle>
-            <CardDescription>Phân bố trạng thái đánh giá của các xã.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <ChartContainer
-              config={{}}
-              className="mx-auto aspect-square h-[250px]"
-            >
-              <PieChart>
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent hideLabel />}
-                />
-                <Pie
-                  data={assessmentStatusChartData}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={60}
-                  strokeWidth={5}
-                >
-                  {assessmentStatusChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ChartContainer>
-          </CardContent>
-        </Card>
-      </div>
-    </>
+    </div>
 );
 
 const CommuneDashboard = () => {
     const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
-        'Đã duyệt': { text: 'Đã duyệt', icon: CheckCircle, badge: 'default', className: 'bg-green-600' },
-        'Chờ duyệt': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary' },
-        'Bị từ chối': { text: 'Bị từ chối', icon: XCircle, badge: 'destructive' },
+        'Đã duyệt': { text: 'Đã duyệt', icon: CheckCircle, badge: 'default', className: 'bg-emerald-500' },
+        'Chờ duyệt': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary', className: 'bg-amber-500' },
+        'Bị từ chối': { text: 'Bị từ chối', icon: XCircle, badge: 'destructive', className: 'bg-red-500' },
     };
 
     const communeAssessments = [
@@ -208,7 +258,7 @@ const CommuneDashboard = () => {
                                         <TableCell className="font-medium">6 tháng đầu năm 2024</TableCell>
                                         <TableCell>{assessment.submissionDate}</TableCell>
                                         <TableCell>
-                                            <Badge variant={statusInfo.badge} className={statusInfo.className}>
+                                            <Badge variant={statusInfo.badge} className={`${statusInfo.className} text-white`}>
                                                 <statusInfo.icon className="mr-2 h-4 w-4" />
                                                 {statusInfo.text}
                                             </Badge>

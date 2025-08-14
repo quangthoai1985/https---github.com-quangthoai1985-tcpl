@@ -50,9 +50,9 @@ export default function AppSidebar() {
   const pendingCount = recentAssessments.filter(a => a.status === 'Chờ duyệt').length;
 
   return (
-    <div className="hidden border-r bg-card md:block">
+    <div className="hidden border-r bg-sidebar text-sidebar-foreground md:block">
       <div className="flex h-full max-h-screen flex-col gap-2">
-        <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
+        <div className="flex h-14 items-center border-b border-sidebar-border px-4 lg:h-[60px] lg:px-6">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
             <Image src="https://placehold.co/32x32.png" alt="Logo" width={32} height={32} data-ai-hint="logo" />
             <span className="font-headline">CHUẨN TIẾP CẬN PHÁP LUẬT</span>
@@ -65,15 +65,15 @@ export default function AppSidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
-                  pathname.startsWith(item.href) && item.href !== '/dashboard' ? 'bg-muted text-primary' : '',
-                  pathname === item.href && item.href === '/dashboard' ? 'bg-muted text-primary' : ''
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+                  pathname.startsWith(item.href) && item.href !== '/dashboard' ? 'bg-sidebar-accent' : '',
+                  pathname === item.href && item.href === '/dashboard' ? 'bg-sidebar-accent' : ''
                 )}
               >
                 <item.icon className="h-4 w-4" />
                 {item.label}
                 {item.href === '/admin/reviews' && pendingCount > 0 && role === 'admin' && (
-                  <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
+                  <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-sidebar-primary-foreground">
                     {pendingCount}
                   </Badge>
                 )}
