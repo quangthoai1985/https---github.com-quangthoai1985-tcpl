@@ -55,7 +55,7 @@ export default function AppSidebar() {
         <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
           <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
             <Image src="https://placehold.co/32x32.png" alt="Logo" width={32} height={32} data-ai-hint="logo" />
-            <span className="font-headline">Tiếp Cận Pháp Luật</span>
+            <span className="font-headline">CHUẨN TIẾP CẬN PHÁP LUẬT</span>
           </Link>
         </div>
         <div className="flex-1">
