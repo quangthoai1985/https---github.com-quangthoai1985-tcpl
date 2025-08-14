@@ -2,7 +2,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { users as initialUsers, units as initialUnits, assessmentPeriods as initialAssessmentPeriods } from '@/lib/data';
+import { users as initialUsers, units as initialUnits, assessmentPeriods as initialAssessmentPeriods, recentAssessments as initialRecentAssessments } from '@/lib/data';
 
 type Unit = {
   id: string;
@@ -27,6 +27,17 @@ type AssessmentPeriod = {
     status: 'Active' | 'Inactive';
 };
 
+type Assessment = {
+  id: string;
+  unitId: string;
+  submissionDate: string;
+  status: 'Chờ duyệt' | 'Đã duyệt' | 'Bị từ chối';
+  rejectionReason?: string;
+  communeExplanation?: string;
+  submittedBy?: string;
+  assessmentPeriodId: string;
+};
+
 interface DataContextType {
   users: User[];
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
@@ -34,6 +45,8 @@ interface DataContextType {
   setUnits: React.Dispatch<React.SetStateAction<Unit[]>>;
   assessmentPeriods: AssessmentPeriod[];
   setAssessmentPeriods: React.Dispatch<React.SetStateAction<AssessmentPeriod[]>>;
+  recentAssessments: Assessment[];
+  setRecentAssessments: React.Dispatch<React.SetStateAction<Assessment[]>>;
   role: Role;
   setRole: React.Dispatch<React.SetStateAction<Role>>;
   currentUser: User | null;
@@ -45,6 +58,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [units, setUnits] = useState<Unit[]>(initialUnits);
   const [assessmentPeriods, setAssessmentPeriods] = useState<AssessmentPeriod[]>(initialAssessmentPeriods);
+  const [recentAssessments, setRecentAssessments] = useState<Assessment[]>(initialRecentAssessments);
   const [role, setRole] = useState<Role>('admin');
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
@@ -59,7 +73,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, [role, users]);
 
   return (
-    <DataContext.Provider value={{ users, setUsers, units, setUnits, assessmentPeriods, setAssessmentPeriods, role, setRole, currentUser }}>
+    <DataContext.Provider value={{ users, setUsers, units, setUnits, assessmentPeriods, setAssessmentPeriods, recentAssessments, setRecentAssessments, role, setRole, currentUser }}>
       {children}
     </DataContext.Provider>
   );
