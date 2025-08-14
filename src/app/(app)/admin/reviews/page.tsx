@@ -22,11 +22,24 @@ import { Eye, CheckCircle, XCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import React, { useMemo } from 'react';
+import { useData } from '@/context/DataContext';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export default function ReviewAssessmentsPage() {
+    const { assessmentPeriods } = useData();
+    const [selectedPeriod, setSelectedPeriod] = React.useState<string | undefined>(
+        assessmentPeriods.find(p => p.status === 'Active')?.id
+    );
+
+    const filteredAssessments = useMemo(() => {
+        if (!selectedPeriod) return [];
+        return recentAssessments.filter(a => a.assessmentPeriodId === selectedPeriod);
+    }, [selectedPeriod]);
+
   const getAssessmentsByStatus = (status: string) => {
-    if (status === 'all') return recentAssessments;
-    return recentAssessments.filter((assessment) => assessment.status === status);
+    if (status === 'all') return filteredAssessments;
+    return filteredAssessments.filter((assessment) => assessment.status === status);
   };
   
   const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
@@ -95,17 +108,31 @@ export default function ReviewAssessmentsPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Duyệt hồ sơ đánh giá</CardTitle>
-        <CardDescription>
-          Xem xét và phê duyệt các hồ sơ đánh giá do các xã gửi lên.
-        </CardDescription>
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+                <CardTitle>Duyệt hồ sơ đánh giá</CardTitle>
+                <CardDescription>
+                Xem xét và phê duyệt các hồ sơ đánh giá do các xã gửi lên.
+                </CardDescription>
+            </div>
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger className="w-full sm:w-[280px]">
+                <SelectValue placeholder="Chọn đợt đánh giá" />
+              </SelectTrigger>
+              <SelectContent>
+                {assessmentPeriods.map(period => (
+                    <SelectItem key={period.id} value={period.id}>{period.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+        </div>
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="pending">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="pending">Chờ duyệt</TabsTrigger>
-            <TabsTrigger value="approved">Đã duyệt</TabsTrigger>
-            <TabsTrigger value="rejected">Bị từ chối</TabsTrigger>
+            <TabsTrigger value="pending">Chờ duyệt ({getAssessmentsByStatus('Chờ duyệt').length})</TabsTrigger>
+            <TabsTrigger value="approved">Đã duyệt ({getAssessmentsByStatus('Đã duyệt').length})</TabsTrigger>
+            <TabsTrigger value="rejected">Bị từ chối ({getAssessmentsByStatus('Bị từ chối').length})</TabsTrigger>
           </TabsList>
           <TabsContent value="pending">
             <AssessmentTable status="Chờ duyệt" />
