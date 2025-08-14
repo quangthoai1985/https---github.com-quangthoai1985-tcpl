@@ -54,11 +54,11 @@ export const units = [
 ];
 
 export const users = [
-    { id: "USR001", name: "Nguyễn Văn A", email: "admin@example.com", unitId: "DVI001", role: "Cán bộ Tỉnh" },
-    { id: "USR002", name: "Trần Thị B", email: "thib@commune.gov.vn", unitId: "DVI002", role: "Cán bộ Xã" },
-    { id: "USR003", name: "Lê Văn C", email: "vanc@commune.gov.vn", unitId: "DVI003", role: "Cán bộ Xã" },
-    { id: "USR004", name: "Phạm Thị D", email: "thid@commune.gov.vn", unitId: "DVI004", role: "Cán bộ Xã" },
-    { id: "USR005", name: "Hoàng Văn E", email: "admin2@example.com", unitId: "DVI001", role: "Cán bộ Tỉnh" },
+    { id: "USR001", name: "Nguyễn Văn A", username: "admin", unitId: "DVI001", role: "Cán bộ Tỉnh" },
+    { id: "USR002", name: "Trần Thị B", username: "b.tran", unitId: "DVI002", role: "Cán bộ Xã" },
+    { id: "USR003", name: "Lê Văn C", username: "c.le", unitId: "DVI003", role: "Cán bộ Xã" },
+    { id: "USR004", name: "Phạm Thị D", username: "d.pham", unitId: "DVI004", role: "Cán bộ Xã" },
+    { id: "USR005", name: "Hoàng Văn E", username: "e.hoang", unitId: "DVI001", role: "Cán bộ Tỉnh" },
 ];
 
 export const criteria = [

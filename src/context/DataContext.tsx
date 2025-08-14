@@ -12,7 +12,7 @@ type Unit = {
 type User = {
   id: string;
   name: string;
-  email: string;
+  username: string;
   unitId: string;
   role: string;
 };
@@ -72,5 +72,3 @@ export const useData = () => {
   }
   return context;
 };
-
-    

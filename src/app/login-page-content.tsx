@@ -40,24 +40,18 @@ export default function LoginPageContent() {
         <CardContent>
           <div className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="username">Tên đăng nhập</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="admin@example.com"
+                id="username"
+                type="text"
+                placeholder="admin"
                 required
-                defaultValue="admin@example.com"
+                defaultValue="admin"
               />
             </div>
             <div className="grid gap-2">
               <div className="flex items-center">
                 <Label htmlFor="password">Mật khẩu</Label>
-                <Link
-                  href="/forgot-password"
-                  className="ml-auto inline-block text-sm underline"
-                >
-                  Quên mật khẩu?
-                </Link>
               </div>
               <Input id="password" type="password" required defaultValue="123" />
             </div>

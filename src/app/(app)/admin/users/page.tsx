@@ -53,7 +53,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 type User = {
   id: string;
   name: string;
-  email: string;
+  username: string;
   unitId: string;
   role: string;
 };
@@ -85,8 +85,8 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
               <Input id="name" value={formData.name || ''} onChange={handleChange} className="col-span-3" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="email" className="text-right">Email</Label>
-              <Input id="email" type="email" value={formData.email || ''} onChange={handleChange} className="col-span-3" />
+              <Label htmlFor="username" className="text-right">Tên đăng nhập</Label>
+              <Input id="username" type="text" value={formData.username || ''} onChange={handleChange} className="col-span-3" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="unitId" className="text-right">Đơn vị</Label>
@@ -166,7 +166,7 @@ function UserTable({ users, onEdit, onResetPassword, onDelete }: { users: User[]
                 <TableCell className="font-medium">
                     {user.name}
                     <div className="text-sm text-muted-foreground md:hidden">
-                        {user.email}
+                        {user.username}
                     </div>
                 </TableCell>
                 <TableCell>
@@ -284,7 +284,7 @@ export default function UserManagementPage() {
             title: "Thành công!",
             description: `Đã đặt lại mật khẩu cho ${resettingUser.name}.`,
         });
-        console.log(`Password for ${resettingUser.email} set to: ${password}`);
+        console.log(`Password for ${resettingUser.username} set to: ${password}`);
         setResettingUser(null);
     }
   };
@@ -298,7 +298,7 @@ export default function UserManagementPage() {
       const newUser = {
         ...userToSave,
         id: `USR${String(users.length + 1).padStart(3, '0')}`,
-        email: userToSave.email || '',
+        username: userToSave.username || '',
         name: userToSave.name || '',
         unitId: userToSave.unitId || '',
         role: userToSave.role || 'Cán bộ Xã',
@@ -418,5 +418,3 @@ export default function UserManagementPage() {
     </>
   );
 }
-
-    

@@ -58,8 +58,8 @@ export default function ProfilePage() {
                             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
                         </div>
                         <div className="grid gap-2">
-                            <Label htmlFor="email">Email</Label>
-                            <Input id="email" type="email" value={currentUser.email} disabled />
+                            <Label htmlFor="username">Tên đăng nhập</Label>
+                            <Input id="username" type="text" value={currentUser.username} disabled />
                         </div>
                          <div className="grid gap-2">
                             <Label htmlFor="unit">Đơn vị</Label>
