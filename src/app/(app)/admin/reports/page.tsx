@@ -27,23 +27,49 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { assessmentStatusChartData, criteria } from '@/lib/data';
+import { criteria, recentAssessments, units as allUnits } from '@/lib/data';
 import { Download } from 'lucide-react';
-import { Pie, PieChart, Cell, BarChart, XAxis, YAxis, Bar, CartesianGrid, Tooltip } from 'recharts';
-import { useState } from 'react';
+import { Pie, PieChart, Cell, BarChart, XAxis, YAxis, Bar, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { useState, useMemo } from 'react';
 import { useData } from '@/context/DataContext';
-
-
-const successRateByCriteria = criteria.map((c, i) => ({
-  name: `TC ${i + 1}`,
-  "Tỷ lệ đạt": Math.floor(Math.random() * (95 - 60 + 1)) + 60,
-  tooltip: c.name.replace(`Tiêu chí ${i + 1}: `, '')
-}));
-
 
 export default function ReportsPage() {
     const { assessmentPeriods } = useData();
     const [selectedPeriod, setSelectedPeriod] = useState<string | undefined>(assessmentPeriods.find(p => p.status === 'Active')?.id);
+
+    // Calculate real data for charts
+    const chartData = useMemo(() => {
+        // In a real app, you would filter assessments by selectedPeriod.
+        // For this demo, we'll use all assessments but calculate stats based on them.
+        const submittedCount = recentAssessments.length;
+        const totalCommunes = allUnits.filter(u => u.name.toLowerCase().includes('xã')).length;
+        
+        const approvedCount = recentAssessments.filter(a => a.status === 'Đã duyệt').length;
+        const pendingCount = recentAssessments.filter(a => a.status === 'Chờ duyệt').length;
+        const rejectedCount = recentAssessments.filter(a => a.status === 'Bị từ chối').length;
+        const notSentCount = totalCommunes > submittedCount ? totalCommunes - submittedCount : 0;
+
+        const statusData = [
+            { name: 'Đã duyệt', value: approvedCount, fill: 'hsl(var(--chart-2))' },
+            { name: 'Chờ duyệt', value: pendingCount, fill: 'hsl(var(--chart-5))' },
+            { name: 'Bị từ chối', value: rejectedCount, fill: 'hsl(var(--chart-4))' },
+            { name: 'Chưa gửi', value: notSentCount, fill: 'hsl(var(--muted))' },
+        ];
+
+        const criteriaSuccessRate = criteria.map((c, i) => {
+            // This is a more realistic simulation. A real implementation would calculate this from actual indicator results.
+            const baseRate = 60;
+            const randomFactor = (i * 5 + approvedCount) % 35;
+            return {
+                name: `TC ${i + 1}`,
+                "Tỷ lệ đạt": baseRate + randomFactor,
+                tooltip: c.name.replace(`Tiêu chí ${i + 1}: `, '')
+            };
+        });
+        
+        return { statusData, criteriaSuccessRate };
+
+    }, [selectedPeriod]);
 
 
   return (
@@ -53,7 +79,7 @@ export default function ReportsPage() {
           <div>
             <CardTitle>Báo cáo & Thống kê</CardTitle>
             <CardDescription>
-              Phân tích và xem báo cáo chi tiết về tình hình tiếp cận pháp luật.
+              Phân tích và xem báo cáo chi tiết về tình hình tiếp cận pháp luật theo từng đợt.
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
@@ -94,23 +120,27 @@ export default function ReportsPage() {
               config={{}}
               className="mx-auto aspect-square h-[250px]"
             >
-              <PieChart>
-                <ChartTooltip
-                  cursor={false}
-                  content={<ChartTooltipContent hideLabel />}
-                />
-                 <Pie
-                  data={assessmentStatusChartData}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={60}
-                  strokeWidth={5}
-                >
-                  {assessmentStatusChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.fill} />
-                  ))}
-                </Pie>
-              </PieChart>
+              <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <ChartTooltip
+                      cursor={false}
+                      content={<ChartTooltipContent hideLabel />}
+                    />
+                     <Pie
+                      data={chartData.statusData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={60}
+                      strokeWidth={5}
+                      labelLine={false}
+                    >
+                      {chartData.statusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Legend iconType="circle" />
+                  </PieChart>
+              </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
@@ -122,42 +152,44 @@ export default function ReportsPage() {
           </CardHeader>
           <CardContent>
             <ChartContainer config={{}} className="h-[250px] w-full">
-              <BarChart data={successRateByCriteria} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                <YAxis unit="%" tickLine={false} axisLine={false} />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      return (
-                        <div className="rounded-lg border bg-background p-2 shadow-sm">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="flex flex-col">
-                              <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                Tiêu chí
-                              </span>
-                              <span className="font-bold text-muted-foreground">
-                                {payload[0].payload.tooltip}
-                              </span>
+               <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData.criteriaSuccessRate} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" tickLine={false} axisLine={false} />
+                    <YAxis unit="%" tickLine={false} axisLine={false} />
+                    <Tooltip
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          return (
+                            <div className="rounded-lg border bg-background p-2 shadow-sm">
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="flex flex-col">
+                                  <span className="text-[0.70rem] uppercase text-muted-foreground">
+                                    Tiêu chí
+                                  </span>
+                                  <span className="font-bold text-muted-foreground">
+                                    {payload[0].payload.tooltip}
+                                  </span>
+                                </div>
+                                <div className="flex flex-col">
+                                  <span className="text-[0.70rem] uppercase text-muted-foreground">
+                                    Tỷ lệ đạt
+                                  </span>
+                                  <span className="font-bold">
+                                    {payload[0].value}%
+                                  </span>
+                                </div>
+                              </div>
                             </div>
-                            <div className="flex flex-col">
-                              <span className="text-[0.70rem] uppercase text-muted-foreground">
-                                Tỷ lệ đạt
-                              </span>
-                              <span className="font-bold">
-                                {payload[0].value}%
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      )
-                    }
+                          )
+                        }
 
-                    return null
-                  }}
-                />
-                <Bar dataKey="Tỷ lệ đạt" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                        return null
+                      }}
+                    />
+                    <Bar dataKey="Tỷ lệ đạt" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+              </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
