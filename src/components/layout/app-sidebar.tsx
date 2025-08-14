@@ -45,8 +45,9 @@ export default function AppSidebar() {
     <div className="hidden border-r bg-sidebar text-sidebar-foreground md:block">
       <div className="flex h-full max-h-screen flex-col gap-2">
         <div className="flex h-14 items-center border-b border-sidebar-border px-4 lg:h-[60px] lg:px-6">
-          <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
-            <div className="font-headline text-sm uppercase leading-tight text-center">
+          <Link href="/dashboard" className="flex items-center gap-3 font-semibold">
+             <Image src="https://placehold.co/40x40.png" alt="Logo" width={32} height={32} data-ai-hint="logo" />
+            <div className="font-headline text-sm uppercase leading-tight">
                 <div>Đánh giá chuẩn</div>
                 <div>Tiếp cận pháp luật</div>
             </div>
