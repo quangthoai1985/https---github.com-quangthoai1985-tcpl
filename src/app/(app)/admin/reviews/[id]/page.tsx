@@ -7,13 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { criteria, recentAssessments } from "@/lib/data";
+import { criteria } from "@/lib/data";
 import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock } from "lucide-react";
 import React, { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import { useData } from "@/context/DataContext";
 import { Input } from "@/components/ui/input";
@@ -50,12 +50,14 @@ function FileUploadComponent() {
     );
 }
 
-export default function AssessmentDetailPage({ params }: { params: { id: string } }) {
+export default function AssessmentDetailPage() {
   const router = useRouter();
-  const { role, units } = useData();
+  const params = useParams();
+  const id = params.id as string;
+
+  const { role, units, recentAssessments, setRecentAssessments } = useData();
   const { toast } = useToast();
-  // In a real app, you would fetch this from a server and use state management.
-  const id = params.id;
+  
   const [assessment, setAssessment] = useState(() => recentAssessments.find((a) => a.id === id));
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState(assessment?.rejectionReason || "");
@@ -84,9 +86,8 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
 
   const handleApprove = () => {
     const updatedAssessment = { ...assessment, status: 'Đã duyệt' };
-    const index = recentAssessments.findIndex(a => a.id === params.id);
-    if(index !== -1) recentAssessments[index] = updatedAssessment as any;
-    setAssessment(updatedAssessment as any);
+    setRecentAssessments(prev => prev.map(a => a.id === id ? updatedAssessment : a));
+    setAssessment(updatedAssessment);
     
     toast({
       title: "Phê duyệt thành công!",
@@ -105,9 +106,8 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
         return;
     }
     const updatedAssessment = { ...assessment, status: 'Bị từ chối', rejectionReason: rejectionReason, communeExplanation: "" };
-    const index = recentAssessments.findIndex(a => a.id === params.id);
-    if(index !== -1) recentAssessments[index] = updatedAssessment as any;
-    setAssessment(updatedAssessment as any);
+    setRecentAssessments(prev => prev.map(a => a.id === id ? updatedAssessment : a));
+    setAssessment(updatedAssessment);
     
     toast({
       title: "Đã từ chối hồ sơ",
@@ -121,9 +121,8 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
       // In a real app, you would collect all explanations and new files.
       // For this demo, we just update the status.
       const updatedAssessment = { ...assessment, status: 'Chờ duyệt', communeExplanation: "Đã giải trình và bổ sung minh chứng." };
-      const index = recentAssessments.findIndex(a => a.id === params.id);
-      if(index !== -1) recentAssessments[index] = updatedAssessment as any;
-      setAssessment(updatedAssessment as any);
+      setRecentAssessments(prev => prev.map(a => a.id === id ? updatedAssessment : a));
+      setAssessment(updatedAssessment);
       toast({
         title: "Gửi lại thành công",
         description: "Hồ sơ của bạn đã được gửi lại để xem xét."
@@ -369,3 +368,5 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
     </>
   );
 }
+
+    
