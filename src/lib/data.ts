@@ -9,9 +9,7 @@ export const dashboardStats = [
 
 export type Assessment = {
   id: string;
-  communeName: string;
-  districtName: string;
-  provinceName: string;
+  unitId: string; // Changed from communeName, etc. to a single ID
   submissionDate: string;
   status: 'Chờ duyệt' | 'Đã duyệt' | 'Bị từ chối';
   rejectionReason?: string;
@@ -22,18 +20,17 @@ export type Assessment = {
 
 
 export const recentAssessments: Assessment[] = [
-    { id: 'XA001', communeName: "Phường Bách Khoa", districtName: "Hai Bà Trưng", provinceName: "Hà Nội", submissionDate: "20/07/2024", status: "Chờ duyệt", submittedBy: 'Trần Thị B', assessmentPeriodId: 'DOT001' },
-    { id: 'XA002', communeName: "Xã Tân Triều", districtName: "Thanh Trì", provinceName: "Hà Nội", submissionDate: "19/07/2024", status: "Đã duyệt", submittedBy: 'Lê Văn C', assessmentPeriodId: 'DOT001' },
-    { id: 'XA003', communeName: "Phường Dịch Vọng Hậu", districtName: "Cầu Giấy", provinceName: "Hà Nội", submissionDate: "19/07/2024", status: "Bị từ chối", rejectionReason: "Minh chứng cho Chỉ tiêu 2.2 (Hệ thống loa truyền thanh) không hợp lệ. Yêu cầu cung cấp biên bản kiểm tra tình trạng kỹ thuật mới nhất và hình ảnh thực tế.", submittedBy: 'Phạm Thị D', assessmentPeriodId: 'DOT001' },
-    { id: 'XA004', communeName: "Xã An Khánh", districtName: "Hoài Đức", provinceName: "Hà Nội", submissionDate: "18/07/2024", status: "Chờ duyệt", communeExplanation: "Chúng tôi đã bổ sung biên bản kiểm tra tình trạng kỹ thuật hệ thống loa truyền thanh ngày 15/07/2024 và hình ảnh thực tế của hệ thống. Kính đề nghị quý sở xem xét lại.", submittedBy: 'Nguyễn Thị F', assessmentPeriodId: 'DOT001' },
-    { id: 'XA005', communeName: "Phường Quang Trung", districtName: "Hà Đông", provinceName: "Hà Nội", submissionDate: "17/07/2024", status: "Đã duyệt", submittedBy: 'Hoàng Văn G', assessmentPeriodId: 'DOT001' },
-    { id: 'XA006', communeName: "Xã Cự Khê", districtName: "Thanh Oai", provinceName: "Hà Nội", submissionDate: "21/07/2024", status: "Chờ duyệt", submittedBy: 'Bùi Văn H', assessmentPeriodId: 'DOT001' },
-    { id: 'XA007', communeName: "Phường Vạn Phúc", districtName: "Hà Đông", provinceName: "Hà Nội", submissionDate: "21/07/2024", status: "Chờ duyệt", submittedBy: 'Đỗ Thị K', assessmentPeriodId: 'DOT001' },
-    { id: 'XA008', communeName: "Xã Tam Hiệp", districtName: "Phúc Thọ", provinceName: "Hà Nội", submissionDate: "22/07/2024", status: "Chờ duyệt", submittedBy: 'Lý Văn L', assessmentPeriodId: 'DOT001' },
+    { id: 'XA001', unitId: "DVI002", submissionDate: "20/07/2024", status: "Chờ duyệt", submittedBy: 'Trần Thị B', assessmentPeriodId: 'DOT001' },
+    { id: 'XA002', unitId: "DVI003", submissionDate: "19/07/2024", status: "Đã duyệt", submittedBy: 'Lê Văn C', assessmentPeriodId: 'DOT001' },
+    { id: 'XA003', unitId: "DVI004", submissionDate: "19/07/2024", status: "Bị từ chối", rejectionReason: "Minh chứng cho Chỉ tiêu 2.2 (Hệ thống loa truyền thanh) không hợp lệ. Yêu cầu cung cấp biên bản kiểm tra tình trạng kỹ thuật mới nhất và hình ảnh thực tế.", submittedBy: 'Phạm Thị D', assessmentPeriodId: 'DOT001' },
+    { id: 'XA004', unitId: "DVI005", submissionDate: "18/07/2024", status: "Chờ duyệt", communeExplanation: "Chúng tôi đã bổ sung biên bản kiểm tra tình trạng kỹ thuật hệ thống loa truyền thanh ngày 15/07/2024 và hình ảnh thực tế của hệ thống. Kính đề nghị quý sở xem xét lại.", submittedBy: 'Nguyễn Thị F', assessmentPeriodId: 'DOT001' },
+    { id: 'XA005', unitId: "DVI006", submissionDate: "17/07/2024", status: "Đã duyệt", submittedBy: 'Hoàng Văn G', assessmentPeriodId: 'DOT001' },
+    { id: 'XA006', unitId: "DVI007", submissionDate: "21/07/2024", status: "Chờ duyệt", submittedBy: 'Bùi Văn H', assessmentPeriodId: 'DOT001' },
+    { id: 'XA007', unitId: "DVI008", submissionDate: "21/07/2024", status: "Chờ duyệt", submittedBy: 'Đỗ Thị K', assessmentPeriodId: 'DOT001' },
     // Data for previous assessment period
-    { id: 'XA009', communeName: "Phường Bách Khoa", districtName: "Hai Bà Trưng", provinceName: "Hà Nội", submissionDate: "15/12/2023", status: "Đã duyệt", submittedBy: 'Trần Thị B', assessmentPeriodId: 'DOT002' },
-    { id: 'XA010', communeName: "Xã Tân Triều", districtName: "Thanh Trì", provinceName: "Hà Nội", submissionDate: "14/12/2023", status: "Đã duyệt", submittedBy: 'Lê Văn C', assessmentPeriodId: 'DOT002' },
-    { id: 'XA011', communeName: "Phường Dịch Vọng Hậu", districtName: "Cầu Giấy", provinceName: "Hà Nội", submissionDate: "12/12/2023", status: "Bị từ chối", rejectionReason: "Hồ sơ chưa đầy đủ.", submittedBy: 'Phạm Thị D', assessmentPeriodId: 'DOT002' },
+    { id: 'XA009', unitId: "DVI002", submissionDate: "15/12/2023", status: "Đã duyệt", submittedBy: 'Trần Thị B', assessmentPeriodId: 'DOT002' },
+    { id: 'XA010', unitId: "DVI003", submissionDate: "14/12/2023", status: "Đã duyệt", submittedBy: 'Lê Văn C', assessmentPeriodId: 'DOT002' },
+    { id: 'XA011', unitId: "DVI004", submissionDate: "12/12/2023", status: "Bị từ chối", rejectionReason: "Hồ sơ chưa đầy đủ.", submittedBy: 'Phạm Thị D', assessmentPeriodId: 'DOT002' },
 
 ];
 
@@ -55,9 +52,14 @@ export const progressData = [
 
 export const units = [
     { id: 'DVI001', name: 'Sở Tư pháp Tỉnh X' },
-    { id: 'DVI002', name: 'UBND Xã Y, Huyện Z' },
-    { id: 'DVI003', name: 'UBND Xã A, Huyện B' },
-    { id: 'DVI004', name: 'UBND Xã C, Huyện D' },
+    { id: 'DVI002', name: 'Phường Bách Khoa, Hai Bà Trưng, Hà Nội' },
+    { id: 'DVI003', name: 'Xã Tân Triều, Thanh Trì, Hà Nội' },
+    { id: 'DVI004', name: 'Phường Dịch Vọng Hậu, Cầu Giấy, Hà Nội' },
+    { id: 'DVI005', name: 'Xã An Khánh, Hoài Đức, Hà Nội' },
+    { id: 'DVI006', name: 'Phường Quang Trung, Hà Đông, Hà Nội' },
+    { id: 'DVI007', name: 'Xã Cự Khê, Thanh Oai, Hà Nội' },
+    { id: 'DVI008', name: 'Phường Vạn Phúc, Hà Đông, Hà Nội' },
+    { id: 'DVI009', name: 'Xã Tam Hiệp, Phúc Thọ, Hà Nội' },
 ];
 
 export const users = [

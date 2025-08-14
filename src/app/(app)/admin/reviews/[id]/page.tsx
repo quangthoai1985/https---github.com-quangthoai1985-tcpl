@@ -52,7 +52,7 @@ function FileUploadComponent() {
 
 export default function AssessmentDetailPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const { role } = useData();
+  const { role, units } = useData();
   const { toast } = useToast();
   // In a real app, you would fetch this from a server and use state management.
   const id = params.id;
@@ -61,6 +61,11 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
   const [rejectionReason, setRejectionReason] = useState(assessment?.rejectionReason || "");
   const [communeExplanation, setCommuneExplanation] = useState(assessment?.communeExplanation || "");
   const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
+
+  const getUnitName = (unitId: string | undefined) => {
+    if (!unitId) return "Không xác định";
+    return units.find(u => u.id === unitId)?.name || "Không xác định";
+  }
 
   if (!assessment) {
     return (
@@ -74,6 +79,8 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
       </Card>
     );
   }
+  
+  const assessmentUnitName = getUnitName(assessment.unitId);
 
   const handleApprove = () => {
     const updatedAssessment = { ...assessment, status: 'Đã duyệt' };
@@ -83,7 +90,7 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
     
     toast({
       title: "Phê duyệt thành công!",
-      description: `Hồ sơ của ${assessment.communeName} đã được phê duyệt.`,
+      description: `Hồ sơ của ${assessmentUnitName} đã được phê duyệt.`,
       className: "bg-green-100 border-green-400 text-green-800",
     });
   };
@@ -104,7 +111,7 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
     
     toast({
       title: "Đã từ chối hồ sơ",
-      description: `Hồ sơ của ${assessment.communeName} đã bị từ chối.`,
+      description: `Hồ sơ của ${assessmentUnitName} đã bị từ chối.`,
       variant: "destructive",
     });
     setIsRejectDialogOpen(false);
@@ -149,7 +156,7 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
             <div>
               <CardTitle className="text-2xl">Chi tiết Hồ sơ đánh giá</CardTitle>
               <CardDescription>
-                Xã: {assessment.communeName} - Ngày nộp: {assessment.submissionDate}
+                Đơn vị: {assessmentUnitName} - Ngày nộp: {assessment.submissionDate}
               </CardDescription>
             </div>
             <Badge
@@ -170,7 +177,7 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
           </div>
         </CardHeader>
         <CardContent>
-          {(assessment.status === 'Bị từ chối' || assessment.status === 'Chờ duyệt') && assessment.rejectionReason && (
+          {(assessment.status === 'Bị từ chối' || (assessment.status === 'Chờ duyệt' && assessment.rejectionReason)) && (
             <Card className="mb-6 bg-destructive/10 border-destructive">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle /> Lý do từ chối chung</CardTitle>
@@ -316,7 +323,7 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
                     Xác nhận từ chối hồ sơ
                 </DialogTitle>
                 <DialogDescription>
-                    Bạn có chắc chắn muốn từ chối hồ sơ của <strong>{assessment.communeName}</strong>? Các ghi chú bạn đã nhập sẽ được lưu lại làm lý do. Hành động này sẽ thông báo cho đơn vị.
+                    Bạn có chắc chắn muốn từ chối hồ sơ của <strong>{assessmentUnitName}</strong>? Các ghi chú bạn đã nhập sẽ được lưu lại làm lý do. Hành động này sẽ thông báo cho đơn vị.
                 </DialogDescription>
             </DialogHeader>
             <div className="py-4">
@@ -362,5 +369,3 @@ export default function AssessmentDetailPage({ params }: { params: { id: string 
     </>
   );
 }
-
-    
