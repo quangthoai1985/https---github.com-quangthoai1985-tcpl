@@ -27,26 +27,30 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { criteria, recentAssessments, units as allUnits } from '@/lib/data';
+import { criteria } from '@/lib/data';
 import { Download } from 'lucide-react';
 import { Pie, PieChart, Cell, BarChart, XAxis, YAxis, Bar, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useState, useMemo } from 'react';
 import { useData } from '@/context/DataContext';
 
 export default function ReportsPage() {
-    const { assessmentPeriods } = useData();
+    const { assessmentPeriods, recentAssessments, units: allUnits } = useData();
     const [selectedPeriod, setSelectedPeriod] = useState<string | undefined>(assessmentPeriods.find(p => p.status === 'Active')?.id);
 
-    // Calculate real data for charts
+    // Calculate real data for charts based on the selected period
     const chartData = useMemo(() => {
-        // In a real app, you would filter assessments by selectedPeriod.
-        // For this demo, we'll use all assessments but calculate stats based on them.
-        const submittedCount = recentAssessments.length;
-        const totalCommunes = allUnits.filter(u => u.name.toLowerCase().includes('xã')).length;
+        if (!selectedPeriod) {
+            return { statusData: [], criteriaSuccessRate: [] };
+        }
         
-        const approvedCount = recentAssessments.filter(a => a.status === 'Đã duyệt').length;
-        const pendingCount = recentAssessments.filter(a => a.status === 'Chờ duyệt').length;
-        const rejectedCount = recentAssessments.filter(a => a.status === 'Bị từ chối').length;
+        const periodAssessments = recentAssessments.filter(a => a.assessmentPeriodId === selectedPeriod);
+
+        const totalCommunes = allUnits.filter(u => u.name.toLowerCase().includes('xã') || u.name.toLowerCase().includes('phường')).length;
+        const submittedCount = periodAssessments.length;
+        
+        const approvedCount = periodAssessments.filter(a => a.status === 'Đã duyệt').length;
+        const pendingCount = periodAssessments.filter(a => a.status === 'Chờ duyệt').length;
+        const rejectedCount = periodAssessments.filter(a => a.status === 'Bị từ chối').length;
         const notSentCount = totalCommunes > submittedCount ? totalCommunes - submittedCount : 0;
 
         const statusData = [
@@ -54,12 +58,14 @@ export default function ReportsPage() {
             { name: 'Chờ duyệt', value: pendingCount, fill: 'hsl(var(--chart-5))' },
             { name: 'Bị từ chối', value: rejectedCount, fill: 'hsl(var(--chart-4))' },
             { name: 'Chưa gửi', value: notSentCount, fill: 'hsl(var(--muted))' },
-        ];
+        ].filter(d => d.value > 0); // Only show statuses with count > 0
 
         const criteriaSuccessRate = criteria.map((c, i) => {
-            // This is a more realistic simulation. A real implementation would calculate this from actual indicator results.
+            // This is a more realistic simulation based on selected period data.
+            // A real implementation would calculate this from actual indicator results.
             const baseRate = 60;
-            const randomFactor = (i * 5 + approvedCount) % 35;
+            // Make the random factor dependent on the selected period and approved count for some variability
+            const randomFactor = (i * 5 + approvedCount + (selectedPeriod?.charCodeAt(selectedPeriod.length-1) || 0)) % 35;
             return {
                 name: `TC ${i + 1}`,
                 "Tỷ lệ đạt": baseRate + randomFactor,
@@ -69,7 +75,7 @@ export default function ReportsPage() {
         
         return { statusData, criteriaSuccessRate };
 
-    }, [selectedPeriod]);
+    }, [selectedPeriod, recentAssessments, allUnits]);
 
 
   return (
@@ -133,6 +139,17 @@ export default function ReportsPage() {
                       innerRadius={60}
                       strokeWidth={5}
                       labelLine={false}
+                      label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                          const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
+                          const x = cx + radius * Math.cos(-midAngle * (Math.PI / 180));
+                          const y = cy + radius * Math.sin(-midAngle * (Math.PI / 180));
+                          if (percent < 0.05) return null; // Hide label if too small
+                          return (
+                            <text x={x} y={y} fill="white" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
+                              {`${(percent * 100).toFixed(0)}%`}
+                            </text>
+                          );
+                        }}
                     >
                       {chartData.statusData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.fill} />
@@ -156,7 +173,7 @@ export default function ReportsPage() {
                   <BarChart data={chartData.criteriaSuccessRate} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" tickLine={false} axisLine={false} />
-                    <YAxis unit="%" tickLine={false} axisLine={false} />
+                    <YAxis unit="%" tickLine={false} axisLine={false} domain={[0, 100]} />
                     <Tooltip
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
@@ -197,3 +214,5 @@ export default function ReportsPage() {
     </div>
   );
 }
+
+    
