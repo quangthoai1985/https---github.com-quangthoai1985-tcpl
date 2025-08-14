@@ -32,7 +32,10 @@ export default function LoginPageContent() {
             <Image src="https://placehold.co/80x80.png" alt="Logo" width={80} height={80} data-ai-hint="logo" />
         </div>
         <CardHeader className="text-center pt-0">
-          <CardTitle className="text-2xl font-headline">CHUẨN TIẾP CẬN PHÁP LUẬT</CardTitle>
+          <CardTitle className="text-2xl font-headline leading-snug">
+            <div>ĐÁNH GIÁ CHUẨN</div>
+            <div>TIẾP CẬN PHÁP LUẬT</div>
+          </CardTitle>
           <CardDescription>
             Đăng nhập vào tài khoản của bạn để tiếp tục
           </CardDescription>
