@@ -2,15 +2,15 @@
 'use client';
 
 import type { Metadata } from 'next';
-import { Alegreya } from 'next/font/google';
+import { Inter } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { DataProvider } from '@/context/DataContext';
 
-const alegreya = Alegreya({
-  subsets: ['latin'],
+const inter = Inter({
+  subsets: ['latin', 'vietnamese'],
   display: 'swap',
-  variable: '--font-alegreya',
+  variable: '--font-inter',
 });
 
 // Metadata can't be in a client component, so we export it separately.
@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={alegreya.variable}>
+    <html lang="vi" className={inter.variable}>
       <body className="font-body antialiased">
         <DataProvider>
             {children}
