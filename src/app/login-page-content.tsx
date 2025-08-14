@@ -28,7 +28,10 @@ export default function LoginPageContent() {
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-background px-4">
       <Card className="mx-auto w-full max-w-sm shadow-2xl">
-        <CardHeader className="text-center">
+         <div className="flex justify-center p-6">
+            <Image src="https://placehold.co/80x80.png" alt="Logo" width={80} height={80} data-ai-hint="logo" />
+        </div>
+        <CardHeader className="text-center pt-0">
           <CardTitle className="text-2xl font-headline">CHUẨN TIẾP CẬN PHÁP LUẬT</CardTitle>
           <CardDescription>
             Đăng nhập vào tài khoản của bạn để tiếp tục
