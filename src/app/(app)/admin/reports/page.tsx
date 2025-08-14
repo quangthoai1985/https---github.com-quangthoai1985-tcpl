@@ -28,13 +28,11 @@ import {
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import { assessmentStatusChartData, criteria } from '@/lib/data';
-import { Download, ListFilter, Calendar as CalendarIcon } from 'lucide-react';
+import { Download } from 'lucide-react';
 import { Pie, PieChart, Cell, BarChart, XAxis, YAxis, Bar, CartesianGrid, Tooltip } from 'recharts';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
 import { useState } from 'react';
-import { DateRange } from 'react-day-picker';
-import { addDays, format } from 'date-fns';
+import { useData } from '@/context/DataContext';
+
 
 const successRateByCriteria = criteria.map((c, i) => ({
   name: `TC ${i + 1}`,
@@ -44,10 +42,9 @@ const successRateByCriteria = criteria.map((c, i) => ({
 
 
 export default function ReportsPage() {
-    const [date, setDate] = useState<DateRange | undefined>({
-    from: new Date(2024, 0, 1),
-    to: addDays(new Date(2024, 6, 30), 4),
-  })
+    const { assessmentPeriods } = useData();
+    const [selectedPeriod, setSelectedPeriod] = useState<string | undefined>(assessmentPeriods.find(p => p.status === 'Active')?.id);
+
 
   return (
     <div className="flex flex-col gap-6">
@@ -60,51 +57,16 @@ export default function ReportsPage() {
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  id="date"
-                  variant={'outline'}
-                  className="w-[260px] justify-start text-left font-normal"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date?.from ? (
-                    date.to ? (
-                      <>
-                        {format(date.from, "dd/MM/y")} - {format(date.to, "dd/MM/y")}
-                      </>
-                    ) : (
-                      format(date.from, "dd/MM/y")
-                    )
-                  ) : (
-                    <span>Chọn khoảng thời gian</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="end">
-                <Calendar
-                  initialFocus
-                  mode="range"
-                  defaultMonth={date?.from}
-                  selected={date}
-                  onSelect={setDate}
-                  numberOfMonths={2}
-                />
-              </PopoverContent>
-            </Popover>
-            <Select>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Tỉnh/Thành phố" />
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+              <SelectTrigger className="w-[280px]">
+                <SelectValue placeholder="Chọn đợt đánh giá" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="hanoi">Hà Nội</SelectItem>
-                <SelectItem value="hcm">TP. Hồ Chí Minh</SelectItem>
-                <SelectItem value="danang">Đà Nẵng</SelectItem>
+                {assessmentPeriods.map(period => (
+                    <SelectItem key={period.id} value={period.id}>{period.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
-            <Button variant="outline" size="icon">
-                <ListFilter className="h-4 w-4" />
-            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button>
