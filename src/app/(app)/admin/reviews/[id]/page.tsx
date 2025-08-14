@@ -55,10 +55,10 @@ export default function AssessmentDetailPage() {
   const params = useParams();
   const id = params.id as string;
 
-  const { role, units, recentAssessments, setRecentAssessments } = useData();
+  const { role, units, assessments, setAssessments } = useData();
   const { toast } = useToast();
   
-  const [assessment, setAssessment] = useState(() => recentAssessments.find((a) => a.id === id));
+  const [assessment, setAssessment] = useState(() => assessments.find((a) => a.id === id));
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState(assessment?.rejectionReason || "");
   const [communeExplanation, setCommuneExplanation] = useState(assessment?.communeExplanation || "");
@@ -85,8 +85,8 @@ export default function AssessmentDetailPage() {
   const assessmentUnitName = getUnitName(assessment.unitId);
 
   const handleApprove = () => {
-    const updatedAssessment = { ...assessment, status: 'Đã duyệt' };
-    setRecentAssessments(prev => prev.map(a => a.id === id ? updatedAssessment : a));
+    const updatedAssessment = { ...assessment, status: 'approved' as const };
+    setAssessments(prev => prev.map(a => a.id === id ? updatedAssessment : a));
     setAssessment(updatedAssessment);
     
     toast({
@@ -105,8 +105,8 @@ export default function AssessmentDetailPage() {
         });
         return;
     }
-    const updatedAssessment = { ...assessment, status: 'Bị từ chối', rejectionReason: rejectionReason, communeExplanation: "" };
-    setRecentAssessments(prev => prev.map(a => a.id === id ? updatedAssessment : a));
+    const updatedAssessment = { ...assessment, status: 'rejected' as const, rejectionReason: rejectionReason, communeExplanation: "" };
+    setAssessments(prev => prev.map(a => a.id === id ? updatedAssessment : a));
     setAssessment(updatedAssessment);
     
     toast({
@@ -120,8 +120,8 @@ export default function AssessmentDetailPage() {
   const handleResubmit = () => {
       // In a real app, you would collect all explanations and new files.
       // For this demo, we just update the status.
-      const updatedAssessment = { ...assessment, status: 'Chờ duyệt', communeExplanation: "Đã giải trình và bổ sung minh chứng." };
-      setRecentAssessments(prev => prev.map(a => a.id === id ? updatedAssessment : a));
+      const updatedAssessment = { ...assessment, status: 'pending_review' as const, communeExplanation: "Đã giải trình và bổ sung minh chứng." };
+      setAssessments(prev => prev.map(a => a.id === id ? updatedAssessment : a));
       setAssessment(updatedAssessment);
       toast({
         title: "Gửi lại thành công",
@@ -144,7 +144,7 @@ export default function AssessmentDetailPage() {
     return results[indicatorId] || { value: 'N/A', note: '', files: [] };
   };
 
-   const isActionDisabled = assessment.status === 'Đã duyệt' || (role === 'admin' && assessment.status === 'Bị từ chối' && !assessment.communeExplanation);
+   const isActionDisabled = assessment.status === 'approved' || (role === 'admin' && assessment.status === 'rejected' && !assessment.communeExplanation);
 
   return (
     <>
@@ -160,23 +160,27 @@ export default function AssessmentDetailPage() {
             </div>
             <Badge
               variant={
-                assessment.status === 'Đã duyệt'
+                assessment.status === 'approved'
                   ? 'default'
-                  : assessment.status === 'Bị từ chối'
+                  : assessment.status === 'rejected'
                   ? 'destructive'
                   : 'secondary'
               }
-              className={assessment.status === 'Đã duyệt' ? 'bg-green-600' : ''}
+              className={assessment.status === 'approved' ? 'bg-green-600' : ''}
             >
-              {assessment.status === 'Đã duyệt' && <CheckCircle className="mr-2 h-4 w-4" />}
-              {assessment.status === 'Bị từ chối' && <XCircle className="mr-2 h-4 w-4" />}
-              {assessment.status === 'Chờ duyệt' && <Clock className="mr-2 h-4 w-4" />}
-              {assessment.status}
+              {assessment.status === 'approved' && <CheckCircle className="mr-2 h-4 w-4" />}
+              {assessment.status === 'rejected' && <XCircle className="mr-2 h-4 w-4" />}
+              {assessment.status === 'pending_review' && <Clock className="mr-2 h-4 w-4" />}
+              {assessment.status === 'approved' ? 'Đã duyệt' :
+               assessment.status === 'rejected' ? 'Bị từ chối' :
+               assessment.status === 'pending_review' ? 'Chờ duyệt' :
+               'Bản nháp'
+              }
             </Badge>
           </div>
         </CardHeader>
         <CardContent>
-          {(assessment.status === 'Bị từ chối' || (assessment.status === 'Chờ duyệt' && assessment.rejectionReason)) && (
+          {(assessment.status === 'rejected' || (assessment.status === 'pending_review' && assessment.rejectionReason)) && (
             <Card className="mb-6 bg-destructive/10 border-destructive">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle /> Lý do từ chối chung</CardTitle>
@@ -259,7 +263,7 @@ export default function AssessmentDetailPage() {
                             </div>
                           </div>
                           
-                          {role === 'commune' && assessment.status === 'Bị từ chối' && isNotMet && (
+                          {role === 'commune_staff' && assessment.status === 'rejected' && isNotMet && (
                               <div className="mt-4 p-4 border-t border-dashed border-amber-500 bg-amber-50/50 rounded-b-lg grid gap-4">
                                   <h5 className="font-semibold text-amber-800">Giải trình và Bổ sung cho chỉ tiêu này</h5>
                                   <div className="grid gap-2">
@@ -279,7 +283,7 @@ export default function AssessmentDetailPage() {
             ))}
           </Accordion>
           
-          {role === 'admin' && (assessment.status === 'Chờ duyệt' || assessment.status === 'Bị từ chối') && (
+          {role === 'admin' && (assessment.status === 'pending_review' || assessment.status === 'rejected') && (
             <>
                 <Separator className="my-6" />
                 <div className="grid gap-4">
@@ -295,16 +299,16 @@ export default function AssessmentDetailPage() {
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => router.back()}>Quay lại</Button>
-            {role === 'admin' && assessment.status === 'Chờ duyệt' &&(
+            {role === 'admin' && assessment.status === 'pending_review' &&(
               <>
                 <Button variant="destructive" onClick={() => setIsRejectDialogOpen(true)} disabled={isActionDisabled}><ThumbsDown className="mr-2 h-4 w-4" />Từ chối</Button>
                 <Button className="bg-green-600 hover:bg-green-700" onClick={handleApprove} disabled={isActionDisabled}><ThumbsUp className="mr-2 h-4 w-4" />Phê duyệt</Button>
               </>
             )}
-             {role === 'admin' && assessment.status === 'Bị từ chối' && assessment.communeExplanation && (
+             {role === 'admin' && assessment.status === 'rejected' && assessment.communeExplanation && (
                  <Button className="bg-green-600 hover:bg-green-700" onClick={handleApprove}><ThumbsUp className="mr-2 h-4 w-4" />Phê duyệt lại</Button>
             )}
-            {role === 'commune' && assessment.status === 'Bị từ chối' && (
+            {role === 'commune_staff' && assessment.status === 'rejected' && (
                 <>
                     <Button variant="outline">Lưu nháp giải trình</Button>
                     <Button onClick={handleResubmit}>Gửi lại đánh giá</Button>
@@ -368,5 +372,3 @@ export default function AssessmentDetailPage() {
     </>
   );
 }
-
-    

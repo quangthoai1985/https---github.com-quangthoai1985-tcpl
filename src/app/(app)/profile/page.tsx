@@ -14,18 +14,18 @@ export default function ProfilePage() {
     const { units } = useData();
     const { toast } = useToast();
 
-    const [name, setName] = React.useState(currentUser?.name || '');
+    const [displayName, setDisplayName] = React.useState(currentUser?.displayName || '');
     
     React.useEffect(() => {
         if (currentUser) {
-            setName(currentUser.name);
+            setDisplayName(currentUser.displayName);
         }
     }, [currentUser]);
 
     const handleProfileUpdate = (e: React.FormEvent) => {
         e.preventDefault();
         if (currentUser) {
-            const updatedUser = { ...currentUser, name };
+            const updatedUser = { ...currentUser, displayName };
             setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
             toast({
                 title: "Thành công!",
@@ -54,8 +54,8 @@ export default function ProfilePage() {
                 <CardContent>
                     <form onSubmit={handleProfileUpdate} className="grid gap-4">
                         <div className="grid gap-2">
-                            <Label htmlFor="name">Họ và tên</Label>
-                            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+                            <Label htmlFor="displayName">Họ và tên</Label>
+                            <Input id="displayName" value={displayName} onChange={(e) => setDisplayName(e.target.value)} />
                         </div>
                         <div className="grid gap-2">
                             <Label htmlFor="username">Tên đăng nhập</Label>
@@ -63,7 +63,7 @@ export default function ProfilePage() {
                         </div>
                          <div className="grid gap-2">
                             <Label htmlFor="unit">Đơn vị</Label>
-                            <Input id="unit" value={getUnitName(currentUser.unitId)} disabled />
+                            <Input id="unit" value={getUnitName(currentUser.communeId)} disabled />
                         </div>
                         <div className="flex justify-end">
                             <Button type="submit">Cập nhật hồ sơ</Button>

@@ -17,78 +17,81 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { recentAssessments } from '@/lib/data';
-import { Eye, CheckCircle, XCircle, Clock, FileX } from 'lucide-react';
+import { Eye, CheckCircle, XCircle, Clock, FileX, ShieldQuestion } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import React, { useMemo } from 'react';
 import { useData } from '@/context/DataContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { Assessment, Unit } from '@/lib/data';
 
 export default function ReviewAssessmentsPage() {
-    const { assessmentPeriods, units } = useData();
+    const { assessmentPeriods, units, assessments } = useData();
     const [selectedPeriod, setSelectedPeriod] = React.useState<string | undefined>(
-        assessmentPeriods.find(p => p.status === 'Active')?.id
+        assessmentPeriods.find(p => p.isActive)?.id
     );
 
     const { filteredAssessments, notSentCommunes } = useMemo(() => {
         if (!selectedPeriod) return { filteredAssessments: [], notSentCommunes: [] };
 
-        const currentPeriodAssessments = recentAssessments.filter(a => a.assessmentPeriodId === selectedPeriod);
+        const currentPeriodAssessments = assessments.filter(a => a.assessmentPeriodId === selectedPeriod);
         
-        const allCommuneUnits = units.filter(u => u.name.toLowerCase().includes('xã') || u.name.toLowerCase().includes('phường'));
-        const sentCommuneIds = new Set(currentPeriodAssessments.map(a => a.unitId));
+        const allCommuneUnits = units.filter(u => u.type === 'commune');
+        const sentCommuneIds = new Set(currentPeriodAssessments.map(a => a.communeId));
 
         const notSent = allCommuneUnits.filter(u => !sentCommuneIds.has(u.id));
 
         return { filteredAssessments: currentPeriodAssessments, notSentCommunes: notSent };
-    }, [selectedPeriod, units]);
-
-    const getAssessmentsByStatus = (status: string) => {
-        if (status === 'all') return filteredAssessments;
-        return filteredAssessments.filter((assessment) => assessment.status === status);
-    };
-  
+    }, [selectedPeriod, units, assessments]);
+    
     const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
-        'Đã duyệt': { text: 'Đã duyệt', icon: CheckCircle, badge: 'default', className: 'bg-green-600' },
-        'Chờ duyệt': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary' },
-        'Bị từ chối': { text: 'Bị từ chối', icon: XCircle, badge: 'destructive' },
-        'Chưa gửi': { text: 'Chưa gửi', icon: FileX, badge: 'secondary', className: 'bg-muted text-muted-foreground' }
+        'approved': { text: 'Đã duyệt', icon: CheckCircle, badge: 'default', className: 'bg-green-600' },
+        'pending_review': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary' },
+        'rejected': { text: 'Bị từ chối', icon: XCircle, badge: 'destructive' },
+        'draft': { text: 'Bản nháp', icon: ShieldQuestion, badge: 'secondary' },
+        'not_sent': { text: 'Chưa gửi', icon: FileX, badge: 'secondary', className: 'bg-muted text-muted-foreground' }
     };
     
-    const getUnitName = (unitId: string) => {
-        const unit = units.find(u => u.id === unitId);
+    const getUnitName = (communeId: string) => {
+        const unit = units.find(u => u.id === communeId);
         if (!unit) return { communeName: 'Không xác định', districtName: '', provinceName: '' };
-        const parts = unit.name.split(',').map(p => p.trim());
+        
+        // This is a simplified logic. A real app would have proper relations.
+        const district = units.find(u => u.id === unit.parentId);
+        const province = units.find(u => u.id === district?.parentId);
+
         return {
-            communeName: parts[0] || '',
-            districtName: parts[1] || '',
-            provinceName: parts[2] || '',
+            communeName: unit.name,
+            districtName: district?.name || '',
+            provinceName: province?.name || '',
         }
     }
 
-
-    const AssessmentTable = ({ status }: { status: string }) => {
-        const assessments = getAssessmentsByStatus(status);
-        if (status === 'Chưa gửi') {
+    const AssessmentTable = ({ assessmentsToShow, status }: { assessmentsToShow: Assessment[] | Unit[], status: string }) => {
+        if (status === 'not_sent') {
             return (
                  <Table>
                     <TableHeader>
                     <TableRow>
                         <TableHead>Tên đơn vị</TableHead>
+                        <TableHead>Huyện</TableHead>
+                        <TableHead>Tỉnh</TableHead>
                         <TableHead>Trạng thái</TableHead>
                     </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {notSentCommunes.length > 0 ? (
-                        notSentCommunes.map((unit) => {
-                            const statusInfo = statusMap['Chưa gửi'];
+                    {(assessmentsToShow as Unit[]).length > 0 ? (
+                        (assessmentsToShow as Unit[]).map((unit) => {
+                            const statusInfo = statusMap['not_sent'];
+                            const unitInfo = getUnitName(unit.id);
                             return (
                                 <TableRow key={unit.id}>
                                     <TableCell>
-                                    <div className="font-medium">{unit.name}</div>
+                                        <div className="font-medium">{unitInfo.communeName}</div>
                                     </TableCell>
+                                    <TableCell>{unitInfo.districtName}</TableCell>
+                                    <TableCell>{unitInfo.provinceName}</TableCell>
                                     <TableCell>
                                     <Badge variant={statusInfo.badge} className={statusInfo.className}>
                                         <statusInfo.icon className="mr-2 h-4 w-4" />
@@ -100,7 +103,7 @@ export default function ReviewAssessmentsPage() {
                         })
                     ) : (
                         <TableRow>
-                        <TableCell colSpan={2} className="h-24 text-center">
+                        <TableCell colSpan={4} className="h-24 text-center">
                             Tất cả các xã đã gửi hồ sơ.
                         </TableCell>
                         </TableRow>
@@ -121,10 +124,10 @@ export default function ReviewAssessmentsPage() {
                 </TableRow>
                 </TableHeader>
                 <TableBody>
-                {assessments.length > 0 ? (
-                    assessments.map((assessment) => {
+                {(assessmentsToShow as Assessment[]).length > 0 ? (
+                    (assessmentsToShow as Assessment[]).map((assessment) => {
                         const statusInfo = statusMap[assessment.status];
-                        const unitInfo = getUnitName(assessment.unitId);
+                        const unitInfo = getUnitName(assessment.communeId);
                         return (
                             <TableRow key={assessment.id}>
                                 <TableCell>
@@ -139,7 +142,7 @@ export default function ReviewAssessmentsPage() {
                                 <TableCell className="hidden lg:table-cell">
                                     <Badge variant={statusInfo.badge} className={statusInfo.className}>
                                         <statusInfo.icon className="mr-2 h-4 w-4" />
-                                        {assessment.status}
+                                        {statusInfo.text}
                                     </Badge>
                                 </TableCell>
                                 <TableCell className="text-right">
@@ -165,6 +168,13 @@ export default function ReviewAssessmentsPage() {
         );
     };
 
+    const tabs = [
+        { value: "pending_review", label: "Chờ duyệt", data: filteredAssessments.filter(a => a.status === 'pending_review') },
+        { value: "approved", label: "Đã duyệt", data: filteredAssessments.filter(a => a.status === 'approved') },
+        { value: "rejected", label: "Bị từ chối", data: filteredAssessments.filter(a => a.status === 'rejected') },
+        { value: "not_sent", label: "Chưa gửi", data: notSentCommunes },
+    ];
+
     return (
         <Card>
         <CardHeader>
@@ -172,7 +182,7 @@ export default function ReviewAssessmentsPage() {
                 <div>
                     <CardTitle>Duyệt hồ sơ đánh giá</CardTitle>
                     <CardDescription>
-                    Xem xét và phê duyệt các hồ sơ đánh giá do các xã gửi lên.
+                    Xem xét và phê duyệt các hồ sơ đánh giá do các xã gửi lên theo từng đợt.
                     </CardDescription>
                 </div>
                 <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
@@ -188,25 +198,19 @@ export default function ReviewAssessmentsPage() {
             </div>
         </CardHeader>
         <CardContent>
-            <Tabs defaultValue="pending">
+            <Tabs defaultValue="pending_review">
             <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="pending">Chờ duyệt ({getAssessmentsByStatus('Chờ duyệt').length})</TabsTrigger>
-                <TabsTrigger value="approved">Đã duyệt ({getAssessmentsByStatus('Đã duyệt').length})</TabsTrigger>
-                <TabsTrigger value="rejected">Bị từ chối ({getAssessmentsByStatus('Bị từ chối').length})</TabsTrigger>
-                <TabsTrigger value="not_sent">Chưa gửi ({notSentCommunes.length})</TabsTrigger>
+                {tabs.map(tab => (
+                    <TabsTrigger key={tab.value} value={tab.value}>
+                        {tab.label} ({tab.data.length})
+                    </TabsTrigger>
+                ))}
             </TabsList>
-            <TabsContent value="pending">
-                <AssessmentTable status="Chờ duyệt" />
-            </TabsContent>
-            <TabsContent value="approved">
-                <AssessmentTable status="Đã duyệt" />
-            </TabsContent>
-            <TabsContent value="rejected">
-                <AssessmentTable status="Bị từ chối" />
-            </TabsContent>
-            <TabsContent value="not_sent">
-                <AssessmentTable status="Chưa gửi" />
-            </TabsContent>
+            {tabs.map(tab => (
+                 <TabsContent key={tab.value} value={tab.value}>
+                    <AssessmentTable assessmentsToShow={tab.data} status={tab.value} />
+                </TabsContent>
+            ))}
             </Tabs>
         </CardContent>
         </Card>

@@ -1,7 +1,6 @@
 
 'use client';
 
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -15,12 +14,13 @@ import { Label } from '@/components/ui/label';
 import Image from 'next/image';
 import { useData } from '@/context/DataContext';
 import { useRouter } from 'next/navigation';
+import type { Role } from '@/lib/data';
 
 export default function LoginPageContent() {
   const { setRole } = useData();
   const router = useRouter();
 
-  const handleLogin = (role: 'admin' | 'commune') => {
+  const handleLogin = (role: Role) => {
     setRole(role);
     router.push('/dashboard');
   };
@@ -44,23 +44,22 @@ export default function LoginPageContent() {
               <Input
                 id="username"
                 type="text"
-                placeholder="admin"
+                placeholder="admin hoặc canboxa"
                 required
-                defaultValue="admin"
               />
             </div>
             <div className="grid gap-2">
               <div className="flex items-center">
                 <Label htmlFor="password">Mật khẩu</Label>
               </div>
-              <Input id="password" type="password" required defaultValue="123" />
+              <Input id="password" type="password" required defaultValue="123456" />
             </div>
-            <div className="grid gap-2">
+            <div className="grid gap-2 pt-2">
               <Button onClick={() => handleLogin('admin')} className="w-full">
-                Đăng nhập với tư cách Admin
+                Đăng nhập (Admin)
               </Button>
-              <Button onClick={() => handleLogin('commune')} variant="outline" className="w-full">
-                Đăng nhập với tư cách Cán bộ Xã
+              <Button onClick={() => handleLogin('commune_staff')} variant="outline" className="w-full">
+                Đăng nhập (Cán bộ xã)
               </Button>
             </div>
           </div>

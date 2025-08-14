@@ -4,25 +4,17 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Bell,
-  FileCheck2,
-  Home,
-  ShieldCheck,
-  Users,
   Book,
+  FileCheck2,
   GanttChartSquare,
-  Bot,
   FileText,
-  Settings,
-  LogOut,
   LayoutDashboard,
   Building,
   CalendarClock,
+  Users,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { recentAssessments } from '@/lib/data';
 import Image from 'next/image';
 import { useData } from '@/context/DataContext';
 
@@ -32,7 +24,7 @@ const adminNavItems = [
   { href: '/admin/units', icon: Building, label: 'Quản lý Đơn vị' },
   { href: '/admin/criteria', icon: FileCheck2, label: 'Quản lý Tiêu chí' },
   { href: '/admin/assessment-periods', icon: CalendarClock, label: 'Quản lý Đợt đánh giá' },
-  { href: '/admin/reviews', icon: GanttChartSquare, label: 'Duyệt Đánh giá', 'data-testid': 'pending-badge' },
+  { href: '/admin/reviews', icon: GanttChartSquare, label: 'Duyệt Đánh giá' },
   { href: '/admin/reports', icon: FileText, label: 'Báo cáo & Thống kê' },
   { href: '/documents', icon: Book, label: 'Văn bản Hướng dẫn' },
 ];
@@ -45,9 +37,9 @@ const communeNavItems = [
 
 export default function AppSidebar() {
   const pathname = usePathname();
-  const { role } = useData();
+  const { role, assessments } = useData();
   const navItems = role === 'admin' ? adminNavItems : communeNavItems;
-  const pendingCount = recentAssessments.filter(a => a.status === 'Chờ duyệt').length;
+  const pendingCount = assessments.filter(a => a.status === 'pending_review').length;
 
   return (
     <div className="hidden border-r bg-sidebar text-sidebar-foreground md:block">
@@ -66,8 +58,9 @@ export default function AppSidebar() {
                 href={item.href}
                 className={cn(
                   'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                  pathname.startsWith(item.href) && item.href !== '/dashboard' ? 'bg-sidebar-accent' : '',
-                  pathname === item.href && item.href === '/dashboard' ? 'bg-sidebar-accent' : ''
+                   // Special case for dashboard to avoid matching all child routes
+                  pathname === item.href ? 'bg-sidebar-accent' : 
+                  (pathname.startsWith(item.href) && item.href !== '/dashboard') ? 'bg-sidebar-accent' : ''
                 )}
               >
                 <item.icon className="h-4 w-4" />

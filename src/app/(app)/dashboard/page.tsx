@@ -1,7 +1,6 @@
 
 'use client';
 import {
-  FileCheck2,
   Users,
   Eye,
   Clock,
@@ -33,24 +32,31 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { Area, AreaChart, Bar, BarChart, CartesianGrid, Line, LineChart, Pie, PieChart, Cell, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
-import { recentAssessments, progressData, units as allUnits } from '@/lib/data';
+import { progressData } from '@/lib/data';
 import Link from 'next/link';
 import { useData } from '@/context/DataContext';
+import { Pie, PieChart, Cell, ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line } from 'recharts';
+import React from 'react';
 
 
 const AdminDashboard = () => {
-    const { users, units } = useData();
+    const { users, units, assessments } = useData();
 
-    const totalCommunes = units.filter(u => u.name.toLowerCase().includes('xã') || u.name.toLowerCase().includes('phường')).length;
-    const pendingCount = recentAssessments.filter(a => a.status === 'Chờ duyệt').length;
-    const approvedCount = recentAssessments.filter(a => a.status === 'Đã duyệt').length;
-    const rejectedCount = recentAssessments.filter(a => a.status === 'Bị từ chối').length;
-    const sentCount = pendingCount + approvedCount + rejectedCount;
-    const notSentCount = totalCommunes > sentCount ? totalCommunes - sentCount : 0;
+    const totalCommunes = units.filter(u => u.type === 'commune').length;
+    const pendingCount = assessments.filter(a => a.status === 'pending_review').length;
+    const approvedCount = assessments.filter(a => a.status === 'approved').length;
+    const rejectedCount = assessments.filter(a => a.status === 'rejected').length;
+    
+    // Note: This logic might need to be refined based on how "sent" is defined.
+    // Here we assume any assessment record means it was "sent" at some point.
+    // A more accurate count might need to consider only the active assessment period.
+    const sentCommuneIds = new Set(assessments.map(a => a.communeId));
+    const notSentCount = totalCommunes > sentCommuneIds.size ? totalCommunes - sentCommuneIds.size : 0;
 
 
     const kpiCards = [
@@ -65,7 +71,7 @@ const AdminDashboard = () => {
         title: "Chờ duyệt", 
         value: pendingCount.toString(), 
         icon: FileClock, 
-        color: "bg-gray-500",
+        color: "bg-amber-500",
         link: "/admin/reviews"
       },
       { 
@@ -84,21 +90,39 @@ const AdminDashboard = () => {
       },
     ];
 
-    const assessmentStatusChartData = [
-      { name: 'Đã duyệt', value: approvedCount, fill: 'hsl(var(--chart-2))' }, // emerald-500
-      { name: 'Chờ duyệt', value: pendingCount, fill: 'hsl(var(--chart-5))' }, // gray-500
-      { name: 'Bị từ chối', value: rejectedCount, fill: 'hsl(var(--chart-4))' }, // red-500
-      { name: 'Chưa gửi', value: notSentCount, fill: 'hsl(var(--muted))' }, // gray-100
-    ];
+    const assessmentStatusChartData = React.useMemo(() => {
+        const data = [
+            { name: 'Đã duyệt', value: approvedCount, fill: 'hsl(var(--chart-2))' },
+            { name: 'Chờ duyệt', value: pendingCount, fill: 'hsl(var(--chart-3))' },
+            { name: 'Bị từ chối', value: rejectedCount, fill: 'hsl(var(--chart-4))' },
+            { name: 'Chưa gửi', value: notSentCount, fill: 'hsl(var(--muted))' },
+        ];
+        return data.filter(d => d.value > 0);
+    }, [approvedCount, pendingCount, rejectedCount, notSentCount]);
+    
+    const chartConfig = React.useMemo(() => {
+        const config = {};
+        assessmentStatusChartData.forEach(item => {
+            config[item.name] = {
+                label: item.name,
+                color: item.fill,
+            };
+        });
+        return config;
+    }, [assessmentStatusChartData]);
 
-    const getUnitName = (unitId: string) => {
-        const unit = units.find(u => u.id === unitId);
+
+    const getUnitName = (communeId: string) => {
+        const unit = units.find(u => u.id === communeId);
         if (!unit) return { communeName: 'Không xác định', districtName: '', provinceName: '' };
-        const parts = unit.name.split(',').map(p => p.trim());
+        
+        const district = units.find(u => u.id === unit.parentId);
+        const province = units.find(u => u.id === district?.parentId);
+
         return {
-            communeName: parts[0] || '',
-            districtName: parts[1] || '',
-            provinceName: parts[2] || '',
+            communeName: unit.name,
+            districtName: district?.name || '',
+            provinceName: province?.name || '',
         }
     }
 
@@ -129,47 +153,45 @@ const AdminDashboard = () => {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Đánh giá các xã</CardTitle>
+            <CardTitle>Đánh giá các xã (Tổng thể)</CardTitle>
+            <CardDescription>Phân bố trạng thái của tất cả hồ sơ trong hệ thống.</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                 <PieChart>
+           <CardContent className="flex items-center justify-center">
+            <ChartContainer
+                config={chartConfig}
+                className="mx-auto aspect-square h-[300px]"
+            >
+                <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                    <ChartTooltip
+                        cursor={false}
+                        content={<ChartTooltipContent hideLabel />}
+                    />
                     <Pie
                         data={assessmentStatusChartData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={100}
-                        fill="#8884d8"
                         dataKey="value"
                         nameKey="name"
+                        innerRadius={60}
+                        strokeWidth={5}
                     >
-                        {assessmentStatusChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                        {assessmentStatusChartData.map((entry) => (
+                            <Cell key={entry.name} fill={entry.fill} className="stroke-background hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"/>
                         ))}
                     </Pie>
-                    <Tooltip contentStyle={{
-                        borderRadius: '8px',
-                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-                        border: '1px solid hsl(var(--border))'
-                    }} />
-                    <Legend
-                        iconType="circle"
-                        layout="vertical"
-                        verticalAlign="middle"
-                        align="right"
-                        wrapperStyle={{ right: -10 }}
+                     <ChartLegend
+                        content={<ChartLegendContent nameKey="name" />}
+                        className="-translate-y-2 flex-wrap gap-2 [&>*]:basis-1/4 [&>*]:justify-center"
                     />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
+                    </PieChart>
+                </ResponsiveContainer>
+             </ChartContainer>
           </CardContent>
         </Card>
 
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle>Tiến độ đánh giá</CardTitle>
+             <CardDescription>Số lượng hồ sơ nộp theo thời gian (dữ liệu giả định).</CardDescription>
           </CardHeader>
           <CardContent>
              <div className="h-[300px] w-full">
@@ -195,7 +217,7 @@ const AdminDashboard = () => {
 
       <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Đánh giá chờ duyệt</CardTitle>
+            <CardTitle>Đánh giá chờ duyệt gần đây</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -209,8 +231,8 @@ const AdminDashboard = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {recentAssessments.filter(a => a.status === 'Chờ duyệt').map((assessment) => {
-                    const unitInfo = getUnitName(assessment.unitId);
+                {assessments.filter(a => a.status === 'pending_review').map((assessment) => {
+                    const unitInfo = getUnitName(assessment.communeId);
                     return (
                         <TableRow key={assessment.id} className="hover:bg-muted/50">
                             <TableCell>
@@ -240,38 +262,31 @@ const AdminDashboard = () => {
 )};
 
 const CommuneDashboard = () => {
-    const { units } = useData();
+    const { units, assessments, currentUser, assessmentPeriods } = useData();
     const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
-        'Đã duyệt': { text: 'Đã duyệt', icon: CheckCircle, badge: 'default', className: 'bg-emerald-500' },
-        'Chờ duyệt': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary', className: 'bg-amber-500' },
-        'Bị từ chối': { text: 'Bị từ chối', icon: XCircle, badge: 'destructive', className: 'bg-red-500' },
+        'approved': { text: 'Đã duyệt', icon: CheckCircle, badge: 'default', className: 'bg-emerald-500' },
+        'pending_review': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary', className: 'bg-amber-500' },
+        'rejected': { text: 'Bị từ chối', icon: XCircle, badge: 'destructive', className: 'bg-red-500' },
+        'draft': { text: 'Bản nháp', icon: Edit, badge: 'secondary' },
     };
 
-    const communeAssessments = [
-        recentAssessments.find(a => a.status === 'Đã duyệt'),
-        recentAssessments.find(a => a.status === 'Chờ duyệt'),
-        recentAssessments.find(a => a.status === 'Bị từ chối'),
-    ].filter(Boolean); // Filter out undefined if a status is not found
+    const communeAssessments = currentUser ? assessments.filter(a => a.communeId === currentUser.communeId) : [];
+    
+    const activePeriod = assessmentPeriods.find(p => p.isActive);
 
-    const getUnitName = (unitId: string) => {
-        const unit = units.find(u => u.id === unitId);
-        if (!unit) return { communeName: 'Không xác định', districtName: '', provinceName: '' };
-        const parts = unit.name.split(',').map(p => p.trim());
-        return {
-            communeName: parts[0] || '',
-            districtName: parts[1] || '',
-            provinceName: parts[2] || '',
-        }
+    const getPeriodName = (periodId: string) => {
+        return assessmentPeriods.find(p => p.id === periodId)?.name || 'Không xác định';
     }
 
 
     return (
         <div className="flex flex-col gap-6">
+            {activePeriod ? (
             <Card>
                 <CardHeader>
-                    <CardTitle>Kỳ đánh giá 6 tháng đầu năm 2024</CardTitle>
+                    <CardTitle>Kỳ đánh giá: {activePeriod.name}</CardTitle>
                     <CardDescription>
-                        Hạn chót nộp hồ sơ là ngày 30/07/2024. Vui lòng hoàn thành việc tự chấm điểm và gửi đi đúng hạn.
+                        Hạn chót nộp hồ sơ là ngày {activePeriod.endDate}. Vui lòng hoàn thành việc tự chấm điểm và gửi đi đúng hạn.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -282,6 +297,16 @@ const CommuneDashboard = () => {
                     </Button>
                 </CardContent>
             </Card>
+            ) : (
+             <Card>
+                <CardHeader>
+                    <CardTitle>Thông báo</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <p>Hiện tại không có kỳ đánh giá nào đang hoạt động. Vui lòng chờ Admin khởi tạo.</p>
+                </CardContent>
+            </Card>
+            )}
 
             <Card>
                 <CardHeader>
@@ -301,13 +326,13 @@ const CommuneDashboard = () => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                           {communeAssessments.map(assessment => {
+                           {communeAssessments.length > 0 ? communeAssessments.map(assessment => {
                                if (!assessment) return null;
                                const statusInfo = statusMap[assessment.status];
                                return (
                                     <TableRow key={assessment.id}>
-                                        <TableCell className="font-medium">6 tháng đầu năm 2024</TableCell>
-                                        <TableCell>{assessment.submissionDate}</TableCell>
+                                        <TableCell className="font-medium">{getPeriodName(assessment.assessmentPeriodId)}</TableCell>
+                                        <TableCell>{assessment.submissionDate || 'Chưa nộp'}</TableCell>
                                         <TableCell>
                                             <Badge variant={statusInfo.badge} className={`${statusInfo.className} text-white`}>
                                                 <statusInfo.icon className="mr-2 h-4 w-4" />
@@ -317,8 +342,10 @@ const CommuneDashboard = () => {
                                         <TableCell className="text-right">
                                              <Button variant="outline" size="sm" asChild>
                                                 <Link href={`/admin/reviews/${assessment.id}`}>
-                                                  {assessment.status === 'Bị từ chối' ? 
+                                                  {assessment.status === 'rejected' ? 
                                                     <><Edit className="mr-2 h-4 w-4" />Giải trình & Gửi lại</> : 
+                                                    assessment.status === 'draft' ?
+                                                    <><Edit className="mr-2 h-4 w-4" />Tiếp tục chấm điểm</> :
                                                     <><Eye className="mr-2 h-4 w-4" />Xem chi tiết</>
                                                   }
                                                 </Link>
@@ -326,7 +353,11 @@ const CommuneDashboard = () => {
                                         </TableCell>
                                     </TableRow>
                                )
-                           })}
+                           }) : (
+                            <TableRow>
+                                <TableCell colSpan={4} className="text-center h-24">Chưa có hồ sơ đánh giá nào.</TableCell>
+                            </TableRow>
+                           )}
                         </TableBody>
                     </Table>
                 </CardContent>

@@ -2,41 +2,17 @@
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
-import { users as initialUsers, units as initialUnits, assessmentPeriods as initialAssessmentPeriods, recentAssessments as initialRecentAssessments } from '@/lib/data';
-
-type Unit = {
-  id: string;
-  name: string;
-};
-
-type User = {
-  id: string;
-  name: string;
-  username: string;
-  unitId: string;
-  role: string;
-};
-
-type Role = 'admin' | 'commune';
-
-type AssessmentPeriod = {
-    id: string;
-    name: string;
-    startDate: string;
-    endDate: string;
-    status: 'Active' | 'Inactive';
-};
-
-type Assessment = {
-  id: string;
-  unitId: string;
-  submissionDate: string;
-  status: 'Chờ duyệt' | 'Đã duyệt' | 'Bị từ chối';
-  rejectionReason?: string;
-  communeExplanation?: string;
-  submittedBy?: string;
-  assessmentPeriodId: string;
-};
+import { 
+    users as initialUsers, 
+    units as initialUnits, 
+    assessmentPeriods as initialAssessmentPeriods, 
+    assessments as initialAssessments,
+    type User,
+    type Unit,
+    type AssessmentPeriod,
+    type Assessment,
+    type Role
+} from '@/lib/data';
 
 interface DataContextType {
   users: User[];
@@ -45,10 +21,10 @@ interface DataContextType {
   setUnits: React.Dispatch<React.SetStateAction<Unit[]>>;
   assessmentPeriods: AssessmentPeriod[];
   setAssessmentPeriods: React.Dispatch<React.SetStateAction<AssessmentPeriod[]>>;
-  recentAssessments: Assessment[];
-  setRecentAssessments: React.Dispatch<React.SetStateAction<Assessment[]>>;
-  role: Role;
-  setRole: React.Dispatch<React.SetStateAction<Role>>;
+  assessments: Assessment[];
+  setAssessments: React.Dispatch<React.SetStateAction<Assessment[]>>;
+  role: Role | null;
+  setRole: React.Dispatch<React.SetStateAction<Role | null>>;
   currentUser: User | null;
 }
 
@@ -58,22 +34,24 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [units, setUnits] = useState<Unit[]>(initialUnits);
   const [assessmentPeriods, setAssessmentPeriods] = useState<AssessmentPeriod[]>(initialAssessmentPeriods);
-  const [recentAssessments, setRecentAssessments] = useState<Assessment[]>(initialRecentAssessments);
-  const [role, setRole] = useState<Role>('admin');
+  const [assessments, setAssessments] = useState<Assessment[]>(initialAssessments);
+  const [role, setRole] = useState<Role | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   useEffect(() => {
     // This logic simulates fetching the logged-in user based on the role.
     // In a real app, this would come from an authentication context.
     if (role === 'admin') {
-      setCurrentUser(users.find(u => u.role === 'Cán bộ Tỉnh') || null);
+      setCurrentUser(users.find(u => u.role === 'admin') || null);
+    } else if (role === 'commune_staff') {
+      setCurrentUser(users.find(u => u.role === 'commune_staff') || null);
     } else {
-      setCurrentUser(users.find(u => u.role === 'Cán bộ Xã') || null);
+        setCurrentUser(null);
     }
   }, [role, users]);
 
   return (
-    <DataContext.Provider value={{ users, setUsers, units, setUnits, assessmentPeriods, setAssessmentPeriods, recentAssessments, setRecentAssessments, role, setRole, currentUser }}>
+    <DataContext.Provider value={{ users, setUsers, units, setUnits, assessmentPeriods, setAssessmentPeriods, assessments, setAssessments, role, setRole, currentUser }}>
       {children}
     </DataContext.Provider>
   );
@@ -86,5 +64,3 @@ export const useData = () => {
   }
   return context;
 };
-
-    

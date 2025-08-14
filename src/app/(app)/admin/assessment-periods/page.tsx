@@ -37,14 +37,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useData } from '@/context/DataContext';
 import { Switch } from '@/components/ui/switch';
-
-type AssessmentPeriod = {
-    id: string;
-    name: string;
-    startDate: string;
-    endDate: string;
-    status: 'Active' | 'Inactive';
-};
+import type { AssessmentPeriod } from '@/lib/data';
 
 function PeriodForm({ period, onSave, onCancel }: { period: Partial<AssessmentPeriod>, onSave: (p: Partial<AssessmentPeriod>) => void, onCancel: () => void }) {
   const [formData, setFormData] = React.useState(period);
@@ -111,7 +104,7 @@ export default function AssessmentPeriodPage() {
                 name: periodToSave.name || '',
                 startDate: periodToSave.startDate || '',
                 endDate: periodToSave.endDate || '',
-                status: 'Inactive',
+                isActive: false,
             } as AssessmentPeriod;
             setAssessmentPeriods(prev => [...prev, newPeriod]);
             toast({ title: "Thành công!", description: "Đã tạo đợt đánh giá mới."});
@@ -125,18 +118,18 @@ export default function AssessmentPeriodPage() {
         setEditingPeriod(null);
     }
     
-    const handleStatusToggle = (periodId: string, currentStatus: 'Active' | 'Inactive') => {
-        const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
+    const handleStatusToggle = (periodId: string, currentStatus: boolean) => {
+        const newStatus = !currentStatus;
         
         // Ensure only one period is active at a time
         setAssessmentPeriods(prevPeriods => {
             return prevPeriods.map(p => {
                 if (p.id === periodId) {
-                    return { ...p, status: newStatus };
+                    return { ...p, isActive: newStatus };
                 }
                 // If we are activating a new period, deactivate all others.
-                if (newStatus === 'Active') {
-                    return { ...p, status: 'Inactive' };
+                if (newStatus === true) {
+                    return { ...p, isActive: false };
                 }
                 return p;
             });
@@ -144,7 +137,7 @@ export default function AssessmentPeriodPage() {
 
         toast({
             title: "Cập nhật thành công",
-            description: `Đã ${newStatus === 'Active' ? 'kích hoạt' : 'vô hiệu hóa'} đợt đánh giá.`
+            description: `Đã ${newStatus ? 'kích hoạt' : 'vô hiệu hóa'} đợt đánh giá.`
         });
     }
 
@@ -156,7 +149,7 @@ export default function AssessmentPeriodPage() {
             <div>
                 <CardTitle>Quản lý Đợt đánh giá</CardTitle>
                 <CardDescription>
-                Tạo và quản lý các kỳ đánh giá trong năm.
+                Tạo và quản lý các kỳ đánh giá trong năm. Chỉ một đợt được hoạt động tại một thời điểm.
                 </CardDescription>
             </div>
              <Button onClick={handleNew}>
@@ -186,14 +179,14 @@ export default function AssessmentPeriodPage() {
                 <TableCell>{period.startDate}</TableCell>
                 <TableCell>{period.endDate}</TableCell>
                 <TableCell>
-                    <Badge variant={period.status === 'Active' ? 'default' : 'secondary'} className={period.status === 'Active' ? 'bg-green-600' : ''}>
-                        {period.status === 'Active' ? 'Đang hoạt động' : 'Không hoạt động'}
+                    <Badge variant={period.isActive ? 'default' : 'secondary'} className={period.isActive ? 'bg-green-600' : ''}>
+                        {period.isActive ? 'Đang hoạt động' : 'Không hoạt động'}
                     </Badge>
                 </TableCell>
                 <TableCell>
                     <Switch
-                        checked={period.status === 'Active'}
-                        onCheckedChange={() => handleStatusToggle(period.id, period.status)}
+                        checked={period.isActive}
+                        onCheckedChange={() => handleStatusToggle(period.id, period.isActive)}
                     />
                 </TableCell>
                 <TableCell>
@@ -238,5 +231,3 @@ export default function AssessmentPeriodPage() {
     </>
   );
 }
-
-    

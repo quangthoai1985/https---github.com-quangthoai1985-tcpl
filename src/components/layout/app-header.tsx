@@ -66,16 +66,16 @@ export default function AppHeader() {
       case '/profile':
         return 'Hồ sơ cá nhân';
       default:
-        return 'Legal Access Tracker';
+        return 'Tổng Quan';
     }
   };
   
   const getAvatarFallback = () => {
-    return currentUser?.name.split(' ').map(n => n[0]).slice(-2).join('').toUpperCase() || (role === 'admin' ? 'AD' : 'CB');
+    return currentUser?.displayName.split(' ').map(n => n[0]).slice(-2).join('').toUpperCase() || (role === 'admin' ? 'AD' : 'CB');
   }
   
   const getAvatarAlt = () => {
-     return currentUser?.name || (role === 'admin' ? 'Admin' : 'Cán bộ');
+     return currentUser?.displayName || (role === 'admin' ? 'Admin' : 'Cán bộ');
   }
 
   const notificationIcons: {[key: string]: React.ReactNode} = {
@@ -114,8 +114,8 @@ export default function AppHeader() {
        <div className="flex items-center gap-4">
         {currentUser && (
             <div className="hidden text-right lg:block">
-                <p className="font-semibold text-sm">{currentUser.name}</p>
-                <p className="text-xs text-muted-foreground">{currentUser.role}</p>
+                <p className="font-semibold text-sm">{currentUser.displayName}</p>
+                <p className="text-xs text-muted-foreground">{currentUser.role === 'admin' ? 'Admin' : 'Cán bộ xã'}</p>
             </div>
         )}
         <Popover>
@@ -163,7 +163,7 @@ export default function AppHeader() {
             <Button variant="secondary" size="icon" className="rounded-full">
                 <Avatar>
                     <AvatarImage src="https://placehold.co/100x100.png" alt={getAvatarAlt()} data-ai-hint="user avatar" />
-                    <AvatarFallback className={cn('bg-primary text-primary-foreground', role === 'commune' && 'bg-muted-foreground' )}>{getAvatarFallback()}</AvatarFallback>
+                    <AvatarFallback className={cn('bg-primary text-primary-foreground', role === 'commune_staff' && 'bg-muted-foreground' )}>{getAvatarFallback()}</AvatarFallback>
                 </Avatar>
                 <span className="sr-only">Mở menu người dùng</span>
             </Button>

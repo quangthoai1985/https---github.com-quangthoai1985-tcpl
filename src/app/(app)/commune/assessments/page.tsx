@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { criteria } from "@/lib/data";
 import { UploadCloud, File as FileIcon, X } from "lucide-react";
 import React from "react";
@@ -98,19 +97,19 @@ const renderInput = (indicator: any) => {
 export default function SelfAssessmentPage() {
   const { toast } = useToast();
   const { assessmentPeriods } = useData();
-  const activePeriod = assessmentPeriods.find(p => p.status === 'Active');
+  const activePeriod = assessmentPeriods.find(p => p.isActive);
 
   const handleSaveDraft = () => {
     toast({
       title: "Lưu nháp thành công!",
-      description: "Bạn có thể tiếp tục chỉnh sửa sau.",
+      description: "Bạn có thể tiếp tục chỉnh sửa sau. Trạng thái hồ sơ: draft.",
     });
   };
 
   const handleSubmit = () => {
     toast({
       title: "Gửi đánh giá thành công!",
-      description: "Hồ sơ của bạn đã được gửi đến Cán bộ Tỉnh để xem xét.",
+      description: "Hồ sơ của bạn đã được gửi đến Admin để xem xét. Trạng thái hồ sơ: pending_review.",
     });
   };
 
@@ -126,42 +125,50 @@ export default function SelfAssessmentPage() {
                   }
                 </CardDescription>
             </CardHeader>
-            <CardContent>
-                <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
-                    {criteria.map((criterion, index) => (
-                        <AccordionItem value={criterion.id} key={criterion.id}>
-                            <AccordionTrigger className="font-headline text-lg">Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</AccordionTrigger>
-                            <AccordionContent>
-                                <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
-                                    {criterion.indicators.map(indicator => (
-                                        <div key={indicator.id} className="grid gap-6 p-4 rounded-lg bg-card shadow-sm border">
-                                            <div>
-                                                <h4 className="font-semibold text-base">{indicator.name}</h4>
-                                                <p className="text-sm text-muted-foreground mt-1">{indicator.description}</p>
-                                                <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn:</strong> <span className="font-semibold text-primary">{indicator.standardLevel}</span></p>
-                                            </div>
-                                            
-                                            <div className="grid gap-2">
-                                                <Label>Kết quả tự đánh giá</Label>
-                                                {renderInput(indicator)}
-                                            </div>
+            {activePeriod ? (
+                <>
+                <CardContent>
+                    <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
+                        {criteria.map((criterion, index) => (
+                            <AccordionItem value={criterion.id} key={criterion.id}>
+                                <AccordionTrigger className="font-headline text-lg">Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</AccordionTrigger>
+                                <AccordionContent>
+                                    <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
+                                        {criterion.indicators.map(indicator => (
+                                            <div key={indicator.id} className="grid gap-6 p-4 rounded-lg bg-card shadow-sm border">
+                                                <div>
+                                                    <h4 className="font-semibold text-base">{indicator.name}</h4>
+                                                    <p className="text-sm text-muted-foreground mt-1">{indicator.description}</p>
+                                                    <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn:</strong> <span className="font-semibold text-primary">{indicator.standardLevel}</span></p>
+                                                </div>
+                                                
+                                                <div className="grid gap-2">
+                                                    <Label>Kết quả tự đánh giá</Label>
+                                                    {renderInput(indicator)}
+                                                </div>
 
-                                             <div className="grid gap-2">
-                                                <p className="text-sm"><strong>Yêu cầu hồ sơ minh chứng:</strong> {indicator.evidenceRequirement}</p>
-                                                <FileUploadComponent />
+                                                <div className="grid gap-2">
+                                                    <p className="text-sm"><strong>Yêu cầu hồ sơ minh chứng:</strong> {indicator.evidenceRequirement}</p>
+                                                    <FileUploadComponent />
+                                                </div>
                                             </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </AccordionContent>
-                        </AccordionItem>
-                    ))}
-                </Accordion>
-            </CardContent>
-            <CardFooter className="flex justify-end gap-2">
-                <Button variant="outline" onClick={handleSaveDraft}>Lưu nháp</Button>
-                <Button onClick={handleSubmit}>Gửi đánh giá</Button>
-            </CardFooter>
+                                        ))}
+                                    </div>
+                                </AccordionContent>
+                            </AccordionItem>
+                        ))}
+                    </Accordion>
+                </CardContent>
+                <CardFooter className="flex justify-end gap-2">
+                    <Button variant="outline" onClick={handleSaveDraft}>Lưu nháp</Button>
+                    <Button onClick={handleSubmit}>Gửi đánh giá</Button>
+                </CardFooter>
+                </>
+            ) : (
+                 <CardContent>
+                    <p>Vui lòng chờ Admin kích hoạt một đợt đánh giá mới.</p>
+                </CardContent>
+            )}
         </Card>
     </div>
   );

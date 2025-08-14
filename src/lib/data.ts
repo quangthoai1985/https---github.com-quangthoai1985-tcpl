@@ -1,79 +1,102 @@
 
+// Types based on Firestore data structure
+export type Role = 'admin' | 'commune_staff';
 
-export const dashboardStats = [
-    { title: "Tổng số xã", value: "150", change: "+5 so với kỳ trước", icon: "Users" },
-    { title: "Xã đã tự đánh giá", value: "125", change: "83.3%", icon: "FileCheck2" },
-    { title: "Hồ sơ chờ duyệt", value: "8", change: "+2 trong 24h", icon: "GanttChartSquare" },
-    { title: "Tỷ lệ đạt chuẩn", value: "75.2%", change: "+3.2% so với kỳ trước", icon: "TrendingUp" },
-];
+export type User = {
+  id: string; // Corresponds to Firebase Auth UID
+  username: string;
+  displayName: string;
+  role: Role;
+  communeId: string; // Should be empty for admin roles
+};
+
+export type Unit = {
+  id: string;
+  name: string;
+  type: 'province' | 'district' | 'commune';
+  parentId: string | null; // To build hierarchy
+};
+
+export type Criterion = {
+  id: string;
+  name: string;
+  description: string;
+  indicators: Indicator[];
+};
+
+export type Indicator = {
+  id: string;
+  name: string;
+  description: string;
+  standardLevel: string;
+  inputType: 'number' | 'text' | 'boolean' | 'select';
+  calculationFormula: string | null;
+  evidenceRequirement: string;
+};
+
+export type AssessmentPeriod = {
+    id: string;
+    name: string;
+    startDate: string; // Should ideally be a timestamp
+    endDate: string;   // Should ideally be a timestamp
+    isActive: boolean;
+};
 
 export type Assessment = {
   id: string;
-  unitId: string; // Changed from communeName, etc. to a single ID
-  submissionDate: string;
-  status: 'Chờ duyệt' | 'Đã duyệt' | 'Bị từ chối';
-  rejectionReason?: string;
-  communeExplanation?: string;
-  submittedBy?: string;
+  communeId: string;
   assessmentPeriodId: string;
+  status: 'draft' | 'pending_review' | 'approved' | 'rejected';
+  submissionDate?: string; // Should be a timestamp, optional until submitted
+  approvalDate?: string;   // Optional
+  approverId?: string;     // Optional
+  rejectionReason?: string; // Optional
+  communeExplanation?: string; // Optional for resubmission
+  submittedBy?: string; // User ID
 };
 
+// Mock Data
+export const units: Unit[] = [
+    { id: 'TINH_HN', name: 'Thành phố Hà Nội', type: 'province', parentId: null },
+    { id: 'QUAN_HBT', name: 'Quận Hai Bà Trưng', type: 'district', parentId: 'TINH_HN' },
+    { id: 'PHUONG_BK', name: 'Phường Bách Khoa', type: 'commune', parentId: 'QUAN_HBT' },
+    { id: 'HUYEN_TT', name: 'Huyện Thanh Trì', type: 'district', parentId: 'TINH_HN' },
+    { id: 'XA_TT', name: 'Xã Tân Triều', type: 'commune', parentId: 'HUYEN_TT' },
+    { id: 'QUAN_CG', name: 'Quận Cầu Giấy', type: 'district', parentId: 'TINH_HN' },
+    { id: 'PHUONG_DVH', name: 'Phường Dịch Vọng Hậu', type: 'commune', parentId: 'QUAN_CG' },
+    { id: 'HUYEN_HD', name: 'Huyện Hoài Đức', type: 'district', parentId: 'TINH_HN' },
+    { id: 'XA_AK', name: 'Xã An Khánh', type: 'commune', parentId: 'HUYEN_HD' },
+];
 
-export const recentAssessments: Assessment[] = [
-    { id: 'XA001', unitId: "DVI002", submissionDate: "20/07/2024", status: "Chờ duyệt", submittedBy: 'Trần Thị B', assessmentPeriodId: 'DOT001' },
-    { id: 'XA002', unitId: "DVI003", submissionDate: "19/07/2024", status: "Đã duyệt", submittedBy: 'Lê Văn C', assessmentPeriodId: 'DOT001' },
-    { id: 'XA003', unitId: "DVI004", submissionDate: "19/07/2024", status: "Bị từ chối", rejectionReason: "Minh chứng cho Chỉ tiêu 2.2 (Hệ thống loa truyền thanh) không hợp lệ. Yêu cầu cung cấp biên bản kiểm tra tình trạng kỹ thuật mới nhất và hình ảnh thực tế.", submittedBy: 'Phạm Thị D', assessmentPeriodId: 'DOT001' },
-    { id: 'XA004', unitId: "DVI005", submissionDate: "18/07/2024", status: "Chờ duyệt", communeExplanation: "Chúng tôi đã bổ sung biên bản kiểm tra tình trạng kỹ thuật hệ thống loa truyền thanh ngày 15/07/2024 và hình ảnh thực tế của hệ thống. Kính đề nghị quý sở xem xét lại.", submittedBy: 'Nguyễn Thị F', assessmentPeriodId: 'DOT001' },
-    { id: 'XA005', unitId: "DVI006", submissionDate: "17/07/2024", status: "Đã duyệt", submittedBy: 'Hoàng Văn G', assessmentPeriodId: 'DOT001' },
-    { id: 'XA006', unitId: "DVI007", submissionDate: "21/07/2024", status: "Chờ duyệt", submittedBy: 'Bùi Văn H', assessmentPeriodId: 'DOT001' },
-    { id: 'XA007', unitId: "DVI008", submissionDate: "21/07/2024", status: "Chờ duyệt", submittedBy: 'Đỗ Thị K', assessmentPeriodId: 'DOT001' },
+export const users: User[] = [
+    { id: "admin01", username: "admin", displayName: "Nguyễn Văn Admin", role: "admin", communeId: "" },
+    { id: "user01", username: "bachkhoa.staff", displayName: "Trần Thị Cán bộ", role: "commune_staff", communeId: "PHUONG_BK" },
+    { id: "user02", username: "tantrieu.staff", displayName: "Lê Văn Cán bộ", role: "commune_staff", communeId: "XA_TT" },
+    { id: "user03", username: "dichvonghau.staff", displayName: "Phạm Thị Cán bộ", role: "commune_staff", communeId: "PHUONG_DVH" },
+    { id: "user04", username: "ankhanh.staff", displayName: "Hoàng Văn Cán bộ", role: "commune_staff", communeId: "XA_AK" },
+];
+
+export const assessmentPeriods: AssessmentPeriod[] = [
+    { id: 'DOT001', name: 'Đợt đánh giá 6 tháng đầu năm 2024', startDate: '01/01/2024', endDate: '30/07/2024', isActive: true },
+    { id: 'DOT002', name: 'Đợt đánh giá 6 tháng cuối năm 2023', startDate: '01/07/2023', endDate: '31/12/2023', isActive: false },
+];
+
+export const assessments: Assessment[] = [
+    { id: 'ASMT001', communeId: "PHUONG_BK", assessmentPeriodId: 'DOT001', status: "pending_review", submissionDate: "20/07/2024", submittedBy: 'user01' },
+    { id: 'ASMT002', communeId: "XA_TT", assessmentPeriodId: 'DOT001', status: "approved", submissionDate: "19/07/2024", approverId: 'admin01', approvalDate: '21/07/2024', submittedBy: 'user02' },
+    { id: 'ASMT003', communeId: "PHUONG_DVH", assessmentPeriodId: 'DOT001', status: "rejected", submissionDate: "19/07/2024", rejectionReason: "Minh chứng cho Chỉ tiêu 2.2 không hợp lệ.", submittedBy: 'user03' },
+    { id: 'ASMT004', communeId: "XA_AK", assessmentPeriodId: 'DOT001', status: 'draft' },
     // Data for previous assessment period
-    { id: 'XA009', unitId: "DVI002", submissionDate: "15/12/2023", status: "Đã duyệt", submittedBy: 'Trần Thị B', assessmentPeriodId: 'DOT002' },
-    { id: 'XA010', unitId: "DVI003", submissionDate: "14/12/2023", status: "Đã duyệt", submittedBy: 'Lê Văn C', assessmentPeriodId: 'DOT002' },
-    { id: 'XA011', unitId: "DVI004", submissionDate: "12/12/2023", status: "Bị từ chối", rejectionReason: "Hồ sơ chưa đầy đủ.", submittedBy: 'Phạm Thị D', assessmentPeriodId: 'DOT002' },
-
+    { id: 'ASMT005', communeId: "PHUONG_BK", assessmentPeriodId: 'DOT002', status: "approved", submissionDate: "15/12/2023", approverId: 'admin01', approvalDate: '18/12/2023', submittedBy: 'user01' },
+    { id: 'ASMT006', communeId: "XA_TT", assessmentPeriodId: 'DOT002', status: "approved", submissionDate: "14/12/2023", approverId: 'admin01', approvalDate: '18/12/2023', submittedBy: 'user02' },
 ];
 
-export const assessmentStatusChartData = [
-  { name: 'Đã duyệt', value: 42, fill: '#10b981' }, // emerald-500
-  { name: 'Chờ duyệt', value: 8, fill: '#6b7280' }, // gray-500
-  { name: 'Bị từ chối', value: 5, fill: '#ef4444' }, // red-500
-  { name: 'Chưa gửi', value: 71, fill: '#a7f3d0' }, // emerald-200
-];
 
-export const progressData = [
-  { name: 'Tuần 1', 'Số lượng': 5 },
-  { name: 'Tuần 2', 'Số lượng': 12 },
-  { name: 'Tuần 3', 'Số lượng': 9 },
-  { name: 'Tuần 4', 'Số lượng': 15 },
-  { name: 'Tuần 5', 'Số lượng': 13 },
-  { name: 'Tuần 6', 'Số lượng': 20 },
-];
-
-export const units = [
-    { id: 'DVI001', name: 'Sở Tư pháp Tỉnh X' },
-    { id: 'DVI002', name: 'Phường Bách Khoa, Hai Bà Trưng, Hà Nội' },
-    { id: 'DVI003', name: 'Xã Tân Triều, Thanh Trì, Hà Nội' },
-    { id: 'DVI004', name: 'Phường Dịch Vọng Hậu, Cầu Giấy, Hà Nội' },
-    { id: 'DVI005', name: 'Xã An Khánh, Hoài Đức, Hà Nội' },
-    { id: 'DVI006', name: 'Phường Quang Trung, Hà Đông, Hà Nội' },
-    { id: 'DVI007', name: 'Xã Cự Khê, Thanh Oai, Hà Nội' },
-    { id: 'DVI008', name: 'Phường Vạn Phúc, Hà Đông, Hà Nội' },
-    { id: 'DVI009', name: 'Xã Tam Hiệp, Phúc Thọ, Hà Nội' },
-];
-
-export const users = [
-    { id: "USR001", name: "Nguyễn Văn A", username: "admin", unitId: "DVI001", role: "Cán bộ Tỉnh" },
-    { id: "USR002", name: "Trần Thị B", username: "b.tran", unitId: "DVI002", role: "Cán bộ Xã" },
-    { id: "USR003", name: "Lê Văn C", username: "c.le", unitId: "DVI003", role: "Cán bộ Xã" },
-    { id: "USR004", name: "Phạm Thị D", username: "d.pham", unitId: "DVI004", role: "Cán bộ Xã" },
-    { id: "USR005", name: "Hoàng Văn E", username: "e.hoang", unitId: "DVI001", role: "Cán bộ Tỉnh" },
-];
-
-export const criteria = [
+export const criteria: Omit<Criterion, 'indicators'> & { indicators: Indicator[] }[] = [
   {
     id: 'TC01',
     name: 'Tiêu chí 1: Công khai, minh bạch, dễ tiếp cận thông tin',
+    description: 'Đánh giá việc công khai, minh bạch thông tin của chính quyền cơ sở.',
     indicators: [
       {
         id: 'CT1.1',
@@ -98,6 +121,7 @@ export const criteria = [
   {
     id: 'TC02',
     name: 'Tiêu chí 2: Hạ tầng, thiết bị và ứng dụng công nghệ thông tin',
+    description: 'Đánh giá về cơ sở vật chất, kỹ thuật cho việc tiếp cận pháp luật.',
     indicators: [
       {
         id: 'CT2.1',
@@ -117,20 +141,12 @@ export const criteria = [
         calculationFormula: null,
         evidenceRequirement: 'Biên bản kiểm tra tình trạng kỹ thuật, hình ảnh hệ thống loa.'
       },
-      {
-        id: 'CT2.3',
-        name: 'Chỉ tiêu 3: Nhà văn hóa, điểm sinh hoạt cộng đồng',
-        description: 'Thống kê số lượng nhà văn hóa, điểm sinh hoạt cộng đồng có trang thiết bị phục vụ việc tiếp cận thông tin, pháp luật.',
-        standardLevel: '>= 1',
-        inputType: 'number',
-        calculationFormula: null,
-        evidenceRequirement: 'Danh sách các nhà văn hóa, điểm sinh hoạt và trang thiết bị đi kèm.'
-      },
     ]
   },
    {
     id: 'TC03',
     name: 'Tiêu chí 3: Dân chủ ở cơ sở và hòa giải ở cơ sở',
+    description: 'Đánh giá việc thực thi dân chủ và hiệu quả hòa giải.',
     indicators: [
       {
         id: 'CT3.1',
@@ -157,16 +173,18 @@ export const criteria = [
 export const guidanceDocuments = [
   { id: 'VB001', name: 'Quyết định số 25/2021/QĐ-TTg về xã, phường, thị trấn đạt chuẩn tiếp cận pháp luật', number: '25/2021/QĐ-TTg', issueDate: '22/07/2021', excerpt: 'Quy định về tiêu chí xã, phường, thị trấn đạt chuẩn tiếp cận pháp luật và việc đánh giá, công nhận xã, phường, thị trấn đạt chuẩn tiếp cận pháp luật.' },
   { id: 'VB002', name: 'Thông tư số 09/2021/TT-BTP hướng dẫn thi hành Quyết định số 25/2021/QĐ-TTg', number: '09/2021/TT-BTP', issueDate: '15/11/2021', excerpt: 'Hướng dẫn chi tiết về nội dung các tiêu chí tiếp cận pháp luật, quy trình đánh giá, và biểu mẫu sử dụng.' },
-  { id: 'VB003', name: 'Luật Tiếp cận thông tin năm 2016', number: '104/2016/QH13', issueDate: '06/04/2016', excerpt: 'Quy định về việc thực hiện quyền tiếp cận thông tin của công dân, nguyên tắc, trình tự, thủ tục thực hiện quyền tiếp cận thông tin.'},
-  { id: 'VB004', name: 'Luật Hòa giải ở cơ sở năm 2013', number: '59/2013/QH13', issueDate: '20/06/2013', excerpt: 'Quy định về nguyên tắc, chính sách của Nhà nước về hòa giải ở cơ sở; hòa giải viên; tổ chức và hoạt động hòa giải ở cơ sở.' },
 ];
 
-
-export const assessmentPeriods = [
-    { id: 'DOT001', name: 'Đợt đánh giá 6 tháng đầu năm 2024', startDate: '01/01/2024', endDate: '30/07/2024', status: 'Active' },
-    { id: 'DOT002', name: 'Đợt đánh giá 6 tháng cuối năm 2023', startDate: '01/07/2023', endDate: '31/12/2023', status: 'Inactive' },
+export const progressData = [
+  { name: 'Tuần 1', 'Số lượng': 5 },
+  { name: 'Tuần 2', 'Số lượng': 12 },
+  { name: 'Tuần 3', 'Số lượng': 9 },
+  { name: 'Tuần 4', 'Số lượng': 15 },
+  { name: 'Tuần 5', 'Số lượng': 13 },
+  { name: 'Tuần 6', 'Số lượng': 20 },
 ];
 
+// Mock notifications
 export const communeNotifications = [
     { id: 'N001', title: 'Hồ sơ của bạn đã được duyệt', time: '5 phút trước', read: false },
     { id: 'N002', title: 'Hồ sơ của bạn đã bị từ chối, vui lòng kiểm tra và gửi lại.', time: '1 giờ trước', read: false },
@@ -176,5 +194,4 @@ export const communeNotifications = [
 export const adminNotifications = [
     { id: 'N001', title: 'Xã An Khánh vừa gửi hồ sơ đánh giá.', time: '15 phút trước', read: false },
     { id: 'N002', title: 'Xã Tân Triều vừa cập nhật hồ sơ bị từ chối.', time: '2 giờ trước', read: false },
-    { id: 'N003', title: 'Phường Bách Khoa vừa gửi hồ sơ đánh giá.', time: 'Hôm qua', read: true },
 ];

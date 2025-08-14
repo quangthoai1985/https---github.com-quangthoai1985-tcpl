@@ -49,14 +49,7 @@ import React from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useData } from '@/context/DataContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-
-type User = {
-  id: string;
-  name: string;
-  username: string;
-  unitId: string;
-  role: string;
-};
+import type { User } from '@/lib/data';
 
 function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (user: Partial<User>) => void, onCancel: () => void }) {
   const [formData, setFormData] = React.useState(user);
@@ -81,16 +74,16 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
       </DialogHeader>
       <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">Họ và tên</Label>
-              <Input id="name" value={formData.name || ''} onChange={handleChange} className="col-span-3" />
+              <Label htmlFor="displayName" className="text-right">Họ và tên</Label>
+              <Input id="displayName" value={formData.displayName || ''} onChange={handleChange} className="col-span-3" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="username" className="text-right">Tên đăng nhập</Label>
               <Input id="username" type="text" value={formData.username || ''} onChange={handleChange} className="col-span-3" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="unitId" className="text-right">Đơn vị</Label>
-              <Select value={formData.unitId} onValueChange={handleSelectChange('unitId')}>
+              <Label htmlFor="communeId" className="text-right">Đơn vị</Label>
+              <Select value={formData.communeId} onValueChange={handleSelectChange('communeId')}>
                   <SelectTrigger className="col-span-3">
                       <SelectValue placeholder="Chọn đơn vị" />
                   </SelectTrigger>
@@ -108,8 +101,8 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
                       <SelectValue placeholder="Chọn vai trò" />
                   </SelectTrigger>
                   <SelectContent>
-                      <SelectItem value="Cán bộ Tỉnh">Cán bộ Tỉnh</SelectItem>
-                      <SelectItem value="Cán bộ Xã">Cán bộ Xã</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                      <SelectItem value="commune_staff">Cán bộ Xã</SelectItem>
                   </SelectContent>
               </Select>
           </div>
@@ -158,22 +151,22 @@ function UserTable({ users, onEdit, onResetPassword, onDelete }: { users: User[]
               <TableRow key={user.id}>
                 <TableCell className="hidden sm:table-cell">
                    <Avatar className="h-9 w-9">
-                    <AvatarFallback className={user.role === 'Cán bộ Tỉnh' ? 'bg-primary text-primary-foreground' : ''}>
-                        {user.name.split(' ').map(n => n[0]).slice(-2).join('').toUpperCase()}
+                    <AvatarFallback className={user.role === 'admin' ? 'bg-primary text-primary-foreground' : ''}>
+                        {user.displayName.split(' ').map(n => n[0]).slice(-2).join('').toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                 </TableCell>
                 <TableCell className="font-medium">
-                    {user.name}
+                    {user.displayName}
                     <div className="text-sm text-muted-foreground md:hidden">
                         {user.username}
                     </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline">{user.role}</Badge>
+                  <Badge variant="outline">{user.role === 'admin' ? 'Admin' : 'Cán bộ Xã'}</Badge>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
-                  {getUnitName(user.unitId)}
+                  {getUnitName(user.communeId)}
                 </TableCell>
                 <TableCell>
                   <DropdownMenu>
@@ -218,7 +211,7 @@ function ResetPasswordForm({ user, onSave, onCancel }: { user: User, onSave: (pa
     return (
          <>
             <DialogHeader>
-                <DialogTitle>Đặt lại mật khẩu cho {user.name}</DialogTitle>
+                <DialogTitle>Đặt lại mật khẩu cho {user.displayName}</DialogTitle>
                 <DialogDescription>
                     Nhập mật khẩu mới cho người dùng. Họ sẽ có thể đăng nhập bằng mật khẩu này.
                 </DialogDescription>
@@ -266,7 +259,7 @@ export default function UserManagementPage() {
         setUsers(users.filter(u => u.id !== deletingUser.id));
         toast({
             title: "Thành công!",
-            description: `Đã xóa người dùng "${deletingUser.name}".`,
+            description: `Đã xóa người dùng "${deletingUser.displayName}".`,
         });
         setDeletingUser(null);
     }
@@ -282,7 +275,7 @@ export default function UserManagementPage() {
         // For now, we'll just show a success toast.
         toast({
             title: "Thành công!",
-            description: `Đã đặt lại mật khẩu cho ${resettingUser.name}.`,
+            description: `Đã đặt lại mật khẩu cho ${resettingUser.displayName}.`,
         });
         console.log(`Password for ${resettingUser.username} set to: ${password}`);
         setResettingUser(null);
@@ -296,12 +289,11 @@ export default function UserManagementPage() {
     } else {
       // Add new user logic
       const newUser = {
-        ...userToSave,
         id: `USR${String(users.length + 1).padStart(3, '0')}`,
         username: userToSave.username || '',
-        name: userToSave.name || '',
-        unitId: userToSave.unitId || '',
-        role: userToSave.role || 'Cán bộ Xã',
+        displayName: userToSave.displayName || '',
+        communeId: userToSave.communeId || '',
+        role: userToSave.role || 'commune_staff',
       } as User;
       setUsers([...users, newUser]);
        toast({ title: "Thành công!", description: "Đã tạo người dùng mới."});
@@ -315,8 +307,8 @@ export default function UserManagementPage() {
     setIsNewUserDialogOpen(false);
   }
   
-  const adminUsers = users.filter(u => u.role === 'Cán bộ Tỉnh');
-  const communeUsers = users.filter(u => u.role === 'Cán bộ Xã');
+  const adminUsers = users.filter(u => u.role === 'admin');
+  const communeUsers = users.filter(u => u.role === 'commune_staff');
 
   return (
     <>
@@ -324,7 +316,7 @@ export default function UserManagementPage() {
       <div className="flex items-center">
         <TabsList>
           <TabsTrigger value="all">Tất cả</TabsTrigger>
-          <TabsTrigger value="admin">Cán bộ Tỉnh</TabsTrigger>
+          <TabsTrigger value="admin">Admin</TabsTrigger>
           <TabsTrigger value="commune">Cán bộ Xã</TabsTrigger>
         </TabsList>
         <div className="ml-auto flex items-center gap-2">
@@ -349,7 +341,7 @@ export default function UserManagementPage() {
               <DropdownMenuLabel>Lọc theo vai trò</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuCheckboxItem checked>
-                Cán bộ Tỉnh
+                Admin
               </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem>Cán bộ Xã</DropdownMenuCheckboxItem>
             </DropdownMenuContent>
@@ -404,7 +396,7 @@ export default function UserManagementPage() {
             <AlertDialogHeader>
                 <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
                 <AlertDialogDescription>
-                    Bạn có chắc chắn muốn xóa người dùng <strong>{deletingUser?.name}</strong>?
+                    Bạn có chắc chắn muốn xóa người dùng <strong>{deletingUser?.displayName}</strong>?
                     Hành động này không thể hoàn tác.
                 </AlertDialogDescription>
             </AlertDialogHeader>
