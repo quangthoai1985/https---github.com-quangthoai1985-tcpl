@@ -15,14 +15,27 @@ import Image from 'next/image';
 import { useData } from '@/context/DataContext';
 import { useRouter } from 'next/navigation';
 import type { Role } from '@/lib/data';
+import React from 'react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function LoginPageContent() {
-  const { setRole } = useData();
+  const { setLoginInfo } = useData();
   const router = useRouter();
+  const { toast } = useToast();
+  const [username, setUsername] = React.useState('');
+  const [password, setPassword] = React.useState('');
 
-  const handleLogin = (role: Role) => {
-    setRole(role);
-    router.push('/dashboard');
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (setLoginInfo(username)) {
+      router.push('/dashboard');
+    } else {
+      toast({
+        variant: 'destructive',
+        title: "Đăng nhập thất bại",
+        description: "Tên đăng nhập hoặc mật khẩu không chính xác.",
+      });
+    }
   };
 
   return (
@@ -33,39 +46,43 @@ export default function LoginPageContent() {
         </div>
         <CardHeader className="text-center pt-0">
           <CardTitle className="text-2xl font-headline leading-snug">
-            <div>ĐÁNH GIÁ CHUẨN</div>
-            <div>TIẾP CẬN PHÁP LUẬT</div>
+            ĐÁNH GIÁ CHUẨN TIẾP CẬN PHÁP LUẬT
           </CardTitle>
           <CardDescription>
             Đăng nhập vào tài khoản của bạn để tiếp tục
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4">
+          <form onSubmit={handleLogin} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="username">Tên đăng nhập</Label>
               <Input
                 id="username"
                 type="text"
-                placeholder="admin hoặc canboxa"
+                placeholder="Nhập tên đăng nhập"
                 required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
               />
             </div>
             <div className="grid gap-2">
               <div className="flex items-center">
                 <Label htmlFor="password">Mật khẩu</Label>
               </div>
-              <Input id="password" type="password" required defaultValue="123456" />
+              <Input 
+                id="password" 
+                type="password" 
+                required 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
             </div>
             <div className="grid gap-2 pt-2">
-              <Button onClick={() => handleLogin('admin')} className="w-full">
-                Đăng nhập (Admin)
-              </Button>
-              <Button onClick={() => handleLogin('commune_staff')} variant="outline" className="w-full">
-                Đăng nhập (Cán bộ xã)
+              <Button type="submit" className="w-full">
+                Đăng nhập
               </Button>
             </div>
-          </div>
+          </form>
         </CardContent>
       </Card>
     </div>
