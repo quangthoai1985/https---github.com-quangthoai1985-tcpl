@@ -43,21 +43,65 @@ import { useData } from '@/context/DataContext';
 import { Pie, PieChart, Cell, ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line } from 'recharts';
 import React from 'react';
 import PageHeader from '@/components/layout/page-header';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 
 const AdminDashboard = () => {
-    const { units, assessments } = useData();
+    const { units, assessments, assessmentPeriods } = useData();
+    const [selectedPeriod, setSelectedPeriod] = React.useState<string | undefined>(assessmentPeriods.find(p => p.isActive)?.id);
 
-    const totalCommunes = units.filter(u => u.type === 'commune').length;
-    const pendingCount = assessments.filter(a => a.status === 'pending_review').length;
-    const approvedCount = assessments.filter(a => a.status === 'approved').length;
-    const rejectedCount = assessments.filter(a => a.status === 'rejected').length;
-    
-    // Note: This logic might need to be refined based on how "sent" is defined.
-    // Here we assume any assessment record means it was "sent" at some point.
-    // A more accurate count might need to consider only the active assessment period.
-    const sentCommuneIds = new Set(assessments.map(a => a.communeId));
-    const notSentCount = totalCommunes > sentCommuneIds.size ? totalCommunes - sentCommuneIds.size : 0;
+    const {
+        periodAssessments,
+        totalCommunes,
+        pendingCount,
+        approvedCount,
+        rejectedCount,
+        notSentCount,
+        assessmentStatusChartData,
+        chartConfig,
+    } = React.useMemo(() => {
+        const periodAssessments = selectedPeriod 
+            ? assessments.filter(a => a.assessmentPeriodId === selectedPeriod)
+            : [];
+        
+        const allCommuneUnits = units.filter(u => u.type === 'commune');
+        const sentCommuneIds = new Set(periodAssessments.map(a => a.communeId));
+        
+        const totalCommunes = allCommuneUnits.length;
+        const pendingCount = periodAssessments.filter(a => a.status === 'pending_review').length;
+        const approvedCount = periodAssessments.filter(a => a.status === 'approved').length;
+        const rejectedCount = periodAssessments.filter(a => a.status === 'rejected').length;
+        const notSentCount = totalCommunes - sentCommuneIds.size;
+
+        const chartData = [
+            { name: 'Đã duyệt', value: approvedCount, fill: 'hsl(var(--chart-2))' },
+            { name: 'Chờ duyệt', value: pendingCount, fill: 'hsl(var(--chart-3))' },
+            { name: 'Bị từ chối', value: rejectedCount, fill: 'hsl(var(--chart-4))' },
+            { name: 'Chưa gửi', value: notSentCount, fill: 'hsl(var(--muted))' },
+        ];
+        
+        const assessmentStatusChartData = chartData.filter(d => d.value > 0);
+        
+        const chartConfig = {};
+        assessmentStatusChartData.forEach(item => {
+            chartConfig[item.name] = {
+                label: item.name,
+                color: item.fill,
+            };
+        });
+
+        return {
+            periodAssessments,
+            totalCommunes,
+            pendingCount,
+            approvedCount,
+            rejectedCount,
+            notSentCount,
+            assessmentStatusChartData,
+            chartConfig,
+        };
+
+    }, [selectedPeriod, assessments, units]);
 
 
     const kpiCards = [
@@ -91,28 +135,6 @@ const AdminDashboard = () => {
       },
     ];
 
-    const assessmentStatusChartData = React.useMemo(() => {
-        const data = [
-            { name: 'Đã duyệt', value: approvedCount, fill: 'hsl(var(--chart-2))' },
-            { name: 'Chờ duyệt', value: pendingCount, fill: 'hsl(var(--chart-3))' },
-            { name: 'Bị từ chối', value: rejectedCount, fill: 'hsl(var(--chart-4))' },
-            { name: 'Chưa gửi', value: notSentCount, fill: 'hsl(var(--muted))' },
-        ];
-        return data.filter(d => d.value > 0);
-    }, [approvedCount, pendingCount, rejectedCount, notSentCount]);
-    
-    const chartConfig = React.useMemo(() => {
-        const config = {};
-        assessmentStatusChartData.forEach(item => {
-            config[item.name] = {
-                label: item.name,
-                color: item.fill,
-            };
-        });
-        return config;
-    }, [assessmentStatusChartData]);
-
-
     const getUnitName = (communeId: string) => {
         const unit = units.find(u => u.id === communeId);
         if (!unit) return { communeName: 'Không xác định', districtName: '', provinceName: '' };
@@ -130,7 +152,21 @@ const AdminDashboard = () => {
 
     return (
     <>
-    <PageHeader title="Tổng quan" description="Xem các chỉ số và hoạt động tổng thể của hệ thống." />
+    <div className="flex items-center justify-between">
+        <PageHeader title="Tổng quan" description="Xem các chỉ số và hoạt động tổng thể của hệ thống." />
+         <div className="flex items-center gap-2">
+            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+            <SelectTrigger className="w-[280px]">
+                <SelectValue placeholder="Chọn đợt đánh giá" />
+            </SelectTrigger>
+            <SelectContent>
+                {assessmentPeriods.map(period => (
+                    <SelectItem key={period.id} value={period.id}>{period.name}</SelectItem>
+                ))}
+            </SelectContent>
+            </Select>
+        </div>
+    </div>
     <div className="flex flex-col gap-6">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {kpiCards.map((card, index) => {
@@ -156,8 +192,8 @@ const AdminDashboard = () => {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Đánh giá các xã (Tổng thể)</CardTitle>
-            <CardDescription>Phân bố trạng thái của tất cả hồ sơ trong hệ thống.</CardDescription>
+            <CardTitle>Đánh giá các xã ({assessmentPeriods.find(p=>p.id===selectedPeriod)?.name || 'Tất cả'})</CardTitle>
+            <CardDescription>Phân bố trạng thái của các hồ sơ trong đợt được chọn.</CardDescription>
           </CardHeader>
            <CardContent className="flex items-center justify-center">
             <ChartContainer
@@ -193,7 +229,7 @@ const AdminDashboard = () => {
 
         <Card className="shadow-sm">
           <CardHeader>
-            <CardTitle>Tiến độ đánh giá</CardTitle>
+            <CardTitle>Tiến độ nộp hồ sơ</CardTitle>
              <CardDescription>Số lượng hồ sơ nộp theo thời gian (dữ liệu giả định).</CardDescription>
           </CardHeader>
           <CardContent>
@@ -234,7 +270,7 @@ const AdminDashboard = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {assessments.filter(a => a.status === 'pending_review').map((assessment) => {
+                {periodAssessments.filter(a => a.status === 'pending_review').map((assessment) => {
                     const unitInfo = getUnitName(assessment.communeId);
                     return (
                         <TableRow key={assessment.id} className="hover:bg-muted/50">
@@ -383,3 +419,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+      
