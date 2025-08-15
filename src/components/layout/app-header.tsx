@@ -34,7 +34,7 @@ import { Separator } from '../ui/separator';
 import Image from 'next/image';
 
 export default function AppHeader() {
-  const { role, currentUser } = useData();
+  const { role, currentUser, units } = useData();
   const notifications = role === 'admin' ? adminNotifications : communeNotifications;
   const unreadNotifications = notifications.filter(n => !n.read).length;
   
@@ -58,6 +58,10 @@ export default function AppHeader() {
       if (title.includes('bị từ chối')) return notificationIcons['bị từ chối'];
       if (title.includes('vừa gửi')) return notificationIcons['đã gửi'];
       return notificationIcons['chờ duyệt'];
+  }
+  
+  const getUnitName = (unitId: string) => {
+    return units.find(u => u.id === unitId)?.name || "";
   }
 
   return (
@@ -87,7 +91,12 @@ export default function AppHeader() {
         {currentUser && (
             <div className="hidden text-right lg:block">
                 <p className="font-semibold text-sm">{currentUser.displayName}</p>
-                <p className="text-xs text-muted-foreground">{currentUser.role === 'admin' ? 'Admin' : 'Cán bộ'}</p>
+                <p className="text-xs text-muted-foreground">
+                  {currentUser.role === 'admin' 
+                    ? 'Admin' 
+                    : `Cán bộ - ${getUnitName(currentUser.communeId)}`
+                  }
+                </p>
             </div>
         )}
         <Popover>
@@ -101,7 +110,7 @@ export default function AppHeader() {
                 )}
                 </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" className="w-80">
+            <PopoverContent align="end" className="w-80 p-0">
                 <div className="p-4">
                     <h4 className="font-medium leading-none">Thông báo</h4>
                     <p className="text-sm text-muted-foreground">Bạn có {unreadNotifications} thông báo mới.</p>
