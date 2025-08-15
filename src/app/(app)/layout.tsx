@@ -27,7 +27,9 @@ export default function AppLayout({
      <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <AppHeader />
       <div className="flex flex-1">
-        <AppSidebar />
+        <div className="hidden md:block">
+            <AppSidebar />
+        </div>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
           {children}
         </main>

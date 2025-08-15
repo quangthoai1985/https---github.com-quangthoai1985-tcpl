@@ -42,10 +42,16 @@ export default function AppSidebar() {
   const pendingCount = assessments.filter(a => a.status === 'pending_review').length;
 
   return (
-    <aside className="hidden border-r bg-background md:block md:w-[250px] lg:w-[250px]">
+    <aside className="border-r bg-background w-full md:w-[250px] lg:w-[250px]">
       <div className="flex h-full max-h-screen flex-col gap-2">
-        <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
-            {/* Logo and title are now in AppHeader */}
+        <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6 md:hidden">
+           <Link href="/dashboard" className="flex items-center gap-3 font-semibold">
+            <Image src="https://placehold.co/40x40.png" alt="Logo" width={32} height={32} data-ai-hint="logo" />
+            <div className="font-headline text-sm uppercase leading-tight text-foreground">
+                <div>ĐÁNH GIÁ CHUẨN</div>
+                <div>TIẾP CẬN PHÁP LUẬT</div>
+            </div>
+          </Link>
         </div>
         <div className="flex-1">
           <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
