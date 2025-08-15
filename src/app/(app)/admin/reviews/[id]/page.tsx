@@ -17,6 +17,7 @@ import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import { useData } from "@/context/DataContext";
 import { Input } from "@/components/ui/input";
+import PageHeader from "@/components/layout/page-header";
 
 function FileUploadComponent() {
     const [files, setFiles] = React.useState<File[]>([]);
@@ -148,16 +149,12 @@ export default function AssessmentDetailPage() {
 
   return (
     <>
+    <PageHeader title="Chi tiết Hồ sơ Đánh giá" description={`Đơn vị: ${assessmentUnitName} | Ngày nộp: ${assessment.submissionDate}`}/>
     <div className="grid gap-6">
       <Card>
         <CardHeader>
           <div className="flex justify-between items-start">
-            <div>
-              <CardTitle className="text-2xl">Chi tiết Hồ sơ đánh giá</CardTitle>
-              <CardDescription>
-                Đơn vị: {assessmentUnitName} - Ngày nộp: {assessment.submissionDate}
-              </CardDescription>
-            </div>
+            <div className="flex-1"></div>
             <Badge
               variant={
                 assessment.status === 'approved'

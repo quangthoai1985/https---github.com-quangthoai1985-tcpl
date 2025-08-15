@@ -32,43 +32,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { adminNotifications, communeNotifications } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
+import Image from 'next/image';
 
 export default function AppHeader() {
-  const pathname = usePathname();
   const { role, currentUser } = useData();
   const notifications = role === 'admin' ? adminNotifications : communeNotifications;
   const unreadNotifications = notifications.filter(n => !n.read).length;
-
-
-  const getPageTitle = () => {
-    if (pathname.startsWith('/admin/reviews/')) {
-        return 'Chi tiết Hồ sơ Đánh giá';
-    }
-    switch (pathname) {
-      case '/dashboard':
-        return 'Tổng quan';
-      case '/admin/users':
-        return 'Quản lý Người dùng';
-      case '/admin/units':
-        return 'Quản lý Đơn vị';
-      case '/admin/criteria':
-        return 'Quản lý Tiêu chí';
-      case '/admin/assessment-periods':
-        return 'Quản lý Đợt đánh giá';
-      case '/admin/reviews':
-        return 'Duyệt Hồ sơ Đánh giá';
-      case '/admin/reports':
-        return 'Báo cáo & Thống kê';
-      case '/commune/assessments':
-        return 'Tự Chấm điểm';
-      case '/documents':
-        return 'Văn bản Hướng dẫn';
-      case '/profile':
-        return 'Hồ sơ cá nhân';
-      default:
-        return 'Tổng Quan';
-    }
-  };
   
   const getAvatarFallback = () => {
     return currentUser?.displayName.split(' ').map(n => n[0]).slice(-2).join('').toUpperCase() || (role === 'admin' ? 'AD' : 'CB');
@@ -93,7 +62,7 @@ export default function AppHeader() {
   }
 
   return (
-    <header className="flex h-14 items-center gap-4 border-b bg-card px-4 lg:h-[60px] lg:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
       <Sheet>
         <SheetTrigger asChild>
           <Button variant="outline" size="icon" className="shrink-0 md:hidden">
@@ -105,13 +74,18 @@ export default function AppHeader() {
           <AppSidebar />
         </SheetContent>
       </Sheet>
-      <div className="w-full flex-1">
-        <h1 className="font-headline text-lg font-semibold md:text-2xl">
-          {getPageTitle()}
-        </h1>
+
+      <div className="hidden items-center gap-3 md:flex">
+         <Link href="/dashboard" className="flex items-center gap-3 font-semibold">
+            <Image src="https://placehold.co/40x40.png" alt="Logo" width={32} height={32} data-ai-hint="logo" />
+            <div className="font-headline text-sm uppercase leading-tight text-foreground">
+                <div>ĐÁNH GIÁ CHUẨN</div>
+                <div>TIẾP CẬN PHÁP LUẬT</div>
+            </div>
+          </Link>
       </div>
 
-       <div className="flex items-center gap-4">
+       <div className="ml-auto flex items-center gap-4">
         {currentUser && (
             <div className="hidden text-right lg:block">
                 <p className="font-semibold text-sm">{currentUser.displayName}</p>

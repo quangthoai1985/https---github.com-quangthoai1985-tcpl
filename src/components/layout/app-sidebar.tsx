@@ -42,16 +42,10 @@ export default function AppSidebar() {
   const pendingCount = assessments.filter(a => a.status === 'pending_review').length;
 
   return (
-    <div className="hidden border-r bg-sidebar text-sidebar-foreground md:block">
+    <aside className="hidden border-r bg-background md:block md:w-[250px] lg:w-[250px]">
       <div className="flex h-full max-h-screen flex-col gap-2">
-        <div className="flex h-14 items-center border-b border-sidebar-border px-4 lg:h-[60px] lg:px-6">
-          <Link href="/dashboard" className="flex items-center gap-3 font-semibold">
-             <Image src="https://placehold.co/40x40.png" alt="Logo" width={32} height={32} data-ai-hint="logo" />
-            <div className="font-headline text-sm uppercase leading-tight">
-                <div>Đánh giá chuẩn</div>
-                <div>Tiếp cận pháp luật</div>
-            </div>
-          </Link>
+        <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6">
+            {/* Logo and title are now in AppHeader */}
         </div>
         <div className="flex-1">
           <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
@@ -60,16 +54,15 @@ export default function AppSidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-                   // Special case for dashboard to avoid matching all child routes
-                  pathname === item.href ? 'bg-sidebar-accent' : 
-                  (pathname.startsWith(item.href) && item.href !== '/dashboard') ? 'bg-sidebar-accent' : ''
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
+                  pathname === item.href ? 'bg-muted text-primary' : 
+                  (pathname.startsWith(item.href) && item.href !== '/dashboard') ? 'bg-muted text-primary' : ''
                 )}
               >
                 <item.icon className="h-4 w-4" />
                 {item.label}
                 {item.href === '/admin/reviews' && pendingCount > 0 && role === 'admin' && (
-                  <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sidebar-primary text-sidebar-primary-foreground">
+                  <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
                     {pendingCount}
                   </Badge>
                 )}
@@ -78,6 +71,6 @@ export default function AppSidebar() {
           </nav>
         </div>
       </div>
-    </div>
+    </aside>
   );
 }

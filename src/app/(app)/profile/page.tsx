@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useData } from "@/context/DataContext";
 import { useToast } from "@/hooks/use-toast";
 import React from "react";
+import PageHeader from "@/components/layout/page-header";
 
 export default function ProfilePage() {
     const { users, setUsers, currentUser } = useData();
@@ -43,12 +44,14 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="grid gap-6">
-            <Card className="max-w-2xl">
+        <>
+        <PageHeader title="Hồ sơ cá nhân" description="Quản lý thông tin tài khoản và bảo mật."/>
+        <div className="grid gap-6 md:grid-cols-2">
+            <Card>
                 <CardHeader>
                     <CardTitle>Thông tin cá nhân</CardTitle>
                     <CardDescription>
-                        Quản lý thông tin tài khoản của bạn.
+                        Cập nhật thông tin hiển thị của bạn.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -72,7 +75,7 @@ export default function ProfilePage() {
                 </CardContent>
             </Card>
 
-            <Card className="max-w-2xl">
+            <Card>
                 <CardHeader>
                     <CardTitle>Đổi mật khẩu</CardTitle>
                     <CardDescription>
@@ -100,5 +103,6 @@ export default function ProfilePage() {
                 </CardContent>
             </Card>
         </div>
+        </>
     );
 }

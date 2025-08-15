@@ -38,6 +38,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useData } from '@/context/DataContext';
 import { Switch } from '@/components/ui/switch';
 import type { AssessmentPeriod } from '@/lib/data';
+import PageHeader from '@/components/layout/page-header';
 
 function PeriodForm({ period, onSave, onCancel }: { period: Partial<AssessmentPeriod>, onSave: (p: Partial<AssessmentPeriod>) => void, onCancel: () => void }) {
   const [formData, setFormData] = React.useState(period);
@@ -143,15 +144,10 @@ export default function AssessmentPeriodPage() {
 
   return (
     <>
+    <PageHeader title="Quản lý Đợt đánh giá" description="Tạo và quản lý các kỳ đánh giá trong năm. Chỉ một đợt được hoạt động tại một thời điểm."/>
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-            <div>
-                <CardTitle>Quản lý Đợt đánh giá</CardTitle>
-                <CardDescription>
-                Tạo và quản lý các kỳ đánh giá trong năm. Chỉ một đợt được hoạt động tại một thời điểm.
-                </CardDescription>
-            </div>
+        <div className="flex items-center justify-end">
              <Button onClick={handleNew}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Thêm Đợt đánh giá

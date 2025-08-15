@@ -25,6 +25,7 @@ import React, { useMemo } from 'react';
 import { useData } from '@/context/DataContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Assessment, Unit } from '@/lib/data';
+import PageHeader from '@/components/layout/page-header';
 
 export default function ReviewAssessmentsPage() {
     const { assessmentPeriods, units, assessments } = useData();
@@ -176,15 +177,11 @@ export default function ReviewAssessmentsPage() {
     ];
 
     return (
+        <>
+        <PageHeader title="Duyệt hồ sơ đánh giá" description="Xem xét và phê duyệt các hồ sơ đánh giá do các xã gửi lên theo từng đợt."/>
         <Card>
         <CardHeader>
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                    <CardTitle>Duyệt hồ sơ đánh giá</CardTitle>
-                    <CardDescription>
-                    Xem xét và phê duyệt các hồ sơ đánh giá do các xã gửi lên theo từng đợt.
-                    </CardDescription>
-                </div>
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-end gap-4">
                 <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
                 <SelectTrigger className="w-full sm:w-[280px]">
                     <SelectValue placeholder="Chọn đợt đánh giá" />
@@ -214,5 +211,6 @@ export default function ReviewAssessmentsPage() {
             </Tabs>
         </CardContent>
         </Card>
+        </>
     );
 }

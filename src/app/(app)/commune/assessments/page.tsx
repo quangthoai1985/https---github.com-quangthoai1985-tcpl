@@ -13,6 +13,7 @@ import React from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/context/DataContext";
+import PageHeader from "@/components/layout/page-header";
 
 function FileUploadComponent() {
     const [files, setFiles] = React.useState<File[]>([]);
@@ -114,10 +115,12 @@ export default function SelfAssessmentPage() {
   };
 
   return (
+    <>
+    <PageHeader title="Tự Chấm điểm & Đánh giá" description="Thực hiện tự đánh giá theo các tiêu chí và cung cấp hồ sơ minh chứng đi kèm."/>
     <div className="grid gap-6">
         <Card>
             <CardHeader>
-                <CardTitle>Tự chấm điểm và đánh giá</CardTitle>
+                <CardTitle>Thông tin kỳ đánh giá</CardTitle>
                 <CardDescription>
                   {activePeriod 
                     ? `Kỳ đánh giá: ${activePeriod.name}. Vui lòng hoàn thành trước ngày ${activePeriod.endDate}.`
@@ -171,5 +174,6 @@ export default function SelfAssessmentPage() {
             )}
         </Card>
     </div>
+    </>
   );
 }

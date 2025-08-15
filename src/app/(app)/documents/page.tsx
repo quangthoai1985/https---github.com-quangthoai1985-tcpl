@@ -26,6 +26,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogD
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import PageHeader from '@/components/layout/page-header';
 
 
 type Document = {
@@ -127,28 +128,21 @@ export default function DocumentsPage() {
 
   return (
     <>
+      <PageHeader title="Văn bản Hướng dẫn" description="Danh sách các văn bản pháp luật, hướng dẫn liên quan đến công tác đánh giá."/>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <CardTitle>Văn bản Hướng dẫn</CardTitle>
-              <CardDescription>
-                Danh sách các văn bản pháp luật, hướng dẫn liên quan đến công tác đánh giá.
-              </CardDescription>
+            <div className='flex items-center justify-between'>
+                 <div className="relative">
+                    <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                    <Input type="search" placeholder="Tìm kiếm văn bản..." className="pl-8 w-64" />
+                </div>
+                {userRole === 'admin' && (
+                    <Button onClick={handleNew}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Thêm văn bản mới
+                    </Button>
+                )}
             </div>
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input type="search" placeholder="Tìm kiếm văn bản..." className="pl-8 w-64" />
-              </div>
-              {userRole === 'admin' && (
-                <Button onClick={handleNew}>
-                  <PlusCircle className="mr-2 h-4 w-4" />
-                  Thêm văn bản mới
-                </Button>
-              )}
-            </div>
-          </div>
         </CardHeader>
         <CardContent>
           <Table>

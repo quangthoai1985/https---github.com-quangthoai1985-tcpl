@@ -38,6 +38,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useData } from '@/context/DataContext';
+import PageHeader from '@/components/layout/page-header';
 
 type Unit = {
     id: string;
@@ -132,15 +133,10 @@ export default function UnitManagementPage() {
 
   return (
     <>
+    <PageHeader title="Quản lý Đơn vị" description="Quản lý danh sách các đơn vị trong hệ thống."/>
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-            <div>
-                <CardTitle>Quản lý Đơn vị</CardTitle>
-                <CardDescription>
-                Quản lý danh sách các đơn vị trong hệ thống.
-                </CardDescription>
-            </div>
+        <div className="flex items-center justify-end">
              <Button onClick={handleNew}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Thêm Đơn vị

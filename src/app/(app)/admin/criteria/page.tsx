@@ -33,6 +33,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
+import PageHeader from '@/components/layout/page-header';
 
 
 type Indicator = {
@@ -242,16 +243,10 @@ export default function CriteriaManagementPage() {
 
   return (
     <>
+    <PageHeader title="Bộ Tiêu chí Đánh giá" description="Quản lý các tiêu chí và chỉ tiêu để đánh giá xã đạt chuẩn tiếp cận pháp luật."/>
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle>Bộ Tiêu chí Đánh giá</CardTitle>
-            <CardDescription>
-              Quản lý các tiêu chí và chỉ tiêu để đánh giá xã đạt chuẩn tiếp cận
-              pháp luật.
-            </CardDescription>
-          </div>
+        <div className="flex items-center justify-end">
           <Button onClick={() => setAddingCriterion(true)}>
             <PlusCircle className="mr-2 h-4 w-4" />
             Thêm Tiêu chí mới

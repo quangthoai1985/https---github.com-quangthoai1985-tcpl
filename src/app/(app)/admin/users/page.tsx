@@ -50,6 +50,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useData } from '@/context/DataContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { User } from '@/lib/data';
+import PageHeader from '@/components/layout/page-header';
 
 function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (user: Partial<User>) => void, onCancel: () => void }) {
   const [formData, setFormData] = React.useState(user);
@@ -124,10 +125,42 @@ function UserTable({ users, onEdit, onResetPassword, onDelete }: { users: User[]
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Người dùng</CardTitle>
-        <CardDescription>
-          Quản lý người dùng trong hệ thống.
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div className="relative flex-1 md:grow-0">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Tìm kiếm..."
+              className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[320px]"
+            />
+          </div>
+          <div className='flex items-center gap-2'>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-10 gap-1">
+                  <ListFilter className="h-3.5 w-3.5" />
+                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                    Lọc
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Lọc theo vai trò</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem checked>
+                  Admin
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem>Cán bộ Xã</DropdownMenuCheckboxItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button size="sm" className="h-10 gap-1" onClick={() => (onEdit as any)() }>
+              <PlusCircle className="h-3.5 w-3.5" />
+              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                Thêm người dùng
+              </span>
+            </Button>
+          </div>
+        </div>
       </CardHeader>
       <CardContent>
         <Table>
@@ -246,8 +279,9 @@ export default function UserManagementPage() {
   const [deletingUser, setDeletingUser] = React.useState<User | null>(null);
   const { toast } = useToast();
 
-  const handleEdit = (user: User) => {
-    setEditingUser(user);
+  const handleEdit = (user?: User) => {
+    setEditingUser(user || {});
+    setIsNewUserDialogOpen(true);
   };
 
   const handleDelete = (user: User) => {
@@ -312,48 +346,13 @@ export default function UserManagementPage() {
 
   return (
     <>
+    <PageHeader title="Quản lý Người dùng" description="Quản lý tất cả người dùng và vai trò trong hệ thống."/>
     <Tabs defaultValue="all">
-      <div className="flex items-center">
-        <TabsList>
-          <TabsTrigger value="all">Tất cả</TabsTrigger>
-          <TabsTrigger value="admin">Admin</TabsTrigger>
-          <TabsTrigger value="commune">Cán bộ Xã</TabsTrigger>
-        </TabsList>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="relative ml-auto flex-1 md:grow-0">
-            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              type="search"
-              placeholder="Tìm kiếm..."
-              className="w-full rounded-lg bg-card pl-8 md:w-[200px] lg:w-[320px]"
-            />
-          </div>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-10 gap-1">
-                <ListFilter className="h-3.5 w-3.5" />
-                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                  Lọc
-                </span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Lọc theo vai trò</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem checked>
-                Admin
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem>Cán bộ Xã</DropdownMenuCheckboxItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button size="sm" className="h-10 gap-1" onClick={() => setIsNewUserDialogOpen(true)}>
-            <PlusCircle className="h-3.5 w-3.5" />
-            <span className="sr-only sm:not-sr-only sm:whitespace-rap">
-              Thêm người dùng
-            </span>
-          </Button>
-        </div>
-      </div>
+      <TabsList className="grid w-full grid-cols-3">
+        <TabsTrigger value="all">Tất cả</TabsTrigger>
+        <TabsTrigger value="admin">Admin</TabsTrigger>
+        <TabsTrigger value="commune">Cán bộ Xã</TabsTrigger>
+      </TabsList>
       <TabsContent value="all">
         <UserTable users={users} onEdit={handleEdit} onResetPassword={handleResetPassword} onDelete={handleDelete} />
       </TabsContent>
@@ -366,14 +365,13 @@ export default function UserManagementPage() {
     </Tabs>
 
     {/* Add/Edit User Dialog */}
-    <Dialog open={isNewUserDialogOpen || !!editingUser} onOpenChange={(open) => {
+    <Dialog open={isNewUserDialogOpen} onOpenChange={(open) => {
       if (!open) {
         handleCancel();
       }
     }}>
       <DialogContent>
-        {isNewUserDialogOpen && <UserForm user={{}} onSave={handleSaveUser} onCancel={handleCancel} />}
-        {editingUser && <UserForm user={editingUser} onSave={handleSaveUser} onCancel={handleCancel} />}
+        <UserForm user={editingUser || {}} onSave={handleSaveUser} onCancel={handleCancel} />
       </DialogContent>
     </Dialog>
 

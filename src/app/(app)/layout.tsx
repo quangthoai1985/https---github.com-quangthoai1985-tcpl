@@ -24,11 +24,11 @@ export default function AppLayout({
 
 
   return (
-    <div className="grid min-h-screen w-full md:grid-cols-[250px_1fr] lg:grid-cols-[250px_1fr]">
-      <AppSidebar />
-      <div className="flex flex-col">
-        <AppHeader />
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 bg-background">
+     <div className="flex min-h-screen w-full flex-col bg-muted/40">
+      <AppHeader />
+      <div className="flex flex-1">
+        <AppSidebar />
+        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
           {children}
         </main>
       </div>

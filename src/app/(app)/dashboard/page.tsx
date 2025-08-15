@@ -42,10 +42,11 @@ import Link from 'next/link';
 import { useData } from '@/context/DataContext';
 import { Pie, PieChart, Cell, ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line } from 'recharts';
 import React from 'react';
+import PageHeader from '@/components/layout/page-header';
 
 
 const AdminDashboard = () => {
-    const { users, units, assessments } = useData();
+    const { units, assessments } = useData();
 
     const totalCommunes = units.filter(u => u.type === 'commune').length;
     const pendingCount = assessments.filter(a => a.status === 'pending_review').length;
@@ -128,6 +129,8 @@ const AdminDashboard = () => {
 
 
     return (
+    <>
+    <PageHeader title="Tổng quan" description="Xem các chỉ số và hoạt động tổng thể của hệ thống." />
     <div className="flex flex-col gap-6">
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {kpiCards.map((card, index) => {
@@ -259,6 +262,7 @@ const AdminDashboard = () => {
           </CardContent>
         </Card>
     </div>
+    </>
 )};
 
 const CommuneDashboard = () => {
@@ -280,6 +284,8 @@ const CommuneDashboard = () => {
 
 
     return (
+        <>
+        <PageHeader title="Tổng quan" description="Thông tin tổng quan và các tác vụ nhanh."/>
         <div className="flex flex-col gap-6">
             {activePeriod ? (
             <Card>
@@ -363,6 +369,7 @@ const CommuneDashboard = () => {
                 </CardContent>
             </Card>
         </div>
+        </>
     );
 };
 

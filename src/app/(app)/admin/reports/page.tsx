@@ -24,14 +24,13 @@ import {
 } from '@/components/ui/select';
 import {
   ChartContainer,
-  ChartTooltip,
-  ChartTooltipContent,
 } from '@/components/ui/chart';
 import { criteria } from '@/lib/data';
 import { Download } from 'lucide-react';
 import { Pie, PieChart, Cell, BarChart, XAxis, YAxis, Bar, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useState, useMemo } from 'react';
 import { useData } from '@/context/DataContext';
+import PageHeader from '@/components/layout/page-header';
 
 export default function ReportsPage() {
     const { assessmentPeriods, assessments, units: allUnits } = useData();
@@ -86,39 +85,35 @@ export default function ReportsPage() {
 
 
   return (
+    <>
+    <PageHeader title="Báo cáo & Thống kê" description="Phân tích và xem báo cáo chi tiết về tình hình tiếp cận pháp luật theo từng đợt."/>
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <div>
-            <CardTitle>Báo cáo &amp; Thống kê</CardTitle>
-            <CardDescription>
-              Phân tích và xem báo cáo chi tiết về tình hình tiếp cận pháp luật theo từng đợt.
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-              <SelectTrigger className="w-[280px]">
-                <SelectValue placeholder="Chọn đợt đánh giá" />
-              </SelectTrigger>
-              <SelectContent>
-                {assessmentPeriods.map(period => (
-                    <SelectItem key={period.id} value={period.id}>{period.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button>
-                  <Download className="mr-2 h-4 w-4" />
-                  Tải xuống
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem>Tải báo cáo PDF</DropdownMenuItem>
-                <DropdownMenuItem>Xuất ra Excel (CSV)</DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+            <div className="flex items-center gap-2">
+                <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                <SelectTrigger className="w-[280px]">
+                    <SelectValue placeholder="Chọn đợt đánh giá" />
+                </SelectTrigger>
+                <SelectContent>
+                    {assessmentPeriods.map(period => (
+                        <SelectItem key={period.id} value={period.id}>{period.name}</SelectItem>
+                    ))}
+                </SelectContent>
+                </Select>
+                <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                    <Button>
+                    <Download className="mr-2 h-4 w-4" />
+                    Tải xuống
+                    </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent>
+                    <DropdownMenuItem>Tải báo cáo PDF</DropdownMenuItem>
+                    <DropdownMenuItem>Xuất ra Excel (CSV)</DropdownMenuItem>
+                </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
         </CardHeader>
       </Card>
       
@@ -212,5 +207,6 @@ export default function ReportsPage() {
         </Card>
       </div>
     </div>
+    </>
   );
 }
