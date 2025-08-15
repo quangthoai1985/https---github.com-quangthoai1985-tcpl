@@ -77,10 +77,9 @@ export default function AppHeader() {
       <div className="flex items-center gap-3">
          <Link href="/dashboard" className="flex items-center gap-3 font-semibold">
             <Image src="https://placehold.co/40x40.png" alt="Logo" width={40} height={40} data-ai-hint="logo" />
-            <div className="font-headline text-sm uppercase leading-tight text-foreground">
-                <div>ĐÁNH GIÁ CHUẨN</div>
-                <div>TIẾP CẬN PHÁP LUẬT</div>
-            </div>
+            <span className="font-headline text-xl font-bold uppercase tracking-wide text-foreground">
+              ĐÁNH GIÁ CHUẨN TIẾP CẬN PHÁP LUẬT
+            </span>
           </Link>
       </div>
 
