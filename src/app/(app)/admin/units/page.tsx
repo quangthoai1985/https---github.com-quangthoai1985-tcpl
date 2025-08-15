@@ -5,6 +5,7 @@ import React from 'react';
 import {
   MoreHorizontal,
   PlusCircle,
+  Upload,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -40,6 +41,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { useData } from '@/context/DataContext';
 import PageHeader from '@/components/layout/page-header';
 import type { Unit } from '@/lib/data';
+import { downloadUnitTemplate, readUnitsFromExcel } from '@/lib/excelUtils';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 function UnitForm({ unit, onSave, onCancel }: { unit: Partial<Unit>, onSave: (unit: Partial<Unit>) => void, onCancel: () => void }) {
@@ -80,10 +83,66 @@ function UnitForm({ unit, onSave, onCancel }: { unit: Partial<Unit>, onSave: (un
   );
 }
 
+function ImportUnitsDialog({ onImport, onCancel }: { onImport: (units: Unit[]) => void, onCancel: () => void }) {
+    const [file, setFile] = React.useState<File | null>(null);
+    const { toast } = useToast();
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (event.target.files) {
+            setFile(event.target.files[0]);
+        }
+    };
+
+    const handleImportClick = async () => {
+        if (!file) {
+            toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng chọn một file Excel.' });
+            return;
+        }
+
+        try {
+            const newUnits = await readUnitsFromExcel(file);
+            onImport(newUnits);
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Lỗi đọc file', description: 'Không thể xử lý file Excel. Vui lòng kiểm tra định dạng và thử lại.' });
+        }
+    };
+
+    return (
+        <>
+            <DialogHeader>
+                <DialogTitle>Import danh sách Đơn vị</DialogTitle>
+                <DialogDescription>
+                    Tải lên file Excel chứa danh sách các đơn vị. Hệ thống sẽ bỏ qua các đơn vị có ID đã tồn tại.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                <Alert>
+                    <AlertTitle>Định dạng file Excel</AlertTitle>
+                    <AlertDescription>
+                        File phải chứa các cột: <strong>id, name, type, parentId, address, headquarters</strong>.
+                    </AlertDescription>
+                </Alert>
+                <Button variant="outline" onClick={downloadUnitTemplate}>Tải file mẫu</Button>
+                <div className="grid gap-2">
+                    <Label htmlFor="excel-file">Chọn file Excel</Label>
+                    <Input id="excel-file" type="file" onChange={handleFileChange} accept=".xlsx, .xls" />
+                </div>
+                 {file && <p className="text-sm text-muted-foreground">Đã chọn file: {file.name}</p>}
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={onCancel}>Hủy</Button>
+                <Button onClick={handleImportClick} disabled={!file}>Import</Button>
+            </DialogFooter>
+        </>
+    );
+}
+
 
 export default function UnitManagementPage() {
     const { units, setUnits } = useData();
     const [isFormOpen, setIsFormOpen] = React.useState(false);
+    const [isImportOpen, setIsImportOpen] = React.useState(false);
     const [editingUnit, setEditingUnit] = React.useState<Partial<Unit> | null>(null);
     const [deletingUnit, setDeletingUnit] = React.useState<Unit | null>(null);
     const { toast } = useToast();
@@ -136,6 +195,30 @@ export default function UnitManagementPage() {
         setIsFormOpen(false);
         setEditingUnit(null);
     }
+    
+    const handleImport = (newUnits: Unit[]) => {
+        setUnits(prevUnits => {
+            const existingIds = new Set(prevUnits.map(u => u.id));
+            const unitsToAdd = newUnits.filter(u => !existingIds.has(u.id));
+            const skippedCount = newUnits.length - unitsToAdd.length;
+
+            if (unitsToAdd.length > 0) {
+                 toast({
+                    title: "Import thành công!",
+                    description: `Đã thêm ${unitsToAdd.length} đơn vị mới. Bỏ qua ${skippedCount} đơn vị đã tồn tại.`,
+                });
+            } else {
+                 toast({
+                    variant: 'default',
+                    title: "Không có gì thay đổi",
+                    description: `Tất cả ${skippedCount} đơn vị trong file đã tồn tại.`,
+                });
+            }
+
+            return [...prevUnits, ...unitsToAdd];
+        });
+        setIsImportOpen(false);
+    }
 
 
   return (
@@ -143,8 +226,12 @@ export default function UnitManagementPage() {
     <PageHeader title="Quản lý Đơn vị" description="Quản lý danh sách các đơn vị trong hệ thống."/>
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-end">
-             <Button onClick={handleNew}>
+        <div className="flex items-center justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+                <Upload className="mr-2 h-4 w-4" />
+                Import từ Excel
+            </Button>
+            <Button onClick={handleNew}>
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Thêm Đơn vị
             </Button>
@@ -209,6 +296,12 @@ export default function UnitManagementPage() {
       <DialogContent>
         {editingUnit && <UnitForm unit={editingUnit} onSave={handleSave} onCancel={handleCancel} />}
       </DialogContent>
+    </Dialog>
+
+    <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
+        <DialogContent>
+            <ImportUnitsDialog onImport={handleImport} onCancel={() => setIsImportOpen(false)} />
+        </DialogContent>
     </Dialog>
 
     <AlertDialog open={!!deletingUnit} onOpenChange={(open) => !open && setDeletingUnit(null)}>

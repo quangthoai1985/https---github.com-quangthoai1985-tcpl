@@ -6,6 +6,7 @@ import {
   MoreHorizontal,
   PlusCircle,
   Search,
+  Upload,
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -51,6 +52,8 @@ import { useData } from '@/context/DataContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import type { User } from '@/lib/data';
 import PageHeader from '@/components/layout/page-header';
+import { downloadUserTemplate, readUsersFromExcel } from '@/lib/excelUtils';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (user: Partial<User>) => void, onCancel: () => void }) {
   const [formData, setFormData] = React.useState(user);
@@ -116,7 +119,95 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
   )
 }
 
-function UserTable({ users, onEdit, onResetPassword, onDelete }: { users: User[], onEdit: (user: User) => void, onResetPassword: (user: User) => void, onDelete: (user: User) => void }) {
+function ResetPasswordDialog({ user, onSave, onCancel }: { user: User, onSave: (password: string) => void, onCancel: () => void }) {
+    const [password, setPassword] = React.useState('');
+
+    return (
+         <>
+            <DialogHeader>
+                <DialogTitle>Đặt lại mật khẩu cho {user.displayName}</DialogTitle>
+                <DialogDescription>
+                    Nhập mật khẩu mới cho người dùng. Họ sẽ có thể đăng nhập bằng mật khẩu này.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="new-password" className="text-right">
+                        Mật khẩu mới
+                    </Label>
+                    <Input 
+                        id="new-password" 
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        className="col-span-3"
+                    />
+                </div>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={onCancel}>Hủy</Button>
+                <Button type="submit" onClick={() => onSave(password)}>Lưu mật khẩu mới</Button>
+            </DialogFooter>
+        </>
+    )
+}
+
+function ImportUsersDialog({ onImport, onCancel }: { onImport: (users: User[]) => void, onCancel: () => void }) {
+    const [file, setFile] = React.useState<File | null>(null);
+    const { toast } = useToast();
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        if (event.target.files) {
+            setFile(event.target.files[0]);
+        }
+    };
+
+    const handleImportClick = async () => {
+        if (!file) {
+            toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng chọn một file Excel.' });
+            return;
+        }
+
+        try {
+            const newUsers = await readUsersFromExcel(file);
+            onImport(newUsers);
+        } catch (error) {
+            console.error(error);
+            toast({ variant: 'destructive', title: 'Lỗi đọc file', description: 'Không thể xử lý file Excel. Vui lòng kiểm tra định dạng và thử lại.' });
+        }
+    };
+
+    return (
+        <>
+            <DialogHeader>
+                <DialogTitle>Import danh sách Người dùng</DialogTitle>
+                <DialogDescription>
+                    Tải lên file Excel chứa danh sách người dùng. Hệ thống sẽ bỏ qua các người dùng có tên đăng nhập đã tồn tại.
+                </DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+                 <Alert>
+                    <AlertTitle>Định dạng file Excel</AlertTitle>
+                    <AlertDescription>
+                        File phải chứa các cột: <strong>username, displayName, role, communeId</strong>.
+                    </AlertDescription>
+                </Alert>
+                <Button variant="outline" onClick={downloadUserTemplate}>Tải file mẫu</Button>
+                <div className="grid gap-2">
+                    <Label htmlFor="excel-file">Chọn file Excel</Label>
+                    <Input id="excel-file" type="file" onChange={handleFileChange} accept=".xlsx, .xls" />
+                </div>
+                 {file && <p className="text-sm text-muted-foreground">Đã chọn file: {file.name}</p>}
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={onCancel}>Hủy</Button>
+                <Button onClick={handleImportClick} disabled={!file}>Import</Button>
+            </DialogFooter>
+        </>
+    );
+}
+
+function UserTable({ users, onEdit, onResetPassword, onDelete, onImport }: { users: User[], onEdit: (user?: User) => void, onResetPassword: (user: User) => void, onDelete: (user: User) => void, onImport: () => void }) {
   const { units } = useData();
   const getUnitName = (unitId: string) => {
     return units.find(u => u.id === unitId)?.name || 'Không xác định';
@@ -153,7 +244,13 @@ function UserTable({ users, onEdit, onResetPassword, onDelete }: { users: User[]
                 <DropdownMenuCheckboxItem>Cán bộ</DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button size="sm" className="h-10 gap-1" onClick={() => (onEdit as any)() }>
+            <Button size="sm" variant="outline" className="h-10 gap-1" onClick={onImport}>
+              <Upload className="h-3.5 w-3.5" />
+              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                Import
+              </span>
+            </Button>
+            <Button size="sm" className="h-10 gap-1" onClick={() => onEdit() }>
               <PlusCircle className="h-3.5 w-3.5" />
               <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
                 Thêm người dùng
@@ -238,43 +335,12 @@ function UserTable({ users, onEdit, onResetPassword, onDelete }: { users: User[]
   )
 }
 
-function ResetPasswordForm({ user, onSave, onCancel }: { user: User, onSave: (password: string) => void, onCancel: () => void }) {
-    const [password, setPassword] = React.useState('');
-
-    return (
-         <>
-            <DialogHeader>
-                <DialogTitle>Đặt lại mật khẩu cho {user.displayName}</DialogTitle>
-                <DialogDescription>
-                    Nhập mật khẩu mới cho người dùng. Họ sẽ có thể đăng nhập bằng mật khẩu này.
-                </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="new-password" className="text-right">
-                        Mật khẩu mới
-                    </Label>
-                    <Input 
-                        id="new-password" 
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        className="col-span-3"
-                    />
-                </div>
-            </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={onCancel}>Hủy</Button>
-                <Button type="submit" onClick={() => onSave(password)}>Lưu mật khẩu mới</Button>
-            </DialogFooter>
-        </>
-    )
-}
 
 export default function UserManagementPage() {
   const { users, setUsers } = useData();
   const [editingUser, setEditingUser] = React.useState<Partial<User> | null>(null);
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = React.useState(false);
+  const [isImportOpen, setIsImportOpen] = React.useState(false);
   const [resettingUser, setResettingUser] = React.useState<User | null>(null);
   const [deletingUser, setDeletingUser] = React.useState<User | null>(null);
   const { toast } = useToast();
@@ -341,6 +407,38 @@ export default function UserManagementPage() {
     setIsNewUserDialogOpen(false);
   }
   
+    const handleImport = (newUsers: User[]) => {
+        setUsers(prevUsers => {
+            const existingUsernames = new Set(prevUsers.map(u => u.username));
+            const usersToAdd = newUsers.filter(u => !existingUsernames.has(u.username));
+            const skippedCount = newUsers.length - usersToAdd.length;
+
+            const finalUsers = [...prevUsers];
+            usersToAdd.forEach(user => {
+                finalUsers.push({
+                    ...user,
+                    id: `USR${String(finalUsers.length + 1).padStart(3, '0')}`,
+                });
+            });
+
+            if (usersToAdd.length > 0) {
+                 toast({
+                    title: "Import thành công!",
+                    description: `Đã thêm ${usersToAdd.length} người dùng mới. Bỏ qua ${skippedCount} người dùng đã tồn tại.`,
+                });
+            } else {
+                 toast({
+                    variant: 'default',
+                    title: "Không có gì thay đổi",
+                    description: `Tất cả ${skippedCount} người dùng trong file đã tồn tại.`,
+                });
+            }
+
+            return finalUsers;
+        });
+        setIsImportOpen(false);
+    };
+  
   const adminUsers = users.filter(u => u.role === 'admin');
   const communeUsers = users.filter(u => u.role === 'commune_staff');
 
@@ -354,13 +452,13 @@ export default function UserManagementPage() {
         <TabsTrigger value="commune">Cán bộ</TabsTrigger>
       </TabsList>
       <TabsContent value="all">
-        <UserTable users={users} onEdit={handleEdit} onResetPassword={handleResetPassword} onDelete={handleDelete} />
+        <UserTable users={users} onEdit={handleEdit} onResetPassword={handleResetPassword} onDelete={handleDelete} onImport={() => setIsImportOpen(true)} />
       </TabsContent>
       <TabsContent value="admin">
-        <UserTable users={adminUsers} onEdit={handleEdit} onResetPassword={handleResetPassword} onDelete={handleDelete} />
+        <UserTable users={adminUsers} onEdit={handleEdit} onResetPassword={handleResetPassword} onDelete={handleDelete} onImport={() => setIsImportOpen(true)} />
       </TabsContent>
       <TabsContent value="commune">
-        <UserTable users={communeUsers} onEdit={handleEdit} onResetPassword={handleResetPassword} onDelete={handleDelete} />
+        <UserTable users={communeUsers} onEdit={handleEdit} onResetPassword={handleResetPassword} onDelete={handleDelete} onImport={() => setIsImportOpen(true)} />
       </TabsContent>
     </Tabs>
 
@@ -375,11 +473,18 @@ export default function UserManagementPage() {
       </DialogContent>
     </Dialog>
 
+     {/* Import Users Dialog */}
+    <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
+        <DialogContent>
+            <ImportUsersDialog onImport={handleImport} onCancel={() => setIsImportOpen(false)} />
+        </DialogContent>
+    </Dialog>
+
     {/* Reset Password Dialog */}
     <Dialog open={!!resettingUser} onOpenChange={(open) => !open && setResettingUser(null)}>
         <DialogContent>
             {resettingUser && (
-                <ResetPasswordForm 
+                <ResetPasswordDialog 
                     user={resettingUser} 
                     onSave={handleSavePassword}
                     onCancel={() => setResettingUser(null)} 
