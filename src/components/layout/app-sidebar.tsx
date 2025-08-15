@@ -44,9 +44,9 @@ export default function AppSidebar() {
   return (
     <aside className="border-r bg-background w-full md:w-[250px] lg:w-[250px]">
       <div className="flex h-full max-h-screen flex-col gap-2">
-        <div className="flex h-14 items-center border-b px-4 lg:h-[60px] lg:px-6 md:hidden">
+        <div className="flex h-[72px] items-center border-b px-4 lg:px-6">
            <Link href="/dashboard" className="flex items-center gap-3 font-semibold">
-            <Image src="https://placehold.co/40x40.png" alt="Logo" width={32} height={32} data-ai-hint="logo" />
+            <Image src="https://placehold.co/40x40.png" alt="Logo" width={40} height={40} data-ai-hint="logo" />
             <div className="font-headline text-sm uppercase leading-tight text-foreground">
                 <div>ĐÁNH GIÁ CHUẨN</div>
                 <div>TIẾP CẬN PHÁP LUẬT</div>

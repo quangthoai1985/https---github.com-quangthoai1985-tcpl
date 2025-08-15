@@ -61,7 +61,7 @@ export default function AppHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+    <header className="sticky top-0 z-30 flex h-[72px] items-center gap-4 border-b bg-background px-4 sm:px-6">
       <Sheet>
         <SheetTrigger asChild>
           <Button variant="outline" size="icon" className="shrink-0 md:hidden">
@@ -74,9 +74,9 @@ export default function AppHeader() {
         </SheetContent>
       </Sheet>
 
-      <div className="hidden items-center gap-3 md:flex">
+      <div className="flex items-center gap-3">
          <Link href="/dashboard" className="flex items-center gap-3 font-semibold">
-            <Image src="https://placehold.co/40x40.png" alt="Logo" width={32} height={32} data-ai-hint="logo" />
+            <Image src="https://placehold.co/40x40.png" alt="Logo" width={40} height={40} data-ai-hint="logo" />
             <div className="font-headline text-sm uppercase leading-tight text-foreground">
                 <div>ĐÁNH GIÁ CHUẨN</div>
                 <div>TIẾP CẬN PHÁP LUẬT</div>
