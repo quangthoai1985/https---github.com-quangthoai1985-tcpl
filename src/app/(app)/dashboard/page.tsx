@@ -56,18 +56,18 @@ const AdminDashboard = () => {
         pendingCount,
         approvedCount,
         rejectedCount,
-        notSentCount,
         assessmentStatusChartData,
         chartConfig,
     } = React.useMemo(() => {
+        const allCommuneUnits = units.filter(u => u.type === 'commune');
+        const totalCommunes = allCommuneUnits.length;
+        
         const periodAssessments = selectedPeriod 
             ? assessments.filter(a => a.assessmentPeriodId === selectedPeriod)
             : [];
         
-        const allCommuneUnits = units.filter(u => u.type === 'commune');
         const sentCommuneIds = new Set(periodAssessments.map(a => a.communeId));
         
-        const totalCommunes = allCommuneUnits.length;
         const pendingCount = periodAssessments.filter(a => a.status === 'pending_review').length;
         const approvedCount = periodAssessments.filter(a => a.status === 'approved').length;
         const rejectedCount = periodAssessments.filter(a => a.status === 'rejected').length;
@@ -96,7 +96,6 @@ const AdminDashboard = () => {
             pendingCount,
             approvedCount,
             rejectedCount,
-            notSentCount,
             assessmentStatusChartData,
             chartConfig,
         };
@@ -419,5 +418,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-      
