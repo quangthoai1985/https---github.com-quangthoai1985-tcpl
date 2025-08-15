@@ -41,7 +41,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -371,7 +371,7 @@ export default function UserManagementPage() {
       }
     }}>
       <DialogContent>
-        <UserForm user={editingUser || {}} onSave={handleSaveUser} onCancel={handleCancel} />
+        {editingUser && <UserForm user={editingUser || {}} onSave={handleSaveUser} onCancel={handleCancel} />}
       </DialogContent>
     </Dialog>
 

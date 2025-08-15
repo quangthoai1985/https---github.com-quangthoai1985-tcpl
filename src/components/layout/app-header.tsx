@@ -24,7 +24,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
-import { usePathname } from 'next/navigation';
 import AppSidebar from './app-sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useData } from '@/context/DataContext';
