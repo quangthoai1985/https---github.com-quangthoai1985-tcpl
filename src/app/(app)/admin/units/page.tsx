@@ -39,11 +39,8 @@ import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useData } from '@/context/DataContext';
 import PageHeader from '@/components/layout/page-header';
+import type { Unit } from '@/lib/data';
 
-type Unit = {
-    id: string;
-    name: string;
-};
 
 function UnitForm({ unit, onSave, onCancel }: { unit: Partial<Unit>, onSave: (unit: Partial<Unit>) => void, onCancel: () => void }) {
   const [formData, setFormData] = React.useState(unit);
@@ -65,6 +62,14 @@ function UnitForm({ unit, onSave, onCancel }: { unit: Partial<Unit>, onSave: (un
         <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="name" className="text-right">Tên đơn vị</Label>
           <Input id="name" value={formData.name || ''} onChange={handleChange} className="col-span-3" />
+        </div>
+        <div className="grid grid-cols-4 items-center gap-4">
+          <Label htmlFor="address" className="text-right">Địa chỉ</Label>
+          <Input id="address" value={formData.address || ''} onChange={handleChange} className="col-span-3" />
+        </div>
+        <div className="grid grid-cols-4 items-center gap-4">
+          <Label htmlFor="headquarters" className="text-right">Trụ sở hiện nay</Label>
+          <Input id="headquarters" value={formData.headquarters || ''} onChange={handleChange} className="col-span-3" />
         </div>
       </div>
       <DialogFooter>
@@ -117,6 +122,8 @@ export default function UnitManagementPage() {
                 ...unitToSave,
                 id: `DVI${String(units.length + 1).padStart(3, '0')}`,
                 name: unitToSave.name || '',
+                address: unitToSave.address || '',
+                headquarters: unitToSave.headquarters || '',
             } as Unit;
             setUnits([...units, newUnit]);
             toast({ title: "Thành công!", description: "Đã tạo đơn vị mới."});
@@ -147,8 +154,9 @@ export default function UnitManagementPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>ID</TableHead>
               <TableHead>Tên đơn vị</TableHead>
+              <TableHead>Địa chỉ</TableHead>
+              <TableHead>Trụ sở hiện nay</TableHead>
               <TableHead>
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -157,8 +165,9 @@ export default function UnitManagementPage() {
           <TableBody>
             {units.map((unit) => (
               <TableRow key={unit.id}>
-                <TableCell className="font-medium">{unit.id}</TableCell>
-                <TableCell>{unit.name}</TableCell>
+                <TableCell className="font-medium">{unit.name}</TableCell>
+                <TableCell>{unit.address}</TableCell>
+                <TableCell>{unit.headquarters}</TableCell>
                 <TableCell>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>

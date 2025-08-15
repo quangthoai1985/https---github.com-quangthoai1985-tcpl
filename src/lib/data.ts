@@ -15,6 +15,8 @@ export type Unit = {
   name: string;
   type: 'province' | 'district' | 'commune';
   parentId: string | null; // To build hierarchy
+  address?: string;
+  headquarters?: string;
 };
 
 export type Criterion = {
@@ -57,15 +59,15 @@ export type Assessment = {
 
 // Mock Data
 export const units: Unit[] = [
-    { id: 'TINH_HN', name: 'Thành phố Hà Nội', type: 'province', parentId: null },
-    { id: 'QUAN_HBT', name: 'Quận Hai Bà Trưng', type: 'district', parentId: 'TINH_HN' },
-    { id: 'PHUONG_BK', name: 'Phường Bách Khoa', type: 'commune', parentId: 'QUAN_HBT' },
-    { id: 'HUYEN_TT', name: 'Huyện Thanh Trì', type: 'district', parentId: 'TINH_HN' },
-    { id: 'XA_TT', name: 'Xã Tân Triều', type: 'commune', parentId: 'HUYEN_TT' },
-    { id: 'QUAN_CG', name: 'Quận Cầu Giấy', type: 'district', parentId: 'TINH_HN' },
-    { id: 'PHUONG_DVH', name: 'Phường Dịch Vọng Hậu', type: 'commune', parentId: 'QUAN_CG' },
-    { id: 'HUYEN_HD', name: 'Huyện Hoài Đức', type: 'district', parentId: 'TINH_HN' },
-    { id: 'XA_AK', name: 'Xã An Khánh', type: 'commune', parentId: 'HUYEN_HD' },
+    { id: 'TINH_HN', name: 'Thành phố Hà Nội', type: 'province', parentId: null, address: 'Hà Nội, Việt Nam', headquarters: 'Số 12 Lê Lai, Hoàn Kiếm, Hà Nội' },
+    { id: 'QUAN_HBT', name: 'Quận Hai Bà Trưng', type: 'district', parentId: 'TINH_HN', address: 'Hai Bà Trưng, Hà Nội', headquarters: 'Số 3 Tạ Quang Bửu, Hai Bà Trưng' },
+    { id: 'PHUONG_BK', name: 'Phường Bách Khoa', type: 'commune', parentId: 'QUAN_HBT', address: 'Phường Bách Khoa, Hai Bà Trưng, Hà Nội', headquarters: 'Số 1 Trần Đại Nghĩa, Bách Khoa' },
+    { id: 'HUYEN_TT', name: 'Huyện Thanh Trì', type: 'district', parentId: 'TINH_HN', address: 'Thanh Trì, Hà Nội', headquarters: 'Số 1 Cầu Bươu, Thanh Trì' },
+    { id: 'XA_TT', name: 'Xã Tân Triều', type: 'commune', parentId: 'HUYEN_TT', address: 'Xã Tân Triều, Thanh Trì, Hà Nội', headquarters: 'Ủy ban Nhân dân xã Tân Triều' },
+    { id: 'QUAN_CG', name: 'Quận Cầu Giấy', type: 'district', parentId: 'TINH_HN', address: 'Cầu Giấy, Hà Nội', headquarters: 'Số 68 Cầu Giấy, Cầu Giấy' },
+    { id: 'PHUONG_DVH', name: 'Phường Dịch Vọng Hậu', type: 'commune', parentId: 'QUAN_CG', address: 'Phường Dịch Vọng Hậu, Cầu Giấy, Hà Nội', headquarters: 'Số 2 Dịch Vọng Hậu' },
+    { id: 'HUYEN_HD', name: 'Huyện Hoài Đức', type: 'district', parentId: 'TINH_HN', address: 'Hoài Đức, Hà Nội', headquarters: 'Thị trấn Trôi, Hoài Đức' },
+    { id: 'XA_AK', name: 'Xã An Khánh', type: 'commune', parentId: 'HUYEN_HD', address: 'Xã An Khánh, Hoài Đức, Hà Nội', headquarters: 'Ủy ban Nhân dân xã An Khánh' },
 ];
 
 export const users: User[] = [
