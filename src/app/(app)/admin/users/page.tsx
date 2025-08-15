@@ -103,7 +103,7 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
                   </SelectTrigger>
                   <SelectContent>
                       <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="commune_staff">Cán bộ Xã</SelectItem>
+                      <SelectItem value="commune_staff">Cán bộ</SelectItem>
                   </SelectContent>
               </Select>
           </div>
@@ -150,7 +150,7 @@ function UserTable({ users, onEdit, onResetPassword, onDelete }: { users: User[]
                 <DropdownMenuCheckboxItem checked>
                   Admin
                 </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem>Cán bộ Xã</DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem>Cán bộ</DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
             <Button size="sm" className="h-10 gap-1" onClick={() => (onEdit as any)() }>
@@ -196,7 +196,7 @@ function UserTable({ users, onEdit, onResetPassword, onDelete }: { users: User[]
                     </div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline">{user.role === 'admin' ? 'Admin' : 'Cán bộ Xã'}</Badge>
+                  <Badge variant="outline">{user.role === 'admin' ? 'Admin' : 'Cán bộ'}</Badge>
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
                   {getUnitName(user.communeId)}
@@ -351,7 +351,7 @@ export default function UserManagementPage() {
       <TabsList className="grid w-full grid-cols-3">
         <TabsTrigger value="all">Tất cả</TabsTrigger>
         <TabsTrigger value="admin">Admin</TabsTrigger>
-        <TabsTrigger value="commune">Cán bộ Xã</TabsTrigger>
+        <TabsTrigger value="commune">Cán bộ</TabsTrigger>
       </TabsList>
       <TabsContent value="all">
         <UserTable users={users} onEdit={handleEdit} onResetPassword={handleResetPassword} onDelete={handleDelete} />
@@ -408,3 +408,5 @@ export default function UserManagementPage() {
     </>
   );
 }
+
+    

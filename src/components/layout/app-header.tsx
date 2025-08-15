@@ -87,7 +87,7 @@ export default function AppHeader() {
         {currentUser && (
             <div className="hidden text-right lg:block">
                 <p className="font-semibold text-sm">{currentUser.displayName}</p>
-                <p className="text-xs text-muted-foreground">{currentUser.role === 'admin' ? 'Admin' : 'Cán bộ xã'}</p>
+                <p className="text-xs text-muted-foreground">{currentUser.role === 'admin' ? 'Admin' : 'Cán bộ'}</p>
             </div>
         )}
         <Popover>
@@ -152,3 +152,5 @@ export default function AppHeader() {
     </header>
   );
 }
+
+    
