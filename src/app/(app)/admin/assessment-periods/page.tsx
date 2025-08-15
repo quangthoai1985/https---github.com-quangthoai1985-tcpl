@@ -119,26 +119,34 @@ export default function AssessmentPeriodPage() {
         setEditingPeriod(null);
     }
     
-    const handleStatusToggle = (periodId: string, currentStatus: boolean) => {
-        const newStatus = !currentStatus;
-        
+    const handleStatusToggle = (periodId: string) => {
         // Ensure only one period is active at a time
         setAssessmentPeriods(prevPeriods => {
-            return prevPeriods.map(p => {
+            const currentlyActive = prevPeriods.find(p => p.id === periodId)?.isActive;
+            const newStatus = !currentlyActive;
+
+            // Deactivate all periods first if we are activating a new one
+            const updatedPeriods = prevPeriods.map(p => ({
+                ...p,
+                isActive: false 
+            }));
+            
+            // Then, activate the selected one
+            const finalPeriods = updatedPeriods.map(p => {
                 if (p.id === periodId) {
                     return { ...p, isActive: newStatus };
                 }
-                // If we are activating a new period, deactivate all others.
-                if (newStatus === true) {
-                    return { ...p, isActive: false };
-                }
                 return p;
             });
-        });
 
-        toast({
-            title: "Cập nhật thành công",
-            description: `Đã ${newStatus ? 'kích hoạt' : 'vô hiệu hóa'} đợt đánh giá.`
+            const activePeriod = finalPeriods.find(p => p.id === periodId);
+
+            toast({
+                title: "Cập nhật thành công",
+                description: `Đã ${activePeriod?.isActive ? 'kích hoạt' : 'vô hiệu hóa'} đợt đánh giá.`
+            });
+
+            return finalPeriods;
         });
     }
 
@@ -182,7 +190,7 @@ export default function AssessmentPeriodPage() {
                 <TableCell>
                     <Switch
                         checked={period.isActive}
-                        onCheckedChange={() => handleStatusToggle(period.id, period.isActive)}
+                        onCheckedChange={() => handleStatusToggle(period.id)}
                     />
                 </TableCell>
                 <TableCell>

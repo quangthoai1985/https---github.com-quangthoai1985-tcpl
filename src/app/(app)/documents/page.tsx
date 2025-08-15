@@ -27,6 +27,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import PageHeader from '@/components/layout/page-header';
+import { useData } from '@/context/DataContext';
 
 
 type Document = {
@@ -89,8 +90,7 @@ export default function DocumentsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDocument, setEditingDocument] = useState<Partial<Document> | null>(null);
   const { toast } = useToast();
-  // In a real app, you would get this from user context
-  const userRole = 'admin';
+  const { role } = useData();
 
   const handleNew = () => {
     setEditingDocument({});
@@ -136,7 +136,7 @@ export default function DocumentsPage() {
                     <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                     <Input type="search" placeholder="Tìm kiếm văn bản..." className="pl-8 w-64" />
                 </div>
-                {userRole === 'admin' && (
+                {role === 'admin' && (
                     <Button onClick={handleNew}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Thêm văn bản mới
@@ -177,7 +177,7 @@ export default function DocumentsPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Hành động</DropdownMenuLabel>
                         <DropdownMenuItem><Download className="mr-2 h-4 w-4" />Tải về</DropdownMenuItem>
-                        {userRole === 'admin' && (
+                        {role === 'admin' && (
                           <>
                             <DropdownMenuItem onClick={() => handleEdit(doc)}>Sửa</DropdownMenuItem>
                             <DropdownMenuItem className="text-destructive">Xóa</DropdownMenuItem>
