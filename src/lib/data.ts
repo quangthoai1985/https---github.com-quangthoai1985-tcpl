@@ -8,7 +8,7 @@ export type User = {
   username: string;
   displayName: string;
   role: Role;
-  communeId: string; // Should be empty for admin roles
+  communeId: string;
 };
 
 export type Unit = {
@@ -67,8 +67,8 @@ export type Document = {
 };
 
 
-// Mock Data moved to scripts/seed-firestore.ts
 // This file now only contains type definitions.
+// Mock data has been removed or replaced with dynamic logic.
 
 export const progressData = [
   { name: 'Tuần 1', 'Số lượng': 5 },
@@ -78,22 +78,3 @@ export const progressData = [
   { name: 'Tuần 5', 'Số lượng': 13 },
   { name: 'Tuần 6', 'Số lượng': 20 },
 ];
-
-// Mock notifications
-export const communeNotifications = [
-    { id: 'N001', title: 'Hồ sơ của bạn đã được duyệt', time: '5 phút trước', read: false },
-    { id: 'N002', title: 'Hồ sơ của bạn đã bị từ chối, vui lòng kiểm tra và gửi lại.', time: '1 giờ trước', read: false },
-    { id: 'N003', title: 'Nhắc nhở: Sắp đến hạn nộp hồ sơ đánh giá.', time: 'Hôm qua', read: true },
-];
-
-export const adminNotifications = [
-    { id: 'N001', title: 'Xã An Khánh vừa gửi hồ sơ đánh giá.', time: '15 phút trước', read: false },
-    { id: 'N002', title: 'Xã Tân Triều vừa cập nhật hồ sơ bị từ chối.', time: '2 giờ trước', read: false },
-];
-
-export const guidanceDocuments: Document[] = [];
-export const users: User[] = [];
-export const units: Unit[] = [];
-export const assessments: Assessment[] = [];
-export const assessmentPeriods: AssessmentPeriod[] = [];
-export const criteria: Criterion[] = [];

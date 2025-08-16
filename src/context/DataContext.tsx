@@ -40,6 +40,15 @@ if (typeof window !== 'undefined') {
     auth = getAuth(app);
 }
 
+// Define a type for our dynamic notifications
+export type Notification = {
+  id: string;
+  title: string;
+  time: string; // For simplicity, we'll use a string like "2 giờ trước"
+  read: boolean; // We'll mock this for now
+  link: string;
+};
+
 interface DataContextType {
   loading: boolean;
   refreshData: () => Promise<void>;
@@ -57,6 +66,7 @@ interface DataContextType {
   updateGuidanceDocuments: (newDocs: AppDocument[]) => Promise<void>;
   role: Role | null;
   currentUser: User | null;
+  notifications: Notification[];
   setLoginInfo: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
 }
@@ -71,11 +81,74 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [criteria, setCriteria] = useState<Criterion[]>([]);
   const [guidanceDocuments, setGuidanceDocuments] = useState<AppDocument[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   const [role, setRole] = useState<Role | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const getUnitName = (unitId: string, allUnits: Unit[]) => {
+      return allUnits.find(u => u.id === unitId)?.name || 'Không xác định';
+  }
+
+  const generateNotifications = (user: User | null, allAssessments: Assessment[], allUnits: Unit[]) => {
+      if (!user) return [];
+      
+      const generated: Notification[] = [];
+      const sortedAssessments = [...allAssessments].sort((a,b) => (b.submissionDate || '').localeCompare(a.submissionDate || ''));
+
+      if (user.role === 'admin') {
+          // Notifications for Admin
+          sortedAssessments.forEach(assessment => {
+              if (assessment.status === 'pending_review') {
+                  const communeName = getUnitName(assessment.communeId, allUnits);
+                  generated.push({
+                      id: `admin-notif-${assessment.id}`,
+                      title: `${communeName} vừa gửi hồ sơ đánh giá.`,
+                      time: `Ngày ${assessment.submissionDate}`,
+                      read: false,
+                      link: `/admin/reviews/${assessment.id}`
+                  });
+              }
+              if (assessment.status === 'rejected' && assessment.communeExplanation) {
+                   const communeName = getUnitName(assessment.communeId, allUnits);
+                   generated.push({
+                      id: `admin-resubmit-notif-${assessment.id}`,
+                      title: `${communeName} vừa gửi lại hồ sơ sau khi bị từ chối.`,
+                      time: `Ngày ${assessment.submissionDate}`,
+                      read: false,
+                      link: `/admin/reviews/${assessment.id}`
+                  });
+              }
+          });
+
+      } else { // commune_staff
+          const userAssessments = sortedAssessments.filter(a => a.communeId === user.communeId);
+          userAssessments.forEach(assessment => {
+              if (assessment.status === 'approved') {
+                  generated.push({
+                      id: `commune-approved-${assessment.id}`,
+                      title: `Hồ sơ của bạn đã được duyệt.`,
+                      time: `Ngày ${assessment.approvalDate}`,
+                      read: false,
+                      link: `/admin/reviews/${assessment.id}`
+                  });
+              }
+               if (assessment.status === 'rejected') {
+                  generated.push({
+                      id: `commune-rejected-${assessment.id}`,
+                      title: `Hồ sơ của bạn đã bị từ chối.`,
+                      time: `Ngày ${assessment.submissionDate}`,
+                      read: false,
+                      link: `/admin/reviews/${assessment.id}`
+                  });
+              }
+          });
+      }
+
+      return generated.slice(0, 10); // Limit to 10 most recent notifications
+  };
+
+  const fetchData = useCallback(async (loggedInUser: User | null) => {
       if (!db) return;
       try {
         console.log("Fetching all data from Firestore...");
@@ -94,13 +167,21 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           getDocs(collection(db, 'guidanceDocuments')),
           getDocs(collection(db, 'users')),
         ]);
+        
+        const fetchedUnits = unitsSnapshot.docs.map(d => d.data() as Unit);
+        const fetchedAssessments = assessmentsSnapshot.docs.map(d => d.data() as Assessment);
 
-        setUnits(unitsSnapshot.docs.map(d => d.data() as Unit));
+        setUnits(fetchedUnits);
         setAssessmentPeriods(periodsSnapshot.docs.map(d => d.data() as AssessmentPeriod));
-        setAssessments(assessmentsSnapshot.docs.map(d => d.data() as Assessment));
+        setAssessments(fetchedAssessments);
         setCriteria(criteriaSnapshot.docs.map(d => d.data() as Criterion));
         setGuidanceDocuments(documentsSnapshot.docs.map(d => d.data() as AppDocument));
         setUsers(usersSnapshot.docs.map(d => d.data() as User));
+        
+        if (loggedInUser) {
+           setNotifications(generateNotifications(loggedInUser, fetchedAssessments, fetchedUnits));
+        }
+
         console.log("Data fetched successfully.");
         
       } catch (error) {
@@ -118,13 +199,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             const usersSnapshot = await getDocs(collection(db, 'users'));
             const allUsers = usersSnapshot.docs.map(doc => ({ ...doc.data()} as User));
             
-            // Match by UID, which is the `id` field in our User model
             const loggedInUser = allUsers.find(u => u.id === firebaseUser.uid);
 
             if (loggedInUser) {
               setCurrentUser(loggedInUser);
               setRole(loggedInUser.role);
-              await fetchData();
+              await fetchData(loggedInUser);
             } else {
               console.error("User profile not found in Firestore for UID:", firebaseUser.uid);
               await signOut(auth);
@@ -152,7 +232,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        // onAuthStateChanged will handle the rest
         return !!userCredential.user;
     } catch(e) {
         console.error("Login Error: ", e);
@@ -165,7 +244,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       await signOut(auth);
-      // State will be cleared by onAuthStateChanged
     } catch (error) {
       console.error("Error signing out: ", error);
     } finally {
@@ -217,7 +295,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   return (
     <DataContext.Provider value={{ 
         loading, 
-        refreshData: fetchData,
+        refreshData: () => fetchData(currentUser),
         users, updateUsers, 
         units, updateUnits, 
         assessmentPeriods, updateAssessmentPeriods, 
@@ -226,6 +304,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         guidanceDocuments, updateGuidanceDocuments,
         role,
         currentUser, 
+        notifications,
         setLoginInfo,
         logout
     }}>
@@ -241,4 +320,3 @@ export const useData = () => {
   }
   return context;
 };
-

@@ -37,9 +37,9 @@ const communeNavItems = [
 
 export default function AppSidebar() {
   const pathname = usePathname();
-  const { role, assessments } = useData();
+  const { role, notifications } = useData();
   const navItems = role === 'admin' ? adminNavItems : communeNavItems;
-  const pendingCount = assessments.filter(a => a.status === 'pending_review').length;
+  const pendingCount = role === 'admin' ? notifications.filter(n => n.link.startsWith('/admin/reviews')).length : 0;
 
   return (
     <aside className="border-r bg-background w-full md:w-[250px] lg:w-[250px]">

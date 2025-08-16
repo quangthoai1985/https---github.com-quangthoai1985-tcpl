@@ -30,16 +30,14 @@ import AppSidebar from './app-sidebar';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { useData } from '@/context/DataContext';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { adminNotifications, communeNotifications } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 export default function AppHeader() {
-  const { role, currentUser, units, logout } = useData();
+  const { role, currentUser, units, logout, notifications } = useData();
   const router = useRouter();
-  const notifications = role === 'admin' ? adminNotifications : communeNotifications;
   const unreadNotifications = notifications.filter(n => !n.read).length;
   
   const handleLogout = async () => {
@@ -65,15 +63,17 @@ export default function AppHeader() {
   const notificationIcons: {[key: string]: React.ReactNode} = {
       'đã được duyệt': <CheckCircle2 className="h-4 w-4 text-green-500" />,
       'bị từ chối': <XCircle className="h-4 w-4 text-red-500" />,
-      'chờ duyệt': <Clock className="h-4 w-4 text-yellow-500" />,
-      'đã gửi': <FileUp className="h-4 w-4 text-primary" />,
+      'vừa gửi': <FileUp className="h-4 w-4 text-primary" />,
+      'gửi lại': <FileUp className="h-4 w-4 text-amber-500" />,
   }
 
   const getNotificationIcon = (title: string) => {
-      if (title.includes('đã được duyệt')) return notificationIcons['đã được duyệt'];
-      if (title.includes('bị từ chối')) return notificationIcons['bị từ chối'];
-      if (title.includes('vừa gửi')) return notificationIcons['đã gửi'];
-      return notificationIcons['chờ duyệt'];
+      const lowerCaseTitle = title.toLowerCase();
+      if (lowerCaseTitle.includes('đã được duyệt')) return notificationIcons['đã được duyệt'];
+      if (lowerCaseTitle.includes('bị từ chối')) return notificationIcons['bị từ chối'];
+      if (lowerCaseTitle.includes('vừa gửi')) return notificationIcons['vừa gửi'];
+      if (lowerCaseTitle.includes('gửi lại')) return notificationIcons['gửi lại'];
+      return <Clock className="h-4 w-4 text-yellow-500" />;
   }
   
   const getUnitName = (unitId: string) => {
@@ -110,7 +110,7 @@ export default function AppHeader() {
                 <p className="text-xs text-muted-foreground">
                   {currentUser.role === 'admin' 
                     ? 'Admin' 
-                    : `Cán bộ - ${getUnitName(currentUser.communeId)}`
+                    : getUnitName(currentUser.communeId)
                   }
                 </p>
             </div>
@@ -132,26 +132,29 @@ export default function AppHeader() {
                     <p className="text-sm text-muted-foreground">Bạn có {unreadNotifications} thông báo mới.</p>
                 </div>
                 <Separator />
-                <div className="p-2 max-h-80 overflow-y-auto">
-                    {notifications.map(notification => (
-                        <div key={notification.id} className={cn(
-                            "mb-1 flex items-start gap-4 rounded-lg p-3 text-sm transition-colors hover:bg-muted/50",
-                            !notification.read && "bg-blue-50/50"
-                        )}>
-                            <div className="mt-1">
-                            {getNotificationIcon(notification.title)}
-                            </div>
-                            <div className="flex-1">
-                                <p className="leading-snug">{notification.title}</p>
-                                <p className="text-xs text-muted-foreground">{notification.time}</p>
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                <Separator />
-                <div className="p-2">
-                    <Button variant="link" size="sm" className="w-full">Xem tất cả thông báo</Button>
-                </div>
+                {notifications.length > 0 ? (
+                    <div className="p-2 max-h-80 overflow-y-auto">
+                        {notifications.map(notification => (
+                            <Link href={notification.link} key={notification.id} className="block">
+                                <div className={cn(
+                                    "mb-1 flex items-start gap-4 rounded-lg p-3 text-sm transition-colors hover:bg-muted/50",
+                                    !notification.read && "bg-blue-50/50"
+                                )}>
+                                    <div className="mt-1">
+                                    {getNotificationIcon(notification.title)}
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="leading-snug">{notification.title}</p>
+                                        <p className="text-xs text-muted-foreground">{notification.time}</p>
+                                    </div>
+                                </div>
+                            </Link>
+                        ))}
+                    </div>
+                ) : (
+                    <div className="p-4 text-sm text-center text-muted-foreground">Không có thông báo mới.</div>
+                )}
+                
             </PopoverContent>
         </Popover>
 
