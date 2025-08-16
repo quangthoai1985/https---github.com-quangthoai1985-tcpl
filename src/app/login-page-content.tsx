@@ -22,20 +22,19 @@ export default function LoginPageContent() {
   const { setLoginInfo, loading } = useData();
   const router = useRouter();
   const { toast } = useToast();
-  const [username, setUsername] = React.useState('');
+  const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    // The login function now expects email (username) and password
-    const success = await setLoginInfo(username, password);
+    const success = await setLoginInfo(email, password);
     if (success) {
-      router.push('/dashboard');
+      // router.push('/dashboard') is handled by the layout now
     } else {
       toast({
         variant: 'destructive',
         title: "Đăng nhập thất bại",
-        description: "Tên đăng nhập hoặc mật khẩu không chính xác.",
+        description: "Email hoặc mật khẩu không chính xác.",
       });
     }
   };
@@ -57,14 +56,14 @@ export default function LoginPageContent() {
         <CardContent>
           <form onSubmit={handleLogin} className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="username">Tên đăng nhập (Email)</Label>
+              <Label htmlFor="email">Email</Label>
               <Input
-                id="username"
-                type="text"
-                placeholder="Nhập tên đăng nhập"
+                id="email"
+                type="email"
+                placeholder="abc@angiang.gov.vn"
                 required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 disabled={loading}
               />
             </div>

@@ -46,7 +46,8 @@ export default function AppHeader() {
   };
 
   const getAvatarFallback = () => {
-    return currentUser?.displayName.split(' ').map(n => n[0]).slice(-2).join('').toUpperCase() || (role === 'admin' ? 'AD' : 'CB');
+    if (!currentUser?.displayName) return role === 'admin' ? 'AD' : 'CB';
+    return currentUser.displayName.split(' ').map(n => n[0]).slice(-2).join('').toUpperCase();
   }
   
   const getAvatarAlt = () => {

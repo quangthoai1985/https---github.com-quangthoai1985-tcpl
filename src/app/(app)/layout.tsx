@@ -19,6 +19,13 @@ export default function AppLayout({
     // Redirect to login if not loading and no user is found.
     if (!loading && !currentUser) {
       router.push('/');
+    } else if (!loading && currentUser) {
+      // Optional: if user is logged in and tries to access a page they shouldn't, redirect.
+      // For now, we assume they should be on a page under /app.
+      // If the current path is the root login page, push them to dashboard.
+      if (window.location.pathname === '/') {
+        router.push('/dashboard');
+      }
     }
   }, [currentUser, loading, router]);
 
@@ -26,6 +33,7 @@ export default function AppLayout({
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
+        <span>Đang tải dữ liệu...</span>
       </div>
     );
   }

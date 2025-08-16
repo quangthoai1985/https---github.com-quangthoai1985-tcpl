@@ -11,12 +11,13 @@ import {
     type Criterion,
     type Document
 } from '@/lib/data';
-import { initializeApp, getApp, getApps } from 'firebase/app';
+import { initializeApp, getApp, getApps, FirebaseOptions } from 'firebase/app';
 import { getFirestore, collection, getDocs, doc, getDoc } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 
 // Your web app's Firebase configuration is populated here by the backend
-const firebaseConfig = {
+const firebaseConfig: FirebaseOptions = {
   apiKey: "...",
   authDomain: "...",
   projectId: "...",
@@ -51,7 +52,7 @@ interface DataContextType {
   setRole: React.Dispatch<React.SetStateAction<Role | null>>;
   currentUser: User | null;
   setLoginInfo: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -108,8 +109,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      setLoading(true);
       if (firebaseUser) {
         // User is signed in. Fetch user profile from Firestore.
+        // We assume the Firestore document ID for a user is the same as their Firebase Auth UID.
         const userDocRef = doc(db, "users", firebaseUser.uid);
         const userDoc = await getDoc(userDocRef);
 
@@ -117,10 +120,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           const userData = userDoc.data() as User;
           setCurrentUser(userData);
           setRole(userData.role);
-          await fetchData(); // Fetch other data after user is confirmed
+          await fetchData(); // Fetch all other app data
         } else {
           // User profile doesn't exist in Firestore. Handle appropriately.
-          console.error("User profile not found in Firestore.");
+          console.error("User profile not found in Firestore for UID:", firebaseUser.uid);
+          await signOut(auth); // Sign out the user if their profile is missing.
           setCurrentUser(null);
           setRole(null);
         }
@@ -140,27 +144,33 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const setLoginInfo = async (email: string, password: string): Promise<boolean> => {
     setLoading(true);
     try {
-        // In a real app, the username would be an email. We'll add a dummy domain.
-        const userCredential = await signInWithEmailAndPassword(auth, `${email}@example.com`, password);
-        // onAuthStateChanged will handle the rest.
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        // onAuthStateChanged will handle the rest (fetching user doc, setting state, etc.)
         return !!userCredential.user;
     } catch(e) {
         console.error("Login Error: ", e);
-        return false;
-    } finally {
         setLoading(false);
-    }
+        return false;
+    } 
+    // No need for finally setLoading(false), onAuthStateChanged handles it.
   };
 
   const logout = async () => {
     setLoading(true);
     try {
       await signOut(auth);
-      // onAuthStateChanged will clear user state.
+      // onAuthStateChanged will clear user state and trigger re-render.
+      // Reset all data states to initial
+      setUsers([]);
+      setUnits([]);
+      setAssessmentPeriods([]);
+      setAssessments([]);
+      setCriteria([]);
+      setGuidanceDocuments([]);
     } catch (error) {
       console.error("Error signing out: ", error);
     } finally {
-      setLoading(false);
+      // Loading is set to false by onAuthStateChanged after sign-out completes
     }
   };
 
