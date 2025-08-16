@@ -166,47 +166,60 @@ const guidanceDocuments: Document[] = [
 
 async function seedUsers() {
     console.log("Starting to seed users in Auth and Firestore...");
-    const userRecords: User[] = [];
+    const userRecordsForAssessments: User[] = [];
     const adminUids: string[] = [];
     
+    const usersCollection = db.collection('users');
+    const batch = db.batch();
+
     for (const user of usersRaw) {
         try {
-            // Check if user already exists in Auth
-            let userRecord;
+            let authRecord;
             try {
-                userRecord = await auth.getUserByEmail(user.email);
-                console.log(`User ${user.email} already exists in Auth. UID: ${userRecord.uid}. Skipping Auth creation.`);
+                // Check if user already exists in Auth
+                authRecord = await auth.getUserByEmail(user.email);
+                console.log(`User ${user.email} already exists in Auth. UID: ${authRecord.uid}. Updating info.`);
+                // Optional: update existing user details in Auth if needed
+                await auth.updateUser(authRecord.uid, {
+                    displayName: user.displayName,
+                });
             } catch (error: any) {
                 if (error.code === 'auth/user-not-found') {
                     // User does not exist, create them
-                    userRecord = await auth.createUser({
+                    authRecord = await auth.createUser({
                         email: user.email,
                         emailVerified: true,
                         password: user.password,
                         displayName: user.displayName,
                         disabled: false,
                     });
-                    console.log(`Successfully created new user in Auth: ${user.email} with UID: ${userRecord.uid}`);
+                    console.log(`Successfully created new user in Auth: ${user.email} with UID: ${authRecord.uid}`);
                 } else {
                     throw error; // Re-throw other errors
                 }
             }
             
-            // Set custom claims (role)
-            await auth.setCustomUserClaims(userRecord.uid, { role: user.role });
+            // At this point, authRecord has the definitive user info from Auth
+            const uid = authRecord.uid;
 
-            // Prepare Firestore user document. The username IS the email.
+            // Set custom claims (role) every time to ensure it's correct
+            await auth.setCustomUserClaims(uid, { role: user.role });
+
+            // Create the Firestore user object using the Auth UID as the document ID
             const firestoreUser: User = {
-                id: userRecord.uid,
+                id: uid, 
                 username: user.email, 
                 displayName: user.displayName,
                 role: user.role as User['role'],
                 communeId: user.communeId,
             };
             
-            // Add to Firestore user list for batch write
-            userRecords.push(firestoreUser);
-
+            // Add Firestore set operation to the batch
+            const userDocRef = usersCollection.doc(uid);
+            batch.set(userDocRef, firestoreUser);
+            
+            // Keep a list for populating assessments later
+            userRecordsForAssessments.push(firestoreUser);
             if (firestoreUser.role === 'admin') {
                 adminUids.push(firestoreUser.id);
             }
@@ -216,19 +229,11 @@ async function seedUsers() {
         }
     }
     
-    // Batch write all user documents to Firestore
-    if (userRecords.length > 0) {
-        const batch = db.batch();
-        const usersCollection = db.collection('users');
-        userRecords.forEach(userDoc => {
-            const docRef = usersCollection.doc(userDoc.id);
-            batch.set(docRef, userDoc);
-        });
-        await batch.commit();
-        console.log(`Successfully seeded ${userRecords.length} user documents in Firestore.`);
-    }
-
-    return { userRecords, adminUids };
+    // Commit all Firestore user document creations/updates at once
+    await batch.commit();
+    console.log(`Successfully batched ${usersRaw.length} user documents to Firestore.`);
+    
+    return { userRecords: userRecordsForAssessments, adminUids };
 }
 
 
@@ -262,7 +267,7 @@ async function main() {
 
     // Populate assessments with correct approver and submitter IDs
     const finalAssessments = assessments.map(a => {
-        const assessmentData: Partial<Assessment> = { ...a };
+        const assessmentData: Assessment = { ...a, submittedBy: undefined } as Assessment;
         
         const userRecord = userRecords.find(u => u.communeId === a.communeId);
         if (userRecord) {
@@ -271,9 +276,11 @@ async function main() {
         
         if (a.status === 'approved' && adminUids.length > 0) {
             assessmentData.approverId = adminUids[0]; // Assign the first admin as approver
+        } else {
+             delete (assessmentData as Partial<Assessment>).approverId;
         }
 
-        return assessmentData as Assessment;
+        return assessmentData;
     });
 
     await seedCollection('assessments', finalAssessments);
@@ -290,4 +297,5 @@ async function main() {
 }
 
 main();
+
 
