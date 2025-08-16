@@ -25,7 +25,6 @@ import {
 import {
   ChartContainer,
 } from '@/components/ui/chart';
-import { criteria } from '@/lib/data';
 import { Download } from 'lucide-react';
 import { Pie, PieChart, Cell, BarChart, XAxis, YAxis, Bar, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useState, useMemo } from 'react';
@@ -33,7 +32,7 @@ import { useData } from '@/context/DataContext';
 import PageHeader from '@/components/layout/page-header';
 
 export default function ReportsPage() {
-    const { assessmentPeriods, assessments, units: allUnits } = useData();
+    const { assessmentPeriods, assessments, units: allUnits, criteria } = useData();
     const [selectedPeriod, setSelectedPeriod] = useState<string | undefined>(assessmentPeriods.find(p => p.isActive)?.id);
 
     // Calculate real data for charts based on the selected period
@@ -81,7 +80,7 @@ export default function ReportsPage() {
         
         return { statusData, criteriaSuccessRate, chartConfig };
 
-    }, [selectedPeriod, assessments, allUnits]);
+    }, [selectedPeriod, assessments, allUnits, criteria]);
 
 
   return (

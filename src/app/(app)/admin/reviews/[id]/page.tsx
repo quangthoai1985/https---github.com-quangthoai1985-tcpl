@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { criteria } from "@/lib/data";
 import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock } from "lucide-react";
 import React, { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -56,7 +55,7 @@ export default function AssessmentDetailPage() {
   const params = useParams();
   const id = params.id as string;
 
-  const { role, units, assessments, setAssessments } = useData();
+  const { role, units, assessments, setAssessments, criteria } = useData();
   const { toast } = useToast();
   
   const [assessment, setAssessment] = useState(() => assessments.find((a) => a.id === id));

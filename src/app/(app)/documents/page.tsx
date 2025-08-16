@@ -5,9 +5,7 @@ import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import {
   Table,
@@ -17,8 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { guidanceDocuments as initialDocuments } from '@/lib/data';
-import { Download, FileText, MoreHorizontal, PlusCircle, Search } from 'lucide-react';
+import { Download, MoreHorizontal, PlusCircle, Search } from 'lucide-react';
 import React, { useState } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -28,18 +25,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import PageHeader from '@/components/layout/page-header';
 import { useData } from '@/context/DataContext';
+import type { Document } from '@/lib/data';
 
 
-type Document = {
-  id: string;
-  name: string;
-  number: string;
-  issueDate: string;
-  excerpt: string;
-};
-
-function DocumentForm({ document, onSave, onCancel }: { document: Partial<Document>, onSave: (doc: Partial<Document>) => void, onCancel: () => void }) {
-  const [formData, setFormData] = useState(document);
+function DocumentForm({ document: doc, onSave, onCancel }: { document: Partial<Document>, onSave: (doc: Partial<Document>) => void, onCancel: () => void }) {
+  const [formData, setFormData] = useState(doc);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
@@ -49,9 +39,9 @@ function DocumentForm({ document, onSave, onCancel }: { document: Partial<Docume
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{document.id ? 'Chỉnh sửa văn bản' : 'Thêm văn bản mới'}</DialogTitle>
+        <DialogTitle>{doc.id ? 'Chỉnh sửa văn bản' : 'Thêm văn bản mới'}</DialogTitle>
         <DialogDescription>
-          {document.id ? 'Cập nhật thông tin cho văn bản này.' : 'Tải lên và điền thông tin cho văn bản mới.'}
+          {doc.id ? 'Cập nhật thông tin cho văn bản này.' : 'Tải lên và điền thông tin cho văn bản mới.'}
         </DialogDescription>
       </DialogHeader>
       <div className="grid gap-4 py-4">
@@ -78,7 +68,7 @@ function DocumentForm({ document, onSave, onCancel }: { document: Partial<Docume
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Hủy</Button>
-        <Button type="submit" onClick={() => onSave(formData)}>{document.id ? 'Lưu thay đổi' : 'Tải lên'}</Button>
+        <Button type="submit" onClick={() => onSave(formData)}>{doc.id ? 'Lưu thay đổi' : 'Tải lên'}</Button>
       </DialogFooter>
     </>
   );
@@ -86,11 +76,10 @@ function DocumentForm({ document, onSave, onCancel }: { document: Partial<Docume
 
 
 export default function DocumentsPage() {
-  const [documents, setDocuments] = useState<Document[]>(initialDocuments);
+  const { guidanceDocuments: documents, setGuidanceDocuments: setDocuments, role } = useData();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDocument, setEditingDocument] = useState<Partial<Document> | null>(null);
   const { toast } = useToast();
-  const { role } = useData();
 
   const handleNew = () => {
     setEditingDocument({});

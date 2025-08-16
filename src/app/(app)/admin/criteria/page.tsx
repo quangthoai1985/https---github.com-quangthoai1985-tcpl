@@ -13,12 +13,9 @@ import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
-import { criteria as initialCriteria } from '@/lib/data';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,28 +31,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import PageHeader from '@/components/layout/page-header';
+import { useData } from '@/context/DataContext';
+import type { Criterion, Indicator } from '@/lib/data';
 
-
-type Indicator = {
-  id: string;
-  name: string;
-  description: string;
-  standardLevel: string;
-  inputType: 'number' | 'text' | 'boolean' | 'select';
-  calculationFormula: string | null;
-  evidenceRequirement: string;
-};
-
-type Criterion = {
-  id: string;
-  name: string;
-  indicators: Indicator[];
-};
 
 function CriterionForm({ criterion, onSave, onCancel }: { criterion: Partial<Criterion>, onSave: (criterion: Partial<Criterion>) => void, onCancel: () => void }) {
   const [formData, setFormData] = React.useState(criterion);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
     setFormData(prev => ({ ...prev, [id]: value }));
   };
@@ -72,6 +55,10 @@ function CriterionForm({ criterion, onSave, onCancel }: { criterion: Partial<Cri
         <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="name" className="text-right">Tên tiêu chí</Label>
           <Input id="name" value={formData.name || ''} onChange={handleChange} className="col-span-3" />
+        </div>
+         <div className="grid grid-cols-4 items-start gap-4">
+          <Label htmlFor="description" className="text-right pt-2">Mô tả</Label>
+          <Textarea id="description" value={formData.description || ''} onChange={handleChange} className="col-span-3" />
         </div>
       </div>
       <DialogFooter>
@@ -148,7 +135,7 @@ function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Ind
 
 
 export default function CriteriaManagementPage() {
-  const [criteria, setCriteria] = React.useState<Criterion[]>(initialCriteria);
+  const { criteria, setCriteria } = useData();
   const [editingCriterion, setEditingCriterion] = React.useState<Partial<Criterion> | null>(null);
   const [addingCriterion, setAddingCriterion] = React.useState<boolean>(false);
   const [editingIndicator, setEditingIndicator] = React.useState<{criterionId: string, indicator: Partial<Indicator>} | null>(null);
@@ -176,6 +163,7 @@ export default function CriteriaManagementPage() {
         const newCriterion: Criterion = {
             id: `TC${Math.random().toString(36).substring(2, 9)}`,
             name: criterionToSave.name || "Tiêu chí mới",
+            description: criterionToSave.description || "",
             indicators: []
         };
         setCriteria(prevCriteria => [...prevCriteria, newCriterion]);

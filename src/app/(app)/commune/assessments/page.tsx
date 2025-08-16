@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { criteria } from "@/lib/data";
 import { UploadCloud, File as FileIcon, X } from "lucide-react";
 import React from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -97,7 +96,7 @@ const renderInput = (indicator: any) => {
 
 export default function SelfAssessmentPage() {
   const { toast } = useToast();
-  const { assessmentPeriods } = useData();
+  const { assessmentPeriods, criteria } = useData();
   const activePeriod = assessmentPeriods.find(p => p.isActive);
 
   const handleSaveDraft = () => {
