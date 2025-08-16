@@ -49,7 +49,18 @@ export default function LoginPageContent() {
     <div className="flex min-h-screen w-full items-center justify-center bg-background px-4">
       <Card className="mx-auto w-full max-w-sm shadow-2xl">
          <div className="flex justify-center p-6">
-            <Image src="https://placehold.co/80x80.png" alt="Logo" width={80} height={80} data-ai-hint="logo" />
+            <svg
+              className="h-20 w-20 text-primary"
+              xmlns="http://www.w3.org/2000/svg"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
         </div>
         <CardHeader className="text-center pt-0">
           <CardTitle className="text-2xl font-headline leading-snug">

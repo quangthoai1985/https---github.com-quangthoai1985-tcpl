@@ -88,7 +88,18 @@ export default function AppHeader() {
 
       <div className="flex items-center gap-3">
          <Link href="/dashboard" className="flex items-center gap-3 font-semibold">
-            <Image src="https://placehold.co/40x40.png" alt="Logo" width={40} height={40} data-ai-hint="logo" />
+            <svg
+                className="h-10 w-10 text-primary"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
             <span className="font-headline text-xl font-bold uppercase tracking-wide text-foreground">
               ĐÁNH GIÁ CHUẨN TIẾP CẬN PHÁP LUẬT
             </span>
