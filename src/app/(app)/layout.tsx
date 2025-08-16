@@ -5,25 +5,33 @@ import AppSidebar from '@/components/layout/app-sidebar';
 import { useData } from '@/context/DataContext';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { Loader2 } from 'lucide-react';
 
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const { role } = useData();
+  const { currentUser, loading } = useData();
   const router = useRouter();
 
   useEffect(() => {
-    // A simple check to redirect if no role is set (e.g., page refresh on a protected route)
-    // In a real app, you'd have a more robust auth check.
-    if (!role) {
+    // Redirect to login if not loading and no user is found.
+    if (!loading && !currentUser) {
       router.push('/');
     }
-  }, [role, router]);
+  }, [currentUser, loading, router]);
 
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
-  return (
+  // Render the layout only if there is a user
+  return currentUser ? (
      <div className="flex min-h-screen w-full flex-col bg-muted/40">
       <AppHeader />
       <div className="flex flex-1">
@@ -33,5 +41,5 @@ export default function AppLayout({
         </main>
       </div>
     </div>
-  );
+  ) : null; // or a fallback component if you prefer
 }

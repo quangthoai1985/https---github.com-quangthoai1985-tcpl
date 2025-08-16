@@ -12,7 +12,8 @@ import {
     type Document
 } from '@/lib/data';
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getFirestore, collection, getDocs, query, where } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
 
 // Your web app's Firebase configuration is populated here by the backend
 const firebaseConfig = {
@@ -29,6 +30,7 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 const db = getFirestore(app);
+const auth = getAuth(app);
 
 
 interface DataContextType {
@@ -48,7 +50,8 @@ interface DataContextType {
   role: Role | null;
   setRole: React.Dispatch<React.SetStateAction<Role | null>>;
   currentUser: User | null;
-  setLoginInfo: (username: string) => Promise<boolean>;
+  setLoginInfo: (email: string, password: string) => Promise<boolean>;
+  logout: () => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -67,7 +70,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   // This function fetches all initial data from Firestore.
   const fetchData = async () => {
-      setLoading(true);
+      // Don't set loading to true here, as auth state change will handle it.
       if (firebaseConfig.apiKey === "...") {
           console.warn("Firebase config is not set. Cannot fetch from Firestore.");
           setLoading(false);
@@ -99,36 +102,48 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         
       } catch (error) {
         console.error("Error fetching data from Firestore:", error);
-      } finally {
-        setLoading(false);
       }
+      // Loading is handled by onAuthStateChanged
     };
 
   useEffect(() => {
-    fetchData();
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
+      if (firebaseUser) {
+        // User is signed in. Fetch user profile from Firestore.
+        const userDocRef = doc(db, "users", firebaseUser.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          const userData = userDoc.data() as User;
+          setCurrentUser(userData);
+          setRole(userData.role);
+          await fetchData(); // Fetch other data after user is confirmed
+        } else {
+          // User profile doesn't exist in Firestore. Handle appropriately.
+          console.error("User profile not found in Firestore.");
+          setCurrentUser(null);
+          setRole(null);
+        }
+      } else {
+        // User is signed out.
+        setCurrentUser(null);
+        setRole(null);
+      }
+      setLoading(false);
+    });
+
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
   }, []);
 
-  // This function simulates the login process
-  const setLoginInfo = async (username: string): Promise<boolean> => {
-    // In a real app with Firebase Auth, you'd use auth().signInWith...
-    // Here, we query the users collection.
+  // This function handles the login process via Firebase Auth
+  const setLoginInfo = async (email: string, password: string): Promise<boolean> => {
     setLoading(true);
     try {
-        const usersRef = collection(db, "users");
-        const q = query(usersRef, where("username", "==", username.toLowerCase()));
-        const querySnapshot = await getDocs(q);
-
-        if (!querySnapshot.empty) {
-            const user = querySnapshot.docs[0].data() as User;
-            setCurrentUser(user);
-            setRole(user.role);
-            // In a real app, you would store the session token here
-            return true;
-        } else {
-            setCurrentUser(null);
-            setRole(null);
-            return false;
-        }
+        // In a real app, the username would be an email. We'll add a dummy domain.
+        const userCredential = await signInWithEmailAndPassword(auth, `${email}@example.com`, password);
+        // onAuthStateChanged will handle the rest.
+        return !!userCredential.user;
     } catch(e) {
         console.error("Login Error: ", e);
         return false;
@@ -136,6 +151,19 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         setLoading(false);
     }
   };
+
+  const logout = async () => {
+    setLoading(true);
+    try {
+      await signOut(auth);
+      // onAuthStateChanged will clear user state.
+    } catch (error) {
+      console.error("Error signing out: ", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
 
   return (
     <DataContext.Provider value={{ 
@@ -147,7 +175,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         criteria, setCriteria,
         guidanceDocuments, setGuidanceDocuments,
         role, setRole, 
-        currentUser, setLoginInfo 
+        currentUser, setLoginInfo,
+        logout
     }}>
       {children}
     </DataContext.Provider>

@@ -14,7 +14,6 @@ import { Label } from '@/components/ui/label';
 import Image from 'next/image';
 import { useData } from '@/context/DataContext';
 import { useRouter } from 'next/navigation';
-import type { Role } from '@/lib/data';
 import React from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -28,7 +27,8 @@ export default function LoginPageContent() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const success = await setLoginInfo(username);
+    // The login function now expects email (username) and password
+    const success = await setLoginInfo(username, password);
     if (success) {
       router.push('/dashboard');
     } else {
@@ -57,7 +57,7 @@ export default function LoginPageContent() {
         <CardContent>
           <form onSubmit={handleLogin} className="grid gap-4">
             <div className="grid gap-2">
-              <Label htmlFor="username">Tên đăng nhập</Label>
+              <Label htmlFor="username">Tên đăng nhập (Email)</Label>
               <Input
                 id="username"
                 type="text"

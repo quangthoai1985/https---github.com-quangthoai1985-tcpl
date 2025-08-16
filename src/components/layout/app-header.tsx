@@ -32,12 +32,19 @@ import { adminNotifications, communeNotifications } from '@/lib/data';
 import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 export default function AppHeader() {
-  const { role, currentUser, units } = useData();
+  const { role, currentUser, units, logout } = useData();
+  const router = useRouter();
   const notifications = role === 'admin' ? adminNotifications : communeNotifications;
   const unreadNotifications = notifications.filter(n => !n.read).length;
   
+  const handleLogout = async () => {
+    await logout();
+    router.push('/');
+  };
+
   const getAvatarFallback = () => {
     return currentUser?.displayName.split(' ').map(n => n[0]).slice(-2).join('').toUpperCase() || (role === 'admin' ? 'AD' : 'CB');
   }
@@ -154,12 +161,10 @@ export default function AppHeader() {
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild><Link href="/profile" className='flex items-center gap-2'><Settings className='h-4 w-4' />Hồ sơ</Link></DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem asChild><Link href="/" className='flex items-center gap-2'><LogOut className='h-4 w-4' />Đăng xuất</Link></DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout} className='flex items-center gap-2'><LogOut className='h-4 w-4' />Đăng xuất</DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
        </div>
     </header>
   );
 }
-
-    
