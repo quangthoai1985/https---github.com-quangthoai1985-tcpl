@@ -15,6 +15,7 @@ import {
 } from '@/lib/data';
 
 interface DataContextType {
+  loading: boolean;
   users: User[];
   setUsers: React.Dispatch<React.SetStateAction<User[]>>;
   units: Unit[];
@@ -32,6 +33,7 @@ interface DataContextType {
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
+  const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<User[]>(initialUsers);
   const [units, setUnits] = useState<Unit[]>(initialUnits);
   const [assessmentPeriods, setAssessmentPeriods] = useState<AssessmentPeriod[]>(initialAssessmentPeriods);
@@ -39,12 +41,27 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<Role | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
+  useEffect(() => {
+    // In a real app, this is where you would fetch data from your backend (e.g., Firestore)
+    // For now, we'll just simulate a loading delay with the initial mock data.
+    const timer = setTimeout(() => {
+        setUsers(initialUsers);
+        setUnits(initialUnits);
+        setAssessmentPeriods(initialAssessmentPeriods);
+        setAssessments(initialAssessments);
+        setLoading(false);
+    }, 500); // Simulate network latency
+
+    return () => clearTimeout(timer);
+  }, []);
+
   // This function simulates the login process
   const setLoginInfo = (username: string): boolean => {
     const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
     if (user) {
       setCurrentUser(user);
       setRole(user.role);
+      // In a real app, you would store the session token here
       return true;
     }
     // Logout / handle error
@@ -53,26 +70,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     return false;
   };
 
-  useEffect(() => {
-    // On page load or refresh, if a role is set, try to find the corresponding user.
-    // This is a simplified persistence logic. In a real app, you'd use session/local storage or a token.
-    if (role && !currentUser) {
-        // This logic is simplified. In a real app, you wouldn't just find the first user with a role.
-        const userToRestore = users.find(u => u.role === role);
-        if (userToRestore) {
-            setCurrentUser(userToRestore);
-        } else {
-            // If no user matches the role, reset
-            setRole(null);
-        }
-    } else if (!role && currentUser) {
-        // If role is cleared, clear current user
-        setCurrentUser(null);
-    }
-  }, [role, users, currentUser]);
-
   return (
-    <DataContext.Provider value={{ users, setUsers, units, setUnits, assessmentPeriods, setAssessmentPeriods, assessments, setAssessments, role, setRole, currentUser, setLoginInfo }}>
+    <DataContext.Provider value={{ loading, users, setUsers, units, setUnits, assessmentPeriods, setAssessmentPeriods, assessments, setAssessments, role, setRole, currentUser, setLoginInfo }}>
       {children}
     </DataContext.Provider>
   );

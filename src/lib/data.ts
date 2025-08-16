@@ -1,4 +1,5 @@
 
+
 // Types based on Firestore data structure
 export type Role = 'admin' | 'commune_staff';
 
@@ -57,7 +58,7 @@ export type Assessment = {
   submittedBy?: string; // User ID
 };
 
-// Mock Data
+// Mock Data - This will be replaced by Firestore
 export const units: Unit[] = [
     { id: 'TINH_HN', name: 'Thành phố Hà Nội', type: 'province', parentId: null, address: 'Hà Nội, Việt Nam', headquarters: 'Số 12 Lê Lai, Hoàn Kiếm, Hà Nội' },
     { id: 'QUAN_HBT', name: 'Quận Hai Bà Trưng', type: 'district', parentId: 'TINH_HN', address: 'Hai Bà Trưng, Hà Nội', headquarters: 'Số 3 Tạ Quang Bửu, Hai Bà Trưng' },
