@@ -76,7 +76,7 @@ function DocumentForm({ document: doc, onSave, onCancel }: { document: Partial<D
 
 
 export default function DocumentsPage() {
-  const { guidanceDocuments: documents, setGuidanceDocuments: setDocuments, role } = useData();
+  const { guidanceDocuments: documents, updateGuidanceDocuments: setDocuments, role } = useData();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDocument, setEditingDocument] = useState<Partial<Document> | null>(null);
   const { toast } = useToast();
@@ -91,23 +91,28 @@ export default function DocumentsPage() {
     setIsFormOpen(true);
   }
 
-  const handleSave = (docToSave: Partial<Document>) => {
+  const handleSave = async (docToSave: Partial<Document>) => {
     if (docToSave.id) {
-      setDocuments(prev => prev.map(d => d.id === docToSave.id ? { ...d, ...docToSave } as Document : d));
+      await setDocuments(documents.map(d => d.id === docToSave.id ? { ...d, ...docToSave } as Document : d));
       toast({ title: "Thành công", description: "Văn bản đã được cập nhật." });
     } else {
       const newDoc: Document = {
-        id: `VB${Math.random().toString(36).substring(2, 7)}`,
+        id: `VB${Date.now().toString().slice(-6)}`,
         name: docToSave.name || '',
         number: docToSave.number || '',
         issueDate: docToSave.issueDate || '',
         excerpt: docToSave.excerpt || '',
       };
-      setDocuments(prev => [newDoc, ...prev]);
+      await setDocuments([newDoc, ...documents]);
       toast({ title: "Thành công", description: "Văn bản mới đã được thêm." });
     }
     setIsFormOpen(false);
     setEditingDocument(null);
+  }
+
+  const handleDelete = async (docId: string) => {
+    await setDocuments(documents.filter(d => d.id !== docId));
+    toast({ title: "Thành công", description: "Văn bản đã được xóa." });
   }
 
   const handleCancel = () => {
@@ -169,7 +174,7 @@ export default function DocumentsPage() {
                         {role === 'admin' && (
                           <>
                             <DropdownMenuItem onClick={() => handleEdit(doc)}>Sửa</DropdownMenuItem>
-                            <DropdownMenuItem className="text-destructive">Xóa</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => handleDelete(doc.id)} className="text-destructive">Xóa</DropdownMenuItem>
                           </>
                         )}
                       </DropdownMenuContent>

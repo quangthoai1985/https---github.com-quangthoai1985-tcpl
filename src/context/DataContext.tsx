@@ -9,10 +9,10 @@ import {
     type Assessment,
     type Role,
     type Criterion,
-    type Document
+    type Document as AppDocument
 } from '@/lib/data';
 import { initializeApp, getApp, getApps, FirebaseOptions, type FirebaseApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, doc, getDoc, type Firestore } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, writeBatch, type Firestore } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser, type Auth } from 'firebase/auth';
 
 // Hardcoded Firebase configuration from user
@@ -43,19 +43,18 @@ if (typeof window !== 'undefined') {
 interface DataContextType {
   loading: boolean;
   users: User[];
-  setUsers: React.Dispatch<React.SetStateAction<User[]>>;
+  updateUsers: (newUsers: User[]) => Promise<void>;
   units: Unit[];
-  setUnits: React.Dispatch<React.SetStateAction<Unit[]>>;
+  updateUnits: (newUnits: Unit[]) => Promise<void>;
   assessmentPeriods: AssessmentPeriod[];
-  setAssessmentPeriods: React.Dispatch<React.SetStateAction<AssessmentPeriod[]>>;
+  updateAssessmentPeriods: (newPeriods: AssessmentPeriod[]) => Promise<void>;
   assessments: Assessment[];
-  setAssessments: React.Dispatch<React.SetStateAction<Assessment[]>>;
+  updateAssessments: (newAssessments: Assessment[]) => Promise<void>;
   criteria: Criterion[];
-  setCriteria: React.Dispatch<React.SetStateAction<Criterion[]>>;
-  guidanceDocuments: Document[];
-  setGuidanceDocuments: React.Dispatch<React.SetStateAction<Document[]>>;
+  updateCriteria: (newCriteria: Criterion[]) => Promise<void>;
+  guidanceDocuments: AppDocument[];
+  updateGuidanceDocuments: (newDocs: AppDocument[]) => Promise<void>;
   role: Role | null;
-  setRole: React.Dispatch<React.SetStateAction<Role | null>>;
   currentUser: User | null;
   setLoginInfo: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -70,12 +69,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [assessmentPeriods, setAssessmentPeriods] = useState<AssessmentPeriod[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [criteria, setCriteria] = useState<Criterion[]>([]);
-  const [guidanceDocuments, setGuidanceDocuments] = useState<Document[]>([]);
+  const [guidanceDocuments, setGuidanceDocuments] = useState<AppDocument[]>([]);
 
   const [role, setRole] = useState<Role | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   const fetchData = async () => {
+      if (!db) return;
       try {
         const [
           unitsSnapshot,
@@ -93,12 +93,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           getDocs(collection(db, 'users')),
         ]);
 
-        setUnits(unitsSnapshot.docs.map(doc => doc.data() as Unit));
-        setAssessmentPeriods(periodsSnapshot.docs.map(doc => doc.data() as AssessmentPeriod));
-        setAssessments(assessmentsSnapshot.docs.map(doc => doc.data() as Assessment));
-        setCriteria(criteriaSnapshot.docs.map(doc => doc.data() as Criterion));
-        setGuidanceDocuments(documentsSnapshot.docs.map(doc => doc.data() as Document));
-        setUsers(usersSnapshot.docs.map(doc => doc.data() as User));
+        setUnits(unitsSnapshot.docs.map(d => d.data() as Unit));
+        setAssessmentPeriods(periodsSnapshot.docs.map(d => d.data() as AssessmentPeriod));
+        setAssessments(assessmentsSnapshot.docs.map(d => d.data() as Assessment));
+        setCriteria(criteriaSnapshot.docs.map(d => d.data() as Criterion));
+        setGuidanceDocuments(documentsSnapshot.docs.map(d => d.data() as AppDocument));
+        setUsers(usersSnapshot.docs.map(d => d.data() as User));
         
       } catch (error) {
         console.error("Error fetching data from Firestore:", error);
@@ -113,9 +113,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         
         try {
             const usersSnapshot = await getDocs(collection(db, 'users'));
-            const allUsers = usersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
+            const allUsers = usersSnapshot.docs.map(doc => ({ ...doc.data()} as User));
             
-            // Extract username from email to match against Firestore data
             const usernameFromEmail = firebaseUser.email.split('@')[0];
             const loggedInUser = allUsers.find(u => u.username.toLowerCase() === usernameFromEmail.toLowerCase());
 
@@ -150,7 +149,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        // onAuthStateChanged will handle the rest, so we just return success.
         return !!userCredential.user;
     } catch(e) {
         console.error("Login Error: ", e);
@@ -163,7 +161,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       await signOut(auth);
-      // Clear all local data on logout
       setUsers([]);
       setUnits([]);
       setAssessmentPeriods([]);
@@ -179,18 +176,57 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
+  const createFirestoreUpdater = <T extends {id: string}>(
+    collectionName: string,
+    stateUpdater: React.Dispatch<React.SetStateAction<T[]>>
+  ) => {
+    return async (newData: T[]) => {
+      if (!db) return;
+      const batch = writeBatch(db);
+      
+      const currentStateSnapshot = await getDocs(collection(db, collectionName));
+      const currentStateIds = new Set(currentStateSnapshot.docs.map(d => d.id));
+      const newStateIds = new Set(newData.map(item => item.id));
+
+      // Add or update documents
+      newData.forEach(item => {
+        const docRef = doc(db, collectionName, item.id);
+        batch.set(docRef, item);
+      });
+
+      // Delete documents that are not in the new data
+      currentStateIds.forEach(id => {
+        if (!newStateIds.has(id)) {
+          const docRef = doc(db, collectionName, id);
+          batch.delete(docRef);
+        }
+      });
+      
+      await batch.commit();
+      stateUpdater(newData);
+    };
+  };
+
+  const updateUsers = createFirestoreUpdater('users', setUsers);
+  const updateUnits = createFirestoreUpdater('units', setUnits);
+  const updateAssessmentPeriods = createFirestoreUpdater('assessmentPeriods', setAssessmentPeriods);
+  const updateAssessments = createFirestoreUpdater('assessments', setAssessments);
+  const updateCriteria = createFirestoreUpdater('criteria', setCriteria);
+  const updateGuidanceDocuments = createFirestoreUpdater('guidanceDocuments', setGuidanceDocuments);
+
 
   return (
     <DataContext.Provider value={{ 
         loading, 
-        users, setUsers, 
-        units, setUnits, 
-        assessmentPeriods, setAssessmentPeriods, 
-        assessments, setAssessments, 
-        criteria, setCriteria,
-        guidanceDocuments, setGuidanceDocuments,
-        role, setRole, 
-        currentUser, setLoginInfo,
+        users, updateUsers, 
+        units, updateUnits, 
+        assessmentPeriods, updateAssessmentPeriods, 
+        assessments, updateAssessments, 
+        criteria, updateCriteria,
+        guidanceDocuments, updateGuidanceDocuments,
+        role,
+        currentUser, 
+        setLoginInfo,
         logout
     }}>
       {children}

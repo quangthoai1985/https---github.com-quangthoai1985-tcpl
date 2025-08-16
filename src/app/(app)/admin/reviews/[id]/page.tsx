@@ -4,11 +4,11 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -17,7 +17,7 @@ import Image from "next/image";
 import { useData } from "@/context/DataContext";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/layout/page-header";
-import { User, Unit, Assessment, Criterion, Indicator, AssessmentPeriod } from '@/lib/data';
+import type { Assessment } from '@/lib/data';
 
 function FileUploadComponent() {
     const [files, setFiles] = React.useState<File[]>([]);
@@ -56,14 +56,18 @@ export default function AssessmentDetailPage() {
   const params = useParams();
   const id = params.id as string;
 
-  const { role, units, assessments, setAssessments, criteria } = useData();
+  const { role, units, assessments, updateAssessments, criteria, currentUser } = useData();
   const { toast } = useToast();
   
-  const [assessment, setAssessment] = useState(() => assessments.find((a) => a.id === id));
+  const [assessment, setAssessment] = useState<Assessment | undefined>(() => assessments.find((a) => a.id === id));
   const [rejectionReason, setRejectionReason] = useState(assessment?.rejectionReason || "");
   const [communeExplanation, setCommuneExplanation] = useState(assessment?.communeExplanation || "");
   const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
 
+  useEffect(() => {
+    setAssessment(assessments.find((a) => a.id === id));
+  }, [assessments, id]);
+  
   const getUnitName = (unitId: string | undefined) => {
     if (!unitId) return "Không xác định";
     return units.find(u => u.id === unitId)?.name || "Không xác định";
@@ -84,10 +88,9 @@ export default function AssessmentDetailPage() {
   
   const assessmentUnitName = getUnitName(assessment.unitId);
 
-  const handleApprove = () => {
-    const updatedAssessment = { ...assessment, status: 'approved' as const };
-    setAssessments(prev => prev.map(a => a.id === id ? updatedAssessment : a));
-    setAssessment(updatedAssessment);
+  const handleApprove = async () => {
+    const updatedAssessment = { ...assessment, status: 'approved' as const, approvalDate: new Date().toLocaleDateString('vi-VN'), approverId: currentUser?.id };
+    await updateAssessments(assessments.map(a => a.id === id ? updatedAssessment : a));
     
     toast({
       title: "Phê duyệt thành công!",
@@ -96,7 +99,7 @@ export default function AssessmentDetailPage() {
     });
   };
 
-  const handleReject = () => {
+  const handleReject = async () => {
      if (!rejectionReason.trim()) {
         toast({
             title: "Lỗi",
@@ -106,23 +109,18 @@ export default function AssessmentDetailPage() {
         return;
     }
     const updatedAssessment = { ...assessment, status: 'rejected' as const, rejectionReason: rejectionReason, communeExplanation: "" };
-    setAssessments(prev => prev.map(a => a.id === id ? updatedAssessment : a));
-    setAssessment(updatedAssessment);
+    await updateAssessments(assessments.map(a => a.id === id ? updatedAssessment : a));
     
     toast({
       title: "Đã từ chối hồ sơ",
       description: `Hồ sơ của ${assessmentUnitName} đã bị từ chối.`,
       variant: "destructive",
     });
-    // setIsRejectDialogOpen(false);
   };
   
-  const handleResubmit = () => {
-      // In a real app, you would collect all explanations and new files.
-      // For this demo, we just update the status.
+  const handleResubmit = async () => {
       const updatedAssessment = { ...assessment, status: 'pending_review' as const, communeExplanation: "Đã giải trình và bổ sung minh chứng." };
-      setAssessments(prev => prev.map(a => a.id === id ? updatedAssessment : a));
-      setAssessment(updatedAssessment);
+      await updateAssessments(assessments.map(a => a.id === id ? updatedAssessment : a));
       toast({
         title: "Gửi lại thành công",
         description: "Hồ sơ của bạn đã được gửi lại để xem xét."
@@ -144,7 +142,7 @@ export default function AssessmentDetailPage() {
     return results[indicatorId] || { value: 'N/A', note: '', files: [] };
   };
 
-   const isActionDisabled = assessment.status === 'approved' || (role === 'admin' && assessment.status === 'rejected' && !assessment.communeExplanation);
+  const isActionDisabled = assessment.status === 'approved' || (role === 'admin' && assessment.status === 'rejected' && !assessment.communeExplanation);
 
   return (
     <>

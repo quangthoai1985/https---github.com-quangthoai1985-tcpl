@@ -13,10 +13,8 @@ import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import {
   DropdownMenu,
@@ -337,7 +335,7 @@ function UserTable({ users, onEdit, onResetPassword, onDelete, onImport }: { use
 
 
 export default function UserManagementPage() {
-  const { users, setUsers } = useData();
+  const { users, updateUsers } = useData();
   const [editingUser, setEditingUser] = React.useState<Partial<User> | null>(null);
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = React.useState(false);
   const [isImportOpen, setIsImportOpen] = React.useState(false);
@@ -354,9 +352,9 @@ export default function UserManagementPage() {
     setDeletingUser(user);
   };
 
-  const confirmDelete = () => {
+  const confirmDelete = async () => {
     if (deletingUser) {
-        setUsers(users.filter(u => u.id !== deletingUser.id));
+        await updateUsers(users.filter(u => u.id !== deletingUser.id));
         toast({
             title: "Thành công!",
             description: `Đã xóa người dùng "${deletingUser.displayName}".`,
@@ -382,21 +380,25 @@ export default function UserManagementPage() {
     }
   };
 
-  const handleSaveUser = (userToSave: Partial<User>) => {
-    if (userToSave.id) {
-      setUsers(users.map(u => u.id === userToSave.id ? {...u, ...userToSave} as User : u));
-       toast({ title: "Thành công!", description: "Đã cập nhật thông tin người dùng."});
-    } else {
-      // Add new user logic
-      const newUser = {
-        id: `USR${String(users.length + 1).padStart(3, '0')}`,
-        username: userToSave.username || '',
-        displayName: userToSave.displayName || '',
-        communeId: userToSave.communeId || '',
-        role: userToSave.role || 'commune_staff',
-      } as User;
-      setUsers([...users, newUser]);
-       toast({ title: "Thành công!", description: "Đã tạo người dùng mới."});
+  const handleSaveUser = async (userToSave: Partial<User>) => {
+    try {
+        if (userToSave.id) {
+            await updateUsers(users.map(u => u.id === userToSave.id ? {...u, ...userToSave} as User : u));
+            toast({ title: "Thành công!", description: "Đã cập nhật thông tin người dùng."});
+        } else {
+            const newUser = {
+                id: `USR${String(Date.now()).slice(-6)}`,
+                username: userToSave.username || '',
+                displayName: userToSave.displayName || '',
+                communeId: userToSave.communeId || '',
+                role: userToSave.role || 'commune_staff',
+            } as User;
+            await updateUsers([...users, newUser]);
+            toast({ title: "Thành công!", description: "Đã tạo người dùng mới."});
+        }
+    } catch(error) {
+        toast({ variant: 'destructive', title: "Lỗi!", description: "Không thể lưu người dùng." });
+        console.error(error);
     }
     setEditingUser(null);
     setIsNewUserDialogOpen(false);
@@ -407,37 +409,35 @@ export default function UserManagementPage() {
     setIsNewUserDialogOpen(false);
   }
   
-    const handleImport = (newUsers: User[]) => {
-        setUsers(prevUsers => {
-            const existingUsernames = new Set(prevUsers.map(u => u.username));
-            const usersToAdd = newUsers.filter(u => !existingUsernames.has(u.username));
-            const skippedCount = newUsers.length - usersToAdd.length;
+  const handleImport = async (newUsers: User[]) => {
+      const existingUsernames = new Set(users.map(u => u.username));
+      const usersToAdd = newUsers.filter(u => !existingUsernames.has(u.username));
+      const skippedCount = newUsers.length - usersToAdd.length;
 
-            const finalUsers = [...prevUsers];
-            usersToAdd.forEach(user => {
-                finalUsers.push({
-                    ...user,
-                    id: `USR${String(finalUsers.length + 1).padStart(3, '0')}`,
-                });
-            });
+      const finalUsers = [...users];
+      usersToAdd.forEach(user => {
+          finalUsers.push({
+              ...user,
+              id: `USR${String(Date.now()).slice(-5)}${Math.random().toString(36).substring(2, 5)}`,
+          });
+      });
 
-            if (usersToAdd.length > 0) {
-                 toast({
-                    title: "Import thành công!",
-                    description: `Đã thêm ${usersToAdd.length} người dùng mới. Bỏ qua ${skippedCount} người dùng đã tồn tại.`,
-                });
-            } else {
-                 toast({
-                    variant: 'default',
-                    title: "Không có gì thay đổi",
-                    description: `Tất cả ${skippedCount} người dùng trong file đã tồn tại.`,
-                });
-            }
+      await updateUsers(finalUsers);
 
-            return finalUsers;
-        });
-        setIsImportOpen(false);
-    };
+      if (usersToAdd.length > 0) {
+            toast({
+              title: "Import thành công!",
+              description: `Đã thêm ${usersToAdd.length} người dùng mới. Bỏ qua ${skippedCount} người dùng đã tồn tại.`,
+          });
+      } else {
+            toast({
+              variant: 'default',
+              title: "Không có gì thay đổi",
+              description: `Tất cả ${skippedCount} người dùng trong file đã tồn tại.`,
+          });
+      }
+      setIsImportOpen(false);
+  };
   
   const adminUsers = users.filter(u => u.role === 'admin');
   const communeUsers = users.filter(u => u.role === 'commune_staff');
@@ -513,5 +513,3 @@ export default function UserManagementPage() {
     </>
   );
 }
-
-    

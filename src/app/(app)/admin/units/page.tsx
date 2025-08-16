@@ -7,22 +7,18 @@ import {
   PlusCircle,
   Upload,
 } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
@@ -140,7 +136,7 @@ function ImportUnitsDialog({ onImport, onCancel }: { onImport: (units: Unit[]) =
 
 
 export default function UnitManagementPage() {
-    const { units, setUnits } = useData();
+    const { units, updateUnits } = useData();
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [isImportOpen, setIsImportOpen] = React.useState(false);
     const [editingUnit, setEditingUnit] = React.useState<Partial<Unit> | null>(null);
@@ -161,9 +157,9 @@ export default function UnitManagementPage() {
         setDeletingUnit(unit);
     };
 
-    const confirmDelete = () => {
+    const confirmDelete = async () => {
         if (deletingUnit) {
-            setUnits(units.filter(u => u.id !== deletingUnit.id));
+            await updateUnits(units.filter(u => u.id !== deletingUnit.id));
             toast({
                 title: "Thành công!",
                 description: `Đã xóa đơn vị "${deletingUnit.name}".`,
@@ -172,19 +168,21 @@ export default function UnitManagementPage() {
         }
     };
 
-    const handleSave = (unitToSave: Partial<Unit>) => {
+    const handleSave = async (unitToSave: Partial<Unit>) => {
         if (unitToSave.id) {
-            setUnits(units.map(u => u.id === unitToSave.id ? { ...u, ...unitToSave } as Unit : u));
+            await updateUnits(units.map(u => u.id === unitToSave.id ? { ...u, ...unitToSave } as Unit : u));
              toast({ title: "Thành công!", description: "Đã cập nhật thông tin đơn vị."});
         } else {
             const newUnit = {
                 ...unitToSave,
-                id: `DVI${String(units.length + 1).padStart(3, '0')}`,
+                id: `DVI${String(Date.now()).slice(-6)}`,
                 name: unitToSave.name || '',
+                type: 'commune', // Default type, should be improved
+                parentId: '', // Should be improved
                 address: unitToSave.address || '',
                 headquarters: unitToSave.headquarters || '',
             } as Unit;
-            setUnits([...units, newUnit]);
+            await updateUnits([...units, newUnit]);
             toast({ title: "Thành công!", description: "Đã tạo đơn vị mới."});
         }
         setIsFormOpen(false);
@@ -196,27 +194,25 @@ export default function UnitManagementPage() {
         setEditingUnit(null);
     }
     
-    const handleImport = (newUnits: Unit[]) => {
-        setUnits(prevUnits => {
-            const existingIds = new Set(prevUnits.map(u => u.id));
-            const unitsToAdd = newUnits.filter(u => !existingIds.has(u.id));
-            const skippedCount = newUnits.length - unitsToAdd.length;
+    const handleImport = async (newUnits: Unit[]) => {
+        const existingIds = new Set(units.map(u => u.id));
+        const unitsToAdd = newUnits.filter(u => !existingIds.has(u.id));
+        const skippedCount = newUnits.length - unitsToAdd.length;
 
-            if (unitsToAdd.length > 0) {
-                 toast({
-                    title: "Import thành công!",
-                    description: `Đã thêm ${unitsToAdd.length} đơn vị mới. Bỏ qua ${skippedCount} đơn vị đã tồn tại.`,
-                });
-            } else {
-                 toast({
-                    variant: 'default',
-                    title: "Không có gì thay đổi",
-                    description: `Tất cả ${skippedCount} đơn vị trong file đã tồn tại.`,
-                });
-            }
+        if (unitsToAdd.length > 0) {
+              await updateUnits([...units, ...unitsToAdd]);
+              toast({
+                title: "Import thành công!",
+                description: `Đã thêm ${unitsToAdd.length} đơn vị mới. Bỏ qua ${skippedCount} đơn vị đã tồn tại.`,
+            });
+        } else {
+              toast({
+                variant: 'default',
+                title: "Không có gì thay đổi",
+                description: `Tất cả ${skippedCount} đơn vị trong file đã tồn tại.`,
+            });
+        }
 
-            return [...prevUnits, ...unitsToAdd];
-        });
         setIsImportOpen(false);
     }
 

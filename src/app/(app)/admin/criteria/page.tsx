@@ -135,7 +135,7 @@ function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Ind
 
 
 export default function CriteriaManagementPage() {
-  const { criteria, setCriteria } = useData();
+  const { criteria, updateCriteria } = useData();
   const [editingCriterion, setEditingCriterion] = React.useState<Partial<Criterion> | null>(null);
   const [addingCriterion, setAddingCriterion] = React.useState<boolean>(false);
   const [editingIndicator, setEditingIndicator] = React.useState<{criterionId: string, indicator: Partial<Indicator>} | null>(null);
@@ -151,22 +151,22 @@ export default function CriteriaManagementPage() {
     setAddingCriterion(false);
   }
 
-  const handleSaveCriterion = (criterionToSave: Partial<Criterion>) => {
+  const handleSaveCriterion = async (criterionToSave: Partial<Criterion>) => {
     if (criterionToSave.id) {
-        setCriteria(prevCriteria => 
-            prevCriteria.map(c => 
+        await updateCriteria(
+            criteria.map(c => 
                 c.id === criterionToSave.id ? { ...c, ...criterionToSave } as Criterion : c
             )
         );
         toast({ title: "Thành công!", description: "Đã cập nhật thông tin tiêu chí."});
     } else {
         const newCriterion: Criterion = {
-            id: `TC${Math.random().toString(36).substring(2, 9)}`,
+            id: `TC${Date.now().toString().slice(-6)}`,
             name: criterionToSave.name || "Tiêu chí mới",
             description: criterionToSave.description || "",
             indicators: []
         };
-        setCriteria(prevCriteria => [...prevCriteria, newCriterion]);
+        await updateCriteria([...criteria, newCriterion]);
         toast({ title: "Thành công!", description: "Đã thêm tiêu chí mới." });
     }
     setEditingCriterion(null);
@@ -182,24 +182,23 @@ export default function CriteriaManagementPage() {
     setAddingIndicatorTo(null);
   };
 
-  const handleSaveIndicator = (indicatorToSave: Partial<Indicator>) => {
+  const handleSaveIndicator = async (indicatorToSave: Partial<Indicator>) => {
+    let newCriteria: Criterion[] = [];
+
     if (editingIndicator) { // Editing existing indicator
-      setCriteria(prevCriteria => 
-        prevCriteria.map(c => {
-          if (c.id === editingIndicator.criterionId) {
-            return {
-              ...c,
-              indicators: c.indicators.map(i => i.id === indicatorToSave.id ? { ...i, ...indicatorToSave } as Indicator : i)
-            }
+      newCriteria = criteria.map(c => {
+        if (c.id === editingIndicator.criterionId) {
+          return {
+            ...c,
+            indicators: c.indicators.map(i => i.id === indicatorToSave.id ? { ...i, ...indicatorToSave } as Indicator : i)
           }
-          return c;
-        })
-      );
+        }
+        return c;
+      });
       toast({ title: "Thành công!", description: "Đã cập nhật thông tin chỉ tiêu."});
-      setEditingIndicator(null);
     } else if (addingIndicatorTo) { // Adding new indicator
        const newIndicator: Indicator = {
-        id: `CT${Math.random().toString(36).substring(2, 9)}`,
+        id: `CT${Date.now().toString().slice(-6)}`,
         name: indicatorToSave.name || "Chỉ tiêu mới",
         description: indicatorToSave.description || "",
         standardLevel: indicatorToSave.standardLevel || "",
@@ -208,20 +207,23 @@ export default function CriteriaManagementPage() {
         evidenceRequirement: indicatorToSave.evidenceRequirement || "",
       };
 
-      setCriteria(prevCriteria => 
-        prevCriteria.map(c => {
-          if (c.id === addingIndicatorTo) {
-            return {
-              ...c,
-              indicators: [...c.indicators, newIndicator]
-            }
+      newCriteria = criteria.map(c => {
+        if (c.id === addingIndicatorTo) {
+          return {
+            ...c,
+            indicators: [...c.indicators, newIndicator]
           }
-          return c;
-        })
-      );
+        }
+        return c;
+      });
       toast({ title: "Thành công!", description: "Đã thêm chỉ tiêu mới." });
-      setAddingIndicatorTo(null);
     }
+
+    if (newCriteria.length > 0) {
+        await updateCriteria(newCriteria);
+    }
+    setEditingIndicator(null);
+    setAddingIndicatorTo(null);
   };
 
   const handleAddIndicator = (criterionId: string) => {

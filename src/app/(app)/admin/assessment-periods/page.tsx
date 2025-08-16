@@ -11,10 +11,8 @@ import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardFooter,
   CardHeader,
-  CardTitle,
 } from '@/components/ui/card';
 import {
   DropdownMenu,
@@ -80,7 +78,7 @@ function PeriodForm({ period, onSave, onCancel }: { period: Partial<AssessmentPe
 
 
 export default function AssessmentPeriodPage() {
-    const { assessmentPeriods, setAssessmentPeriods } = useData();
+    const { assessmentPeriods, updateAssessmentPeriods } = useData();
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [editingPeriod, setEditingPeriod] = React.useState<Partial<AssessmentPeriod> | null>(null);
     const { toast } = useToast();
@@ -95,19 +93,19 @@ export default function AssessmentPeriodPage() {
         setIsFormOpen(true);
     };
 
-    const handleSave = (periodToSave: Partial<AssessmentPeriod>) => {
+    const handleSave = async (periodToSave: Partial<AssessmentPeriod>) => {
         if (periodToSave.id) {
-            setAssessmentPeriods(prev => prev.map(p => p.id === periodToSave.id ? { ...p, ...periodToSave } as AssessmentPeriod : p));
+            await updateAssessmentPeriods(assessmentPeriods.map(p => p.id === periodToSave.id ? { ...p, ...periodToSave } as AssessmentPeriod : p));
             toast({ title: "Thành công!", description: "Đã cập nhật thông tin đợt đánh giá."});
         } else {
             const newPeriod = {
-                id: `DOT${String(assessmentPeriods.length + 1).padStart(3, '0')}`,
+                id: `DOT${String(Date.now()).slice(-6)}`,
                 name: periodToSave.name || '',
                 startDate: periodToSave.startDate || '',
                 endDate: periodToSave.endDate || '',
                 isActive: false,
             } as AssessmentPeriod;
-            setAssessmentPeriods(prev => [...prev, newPeriod]);
+            await updateAssessmentPeriods([...assessmentPeriods, newPeriod]);
             toast({ title: "Thành công!", description: "Đã tạo đợt đánh giá mới."});
         }
         setIsFormOpen(false);
@@ -119,34 +117,24 @@ export default function AssessmentPeriodPage() {
         setEditingPeriod(null);
     }
     
-    const handleStatusToggle = (periodId: string) => {
-        // Ensure only one period is active at a time
-        setAssessmentPeriods(prevPeriods => {
-            const currentlyActive = prevPeriods.find(p => p.id === periodId)?.isActive;
-            const newStatus = !currentlyActive;
+    const handleStatusToggle = async (periodId: string) => {
+        // Find the current status to decide the new status
+        const isCurrentlyActive = assessmentPeriods.find(p => p.id === periodId)?.isActive;
+        const newStatus = !isCurrentlyActive;
 
-            // Deactivate all periods first if we are activating a new one
-            const updatedPeriods = prevPeriods.map(p => ({
-                ...p,
-                isActive: false 
-            }));
-            
-            // Then, activate the selected one
-            const finalPeriods = updatedPeriods.map(p => {
-                if (p.id === periodId) {
-                    return { ...p, isActive: newStatus };
-                }
-                return p;
-            });
+        // If we are activating a period, all others must be deactivated.
+        // If we are deactivating a period, its status just becomes false.
+        const updatedPeriods = assessmentPeriods.map(p => ({
+            ...p,
+            isActive: p.id === periodId ? newStatus : false
+        }));
 
-            const activePeriod = finalPeriods.find(p => p.id === periodId);
-
-            toast({
-                title: "Cập nhật thành công",
-                description: `Đã ${activePeriod?.isActive ? 'kích hoạt' : 'vô hiệu hóa'} đợt đánh giá.`
-            });
-
-            return finalPeriods;
+        await updateAssessmentPeriods(updatedPeriods);
+        
+        const activePeriod = updatedPeriods.find(p => p.id === periodId);
+        toast({
+            title: "Cập nhật thành công",
+            description: `Đã ${activePeriod?.isActive ? 'kích hoạt' : 'vô hiệu hóa'} đợt đánh giá.`
         });
     }
 
