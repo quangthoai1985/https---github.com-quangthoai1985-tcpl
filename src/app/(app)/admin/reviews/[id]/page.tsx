@@ -17,6 +17,7 @@ import Image from "next/image";
 import { useData } from "@/context/DataContext";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/layout/page-header";
+import { User, Unit, Assessment, Criterion, Indicator, AssessmentPeriod } from '@/lib/data';
 
 function FileUploadComponent() {
     const [files, setFiles] = React.useState<File[]>([]);
@@ -59,7 +60,6 @@ export default function AssessmentDetailPage() {
   const { toast } = useToast();
   
   const [assessment, setAssessment] = useState(() => assessments.find((a) => a.id === id));
-  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState(assessment?.rejectionReason || "");
   const [communeExplanation, setCommuneExplanation] = useState(assessment?.communeExplanation || "");
   const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
@@ -114,7 +114,7 @@ export default function AssessmentDetailPage() {
       description: `Hồ sơ của ${assessmentUnitName} đã bị từ chối.`,
       variant: "destructive",
     });
-    setIsRejectDialogOpen(false);
+    // setIsRejectDialogOpen(false);
   };
   
   const handleResubmit = () => {
@@ -297,7 +297,7 @@ export default function AssessmentDetailPage() {
             <Button variant="outline" onClick={() => router.back()}>Quay lại</Button>
             {role === 'admin' && assessment.status === 'pending_review' &&(
               <>
-                <Button variant="destructive" onClick={() => setIsRejectDialogOpen(true)} disabled={isActionDisabled}><ThumbsDown className="mr-2 h-4 w-4" />Từ chối</Button>
+                <Button variant="destructive" onClick={handleReject} disabled={isActionDisabled}><ThumbsDown className="mr-2 h-4 w-4" />Từ chối</Button>
                 <Button className="bg-green-600 hover:bg-green-700" onClick={handleApprove} disabled={isActionDisabled}><ThumbsUp className="mr-2 h-4 w-4" />Phê duyệt</Button>
               </>
             )}
@@ -313,35 +313,6 @@ export default function AssessmentDetailPage() {
         </CardFooter>
       </Card>
     </div>
-
-    <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle className="flex items-center gap-2">
-                    <AlertTriangle className="text-destructive"/>
-                    Xác nhận từ chối hồ sơ
-                </DialogTitle>
-                <DialogDescription>
-                    Bạn có chắc chắn muốn từ chối hồ sơ của <strong>{assessmentUnitName}</strong>? Các ghi chú bạn đã nhập sẽ được lưu lại làm lý do. Hành động này sẽ thông báo cho đơn vị.
-                </DialogDescription>
-            </DialogHeader>
-            <div className="py-4">
-                <Label htmlFor="rejection-reason" className="font-medium">Xem lại Lý do từ chối</Label>
-                <Textarea
-                    id="rejection-reason"
-                    placeholder="Ví dụ: Hồ sơ minh chứng cho Tiêu chí 2.1 không hợp lệ, yêu cầu bổ sung..."
-                    className="mt-2"
-                    value={rejectionReason}
-                    onChange={(e) => setRejectionReason(e.target.value)}
-                    rows={4}
-                />
-            </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={() => setIsRejectDialogOpen(false)}>Hủy</Button>
-                <Button variant="destructive" onClick={handleReject}>Xác nhận từ chối</Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
 
     <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
         <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
@@ -364,7 +335,6 @@ export default function AssessmentDetailPage() {
             </DialogFooter>
         </DialogContent>
     </Dialog>
-
     </>
   );
 }

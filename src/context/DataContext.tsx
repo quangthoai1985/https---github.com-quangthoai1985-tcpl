@@ -15,32 +15,30 @@ import { initializeApp, getApp, getApps, FirebaseOptions, type FirebaseApp } fro
 import { getFirestore, collection, getDocs, doc, getDoc, type Firestore } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser, type Auth } from 'firebase/auth';
 
-// Your web app's Firebase configuration is populated here by the backend
+// Hardcoded Firebase configuration from user
 const firebaseConfig: FirebaseOptions = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  apiKey: "AIzaSyCj0H_a8O7znR_M1bFim9Lzt5MfnsptxH4",
+  authDomain: "chuan-tiep-can-pl.firebaseapp.com",
+  projectId: "chuan-tiep-can-pl",
+  storageBucket: "chuan-tiep-can-pl.appspot.com",
+  messagingSenderId: "851876581009",
+  appId: "1:851876581009:web:60bfbcc40055f76f607930"
 };
 
-// We will initialize these lazily
+// Initialize Firebase
 let app: FirebaseApp;
 let db: Firestore;
 let auth: Auth;
 
-if (typeof window !== 'undefined' && !getApps().length) {
-    app = initializeApp(firebaseConfig);
-    db = getFirestore(app);
-    auth = getAuth(app);
-} else if (typeof window !== 'undefined') {
-    app = getApp();
+if (typeof window !== 'undefined') {
+    if (!getApps().length) {
+        app = initializeApp(firebaseConfig);
+    } else {
+        app = getApp();
+    }
     db = getFirestore(app);
     auth = getAuth(app);
 }
-
 
 interface DataContextType {
   loading: boolean;
@@ -77,14 +75,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<Role | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // This function fetches all initial data from Firestore.
   const fetchData = async () => {
-      // Don't set loading to true here, as auth state change will handle it.
-      if (!firebaseConfig.apiKey) {
-          console.warn("Firebase config is not set. Cannot fetch from Firestore.");
-          setLoading(false);
-          return;
-      }
       try {
         const [
           unitsSnapshot,
@@ -112,27 +103,25 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       } catch (error) {
         console.error("Error fetching data from Firestore:", error);
       }
-      // Loading is handled by onAuthStateChanged
     };
 
   useEffect(() => {
-    if (!auth) return; // Don't run if auth is not initialized
+    if (!auth) return;
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       setLoading(true);
       if (firebaseUser && firebaseUser.email) {
-        const username = firebaseUser.email.split('@')[0];
         
         try {
             const usersSnapshot = await getDocs(collection(db, 'users'));
             const allUsers = usersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
-            const loggedInUser = allUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
+            const loggedInUser = allUsers.find(u => u.username.toLowerCase() === firebaseUser.email!.toLowerCase());
 
             if (loggedInUser) {
               setCurrentUser(loggedInUser);
               setRole(loggedInUser.role);
-              await fetchData(); // Fetch all other app data
+              await fetchData();
             } else {
-              console.error("User profile not found in Firestore for username:", username);
+              console.error("User profile not found in Firestore for email:", firebaseUser.email);
               await signOut(auth);
               setCurrentUser(null);
               setRole(null);
