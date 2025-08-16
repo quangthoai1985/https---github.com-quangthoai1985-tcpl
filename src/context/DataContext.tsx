@@ -114,7 +114,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         try {
             const usersSnapshot = await getDocs(collection(db, 'users'));
             const allUsers = usersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
-            const loggedInUser = allUsers.find(u => u.username.toLowerCase() === firebaseUser.email!.toLowerCase());
+            
+            // Extract username from email to match against Firestore data
+            const usernameFromEmail = firebaseUser.email.split('@')[0];
+            const loggedInUser = allUsers.find(u => u.username.toLowerCase() === usernameFromEmail.toLowerCase());
 
             if (loggedInUser) {
               setCurrentUser(loggedInUser);
@@ -147,6 +150,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        // onAuthStateChanged will handle the rest, so we just return success.
         return !!userCredential.user;
     } catch(e) {
         console.error("Login Error: ", e);
@@ -159,14 +163,19 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       await signOut(auth);
+      // Clear all local data on logout
       setUsers([]);
       setUnits([]);
       setAssessmentPeriods([]);
       setAssessments([]);
       setCriteria([]);
       setGuidanceDocuments([]);
+      setCurrentUser(null);
+      setRole(null);
     } catch (error) {
       console.error("Error signing out: ", error);
+    } finally {
+        setLoading(false);
     }
   };
 
