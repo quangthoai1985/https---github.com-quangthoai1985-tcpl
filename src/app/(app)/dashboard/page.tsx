@@ -37,7 +37,6 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@/components/ui/chart';
-import { progressData } from '@/lib/data';
 import Link from 'next/link';
 import { useData } from '@/context/DataContext';
 import { Pie, PieChart, Cell, ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line } from 'recharts';
@@ -58,6 +57,7 @@ const AdminDashboard = () => {
         rejectedCount,
         assessmentStatusChartData,
         chartConfig,
+        progressData,
     } = React.useMemo(() => {
         const allCommuneUnits = units.filter(u => u.type === 'commune');
         const totalCommunes = allCommuneUnits.length;
@@ -82,13 +82,22 @@ const AdminDashboard = () => {
         
         const assessmentStatusChartData = chartData.filter(d => d.value > 0);
         
-        const chartConfig = {};
+        const chartConfig: any = {};
         assessmentStatusChartData.forEach(item => {
             chartConfig[item.name] = {
                 label: item.name,
                 color: item.fill,
             };
         });
+
+        // Mock progress data for now, as we don't have time-series data
+        const progressData = [
+          { name: 'Tuần 1', 'Số lượng': Math.max(0, Math.floor(sentCommuneIds.size * 0.1) - 1) },
+          { name: 'Tuần 2', 'Số lượng': Math.max(0, Math.floor(sentCommuneIds.size * 0.3) - 2) },
+          { name: 'Tuần 3', 'Số lượng': Math.max(0, Math.floor(sentCommuneIds.size * 0.6) - 5) },
+          { name: 'Tuần 4', 'Số lượng': sentCommuneIds.size },
+        ];
+
 
         return {
             periodAssessments,
@@ -98,6 +107,7 @@ const AdminDashboard = () => {
             rejectedCount,
             assessmentStatusChartData,
             chartConfig,
+            progressData,
         };
 
     }, [selectedPeriod, assessments, units]);

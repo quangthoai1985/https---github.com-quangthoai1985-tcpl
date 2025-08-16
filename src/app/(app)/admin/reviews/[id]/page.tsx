@@ -86,7 +86,7 @@ export default function AssessmentDetailPage() {
     );
   }
   
-  const assessmentUnitName = getUnitName(assessment.unitId);
+  const assessmentUnitName = getUnitName(assessment.communeId);
 
   const handleApprove = async () => {
     const updatedAssessment = { ...assessment, status: 'approved' as const, approvalDate: new Date().toLocaleDateString('vi-VN'), approverId: currentUser?.id };
@@ -119,7 +119,7 @@ export default function AssessmentDetailPage() {
   };
   
   const handleResubmit = async () => {
-      const updatedAssessment = { ...assessment, status: 'pending_review' as const, communeExplanation: "Đã giải trình và bổ sung minh chứng." };
+      const updatedAssessment = { ...assessment, status: 'pending_review' as const, communeExplanation };
       await updateAssessments(assessments.map(a => a.id === id ? updatedAssessment : a));
       toast({
         title: "Gửi lại thành công",
@@ -130,16 +130,8 @@ export default function AssessmentDetailPage() {
 
 
   const getIndicatorResult = (indicatorId: string) => {
-    // Mock data for demonstration
-    const results: { [key: string]: any } = {
-      'CT1.1': { value: true, note: 'Đã công khai đầy đủ trên cổng thông tin điện tử.', files: [{name: 'quyet-dinh-cong-khai.pdf', url: 'https://placehold.co/800x1100.png?text=Quyet+Dinh'}] },
-      'CT1.2': { value: '95%', note: 'Tỷ lệ trả lời đúng hạn cao, còn một vài trường hợp chậm do chờ xác minh.', files: [] },
-      'CT2.1': { value: ['check1'], note: 'Giao diện chưa thân thiện trên di động.', files: [{name: 'bao-cao-ha-tang.docx', url: 'https://placehold.co/800x1100.png?text=Bao+Cao'}] },
-      'CT2.2': { value: false, note: 'Hệ thống loa đã cũ, cần nâng cấp.', files: [] },
-      'CT3.1': { value: true, note: 'Tổ chức họp định kỳ, có biên bản đầy đủ.', files: [{name: 'bien-ban-hop-quy-2.pdf', url: 'https://placehold.co/800x1100.png?text=Bien+Ban'}, {name: 'hinh-anh-doi-thoai.jpg', url: 'https://placehold.co/800x600.png?text=Hinh+Anh'}]},
-      'CT3.2': { value: '75%', note: 'Một số vụ việc phức tạp chưa hoà giải thành công, cần tập huấn thêm cho hoà giải viên.', files: [{name: 'bao-cao-hoa-giai.xlsx', url: 'https://placehold.co/800x1100.png?text=Bao+Cao+Hoa+Giai'}]},
-    };
-    return results[indicatorId] || { value: 'N/A', note: '', files: [] };
+    // This is now a placeholder. A real implementation would fetch or calculate this.
+    return { value: 'N/A', note: 'Chưa có dữ liệu chấm điểm chi tiết.', files: [] };
   };
 
   const isActionDisabled = assessment.status === 'approved' || (role === 'admin' && assessment.status === 'rejected' && !assessment.communeExplanation);
@@ -207,7 +199,7 @@ export default function AssessmentDetailPage() {
                   <div className="space-y-6 pl-8 pr-4">
                     {criterion.indicators.map(indicator => {
                       const result = getIndicatorResult(indicator.id);
-                      const isNotMet = (indicator.inputType === 'boolean' && result.value === false);
+                      const isRejected = assessment.status === 'rejected';
 
                       return (
                         <div key={indicator.id} className="grid gap-4 p-4 rounded-lg bg-card border shadow-sm">
@@ -216,13 +208,7 @@ export default function AssessmentDetailPage() {
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                             <div className="md:col-span-1 font-medium text-muted-foreground">Kết quả tự chấm:</div>
                             <div className="md:col-span-2 font-semibold">
-                              {indicator.inputType === 'boolean' && (
-                                <Badge variant={result.value ? 'default' : 'destructive'} className={result.value ? 'bg-green-600' : ''}>
-                                  {result.value ? <CheckCircle className="mr-2 h-4 w-4" /> : <XCircle className="mr-2 h-4 w-4" />}
-                                  {result.value ? 'Đạt' : 'Không đạt'}
-                                </Badge>
-                              )}
-                              {indicator.inputType !== 'boolean' && <span className="font-bold text-primary">{result.value}</span>}
+                               <Badge variant="outline">{result.value}</Badge>
                             </div>
                           </div>
 
@@ -257,12 +243,12 @@ export default function AssessmentDetailPage() {
                             </div>
                           </div>
                           
-                          {role === 'commune_staff' && assessment.status === 'rejected' && isNotMet && (
+                          {role === 'commune_staff' && isRejected && (
                               <div className="mt-4 p-4 border-t border-dashed border-amber-500 bg-amber-50/50 rounded-b-lg grid gap-4">
                                   <h5 className="font-semibold text-amber-800">Giải trình và Bổ sung cho chỉ tiêu này</h5>
                                   <div className="grid gap-2">
-                                      <Label htmlFor={`explanation-${indicator.id}`} className="text-sm">Nội dung giải trình</Label>
-                                      <Textarea id={`explanation-${indicator.id}`} placeholder="Giải trình về lý do chưa đạt và các biện pháp khắc phục..." />
+                                      <Label htmlFor={`explanation-${indicator.id}`} className="text-sm">Nội dung giải trình chung</Label>
+                                      <Textarea id="communeExplanation" placeholder="Giải trình chung về các nội dung đã khắc phục và bổ sung..." value={communeExplanation} onChange={(e) => setCommuneExplanation(e.target.value)} />
                                   </div>
                                   <FileUploadComponent />
                               </div>
@@ -277,7 +263,7 @@ export default function AssessmentDetailPage() {
             ))}
           </Accordion>
           
-          {role === 'admin' && (assessment.status === 'pending_review' || assessment.status === 'rejected') && (
+          {role === 'admin' && (assessment.status === 'pending_review' || (assessment.status === 'rejected' && !!assessment.communeExplanation)) && (
             <>
                 <Separator className="my-6" />
                 <div className="grid gap-4">
