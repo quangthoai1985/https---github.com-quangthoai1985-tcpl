@@ -11,6 +11,8 @@ import {
   XCircle,
   Clock,
   FileUp,
+  Shield,
+  User,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -45,8 +47,14 @@ export default function AppHeader() {
     router.push('/');
   };
 
-  const getAvatarFallback = () => {
-    if (!currentUser?.displayName) return role === 'admin' ? 'AD' : 'CB';
+  const getAvatarContent = () => {
+    if (role === 'admin') {
+        return <Shield className="h-5 w-5" />;
+    }
+    if (role === 'commune_staff') {
+        return <User className="h-5 w-5" />;
+    }
+    if (!currentUser?.displayName) return 'User';
     return currentUser.displayName.split(' ').map(n => n[0]).slice(-2).join('').toUpperCase();
   }
   
@@ -88,18 +96,7 @@ export default function AppHeader() {
 
       <div className="flex items-center gap-3">
          <Link href="/dashboard" className="flex items-center gap-3 font-semibold">
-            <svg
-                className="h-10 w-10 text-primary"
-                xmlns="http://www.w3.org/2000/svg"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-            </svg>
+            <Image src="/logo.png" alt="Logo" width={40} height={40} data-ai-hint="application logo" />
             <span className="font-headline text-xl font-bold uppercase tracking-wide text-foreground">
               ĐÁNH GIÁ CHUẨN TIẾP CẬN PHÁP LUẬT
             </span>
@@ -161,9 +158,10 @@ export default function AppHeader() {
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
             <Button variant="secondary" size="icon" className="rounded-full">
-                <Avatar>
-                    <AvatarImage src="https://placehold.co/100x100.png" alt={getAvatarAlt()} data-ai-hint="user avatar" />
-                    <AvatarFallback className={cn('bg-primary text-primary-foreground', role === 'commune_staff' && 'bg-muted-foreground' )}>{getAvatarFallback()}</AvatarFallback>
+                <Avatar className="h-9 w-9">
+                    <AvatarFallback className={cn('bg-primary text-primary-foreground', role === 'commune_staff' && 'bg-muted-foreground' )}>
+                        {getAvatarContent()}
+                    </AvatarFallback>
                 </Avatar>
                 <span className="sr-only">Mở menu người dùng</span>
             </Button>
