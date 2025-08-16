@@ -17,17 +17,19 @@ import { useRouter } from 'next/navigation';
 import type { Role } from '@/lib/data';
 import React from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 export default function LoginPageContent() {
-  const { setLoginInfo } = useData();
+  const { setLoginInfo, loading } = useData();
   const router = useRouter();
   const { toast } = useToast();
   const [username, setUsername] = React.useState('');
   const [password, setPassword] = React.useState('');
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (setLoginInfo(username)) {
+    const success = await setLoginInfo(username);
+    if (success) {
       router.push('/dashboard');
     } else {
       toast({
@@ -63,6 +65,7 @@ export default function LoginPageContent() {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
+                disabled={loading}
               />
             </div>
             <div className="grid gap-2">
@@ -75,10 +78,12 @@ export default function LoginPageContent() {
                 required 
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                disabled={loading}
               />
             </div>
             <div className="grid gap-2 pt-2">
-              <Button type="submit" className="w-full">
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Đăng nhập
               </Button>
             </div>

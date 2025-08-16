@@ -3,9 +3,6 @@
 
 import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
 import { 
-    progressData as initialProgressData,
-    adminNotifications as initialAdminNotifications,
-    communeNotifications as initialCommuneNotifications,
     type User,
     type Unit,
     type AssessmentPeriod,
@@ -15,9 +12,9 @@ import {
     type Document
 } from '@/lib/data';
 import { initializeApp, getApp, getApps } from 'firebase/app';
-import { getFirestore, collection, getDocs } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, query, where } from 'firebase/firestore';
 
-// Your web app's Firebase configuration will be populated here by the backend
+// Your web app's Firebase configuration is populated here by the backend
 const firebaseConfig = {
   apiKey: "...",
   authDomain: "...",
@@ -51,7 +48,7 @@ interface DataContextType {
   role: Role | null;
   setRole: React.Dispatch<React.SetStateAction<Role | null>>;
   currentUser: User | null;
-  setLoginInfo: (username: string) => boolean;
+  setLoginInfo: (username: string) => Promise<boolean>;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -68,37 +65,37 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<Role | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  useEffect(() => {
-    const fetchData = async () => {
+  // This function fetches all initial data from Firestore.
+  const fetchData = async () => {
+      setLoading(true);
       if (firebaseConfig.apiKey === "...") {
-          console.warn("Firebase config is not set. Using local mock data. Run the seed script and configure your firebaseConfig object in DataContext.tsx");
-          // You might want to load mock data here for local development without firebase
+          console.warn("Firebase config is not set. Cannot fetch from Firestore.");
           setLoading(false);
           return;
       }
       try {
         const [
-          usersSnapshot,
           unitsSnapshot,
           periodsSnapshot,
           assessmentsSnapshot,
           criteriaSnapshot,
           documentsSnapshot,
+          usersSnapshot
         ] = await Promise.all([
-          getDocs(collection(db, 'users')),
           getDocs(collection(db, 'units')),
           getDocs(collection(db, 'assessmentPeriods')),
           getDocs(collection(db, 'assessments')),
           getDocs(collection(db, 'criteria')),
           getDocs(collection(db, 'guidanceDocuments')),
+          getDocs(collection(db, 'users')),
         ]);
 
-        setUsers(usersSnapshot.docs.map(doc => doc.data() as User));
         setUnits(unitsSnapshot.docs.map(doc => doc.data() as Unit));
         setAssessmentPeriods(periodsSnapshot.docs.map(doc => doc.data() as AssessmentPeriod));
         setAssessments(assessmentsSnapshot.docs.map(doc => doc.data() as Assessment));
         setCriteria(criteriaSnapshot.docs.map(doc => doc.data() as Criterion));
         setGuidanceDocuments(documentsSnapshot.docs.map(doc => doc.data() as Document));
+        setUsers(usersSnapshot.docs.map(doc => doc.data() as User));
         
       } catch (error) {
         console.error("Error fetching data from Firestore:", error);
@@ -107,22 +104,37 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
+  useEffect(() => {
     fetchData();
   }, []);
 
   // This function simulates the login process
-  const setLoginInfo = (username: string): boolean => {
-    const user = users.find(u => u.username.toLowerCase() === username.toLowerCase());
-    if (user) {
-      setCurrentUser(user);
-      setRole(user.role);
-      // In a real app, you would store the session token here
-      return true;
+  const setLoginInfo = async (username: string): Promise<boolean> => {
+    // In a real app with Firebase Auth, you'd use auth().signInWith...
+    // Here, we query the users collection.
+    setLoading(true);
+    try {
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("username", "==", username.toLowerCase()));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+            const user = querySnapshot.docs[0].data() as User;
+            setCurrentUser(user);
+            setRole(user.role);
+            // In a real app, you would store the session token here
+            return true;
+        } else {
+            setCurrentUser(null);
+            setRole(null);
+            return false;
+        }
+    } catch(e) {
+        console.error("Login Error: ", e);
+        return false;
+    } finally {
+        setLoading(false);
     }
-    // Logout / handle error
-    setCurrentUser(null);
-    setRole(null);
-    return false;
   };
 
   return (
