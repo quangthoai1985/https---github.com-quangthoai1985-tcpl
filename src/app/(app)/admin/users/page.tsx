@@ -48,11 +48,11 @@ import React from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useData } from '@/context/DataContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import type { User } from '@/lib/data';
+import type { UnitAndUserImport, User } from '@/lib/data';
 import PageHeader from '@/components/layout/page-header';
-import { downloadUserTemplate, readUsersFromExcel } from '@/lib/excelUtils';
+import { downloadUnitAndUserTemplate, readUnitsAndUsersFromExcel } from '@/lib/excelUtils';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { createUser, deleteUser, resetUserPassword, updateUser } from '@/actions/userActions';
+import { createUser, deleteUser, importUnitsAndUsers, resetUserPassword, updateUser } from '@/actions/userActions';
 
 
 function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (user: Partial<User>, password?: string) => Promise<void>, onCancel: () => void }) {
@@ -159,7 +159,7 @@ function ResetPasswordDialog({ user, onSave, onCancel }: { user: User, onSave: (
     )
 }
 
-function ImportUsersDialog({ onImport, onCancel }: { onImport: (users: User[]) => void, onCancel: () => void }) {
+function ImportDialog({ onImport, onCancel }: { onImport: (data: UnitAndUserImport[]) => void, onCancel: () => void }) {
     const [file, setFile] = React.useState<File | null>(null);
     const { toast } = useToast();
 
@@ -176,8 +176,8 @@ function ImportUsersDialog({ onImport, onCancel }: { onImport: (users: User[]) =
         }
 
         try {
-            const newUsers = await readUsersFromExcel(file);
-            onImport(newUsers);
+            const data = await readUnitsAndUsersFromExcel(file);
+            onImport(data);
         } catch (error) {
             console.error(error);
             toast({ variant: 'destructive', title: 'Lỗi đọc file', description: 'Không thể xử lý file Excel. Vui lòng kiểm tra định dạng và thử lại.' });
@@ -187,19 +187,19 @@ function ImportUsersDialog({ onImport, onCancel }: { onImport: (users: User[]) =
     return (
         <>
             <DialogHeader>
-                <DialogTitle>Import danh sách Người dùng</DialogTitle>
+                <DialogTitle>Import danh sách Đơn vị & Người dùng</DialogTitle>
                 <DialogDescription>
-                    Tải lên file Excel chứa danh sách người dùng. Hệ thống sẽ bỏ qua các người dùng có tên đăng nhập đã tồn tại.
+                     Tải lên file Excel chứa danh sách các đơn vị và tài khoản người dùng tương ứng.
                 </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
                  <Alert>
                     <AlertTitle>Định dạng file Excel</AlertTitle>
                     <AlertDescription>
-                        File phải chứa các cột: <strong>username, displayName, role, communeId</strong>.
+                        File phải chứa các cột: <strong>unitId, unitName, unitParentId, userEmail, userPassword, userDisplayName</strong>, và các cột thông tin đơn vị khác.
                     </AlertDescription>
                 </Alert>
-                <Button variant="outline" onClick={downloadUserTemplate}>Tải file mẫu</Button>
+                <Button variant="outline" onClick={downloadUnitAndUserTemplate}>Tải file mẫu</Button>
                 <div className="grid gap-2">
                     <Label htmlFor="excel-file">Chọn file Excel</Label>
                     <Input id="excel-file" type="file" onChange={handleFileChange} accept=".xlsx, .xls" />
@@ -208,7 +208,7 @@ function ImportUsersDialog({ onImport, onCancel }: { onImport: (users: User[]) =
             </div>
             <DialogFooter>
                 <Button variant="outline" onClick={onCancel}>Hủy</Button>
-                <Button onClick={handleImportClick} disabled={!file}>Import</Button>
+                <Button onClick={handleImportClick} disabled={!file}>Bắt đầu Import</Button>
             </DialogFooter>
         </>
     );
@@ -440,14 +440,29 @@ export default function UserManagementPage() {
     setIsNewUserDialogOpen(false);
   }
   
-  const handleImport = async (newUsers: User[]) => {
-      // This functionality should ideally be a single server action
-      // for atomicity, but for now we'll do it client-side.
-      toast({
-        title: "Chức năng đang phát triển",
-        description: "Import người dùng từ Excel sẽ được hỗ trợ trong phiên bản sau."
-      })
+  const handleImport = async (data: UnitAndUserImport[]) => {
       setIsImportOpen(false);
+      toast({ title: "Đang tiến hành import...", description: `Hệ thống đang xử lý ${data.length} dòng.` });
+
+      const result = await importUnitsAndUsers(data);
+      
+      if (result.successCount > 0) {
+            toast({
+              title: "Import thành công!",
+              description: `Đã thêm ${result.successCount} đơn vị và người dùng mới.`,
+          });
+      }
+      if (result.errorCount > 0) {
+          toast({
+              variant: 'destructive',
+              title: `Import có lỗi!`,
+              description: `Thất bại ${result.errorCount} dòng. Lỗi đầu tiên: ${result.errors[0]}`,
+              duration: 10000,
+          });
+            console.error("Import errors:", result.errors);
+      }
+
+      await refreshData();
   };
   
   const adminUsers = users.filter(u => u.role === 'admin');
@@ -487,7 +502,7 @@ export default function UserManagementPage() {
      {/* Import Users Dialog */}
     <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
         <DialogContent>
-            <ImportUsersDialog onImport={handleImport} onCancel={() => setIsImportOpen(false)} />
+            <ImportDialog onImport={handleImport} onCancel={() => setIsImportOpen(false)} />
         </DialogContent>
     </Dialog>
 

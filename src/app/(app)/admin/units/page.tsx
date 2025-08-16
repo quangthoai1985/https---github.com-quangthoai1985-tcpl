@@ -36,9 +36,10 @@ import { useToast } from '@/hooks/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { useData } from '@/context/DataContext';
 import PageHeader from '@/components/layout/page-header';
-import type { Unit } from '@/lib/data';
-import { downloadUnitTemplate, readUnitsFromExcel } from '@/lib/excelUtils';
+import type { Unit, UnitAndUserImport } from '@/lib/data';
+import { downloadUnitAndUserTemplate, readUnitsAndUsersFromExcel } from '@/lib/excelUtils';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { importUnitsAndUsers } from '@/actions/userActions';
 
 
 function UnitForm({ unit, onSave, onCancel }: { unit: Partial<Unit>, onSave: (unit: Partial<Unit>) => void, onCancel: () => void }) {
@@ -79,7 +80,7 @@ function UnitForm({ unit, onSave, onCancel }: { unit: Partial<Unit>, onSave: (un
   );
 }
 
-function ImportUnitsDialog({ onImport, onCancel }: { onImport: (units: Unit[]) => void, onCancel: () => void }) {
+function ImportDialog({ onImport, onCancel }: { onImport: (data: UnitAndUserImport[]) => void, onCancel: () => void }) {
     const [file, setFile] = React.useState<File | null>(null);
     const { toast } = useToast();
 
@@ -96,8 +97,8 @@ function ImportUnitsDialog({ onImport, onCancel }: { onImport: (units: Unit[]) =
         }
 
         try {
-            const newUnits = await readUnitsFromExcel(file);
-            onImport(newUnits);
+            const data = await readUnitsAndUsersFromExcel(file);
+            onImport(data);
         } catch (error) {
             console.error(error);
             toast({ variant: 'destructive', title: 'Lỗi đọc file', description: 'Không thể xử lý file Excel. Vui lòng kiểm tra định dạng và thử lại.' });
@@ -107,19 +108,19 @@ function ImportUnitsDialog({ onImport, onCancel }: { onImport: (units: Unit[]) =
     return (
         <>
             <DialogHeader>
-                <DialogTitle>Import danh sách Đơn vị</DialogTitle>
+                <DialogTitle>Import danh sách Đơn vị & Người dùng</DialogTitle>
                 <DialogDescription>
-                    Tải lên file Excel chứa danh sách các đơn vị. Hệ thống sẽ bỏ qua các đơn vị có ID đã tồn tại.
+                    Tải lên file Excel chứa danh sách các đơn vị và tài khoản người dùng tương ứng.
                 </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
                 <Alert>
                     <AlertTitle>Định dạng file Excel</AlertTitle>
                     <AlertDescription>
-                        File phải chứa các cột: <strong>id, name, type, parentId, address, headquarters</strong>.
+                        File phải chứa các cột: <strong>unitId, unitName, unitParentId, userEmail, userPassword, userDisplayName</strong>, và các cột thông tin đơn vị khác.
                     </AlertDescription>
                 </Alert>
-                <Button variant="outline" onClick={downloadUnitTemplate}>Tải file mẫu</Button>
+                <Button variant="outline" onClick={downloadUnitAndUserTemplate}>Tải file mẫu</Button>
                 <div className="grid gap-2">
                     <Label htmlFor="excel-file">Chọn file Excel</Label>
                     <Input id="excel-file" type="file" onChange={handleFileChange} accept=".xlsx, .xls" />
@@ -128,7 +129,7 @@ function ImportUnitsDialog({ onImport, onCancel }: { onImport: (units: Unit[]) =
             </div>
             <DialogFooter>
                 <Button variant="outline" onClick={onCancel}>Hủy</Button>
-                <Button onClick={handleImportClick} disabled={!file}>Import</Button>
+                <Button onClick={handleImportClick} disabled={!file}>Bắt đầu Import</Button>
             </DialogFooter>
         </>
     );
@@ -136,7 +137,7 @@ function ImportUnitsDialog({ onImport, onCancel }: { onImport: (units: Unit[]) =
 
 
 export default function UnitManagementPage() {
-    const { units, updateUnits } = useData();
+    const { units, updateUnits, refreshData } = useData();
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [isImportOpen, setIsImportOpen] = React.useState(false);
     const [editingUnit, setEditingUnit] = React.useState<Partial<Unit> | null>(null);
@@ -159,6 +160,8 @@ export default function UnitManagementPage() {
 
     const confirmDelete = async () => {
         if (deletingUnit) {
+            // TODO: Add logic to delete associated users or handle them.
+            // For now, it only deletes the unit from the 'units' collection.
             await updateUnits(units.filter(u => u.id !== deletingUnit.id));
             toast({
                 title: "Thành công!",
@@ -194,26 +197,29 @@ export default function UnitManagementPage() {
         setEditingUnit(null);
     }
     
-    const handleImport = async (newUnits: Unit[]) => {
-        const existingIds = new Set(units.map(u => u.id));
-        const unitsToAdd = newUnits.filter(u => !existingIds.has(u.id));
-        const skippedCount = newUnits.length - unitsToAdd.length;
+    const handleImport = async (data: UnitAndUserImport[]) => {
+        setIsImportOpen(false);
+        toast({ title: "Đang tiến hành import...", description: `Hệ thống đang xử lý ${data.length} dòng.` });
 
-        if (unitsToAdd.length > 0) {
-              await updateUnits([...units, ...unitsToAdd]);
-              toast({
+        const result = await importUnitsAndUsers(data);
+        
+        if (result.successCount > 0) {
+             toast({
                 title: "Import thành công!",
-                description: `Đã thêm ${unitsToAdd.length} đơn vị mới. Bỏ qua ${skippedCount} đơn vị đã tồn tại.`,
-            });
-        } else {
-              toast({
-                variant: 'default',
-                title: "Không có gì thay đổi",
-                description: `Tất cả ${skippedCount} đơn vị trong file đã tồn tại.`,
+                description: `Đã thêm ${result.successCount} đơn vị và người dùng mới.`,
             });
         }
+        if (result.errorCount > 0) {
+            toast({
+                variant: 'destructive',
+                title: `Import có lỗi!`,
+                description: `Thất bại ${result.errorCount} dòng. Lỗi đầu tiên: ${result.errors[0]}`,
+                duration: 10000,
+            });
+             console.error("Import errors:", result.errors);
+        }
 
-        setIsImportOpen(false);
+        await refreshData();
     }
 
 
@@ -225,7 +231,7 @@ export default function UnitManagementPage() {
         <div className="flex items-center justify-end gap-2">
             <Button variant="outline" onClick={() => setIsImportOpen(true)}>
                 <Upload className="mr-2 h-4 w-4" />
-                Import từ Excel
+                Import
             </Button>
             <Button onClick={handleNew}>
                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -296,7 +302,7 @@ export default function UnitManagementPage() {
 
     <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
         <DialogContent>
-            <ImportUnitsDialog onImport={handleImport} onCancel={() => setIsImportOpen(false)} />
+            <ImportDialog onImport={handleImport} onCancel={() => setIsImportOpen(false)} />
         </DialogContent>
     </Dialog>
 

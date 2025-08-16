@@ -66,6 +66,18 @@ export type Document = {
   excerpt: string;
 };
 
+// Type for the combined Unit and User import from Excel
+export type UnitAndUserImport = {
+    unitId: string;
+    unitName: string;
+    unitParentId: string | null;
+    unitAddress?: string;
+    unitHeadquarters?: string;
+    userEmail: string;
+    userPassword: string;
+    userDisplayName: string;
+};
+
 
 // This file now only contains type definitions.
 // Mock data has been removed or replaced with dynamic logic.

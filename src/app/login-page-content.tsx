@@ -17,7 +17,6 @@ import { useRouter } from 'next/navigation';
 import React from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function LoginPageContent() {
   const { setLoginInfo, loading, currentUser } = useData();
@@ -61,13 +60,6 @@ export default function LoginPageContent() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Alert className="mb-4 bg-blue-50 border-blue-200">
-            <AlertTitle className="text-blue-800">Thông tin đăng nhập mặc định</AlertTitle>
-            <AlertDescription className="text-blue-700">
-              <p>Tài khoản Admin: <strong>admin@angiang.gov.vn</strong></p>
-              <p>Mật khẩu: <strong>123456</strong></p>
-            </AlertDescription>
-          </Alert>
           <form onSubmit={handleLogin} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
