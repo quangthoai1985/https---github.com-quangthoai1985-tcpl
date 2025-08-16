@@ -56,11 +56,11 @@ const units: Unit[] = [
 ];
 
 const usersRaw = [
-    { email: "admin@angiang.gov.vn", password: "password123", displayName: "Nguyễn Văn Admin", role: "admin", communeId: "" },
-    { email: "chaudoc@angiang.gov.vn", password: "password123", displayName: "Trần Thị Cán bộ", role: "commune_staff", communeId: "PHUONG_BK" },
-    { email: "user02@example.com", password: "password123", displayName: "Lê Văn Cán bộ", role: "commune_staff", communeId: "XA_TT" },
-    { email: "user03@example.com", password: "password123", displayName: "Phạm Thị Cán bộ", role: "commune_staff", communeId: "PHUONG_DVH" },
-    { email: "user04@example.com", password: "password123", displayName: "Hoàng Văn Cán bộ", role: "commune_staff", communeId: "XA_AK" },
+    { email: "admin@angiang.gov.vn", password: "123456", displayName: "Nguyễn Văn Admin", role: "admin", communeId: "" },
+    { email: "chaudoc@angiang.gov.vn", password: "123456", displayName: "Trần Thị Cán bộ", role: "commune_staff", communeId: "PHUONG_BK" },
+    { email: "user02@example.com", password: "123456", displayName: "Lê Văn Cán bộ", role: "commune_staff", communeId: "XA_TT" },
+    { email: "user03@example.com", password: "123456", displayName: "Phạm Thị Cán bộ", role: "commune_staff", communeId: "PHUONG_DVH" },
+    { email: "user04@example.com", password: "123456", displayName: "Hoàng Văn Cán bộ", role: "commune_staff", communeId: "XA_AK" },
 ];
 
 const assessmentPeriods: AssessmentPeriod[] = [
@@ -69,7 +69,7 @@ const assessmentPeriods: AssessmentPeriod[] = [
 ];
 
 // We will populate assessments after users are created to get their UIDs
-let assessments: Omit<Assessment, 'submittedBy'>[] = [
+let assessments: Omit<Assessment, 'submittedBy' | 'approverId'>[] = [
     { id: 'ASMT001', communeId: "PHUONG_BK", assessmentPeriodId: 'DOT001', status: "pending_review", submissionDate: "20/07/2024" },
     { id: 'ASMT002', communeId: "XA_TT", assessmentPeriodId: 'DOT001', status: "approved", submissionDate: "19/07/2024", approvalDate: '21/07/2024' },
     { id: 'ASMT003', communeId: "PHUONG_DVH", assessmentPeriodId: 'DOT001', status: "rejected", submissionDate: "19/07/2024", rejectionReason: "Minh chứng cho Chỉ tiêu 2.2 không hợp lệ." },
@@ -169,7 +169,7 @@ const guidanceDocuments: Document[] = [
 async function deleteAllUsers() {
     console.log("Step 1: Deleting all existing users from Firebase Auth...");
     try {
-        const listUsersResult = await auth.listUsers(1000);
+        const listUsersResult = await auth.listUsers(1000); // Max 1000 at a time
         const uidsToDelete = listUsersResult.users.map(u => u.uid);
 
         if (uidsToDelete.length > 0) {
@@ -227,6 +227,7 @@ async function seedUsers() {
     console.log("Step 3: Starting to seed users in Auth and Firestore...");
     const userRecordsForAssessments: User[] = [];
 
+    // Clean slate
     await deleteAllUsers();
     await deleteCollection('users');
 
@@ -273,6 +274,8 @@ async function seedCollection<T extends { id: string }>(collectionName: string, 
 
   console.log(`Seeding collection "${collectionName}"...`);
   
+  await deleteCollection(collectionName);
+
   data.forEach(item => {
     const docRef = collectionRef.doc(item.id);
     batch.set(docRef, item);
@@ -290,9 +293,6 @@ async function main() {
     const userRecords = await seedUsers();
 
     // Step 2: Seed other collections
-    // Note: If other collections depend on user IDs, you can use `userRecords` here.
-    const adminUids = userRecords.filter(u => u.role === 'admin').map(u => u.id);
-
     await seedCollection('units', units);
     await seedCollection('assessmentPeriods', assessmentPeriods);
     await seedCollection('criteria', criteria);
@@ -306,8 +306,11 @@ async function main() {
             assessmentData.submittedBy = userRecord.displayName;
         }
         
-        if (a.status === 'approved' && adminUids.length > 0) {
-            assessmentData.approverId = adminUids[0];
+        if (a.status === 'approved') {
+            const adminUser = userRecords.find(u => u.role === 'admin');
+            if (adminUser) {
+                assessmentData.approverId = adminUser.id;
+            }
         }
 
         return assessmentData as Assessment;
