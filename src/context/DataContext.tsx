@@ -199,15 +199,15 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             const usersSnapshot = await getDocs(collection(db, 'users'));
             const allUsers = usersSnapshot.docs.map(doc => ({ ...doc.data()} as User));
             
-            // FIX: Find user by comparing the username part of the email
-            const loggedInUser = allUsers.find(u => u.id === firebaseUser.uid);
+            // Find user by comparing the full email address
+            const loggedInUser = allUsers.find(u => u.username.toLowerCase() === firebaseUser.email!.toLowerCase());
 
             if (loggedInUser) {
               setCurrentUser(loggedInUser);
               setRole(loggedInUser.role);
               await fetchData(loggedInUser);
             } else {
-              console.error("User profile not found in Firestore for UID:", firebaseUser.uid);
+              console.error("User profile not found in Firestore for email:", firebaseUser.email);
               await signOut(auth);
               setCurrentUser(null);
               setRole(null);
@@ -291,7 +291,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       if (auth.currentUser) {
           const usersSnapshot = await getDocs(collection(db, 'users'));
           const allUsers = usersSnapshot.docs.map(d => d.data() as User);
-          const loggedInUser = allUsers.find(u => u.id === auth.currentUser?.uid);
+          const loggedInUser = allUsers.find(u => u.username.toLowerCase() === auth.currentUser?.email?.toLowerCase());
           if (loggedInUser) {
               await fetchData(loggedInUser);
           }
@@ -336,3 +336,5 @@ export const useData = () => {
   }
   return context;
 };
+
+    

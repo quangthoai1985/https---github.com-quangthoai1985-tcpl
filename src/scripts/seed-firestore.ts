@@ -195,10 +195,10 @@ async function seedUsers() {
             // Set custom claims (role)
             await auth.setCustomUserClaims(userRecord.uid, { role: user.role });
 
-            // Prepare Firestore user document
+            // Prepare Firestore user document. The username IS the email.
             const firestoreUser: User = {
                 id: userRecord.uid,
-                username: user.email,
+                username: user.email, 
                 displayName: user.displayName,
                 role: user.role as User['role'],
                 communeId: user.communeId,
@@ -265,8 +265,10 @@ async function main() {
         let submittedBy: string | undefined;
         let approverId: string | undefined;
 
-        if (a.communeId === "PHUONG_BK") submittedBy = userRecords.find(u => u.username === "chaudoc@angiang.gov.vn")?.id;
-        if (a.communeId === "XA_TT") submittedBy = userRecords.find(u => u.username === "user02@example.com")?.id;
+        const userRecord = userRecords.find(u => u.communeId === a.communeId);
+        if (userRecord) {
+            submittedBy = userRecord.displayName;
+        }
         
         if (a.status === 'approved' && adminUids.length > 0) {
             approverId = adminUids[0]; // Assign the first admin as approver
@@ -289,3 +291,5 @@ async function main() {
 }
 
 main();
+
+    
