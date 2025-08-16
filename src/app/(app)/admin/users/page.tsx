@@ -52,9 +52,12 @@ import type { User } from '@/lib/data';
 import PageHeader from '@/components/layout/page-header';
 import { downloadUserTemplate, readUsersFromExcel } from '@/lib/excelUtils';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { createUser, deleteUser, resetUserPassword, updateUser } from '@/actions/userActions';
 
-function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (user: Partial<User>) => void, onCancel: () => void }) {
+
+function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (user: Partial<User>, password?: string) => Promise<void>, onCancel: () => void }) {
   const [formData, setFormData] = React.useState(user);
+  const [password, setPassword] = React.useState('');
   const { units } = useData();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -80,8 +83,8 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
               <Input id="displayName" value={formData.displayName || ''} onChange={handleChange} className="col-span-3" />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="username" className="text-right">Tên đăng nhập</Label>
-              <Input id="username" type="text" value={formData.username || ''} onChange={handleChange} className="col-span-3" />
+              <Label htmlFor="username" className="text-right">Tên đăng nhập (Email)</Label>
+              <Input id="username" type="email" value={formData.username || ''} onChange={handleChange} className="col-span-3" placeholder="user@example.com" disabled={!!user.id} />
           </div>
            <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="communeId" className="text-right">Đơn vị</Label>
@@ -108,10 +111,16 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
                   </SelectContent>
               </Select>
           </div>
+          {!user.id && (
+            <div className="grid grid-cols-4 items-center gap-4">
+                <Label htmlFor="password" className="text-right">Mật khẩu</Label>
+                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="col-span-3" />
+            </div>
+          )}
       </div>
       <DialogFooter>
           <Button variant="outline" onClick={onCancel}>Hủy</Button>
-          <Button type="submit" onClick={() => onSave(formData)}>{user.id ? 'Lưu thay đổi' : 'Tạo mới'}</Button>
+          <Button type="submit" onClick={() => onSave(formData, password)}>{user.id ? 'Lưu thay đổi' : 'Tạo mới'}</Button>
       </DialogFooter>
     </>
   )
@@ -335,7 +344,7 @@ function UserTable({ users, onEdit, onResetPassword, onDelete, onImport }: { use
 
 
 export default function UserManagementPage() {
-  const { users, updateUsers } = useData();
+  const { users, refreshData } = useData();
   const [editingUser, setEditingUser] = React.useState<Partial<User> | null>(null);
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = React.useState(false);
   const [isImportOpen, setIsImportOpen] = React.useState(false);
@@ -354,11 +363,20 @@ export default function UserManagementPage() {
 
   const confirmDelete = async () => {
     if (deletingUser) {
-        await updateUsers(users.filter(u => u.id !== deletingUser.id));
-        toast({
-            title: "Thành công!",
-            description: `Đã xóa người dùng "${deletingUser.displayName}".`,
-        });
+        const result = await deleteUser(deletingUser.id);
+        if (result.success) {
+            toast({
+                title: "Thành công!",
+                description: `Đã xóa người dùng "${deletingUser.displayName}".`,
+            });
+            await refreshData();
+        } else {
+            toast({
+                variant: 'destructive',
+                title: "Lỗi!",
+                description: result.error || "Không thể xóa người dùng.",
+            });
+        }
         setDeletingUser(null);
     }
   };
@@ -367,41 +385,54 @@ export default function UserManagementPage() {
     setResettingUser(user);
   };
   
-  const handleSavePassword = (password: string) => {
+  const handleSavePassword = async (password: string) => {
     if (resettingUser) {
-        // In a real app, this would trigger an API call to update the user's password.
-        // For now, we'll just show a success toast.
-        toast({
-            title: "Thành công!",
-            description: `Đã đặt lại mật khẩu cho ${resettingUser.displayName}.`,
-        });
-        console.log(`Password for ${resettingUser.username} set to: ${password}`);
-        setResettingUser(null);
+        if (!password) {
+            toast({ variant: 'destructive', title: "Lỗi", description: "Mật khẩu không được để trống." });
+            return;
+        }
+        const result = await resetUserPassword(resettingUser.id, password);
+         if (result.success) {
+            toast({
+                title: "Thành công!",
+                description: `Đã đặt lại mật khẩu cho ${resettingUser.displayName}.`,
+            });
+            setResettingUser(null);
+        } else {
+             toast({
+                variant: 'destructive',
+                title: "Lỗi!",
+                description: result.error || "Không thể đặt lại mật khẩu.",
+            });
+        }
     }
   };
 
-  const handleSaveUser = async (userToSave: Partial<User>) => {
+  const handleSaveUser = async (userToSave: Partial<User>, password?: string) => {
     try {
-        if (userToSave.id) {
-            await updateUsers(users.map(u => u.id === userToSave.id ? {...u, ...userToSave} as User : u));
-            toast({ title: "Thành công!", description: "Đã cập nhật thông tin người dùng."});
+        let result;
+        if (userToSave.id) { // Editing existing user
+            result = await updateUser(userToSave as User);
+        } else { // Creating new user
+            if (!userToSave.username || !password || !userToSave.displayName || !userToSave.role) {
+                toast({ variant: 'destructive', title: "Lỗi!", description: "Vui lòng điền đầy đủ thông tin." });
+                return;
+            }
+            result = await createUser(userToSave as Omit<User, 'id'>, password);
+        }
+
+        if (result.success) {
+            toast({ title: "Thành công!", description: result.message });
+            await refreshData();
+            setIsNewUserDialogOpen(false);
+            setEditingUser(null);
         } else {
-            const newUser = {
-                id: `USR${String(Date.now()).slice(-6)}`,
-                username: userToSave.username || '',
-                displayName: userToSave.displayName || '',
-                communeId: userToSave.communeId || '',
-                role: userToSave.role || 'commune_staff',
-            } as User;
-            await updateUsers([...users, newUser]);
-            toast({ title: "Thành công!", description: "Đã tạo người dùng mới."});
+            toast({ variant: 'destructive', title: "Lỗi!", description: result.error });
         }
     } catch(error) {
-        toast({ variant: 'destructive', title: "Lỗi!", description: "Không thể lưu người dùng." });
+        toast({ variant: 'destructive', title: "Lỗi!", description: "Đã xảy ra lỗi không mong muốn." });
         console.error(error);
     }
-    setEditingUser(null);
-    setIsNewUserDialogOpen(false);
   }
 
   const handleCancel = () => {
@@ -410,32 +441,12 @@ export default function UserManagementPage() {
   }
   
   const handleImport = async (newUsers: User[]) => {
-      const existingUsernames = new Set(users.map(u => u.username));
-      const usersToAdd = newUsers.filter(u => !existingUsernames.has(u.username));
-      const skippedCount = newUsers.length - usersToAdd.length;
-
-      const finalUsers = [...users];
-      usersToAdd.forEach(user => {
-          finalUsers.push({
-              ...user,
-              id: `USR${String(Date.now()).slice(-5)}${Math.random().toString(36).substring(2, 5)}`,
-          });
-      });
-
-      await updateUsers(finalUsers);
-
-      if (usersToAdd.length > 0) {
-            toast({
-              title: "Import thành công!",
-              description: `Đã thêm ${usersToAdd.length} người dùng mới. Bỏ qua ${skippedCount} người dùng đã tồn tại.`,
-          });
-      } else {
-            toast({
-              variant: 'default',
-              title: "Không có gì thay đổi",
-              description: `Tất cả ${skippedCount} người dùng trong file đã tồn tại.`,
-          });
-      }
+      // This functionality should ideally be a single server action
+      // for atomicity, but for now we'll do it client-side.
+      toast({
+        title: "Chức năng đang phát triển",
+        description: "Import người dùng từ Excel sẽ được hỗ trợ trong phiên bản sau."
+      })
       setIsImportOpen(false);
   };
   
@@ -500,7 +511,7 @@ export default function UserManagementPage() {
                 <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
                 <AlertDialogDescription>
                     Bạn có chắc chắn muốn xóa người dùng <strong>{deletingUser?.displayName}</strong>?
-                    Hành động này không thể hoàn tác.
+                    Hành động này sẽ xóa cả tài khoản đăng nhập và không thể hoàn tác.
                 </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -513,3 +524,4 @@ export default function UserManagementPage() {
     </>
   );
 }
+

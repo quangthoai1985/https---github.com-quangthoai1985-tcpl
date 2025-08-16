@@ -1,7 +1,7 @@
 
 /* eslint-disable no-console */
 import * as admin from 'firebase-admin';
-import type { User, Unit, AssessmentPeriod, Assessment, Criterion, Indicator, Document } from '../lib/data';
+import type { User, Unit, AssessmentPeriod, Assessment, Criterion, Document } from '../lib/data';
 
 // ========================================================================================
 // IMPORTANT: SETUP INSTRUCTIONS
@@ -14,22 +14,28 @@ import type { User, Unit, AssessmentPeriod, Assessment, Criterion, Indicator, Do
 //     - **VERY IMPORTANT**: This file gives full admin access to your project.
 //       DO NOT commit it to a public repository. It is already listed in .gitignore.
 //
-// 2.  SET PROJECT ID:
-//     - In the same Firebase Project Settings page, find your "Project ID".
-//     - Replace the placeholder "YOUR_PROJECT_ID_HERE" below with your actual Project ID.
+// 2.  INITIALIZE FIREBASE ADMIN:
+//     - The script will automatically use the `service-account-credentials.json` file.
 //
 // 3.  RUN THE SCRIPT:
 //     - Open your terminal and run the command: `npm run seed:firestore`
 // ========================================================================================
 
-const serviceAccount = require('../../service-account-credentials.json');
+try {
+    const serviceAccount = require('../../service-account-credentials.json');
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount),
+    });
+} catch (error) {
+    if (admin.apps.length === 0) {
+        console.error("Could not initialize Firebase Admin SDK. Make sure service-account-credentials.json is in the root directory.");
+        process.exit(1);
+    }
+}
 
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: `https://chuan-tiep-can-pl.firebaseio.com` // <--- REPLACE THIS
-});
 
 const db = admin.firestore();
+const auth = admin.auth();
 
 // ----------------------------------------------------------------------------------------
 // --- MOCK DATA TO SEED ---
@@ -47,12 +53,12 @@ const units: Unit[] = [
     { id: 'XA_AK', name: 'Xã An Khánh', type: 'commune', parentId: 'HUYEN_HD', address: 'Xã An Khánh, Hoài Đức, Hà Nội', headquarters: 'Ủy ban Nhân dân xã An Khánh' },
 ];
 
-const users: User[] = [
-    { id: "admin01", username: "admin", displayName: "Nguyễn Văn Admin", role: "admin", communeId: "" },
-    { id: "user01", username: "bachkhoa.staff", displayName: "Trần Thị Cán bộ", role: "commune_staff", communeId: "PHUONG_BK" },
-    { id: "user02", username: "tantrieu.staff", displayName: "Lê Văn Cán bộ", role: "commune_staff", communeId: "XA_TT" },
-    { id: "user03", username: "dichvonghau.staff", displayName: "Phạm Thị Cán bộ", role: "commune_staff", communeId: "PHUONG_DVH" },
-    { id: "user04", username: "ankhanh.staff", displayName: "Hoàng Văn Cán bộ", role: "commune_staff", communeId: "XA_AK" },
+const usersRaw = [
+    { email: "admin@angiang.gov.vn", password: "password123", displayName: "Nguyễn Văn Admin", role: "admin", communeId: "" },
+    { email: "chaudoc@angiang.gov.vn", password: "password123", displayName: "Trần Thị Cán bộ", role: "commune_staff", communeId: "PHUONG_BK" },
+    { email: "user02@example.com", password: "password123", displayName: "Lê Văn Cán bộ", role: "commune_staff", communeId: "XA_TT" },
+    { email: "user03@example.com", password: "password123", displayName: "Phạm Thị Cán bộ", role: "commune_staff", communeId: "PHUONG_DVH" },
+    { email: "user04@example.com", password: "password123", displayName: "Hoàng Văn Cán bộ", role: "commune_staff", communeId: "XA_AK" },
 ];
 
 const assessmentPeriods: AssessmentPeriod[] = [
@@ -60,14 +66,15 @@ const assessmentPeriods: AssessmentPeriod[] = [
     { id: 'DOT002', name: 'Đợt đánh giá 6 tháng cuối năm 2023', startDate: '01/07/2023', endDate: '31/12/2023', isActive: false },
 ];
 
-const assessments: Assessment[] = [
-    { id: 'ASMT001', communeId: "PHUONG_BK", assessmentPeriodId: 'DOT001', status: "pending_review", submissionDate: "20/07/2024", submittedBy: 'user01' },
-    { id: 'ASMT002', communeId: "XA_TT", assessmentPeriodId: 'DOT001', status: "approved", submissionDate: "19/07/2024", approverId: 'admin01', approvalDate: '21/07/2024', submittedBy: 'user02' },
-    { id: 'ASMT003', communeId: "PHUONG_DVH", assessmentPeriodId: 'DOT001', status: "rejected", submissionDate: "19/07/2024", rejectionReason: "Minh chứng cho Chỉ tiêu 2.2 không hợp lệ.", submittedBy: 'user03' },
+// We will populate assessments after users are created to get their UIDs
+let assessments: Omit<Assessment, 'submittedBy'>[] = [
+    { id: 'ASMT001', communeId: "PHUONG_BK", assessmentPeriodId: 'DOT001', status: "pending_review", submissionDate: "20/07/2024" },
+    { id: 'ASMT002', communeId: "XA_TT", assessmentPeriodId: 'DOT001', status: "approved", submissionDate: "19/07/2024", approvalDate: '21/07/2024' },
+    { id: 'ASMT003', communeId: "PHUONG_DVH", assessmentPeriodId: 'DOT001', status: "rejected", submissionDate: "19/07/2024", rejectionReason: "Minh chứng cho Chỉ tiêu 2.2 không hợp lệ." },
     { id: 'ASMT004', communeId: "XA_AK", assessmentPeriodId: 'DOT001', status: 'draft' },
     // Data for previous assessment period
-    { id: 'ASMT005', communeId: "PHUONG_BK", assessmentPeriodId: 'DOT002', status: "approved", submissionDate: "15/12/2023", approverId: 'admin01', approvalDate: '18/12/2023', submittedBy: 'user01' },
-    { id: 'ASMT006', communeId: "XA_TT", assessmentPeriodId: 'DOT002', status: "approved", submissionDate: "14/12/2023", approverId: 'admin01', approvalDate: '18/12/2023', submittedBy: 'user02' },
+    { id: 'ASMT005', communeId: "PHUONG_BK", assessmentPeriodId: 'DOT002', status: "approved", submissionDate: "15/12/2023", approvalDate: '18/12/2023' },
+    { id: 'ASMT006', communeId: "XA_TT", assessmentPeriodId: 'DOT002', status: "approved", submissionDate: "14/12/2023", approvalDate: '18/12/2023' },
 ];
 
 const criteria: Omit<Criterion, 'indicators'> & { indicators: Indicator[] }[] = [
@@ -157,43 +164,118 @@ const guidanceDocuments: Document[] = [
 // --- SCRIPT LOGIC ---
 // ----------------------------------------------------------------------------------------
 
+async function seedUsers() {
+    console.log("Starting to seed users in Auth and Firestore...");
+    const userRecords: User[] = [];
+    const adminUids: string[] = [];
+    
+    for (const user of usersRaw) {
+        try {
+            // Check if user already exists in Auth
+            let userRecord;
+            try {
+                userRecord = await auth.getUserByEmail(user.email);
+                console.log(`User ${user.email} already exists in Auth. UID: ${userRecord.uid}. Skipping Auth creation.`);
+            } catch (error: any) {
+                if (error.code === 'auth/user-not-found') {
+                    // User does not exist, create them
+                    userRecord = await auth.createUser({
+                        email: user.email,
+                        emailVerified: true,
+                        password: user.password,
+                        displayName: user.displayName,
+                        disabled: false,
+                    });
+                    console.log(`Successfully created new user in Auth: ${user.email} with UID: ${userRecord.uid}`);
+                } else {
+                    throw error; // Re-throw other errors
+                }
+            }
+            
+            // Set custom claims (role)
+            await auth.setCustomUserClaims(userRecord.uid, { role: user.role });
+
+            // Prepare Firestore user document
+            const firestoreUser: User = {
+                id: userRecord.uid,
+                username: user.email,
+                displayName: user.displayName,
+                role: user.role as User['role'],
+                communeId: user.communeId,
+            };
+            
+            // Add to Firestore user list for batch write
+            userRecords.push(firestoreUser);
+
+            if (firestoreUser.role === 'admin') {
+                adminUids.push(firestoreUser.id);
+            }
+
+        } catch (error) {
+            console.error(`Error processing user ${user.email}:`, error);
+        }
+    }
+    
+    // Batch write all user documents to Firestore
+    if (userRecords.length > 0) {
+        const batch = db.batch();
+        const usersCollection = db.collection('users');
+        userRecords.forEach(userDoc => {
+            const docRef = usersCollection.doc(userDoc.id);
+            batch.set(docRef, userDoc);
+        });
+        await batch.commit();
+        console.log(`Successfully seeded ${userRecords.length} user documents in Firestore.`);
+    }
+
+    return { userRecords, adminUids };
+}
+
+
 async function seedCollection<T extends { id: string }>(collectionName: string, data: T[]) {
   const collectionRef = db.collection(collectionName);
   const batch = db.batch();
 
-  console.log(`Checking existing documents in "${collectionName}"...`);
-  const snapshot = await collectionRef.get();
-  const existingIds = new Set(snapshot.docs.map(doc => doc.id));
-  console.log(`Found ${existingIds.size} existing documents.`);
-
-  let newDocsCount = 0;
+  console.log(`Seeding collection "${collectionName}"...`);
+  
   data.forEach(item => {
-    if (!existingIds.has(item.id)) {
-      const docRef = collectionRef.doc(item.id);
-      batch.set(docRef, item);
-      newDocsCount++;
-    }
+    const docRef = collectionRef.doc(item.id);
+    batch.set(docRef, item);
   });
 
-  if (newDocsCount > 0) {
-    console.log(`Adding ${newDocsCount} new document(s) to "${collectionName}"...`);
-    await batch.commit();
-    console.log(`Successfully seeded ${newDocsCount} documents in "${collectionName}".`);
-  } else {
-    console.log(`No new documents to add to "${collectionName}".`);
-  }
+  await batch.commit();
+  console.log(`Successfully seeded ${data.length} documents in "${collectionName}".`);
 }
 
 async function main() {
   try {
     console.log("Starting Firestore data seeding process...");
     
+    // Seed users first to get their UIDs
+    const { userRecords, adminUids } = await seedUsers();
+
+    // Now seed other collections
     await seedCollection('units', units);
-    await seedCollection('users', users);
     await seedCollection('assessmentPeriods', assessmentPeriods);
-    await seedCollection('assessments', assessments);
     await seedCollection('criteria', criteria);
     await seedCollection('guidanceDocuments', guidanceDocuments);
+
+    // Populate assessments with correct approver and submitter IDs
+    const finalAssessments = assessments.map(a => {
+        let submittedBy: string | undefined;
+        let approverId: string | undefined;
+
+        if (a.communeId === "PHUONG_BK") submittedBy = userRecords.find(u => u.username === "chaudoc@angiang.gov.vn")?.id;
+        if (a.communeId === "XA_TT") submittedBy = userRecords.find(u => u.username === "user02@example.com")?.id;
+        
+        if (a.status === 'approved' && adminUids.length > 0) {
+            approverId = adminUids[0]; // Assign the first admin as approver
+        }
+
+        return { ...a, submittedBy, approverId } as Assessment;
+    });
+
+    await seedCollection('assessments', finalAssessments);
 
     console.log("\n=========================================");
     console.log("✅ Firestore seeding completed successfully!");

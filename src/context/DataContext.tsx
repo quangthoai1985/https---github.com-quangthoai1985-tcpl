@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
 import { 
     type User,
     type Unit,
@@ -42,6 +42,7 @@ if (typeof window !== 'undefined') {
 
 interface DataContextType {
   loading: boolean;
+  refreshData: () => Promise<void>;
   users: User[];
   updateUsers: (newUsers: User[]) => Promise<void>;
   units: Unit[];
@@ -74,9 +75,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<Role | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
       if (!db) return;
       try {
+        console.log("Fetching all data from Firestore...");
         const [
           unitsSnapshot,
           periodsSnapshot,
@@ -99,11 +101,12 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         setCriteria(criteriaSnapshot.docs.map(d => d.data() as Criterion));
         setGuidanceDocuments(documentsSnapshot.docs.map(d => d.data() as AppDocument));
         setUsers(usersSnapshot.docs.map(d => d.data() as User));
+        console.log("Data fetched successfully.");
         
       } catch (error) {
         console.error("Error fetching data from Firestore:", error);
       }
-    };
+    }, []);
 
   useEffect(() => {
     if (!auth) return;
@@ -115,15 +118,15 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             const usersSnapshot = await getDocs(collection(db, 'users'));
             const allUsers = usersSnapshot.docs.map(doc => ({ ...doc.data()} as User));
             
-            const usernameFromEmail = firebaseUser.email.split('@')[0];
-            const loggedInUser = allUsers.find(u => u.username.toLowerCase() === usernameFromEmail.toLowerCase());
+            // Match by UID, which is the `id` field in our User model
+            const loggedInUser = allUsers.find(u => u.id === firebaseUser.uid);
 
             if (loggedInUser) {
               setCurrentUser(loggedInUser);
               setRole(loggedInUser.role);
               await fetchData();
             } else {
-              console.error("User profile not found in Firestore for email:", firebaseUser.email);
+              console.error("User profile not found in Firestore for UID:", firebaseUser.uid);
               await signOut(auth);
               setCurrentUser(null);
               setRole(null);
@@ -143,12 +146,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [fetchData]);
 
   const setLoginInfo = async (email: string, password: string): Promise<boolean> => {
     setLoading(true);
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        // onAuthStateChanged will handle the rest
         return !!userCredential.user;
     } catch(e) {
         console.error("Login Error: ", e);
@@ -161,14 +165,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     try {
       await signOut(auth);
-      setUsers([]);
-      setUnits([]);
-      setAssessmentPeriods([]);
-      setAssessments([]);
-      setCriteria([]);
-      setGuidanceDocuments([]);
-      setCurrentUser(null);
-      setRole(null);
+      // State will be cleared by onAuthStateChanged
     } catch (error) {
       console.error("Error signing out: ", error);
     } finally {
@@ -182,6 +179,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   ) => {
     return async (newData: T[]) => {
       if (!db) return;
+      setLoading(true);
       const batch = writeBatch(db);
       
       const currentStateSnapshot = await getDocs(collection(db, collectionName));
@@ -204,6 +202,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       
       await batch.commit();
       stateUpdater(newData);
+      setLoading(false);
     };
   };
 
@@ -218,6 +217,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   return (
     <DataContext.Provider value={{ 
         loading, 
+        refreshData: fetchData,
         users, updateUsers, 
         units, updateUnits, 
         assessmentPeriods, updateAssessmentPeriods, 
@@ -241,3 +241,4 @@ export const useData = () => {
   }
   return context;
 };
+
