@@ -21,13 +21,15 @@ import type { User, Unit, AssessmentPeriod, Assessment, Criterion, Document } fr
 //     - Open your terminal and run the command: `npm run seed:firestore`
 // ========================================================================================
 
-try {
-    const serviceAccount = require('../../service-account-credentials.json');
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
-} catch (error) {
-    if (admin.apps.length === 0) {
+// Initialize Firebase Admin SDK if not already initialized
+if (!admin.apps.length) {
+    try {
+        const serviceAccount = require('../../service-account-credentials.json');
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+        });
+        console.log("Firebase Admin SDK initialized successfully for seeding script.");
+    } catch (error) {
         console.error("Could not initialize Firebase Admin SDK. Make sure service-account-credentials.json is in the root directory.");
         process.exit(1);
     }
@@ -207,14 +209,15 @@ async function seedUsers() {
 
             // Create the Firestore user object using the Auth UID as the document ID
             const firestoreUser: User = {
-                id: uid, 
+                id: uid, // ALWAYS use Auth UID as the Firestore document ID
                 username: user.email, 
                 displayName: user.displayName,
                 role: user.role as User['role'],
                 communeId: user.communeId,
             };
             
-            // Add Firestore set operation to the batch
+            // Add Firestore set operation to the batch. 
+            // Using .set() with the UID as the doc ID will either create or overwrite, ensuring sync.
             const userDocRef = usersCollection.doc(uid);
             batch.set(userDocRef, firestoreUser);
             
@@ -267,7 +270,7 @@ async function main() {
 
     // Populate assessments with correct approver and submitter IDs
     const finalAssessments = assessments.map(a => {
-        const assessmentData: Assessment = { ...a, submittedBy: undefined } as Assessment;
+        const assessmentData: Partial<Assessment> & { id: string } = { ...a };
         
         const userRecord = userRecords.find(u => u.communeId === a.communeId);
         if (userRecord) {
@@ -277,10 +280,11 @@ async function main() {
         if (a.status === 'approved' && adminUids.length > 0) {
             assessmentData.approverId = adminUids[0]; // Assign the first admin as approver
         } else {
-             delete (assessmentData as Partial<Assessment>).approverId;
+            // Ensure approverId is not set to undefined if not approved
+            delete assessmentData.approverId;
         }
 
-        return assessmentData;
+        return assessmentData as Assessment;
     });
 
     await seedCollection('assessments', finalAssessments);
@@ -297,5 +301,3 @@ async function main() {
 }
 
 main();
-
-

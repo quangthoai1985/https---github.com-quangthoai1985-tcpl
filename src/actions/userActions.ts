@@ -7,15 +7,15 @@ import * as admin from 'firebase-admin';
 // Initialize Firebase Admin SDK if not already initialized
 if (!admin.apps.length) {
   try {
+    // This path is relative to the project root, where the server action runs.
     const serviceAccount = require('../../service-account-credentials.json');
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount),
     });
-     console.log("Firebase Admin SDK initialized successfully.");
+     console.log("Firebase Admin SDK initialized successfully for userActions.");
   } catch (error) {
-    console.error("Error initializing Firebase Admin SDK:", error);
+    console.error("Error initializing Firebase Admin SDK in userActions:", error);
     // In a production environment, you should handle this more gracefully.
-    // For example, by using environment variables for the credentials.
   }
 }
 
@@ -70,7 +70,11 @@ export async function updateUser(userData: User): Promise<ServerActionResult> {
         });
         
         // Update role claim if it has changed
-        await auth.setCustomUserClaims(id, { role: dataToUpdate.role });
+        const currentUserClaims = (await auth.getUser(id)).customClaims;
+        if(currentUserClaims?.role !== dataToUpdate.role) {
+            await auth.setCustomUserClaims(id, { role: dataToUpdate.role });
+        }
+        
 
         // Update Firestore
         await db.collection('users').doc(id).update(dataToUpdate);
