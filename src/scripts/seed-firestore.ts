@@ -175,14 +175,16 @@ async function deleteAllUsers() {
         if (uidsToDelete.length > 0) {
             const result = await auth.deleteUsers(uidsToDelete);
             console.log(`Successfully deleted ${result.successCount} users from Auth.`);
-            result.errors.forEach((err) => {
-                console.log('Failed to delete user:', err.error.toJSON());
-            });
+            if (result.failureCount > 0) {
+                 result.errors.forEach((err) => {
+                    console.log('Failed to delete user:', err.error.toJSON());
+                });
+            }
         } else {
             console.log("No users found in Auth to delete.");
         }
     } catch (error) {
-        console.error("Error deleting users from Auth:", error);
+        console.error("Error listing/deleting users from Auth:", error);
     }
 }
 
@@ -310,8 +312,8 @@ async function main() {
         
         if (a.status === 'approved' && adminUids.length > 0) {
             assessmentData.approverId = adminUids[0];
-        } else {
-            delete (assessmentData as Partial<Assessment>).approverId;
+        } else if ('approverId' in assessmentData) {
+            delete assessmentData.approverId;
         }
 
         return assessmentData as Assessment;
