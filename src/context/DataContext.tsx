@@ -199,6 +199,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             const usersSnapshot = await getDocs(collection(db, 'users'));
             const allUsers = usersSnapshot.docs.map(doc => ({ ...doc.data()} as User));
             
+            // FIX: Find user by comparing the username part of the email
             const loggedInUser = allUsers.find(u => u.id === firebaseUser.uid);
 
             if (loggedInUser) {
@@ -280,9 +281,24 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       
       await batch.commit();
       stateUpdater(newData);
+      // After any update, refresh all data to ensure consistency, especially for notifications
+      await refreshData();
       setLoading(false);
     };
   };
+
+  const refreshData = useCallback(async () => {
+      if (auth.currentUser) {
+          const usersSnapshot = await getDocs(collection(db, 'users'));
+          const allUsers = usersSnapshot.docs.map(d => d.data() as User);
+          const loggedInUser = allUsers.find(u => u.id === auth.currentUser?.uid);
+          if (loggedInUser) {
+              await fetchData(loggedInUser);
+          }
+      } else {
+          await fetchData(null);
+      }
+  }, [fetchData]);
 
   const updateUsers = createFirestoreUpdater('users', setUsers);
   const updateUnits = createFirestoreUpdater('units', setUnits);
@@ -295,7 +311,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   return (
     <DataContext.Provider value={{ 
         loading, 
-        refreshData: () => fetchData(currentUser),
+        refreshData,
         users, updateUsers, 
         units, updateUnits, 
         assessmentPeriods, updateAssessmentPeriods, 
