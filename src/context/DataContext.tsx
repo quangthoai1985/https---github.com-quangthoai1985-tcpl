@@ -18,13 +18,13 @@ import { useRouter } from 'next/navigation';
 
 // Your web app's Firebase configuration is populated here by the backend
 const firebaseConfig: FirebaseOptions = {
-  apiKey: "...",
-  authDomain: "...",
-  projectId: "...",
-  storageBucket: "...",
-  messagingSenderId: "...",
-  appId: "...",
-  measurementId: "..."
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
 
@@ -72,7 +72,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   // This function fetches all initial data from Firestore.
   const fetchData = async () => {
       // Don't set loading to true here, as auth state change will handle it.
-      if (firebaseConfig.apiKey === "...") {
+      if (!firebaseConfig.apiKey) {
           console.warn("Firebase config is not set. Cannot fetch from Firestore.");
           setLoading(false);
           return;
@@ -113,17 +113,22 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       if (firebaseUser) {
         // User is signed in. Fetch user profile from Firestore.
         // We assume the Firestore document ID for a user is the same as their Firebase Auth UID.
-        const userDocRef = doc(db, "users", firebaseUser.uid);
-        const userDoc = await getDoc(userDocRef);
+        
+        // Temporarily, let's fetch all users and find the one with the matching email,
+        // as we haven't enforced UID to match Firestore doc ID yet.
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        const allUsers = usersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
+        
+        // In a real app, you would have a more direct way to find the user, e.g. userDocRef = doc(db, "users", firebaseUser.uid)
+        const loggedInUser = allUsers.find(u => u.username.toLowerCase() === firebaseUser.email?.toLowerCase());
 
-        if (userDoc.exists()) {
-          const userData = userDoc.data() as User;
-          setCurrentUser(userData);
-          setRole(userData.role);
+        if (loggedInUser) {
+          setCurrentUser(loggedInUser);
+          setRole(loggedInUser.role);
           await fetchData(); // Fetch all other app data
         } else {
           // User profile doesn't exist in Firestore. Handle appropriately.
-          console.error("User profile not found in Firestore for UID:", firebaseUser.uid);
+          console.error("User profile not found in Firestore for email:", firebaseUser.email);
           await signOut(auth); // Sign out the user if their profile is missing.
           setCurrentUser(null);
           setRole(null);
