@@ -11,27 +11,35 @@ import {
     type Criterion,
     type Document
 } from '@/lib/data';
-import { initializeApp, getApp, getApps, FirebaseOptions } from 'firebase/app';
-import { getFirestore, collection, getDocs, doc, getDoc } from 'firebase/firestore';
-import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser } from 'firebase/auth';
-import { useRouter } from 'next/navigation';
+import { initializeApp, getApp, getApps, FirebaseOptions, type FirebaseApp } from 'firebase/app';
+import { getFirestore, collection, getDocs, doc, getDoc, type Firestore } from 'firebase/firestore';
+import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser, type Auth } from 'firebase/auth';
 
 // Your web app's Firebase configuration is populated here by the backend
 const firebaseConfig: FirebaseOptions = {
-  apiKey: typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_FIREBASE_API_KEY : undefined,
-  authDomain: typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN : undefined,
-  projectId: typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID : undefined,
-  storageBucket: typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET : undefined,
-  messagingSenderId: typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID : undefined,
-  appId: typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_FIREBASE_APP_ID : undefined,
-  measurementId: typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID : undefined,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
+// We will initialize these lazily
+let app: FirebaseApp;
+let db: Firestore;
+let auth: Auth;
 
-// Initialize Firebase
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const db = getFirestore(app);
-const auth = getAuth(app);
+if (typeof window !== 'undefined' && !getApps().length) {
+    app = initializeApp(firebaseConfig);
+    db = getFirestore(app);
+    auth = getAuth(app);
+} else if (typeof window !== 'undefined') {
+    app = getApp();
+    db = getFirestore(app);
+    auth = getAuth(app);
+}
 
 
 interface DataContextType {
@@ -108,12 +116,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     };
 
   useEffect(() => {
+    if (!auth) return; // Don't run if auth is not initialized
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       setLoading(true);
       if (firebaseUser && firebaseUser.email) {
-        // User is signed in. Fetch user profile from Firestore.
-        // We assume the Firestore document ID for a user is their username (without domain).
-        // This is a temporary solution for this specific app structure.
         const username = firebaseUser.email.split('@')[0];
         
         try {
@@ -126,9 +132,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
               setRole(loggedInUser.role);
               await fetchData(); // Fetch all other app data
             } else {
-              // User profile doesn't exist in Firestore. Handle appropriately.
               console.error("User profile not found in Firestore for username:", username);
-              await signOut(auth); // Sign out the user if their profile is missing.
+              await signOut(auth);
               setCurrentUser(null);
               setRole(null);
             }
@@ -140,38 +145,31 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
 
       } else {
-        // User is signed out.
         setCurrentUser(null);
         setRole(null);
       }
       setLoading(false);
     });
 
-    // Cleanup subscription on unmount
     return () => unsubscribe();
   }, []);
 
-  // This function handles the login process via Firebase Auth
   const setLoginInfo = async (email: string, password: string): Promise<boolean> => {
     setLoading(true);
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        // onAuthStateChanged will handle the rest (fetching user doc, setting state, etc.)
         return !!userCredential.user;
     } catch(e) {
         console.error("Login Error: ", e);
         setLoading(false);
         return false;
     } 
-    // No need for finally setLoading(false), onAuthStateChanged handles it.
   };
 
   const logout = async () => {
     setLoading(true);
     try {
       await signOut(auth);
-      // onAuthStateChanged will clear user state and trigger re-render.
-      // Reset all data states to initial
       setUsers([]);
       setUnits([]);
       setAssessmentPeriods([]);
@@ -180,8 +178,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setGuidanceDocuments([]);
     } catch (error) {
       console.error("Error signing out: ", error);
-    } finally {
-      // Loading is set to false by onAuthStateChanged after sign-out completes
     }
   };
 
