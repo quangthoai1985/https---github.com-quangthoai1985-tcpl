@@ -226,10 +226,11 @@ async function deleteCollection(collectionPath: string, batchSize: number = 50) 
 async function seedUsers() {
     console.log("Step 3: Starting to seed users in Auth and Firestore...");
     const userRecordsForAssessments: User[] = [];
-    const adminUids: string[] = [];
+
+    await deleteAllUsers();
+    await deleteCollection('users');
 
     const usersCollection = db.collection('users');
-    const batch = db.batch();
 
     for (const user of usersRaw) {
         try {
@@ -253,21 +254,16 @@ async function seedUsers() {
             };
 
             const userDocRef = usersCollection.doc(authRecord.uid);
-            batch.set(userDocRef, firestoreUser);
+            await userDocRef.set(firestoreUser);
             
             userRecordsForAssessments.push(firestoreUser);
-            if (firestoreUser.role === 'admin') {
-                adminUids.push(firestoreUser.id);
-            }
         } catch (error) {
             console.error(`Error processing user ${user.email}:`, error);
         }
     }
-
-    await batch.commit();
-    console.log(`Successfully batched ${usersRaw.length} user documents to Firestore.`);
     
-    return { userRecords: userRecordsForAssessments, adminUids };
+    console.log(`Successfully seeded ${userRecordsForAssessments.length} users to Auth and Firestore.`);
+    return userRecordsForAssessments;
 }
 
 
@@ -275,7 +271,7 @@ async function seedCollection<T extends { id: string }>(collectionName: string, 
   const collectionRef = db.collection(collectionName);
   const batch = db.batch();
 
-  console.log(`Step 4: Seeding collection "${collectionName}"...`);
+  console.log(`Seeding collection "${collectionName}"...`);
   
   data.forEach(item => {
     const docRef = collectionRef.doc(item.id);
@@ -290,18 +286,18 @@ async function main() {
   try {
     console.log("Starting Firestore data seeding process...");
     
-    // Clean up old data to ensure consistency
-    await deleteAllUsers();
-    await deleteCollection('users');
+    // Step 1: Clean up and seed users atomically
+    const userRecords = await seedUsers();
 
-    // Seed fresh data
-    const { userRecords, adminUids } = await seedUsers();
+    // Step 2: Seed other collections
+    // Note: If other collections depend on user IDs, you can use `userRecords` here.
+    const adminUids = userRecords.filter(u => u.role === 'admin').map(u => u.id);
 
     await seedCollection('units', units);
     await seedCollection('assessmentPeriods', assessmentPeriods);
     await seedCollection('criteria', criteria);
     await seedCollection('guidanceDocuments', guidanceDocuments);
-
+    
     const finalAssessments = assessments.map(a => {
         const assessmentData: Partial<Assessment> & { id: string } = { ...a };
         
@@ -312,14 +308,13 @@ async function main() {
         
         if (a.status === 'approved' && adminUids.length > 0) {
             assessmentData.approverId = adminUids[0];
-        } else if ('approverId' in assessmentData) {
-            delete assessmentData.approverId;
         }
 
         return assessmentData as Assessment;
     });
 
     await seedCollection('assessments', finalAssessments);
+
 
     console.log("\n=========================================");
     console.log("✅ Firestore seeding completed successfully!");
@@ -333,3 +328,6 @@ async function main() {
 }
 
 main();
+
+
+    
