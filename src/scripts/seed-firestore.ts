@@ -262,19 +262,18 @@ async function main() {
 
     // Populate assessments with correct approver and submitter IDs
     const finalAssessments = assessments.map(a => {
-        let submittedBy: string | undefined;
-        let approverId: string | undefined;
-
+        const assessmentData: Partial<Assessment> = { ...a };
+        
         const userRecord = userRecords.find(u => u.communeId === a.communeId);
         if (userRecord) {
-            submittedBy = userRecord.displayName;
+            assessmentData.submittedBy = userRecord.displayName;
         }
         
         if (a.status === 'approved' && adminUids.length > 0) {
-            approverId = adminUids[0]; // Assign the first admin as approver
+            assessmentData.approverId = adminUids[0]; // Assign the first admin as approver
         }
 
-        return { ...a, submittedBy, approverId } as Assessment;
+        return assessmentData as Assessment;
     });
 
     await seedCollection('assessments', finalAssessments);
@@ -292,4 +291,3 @@ async function main() {
 
 main();
 
-    
