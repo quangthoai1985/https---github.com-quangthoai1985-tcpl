@@ -19,17 +19,23 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
 export default function LoginPageContent() {
-  const { setLoginInfo, loading } = useData();
+  const { setLoginInfo, loading, currentUser } = useData();
   const router = useRouter();
   const { toast } = useToast();
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
+  
+  React.useEffect(() => {
+    if (currentUser) {
+        router.push('/dashboard');
+    }
+  }, [currentUser, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const success = await setLoginInfo(email, password);
     if (success) {
-      // router.push('/dashboard') is handled by the layout now
+      // router.push('/dashboard') is handled by the useEffect now
     } else {
       toast({
         variant: 'destructive',
@@ -60,7 +66,7 @@ export default function LoginPageContent() {
               <Input
                 id="email"
                 type="email"
-                placeholder="abc@angiang.gov.vn"
+                placeholder="admin@angiang.gov.vn"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}

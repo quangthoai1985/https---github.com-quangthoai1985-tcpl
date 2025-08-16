@@ -18,13 +18,13 @@ import { useRouter } from 'next/navigation';
 
 // Your web app's Firebase configuration is populated here by the backend
 const firebaseConfig: FirebaseOptions = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
+  apiKey: typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_FIREBASE_API_KEY : undefined,
+  authDomain: typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN : undefined,
+  projectId: typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID : undefined,
+  storageBucket: typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET : undefined,
+  messagingSenderId: typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID : undefined,
+  appId: typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_FIREBASE_APP_ID : undefined,
+  measurementId: typeof window !== 'undefined' ? process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID : undefined,
 };
 
 
@@ -110,29 +110,35 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       setLoading(true);
-      if (firebaseUser) {
+      if (firebaseUser && firebaseUser.email) {
         // User is signed in. Fetch user profile from Firestore.
-        // We assume the Firestore document ID for a user is the same as their Firebase Auth UID.
+        // We assume the Firestore document ID for a user is their username (without domain).
+        // This is a temporary solution for this specific app structure.
+        const username = firebaseUser.email.split('@')[0];
         
-        // Temporarily, let's fetch all users and find the one with the matching email,
-        // as we haven't enforced UID to match Firestore doc ID yet.
-        const usersSnapshot = await getDocs(collection(db, 'users'));
-        const allUsers = usersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
-        
-        // In a real app, you would have a more direct way to find the user, e.g. userDocRef = doc(db, "users", firebaseUser.uid)
-        const loggedInUser = allUsers.find(u => u.username.toLowerCase() === firebaseUser.email?.toLowerCase());
+        try {
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            const allUsers = usersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as User));
+            const loggedInUser = allUsers.find(u => u.username.toLowerCase() === username.toLowerCase());
 
-        if (loggedInUser) {
-          setCurrentUser(loggedInUser);
-          setRole(loggedInUser.role);
-          await fetchData(); // Fetch all other app data
-        } else {
-          // User profile doesn't exist in Firestore. Handle appropriately.
-          console.error("User profile not found in Firestore for email:", firebaseUser.email);
-          await signOut(auth); // Sign out the user if their profile is missing.
-          setCurrentUser(null);
-          setRole(null);
+            if (loggedInUser) {
+              setCurrentUser(loggedInUser);
+              setRole(loggedInUser.role);
+              await fetchData(); // Fetch all other app data
+            } else {
+              // User profile doesn't exist in Firestore. Handle appropriately.
+              console.error("User profile not found in Firestore for username:", username);
+              await signOut(auth); // Sign out the user if their profile is missing.
+              setCurrentUser(null);
+              setRole(null);
+            }
+        } catch(e) {
+             console.error("Error fetching user profile:", e);
+             await signOut(auth);
+             setCurrentUser(null);
+             setRole(null);
         }
+
       } else {
         // User is signed out.
         setCurrentUser(null);
