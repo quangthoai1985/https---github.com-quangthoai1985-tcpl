@@ -6,34 +6,35 @@ import * as admin from 'firebase-admin';
 import * as fs from 'fs';
 import * as path from 'path';
 
-
-// Initialize Firebase Admin SDK if not already initialized
+// Initialize Firebase Admin SDK only once.
 if (!admin.apps.length) {
   try {
-    // This path is relative to the project root, where the server action runs.
-    const serviceAccountPath = path.resolve(process.cwd(), 'service-account-credentials.json');
-    
-    if (fs.existsSync(serviceAccountPath)) {
-        const serviceAccount = require('../../service-account-credentials.json');
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-        });
-        console.log("Firebase Admin SDK initialized successfully for userActions.");
+    // When deployed to a Google Cloud environment (like App Hosting),
+    // the SDK will automatically use Application Default Credentials.
+    // When running locally, it will use the service account file.
+    if (process.env.NODE_ENV === 'production') {
+        admin.initializeApp();
+        console.log("Firebase Admin SDK initialized for PRODUCTION.");
     } else {
-        console.warn("service-account-credentials.json not found. Firebase Admin SDK not initialized for userActions. This is expected in production if using Application Default Credentials.");
-        // In a real production environment on Google Cloud, you'd rely on Application Default Credentials.
-        // For App Hosting, you might need to use environment variables.
-        // For now, we just prevent it from crashing.
-         admin.initializeApp();
+        const serviceAccountPath = path.resolve(process.cwd(), 'service-account-credentials.json');
+        if (fs.existsSync(serviceAccountPath)) {
+            const serviceAccount = require('../../service-account-credentials.json');
+            admin.initializeApp({
+                credential: admin.credential.cert(serviceAccount),
+            });
+            console.log("Firebase Admin SDK initialized for LOCAL development.");
+        } else {
+            console.warn("service-account-credentials.json not found. Attempting to initialize with default credentials for local env.");
+            admin.initializeApp();
+        }
     }
-  } catch (error) {
-    console.error("Error initializing Firebase Admin SDK in userActions:", error);
-    // In a production environment, you should handle this more gracefully.
-    if (admin.apps.length === 0) {
-      admin.initializeApp(); // Initialize without credentials to avoid crashing other parts of the app if they depend on the SDK being initialized.
-    }
+  } catch (error: any) {
+    console.error("CRITICAL: Failed to initialize Firebase Admin SDK in userActions.ts. Error: ", error.message);
+    // If initialization fails, subsequent Firestore/Auth calls will fail.
+    // It's better to let it fail loudly than to have silent errors.
   }
 }
+
 
 const db = admin.firestore();
 const auth = admin.auth();
