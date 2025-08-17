@@ -9,29 +9,25 @@ import * as path from 'path';
 // Initialize Firebase Admin SDK only once.
 if (!admin.apps.length) {
   try {
-    // When deployed to a Google Cloud environment (like App Hosting),
-    // the SDK will automatically use Application Default Credentials.
-    // When running locally, it will use the service account file.
-    if (process.env.NODE_ENV === 'production') {
-        admin.initializeApp();
-        console.log("Firebase Admin SDK initialized for PRODUCTION.");
+    const serviceAccountPath = path.resolve(process.cwd(), 'service-account-credentials.json');
+    
+    // In production on App Hosting, the file should exist.
+    // Locally, we also use this file.
+    if (fs.existsSync(serviceAccountPath)) {
+        const serviceAccount = require('../../service-account-credentials.json');
+        admin.initializeApp({
+            credential: admin.credential.cert(serviceAccount),
+        });
+        console.log("Firebase Admin SDK initialized using service account file.");
     } else {
-        const serviceAccountPath = path.resolve(process.cwd(), 'service-account-credentials.json');
-        if (fs.existsSync(serviceAccountPath)) {
-            const serviceAccount = require('../../service-account-credentials.json');
-            admin.initializeApp({
-                credential: admin.credential.cert(serviceAccount),
-            });
-            console.log("Firebase Admin SDK initialized for LOCAL development.");
-        } else {
-            console.warn("service-account-credentials.json not found. Attempting to initialize with default credentials for local env.");
-            admin.initializeApp();
-        }
+        // Fallback for environments where ADC is expected and the file is not present.
+        // This might be the case in some CI/CD or other cloud environments.
+        console.warn("service-account-credentials.json not found. Attempting to initialize with default credentials.");
+        admin.initializeApp();
     }
   } catch (error: any) {
     console.error("CRITICAL: Failed to initialize Firebase Admin SDK in userActions.ts. Error: ", error.message);
     // If initialization fails, subsequent Firestore/Auth calls will fail.
-    // It's better to let it fail loudly than to have silent errors.
   }
 }
 
@@ -147,36 +143,39 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
 
     for (const row of data) {
         try {
-            // Step 1: Check for existing unit
-            const unitQuery = await unitsCollection.where('id', '==', row.unitId).get();
-            if (!unitQuery.empty) {
-                throw new Error(`Đơn vị với ID '${row.unitId}' đã tồn tại.`);
+            // Step 1: Check for existing unit by ID
+            let unitId = row.unitId;
+            const unitDocRef = unitsCollection.doc(unitId);
+            const unitDoc = await unitDocRef.get();
+            if (unitDoc.exists) {
+                console.log(`Unit with ID '${unitId}' already exists. Skipping unit creation.`);
+            } else {
+                 // Step 1.1: Create Unit in Firestore if it doesn't exist
+                await unitDocRef.set({
+                    id: unitId,
+                    name: row.unitName,
+                    type: 'commune', // All imports are communes
+                    parentId: row.unitParentId || null,
+                    address: row.unitAddress || '',
+                    headquarters: row.unitHeadquarters || ''
+                });
+                 console.log(`Created new unit with ID: ${unitId}`);
             }
 
-            // Step 2: Check for existing user
+
+            // Step 2: Check for existing user by email
             try {
                 await auth.getUserByEmail(row.userEmail);
-                // If the above line doesn't throw, the user exists
                 throw new Error(`Người dùng với email '${row.userEmail}' đã tồn tại trong Authentication.`);
             } catch (error: any) {
                  if (error.code !== 'auth/user-not-found') {
-                    // Rethrow if it's not the "user-not-found" error we expect
+                    // If the error is anything other than 'user-not-found', it's a real problem.
                     throw error;
                 }
-                // If it is 'auth/user-not-found', we can proceed.
+                // If it is 'auth/user-not-found', we can safely proceed to create the user.
             }
             
-            // Step 3: Create Unit in Firestore
-            await unitsCollection.doc(row.unitId).set({
-                id: row.unitId,
-                name: row.unitName,
-                type: 'commune', // Assuming all imports are communes for now
-                parentId: row.unitParentId || null,
-                address: row.unitAddress || '',
-                headquarters: row.unitHeadquarters || ''
-            });
-
-            // Step 4: Create User in Authentication
+            // Step 3: Create User in Authentication
             const userRecord = await auth.createUser({
                 email: row.userEmail,
                 password: row.userPassword,
@@ -186,20 +185,31 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
             });
             await auth.setCustomUserClaims(userRecord.uid, { role: 'commune_staff' });
             
-            // Step 5: Create User in Firestore
+            // Step 4: Create User in Firestore, linking to the unit
             const firestoreUser: User = {
                 id: userRecord.uid,
                 username: row.userEmail,
                 displayName: row.userDisplayName,
                 role: 'commune_staff',
-                communeId: row.unitId,
+                communeId: unitId,
             };
             await usersCollection.doc(userRecord.uid).set(firestoreUser);
             
             results.successCount++;
         } catch (error: any) {
             results.errorCount++;
-            results.errors.push(`Dòng ${data.indexOf(row) + 2}: ${error.message}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error(`Error on row ${data.indexOf(row) + 2}:`, errorMessage);
+
+            // Extract the raw server response if it's a Firebase error
+            let detailedError = errorMessage;
+            if (error.errorInfo) {
+                detailedError = JSON.stringify(error.errorInfo);
+            } else if (error.cause) {
+                detailedError = JSON.stringify(error.cause);
+            }
+            
+            results.errors.push(`Dòng ${data.indexOf(row) + 2}: ${detailedError}`);
         }
     }
 
