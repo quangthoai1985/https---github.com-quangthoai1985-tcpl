@@ -59,6 +59,8 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
   const [formData, setFormData] = React.useState(user);
   const [password, setPassword] = React.useState('');
   const { units } = useData();
+  const communeUnits = units.filter(u => u.type === 'commune');
+
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { id, value } = e.target;
@@ -93,7 +95,7 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
                       <SelectValue placeholder="Chọn đơn vị" />
                   </SelectTrigger>
                   <SelectContent>
-                      {units.map(unit => (
+                      {communeUnits.map(unit => (
                           <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>
                       ))}
                   </SelectContent>
@@ -101,15 +103,7 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="role" className="text-right">Vai trò</Label>
-              <Select value={formData.role} onValueChange={handleSelectChange('role')}>
-                  <SelectTrigger className="col-span-3">
-                      <SelectValue placeholder="Chọn vai trò" />
-                  </SelectTrigger>
-                  <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="commune_staff">Cán bộ</SelectItem>
-                  </SelectContent>
-              </Select>
+               <Input id="role" value="Cán bộ" disabled className="col-span-3" />
           </div>
           {!user.id && (
             <div className="grid grid-cols-4 items-center gap-4">
@@ -233,24 +227,6 @@ function UserTable({ users, onEdit, onResetPassword, onDelete, onImport }: { use
             />
           </div>
           <div className='flex items-center gap-2'>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-10 gap-1">
-                  <ListFilter className="h-3.5 w-3.5" />
-                  <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                    Lọc
-                  </span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Lọc theo vai trò</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem checked>
-                  Admin
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem>Cán bộ</DropdownMenuCheckboxItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
             <Button size="sm" variant="outline" className="h-10 gap-1" onClick={onImport}>
               <Upload className="h-3.5 w-3.5" />
               <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
@@ -274,7 +250,7 @@ function UserTable({ users, onEdit, onResetPassword, onDelete, onImport }: { use
                 <span className="sr-only">Avatar</span>
               </TableHead>
               <TableHead>Họ và tên</TableHead>
-              <TableHead>Vai trò</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead className="hidden md:table-cell">
                 Đơn vị
               </TableHead>
@@ -288,19 +264,16 @@ function UserTable({ users, onEdit, onResetPassword, onDelete, onImport }: { use
               <TableRow key={user.id}>
                 <TableCell className="hidden sm:table-cell">
                    <Avatar className="h-9 w-9">
-                    <AvatarFallback className={user.role === 'admin' ? 'bg-primary text-primary-foreground' : ''}>
+                    <AvatarFallback>
                         {user.displayName.split(' ').map(n => n[0]).slice(-2).join('').toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                 </TableCell>
                 <TableCell className="font-medium">
                     {user.displayName}
-                    <div className="text-sm text-muted-foreground md:hidden">
-                        {user.username}
-                    </div>
                 </TableCell>
-                <TableCell>
-                  <Badge variant="outline">{user.role === 'admin' ? 'Admin' : 'Cán bộ'}</Badge>
+                 <TableCell>
+                  {user.username}
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
                   {getUnitName(user.communeId)}
@@ -411,14 +384,16 @@ export default function UserManagementPage() {
   const handleSaveUser = async (userToSave: Partial<User>, password?: string) => {
     try {
         let result;
-        if (userToSave.id) { // Editing existing user
-            result = await updateUser(userToSave as User);
+        const dataToSave = { ...userToSave, role: 'commune_staff' as const };
+
+        if (dataToSave.id) { // Editing existing user
+            result = await updateUser(dataToSave as User);
         } else { // Creating new user
-            if (!userToSave.username || !password || !userToSave.displayName || !userToSave.role) {
+            if (!dataToSave.username || !password || !dataToSave.displayName) {
                 toast({ variant: 'destructive', title: "Lỗi!", description: "Vui lòng điền đầy đủ thông tin." });
                 return;
             }
-            result = await createUser(userToSave as Omit<User, 'id'>, password);
+            result = await createUser(dataToSave as Omit<User, 'id'>, password);
         }
 
         if (result.success) {
@@ -465,28 +440,13 @@ export default function UserManagementPage() {
       await refreshData();
   };
   
-  const adminUsers = users.filter(u => u.role === 'admin');
-  const communeUsers = users.filter(u => u.role === 'commune_staff');
+  const staffUsers = users.filter(u => u.role === 'commune_staff');
 
   return (
     <>
-    <PageHeader title="Quản lý Người dùng" description="Quản lý tất cả người dùng và vai trò trong hệ thống."/>
-    <Tabs defaultValue="all">
-      <TabsList className="grid w-full grid-cols-3">
-        <TabsTrigger value="all">Tất cả</TabsTrigger>
-        <TabsTrigger value="admin">Admin</TabsTrigger>
-        <TabsTrigger value="commune">Cán bộ</TabsTrigger>
-      </TabsList>
-      <TabsContent value="all">
-        <UserTable users={users} onEdit={handleEdit} onResetPassword={handleResetPassword} onDelete={handleDelete} onImport={() => setIsImportOpen(true)} />
-      </TabsContent>
-      <TabsContent value="admin">
-        <UserTable users={adminUsers} onEdit={handleEdit} onResetPassword={handleResetPassword} onDelete={handleDelete} onImport={() => setIsImportOpen(true)} />
-      </TabsContent>
-      <TabsContent value="commune">
-        <UserTable users={communeUsers} onEdit={handleEdit} onResetPassword={handleResetPassword} onDelete={handleDelete} onImport={() => setIsImportOpen(true)} />
-      </TabsContent>
-    </Tabs>
+    <PageHeader title="Quản lý Người dùng" description="Quản lý tài khoản của các cán bộ trong hệ thống."/>
+    
+    <UserTable users={staffUsers} onEdit={handleEdit} onResetPassword={handleResetPassword} onDelete={handleDelete} onImport={() => setIsImportOpen(true)} />
 
     {/* Add/Edit User Dialog */}
     <Dialog open={isNewUserDialogOpen} onOpenChange={(open) => {

@@ -13,6 +13,7 @@ import {
   FileUp,
   Shield,
   User,
+  HelpCircle,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -109,12 +110,18 @@ export default function AppHeader() {
                 <p className="font-semibold text-sm">{currentUser.displayName}</p>
                 <p className="text-xs text-muted-foreground">
                   {currentUser.role === 'admin' 
-                    ? 'Admin' 
+                    ? 'Quản trị viên hệ thống' 
                     : getUnitName(currentUser.communeId)
                   }
                 </p>
             </div>
         )}
+        <Link href="/user-guide">
+            <Button variant="outline" size="icon">
+                <HelpCircle className="h-4 w-4" />
+                <span className="sr-only">Hướng dẫn sử dụng</span>
+            </Button>
+        </Link>
         <Popover>
             <PopoverTrigger asChild>
                 <Button variant="outline" size="icon" className="relative">

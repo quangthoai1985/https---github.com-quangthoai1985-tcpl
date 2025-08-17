@@ -144,6 +144,9 @@ export default function UnitManagementPage() {
     const [deletingUnit, setDeletingUnit] = React.useState<Unit | null>(null);
     const { toast } = useToast();
 
+    // Filter to show only commune-level units
+    const communeUnits = units.filter(unit => unit.type === 'commune');
+
     const handleNew = () => {
         setEditingUnit({});
         setIsFormOpen(true);
@@ -225,7 +228,7 @@ export default function UnitManagementPage() {
 
   return (
     <>
-    <PageHeader title="Quản lý Đơn vị" description="Quản lý danh sách các đơn vị trong hệ thống."/>
+    <PageHeader title="Quản lý Đơn vị" description="Quản lý danh sách các đơn vị cấp xã trong hệ thống."/>
     <Card>
       <CardHeader>
         <div className="flex items-center justify-end gap-2">
@@ -252,7 +255,7 @@ export default function UnitManagementPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {units.map((unit) => (
+            {communeUnits.map((unit) => (
               <TableRow key={unit.id}>
                 <TableCell className="font-medium">{unit.name}</TableCell>
                 <TableCell>{unit.address}</TableCell>
@@ -285,7 +288,7 @@ export default function UnitManagementPage() {
       </CardContent>
       <CardFooter>
         <div className="text-xs text-muted-foreground">
-          Hiển thị <strong>1-{units.length}</strong> trên <strong>{units.length}</strong> đơn vị
+          Hiển thị <strong>1-{communeUnits.length}</strong> trên <strong>{communeUnits.length}</strong> đơn vị
         </div>
       </CardFooter>
     </Card>
