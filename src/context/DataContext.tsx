@@ -20,7 +20,7 @@ const firebaseConfig: FirebaseOptions = {
   apiKey: "AIzaSyCj0H_a8O7znR_M1bFim9Lzt5MfnsptxH4",
   authDomain: "chuan-tiep-can-pl.firebaseapp.com",
   projectId: "chuan-tiep-can-pl",
-  storageBucket: "chuan-tiep-can-pl.appspot.com",
+  storageBucket: "chuan-tiep-can-pl.firebasestorage.app",
   messagingSenderId: "851876581009",
   appId: "1:851876581009:web:60bfbcc40055f76f607930"
 };
