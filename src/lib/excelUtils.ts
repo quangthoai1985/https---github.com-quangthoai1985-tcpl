@@ -2,7 +2,7 @@
 'use client';
 
 import * as XLSX from 'xlsx';
-import type { Unit, User, UnitAndUserImport } from './data';
+import type { UnitAndUserImport } from './data';
 
 
 // ===== UNIFIED UNIT AND USER IMPORT =====

@@ -148,8 +148,8 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
     for (const row of data) {
         try {
             // Step 1: Check for existing unit
-            const unitDoc = await unitsCollection.doc(row.unitId).get();
-            if (unitDoc.exists) {
+            const unitQuery = await unitsCollection.where('id', '==', row.unitId).get();
+            if (!unitQuery.empty) {
                 throw new Error(`Đơn vị với ID '${row.unitId}' đã tồn tại.`);
             }
 
