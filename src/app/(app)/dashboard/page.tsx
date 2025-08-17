@@ -46,7 +46,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 
 const AdminDashboard = () => {
-    const { units, assessments, assessmentPeriods } = useData();
+    const { units, assessments, assessmentPeriods } from useData();
     const [selectedPeriod, setSelectedPeriod] = React.useState<string | undefined>(assessmentPeriods.find(p => p.isActive)?.id);
 
     const {

@@ -56,7 +56,7 @@ const units: Unit[] = [
 ];
 
 const usersRaw = [
-    { email: "admin@angiang.gov.vn", password: "123456", displayName: "Nguyễn Văn Admin", role: "admin", communeId: "" },
+    { email: "admin@angiang.gov.vn", password: "123456", displayName: "Nguyễn Văn Admin", role: "admin", communeId: "TINH_HN" },
     { email: "chaudoc@angiang.gov.vn", password: "123456", displayName: "Trần Thị Cán bộ", role: "commune_staff", communeId: "PHUONG_BK" },
     { email: "user02@example.com", password: "123456", displayName: "Lê Văn Cán bộ", role: "commune_staff", communeId: "XA_TT" },
     { email: "user03@example.com", password: "123456", displayName: "Phạm Thị Cán bộ", role: "commune_staff", communeId: "PHUONG_DVH" },
@@ -331,6 +331,3 @@ async function main() {
 }
 
 main();
-
-
-    

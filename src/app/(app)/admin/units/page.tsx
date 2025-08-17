@@ -148,8 +148,7 @@ export default function UnitManagementPage() {
 
     // Filter to show only commune-level units
     const communeUnits = units
-        .filter(unit => unit.type === 'commune')
-        .filter(unit => unit.name.toLowerCase().includes(searchTerm.toLowerCase()));
+        .filter(unit => unit.type === 'commune' && unit.name.toLowerCase().includes(searchTerm.toLowerCase()));
 
 
     const handleNew = () => {
@@ -305,7 +304,7 @@ export default function UnitManagementPage() {
       </CardContent>
       <CardFooter>
         <div className="text-xs text-muted-foreground">
-          Hiển thị <strong>{communeUnits.length}</strong> trên <strong>{communeUnits.length}</strong> đơn vị
+          Hiển thị <strong>{communeUnits.length}</strong> trên <strong>{units.filter(u => u.type === 'commune').length}</strong> đơn vị
         </div>
       </CardFooter>
     </Card>
@@ -344,5 +343,3 @@ export default function UnitManagementPage() {
     </>
   );
 }
-
-    
