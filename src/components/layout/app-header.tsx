@@ -111,7 +111,7 @@ export default function AppHeader() {
                 <p className="text-xs text-muted-foreground">
                   {currentUser.role === 'admin' 
                     ? 'Quản trị viên hệ thống' 
-                    : getUnitName(currentUser.communeId)
+                    : `Cán bộ, ${getUnitName(currentUser.communeId)}`
                   }
                 </p>
             </div>
@@ -188,3 +188,5 @@ export default function AppHeader() {
     </header>
   );
 }
+
+    

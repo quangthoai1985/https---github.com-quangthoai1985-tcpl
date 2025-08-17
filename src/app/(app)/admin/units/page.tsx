@@ -6,6 +6,7 @@ import {
   MoreHorizontal,
   PlusCircle,
   Upload,
+  Search,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -142,10 +143,14 @@ export default function UnitManagementPage() {
     const [isImportOpen, setIsImportOpen] = React.useState(false);
     const [editingUnit, setEditingUnit] = React.useState<Partial<Unit> | null>(null);
     const [deletingUnit, setDeletingUnit] = React.useState<Unit | null>(null);
+    const [searchTerm, setSearchTerm] = React.useState('');
     const { toast } = useToast();
 
     // Filter to show only commune-level units
-    const communeUnits = units.filter(unit => unit.type === 'commune');
+    const communeUnits = units
+        .filter(unit => unit.type === 'commune')
+        .filter(unit => unit.name.toLowerCase().includes(searchTerm.toLowerCase()));
+
 
     const handleNew = () => {
         setEditingUnit({});
@@ -231,15 +236,27 @@ export default function UnitManagementPage() {
     <PageHeader title="Quản lý Đơn vị" description="Quản lý danh sách các đơn vị cấp xã trong hệ thống."/>
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-end gap-2">
-            <Button variant="outline" onClick={() => setIsImportOpen(true)}>
-                <Upload className="mr-2 h-4 w-4" />
-                Import
-            </Button>
-            <Button onClick={handleNew}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Thêm Đơn vị
-            </Button>
+        <div className="flex items-center justify-between">
+            <div className="relative flex-1 md:grow-0">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                    type="search"
+                    placeholder="Tìm kiếm đơn vị..."
+                    className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[320px]"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                />
+            </div>
+            <div className="flex items-center justify-end gap-2">
+                <Button variant="outline" onClick={() => setIsImportOpen(true)}>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Import
+                </Button>
+                <Button onClick={handleNew}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Thêm Đơn vị
+                </Button>
+            </div>
         </div>
       </CardHeader>
       <CardContent>
@@ -288,7 +305,7 @@ export default function UnitManagementPage() {
       </CardContent>
       <CardFooter>
         <div className="text-xs text-muted-foreground">
-          Hiển thị <strong>1-{communeUnits.length}</strong> trên <strong>{communeUnits.length}</strong> đơn vị
+          Hiển thị <strong>{communeUnits.length}</strong> trên <strong>{communeUnits.length}</strong> đơn vị
         </div>
       </CardFooter>
     </Card>
@@ -327,3 +344,5 @@ export default function UnitManagementPage() {
     </>
   );
 }
+
+    
