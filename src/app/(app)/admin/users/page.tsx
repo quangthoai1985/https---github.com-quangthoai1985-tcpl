@@ -210,8 +210,9 @@ function ImportDialog({ onImport, onCancel }: { onImport: (data: UnitAndUserImpo
 
 function UserTable({ users, onEdit, onResetPassword, onDelete, onImport }: { users: User[], onEdit: (user?: User) => void, onResetPassword: (user: User) => void, onDelete: (user: User) => void, onImport: () => void }) {
   const { units } = useData();
-  const getUnitName = (unitId: string) => {
-    return units.find(u => u.id === unitId)?.name || 'Không xác định';
+  const getUnitName = (communeId?: string) => {
+    if (!communeId) return 'Không xác định';
+    return units.find(u => u.id === communeId)?.name || 'Không xác định';
   }
   
   return (

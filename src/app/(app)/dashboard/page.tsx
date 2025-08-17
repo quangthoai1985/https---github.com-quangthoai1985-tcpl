@@ -43,6 +43,7 @@ import { Pie, PieChart, Cell, ResponsiveContainer, LineChart, CartesianGrid, XAx
 import React from 'react';
 import PageHeader from '@/components/layout/page-header';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import type { Unit } from '@/lib/data';
 
 
 const AdminDashboard = () => {
@@ -144,7 +145,9 @@ const AdminDashboard = () => {
       },
     ];
 
-    const getUnitName = (communeId: string) => {
+    const getUnitName = (communeId?: string) => {
+        if (!communeId) return { communeName: 'Không xác định', districtName: '', provinceName: '' };
+        
         const unit = units.find(u => u.id === communeId);
         if (!unit) return { communeName: 'Không xác định', districtName: '', provinceName: '' };
         

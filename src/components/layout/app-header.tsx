@@ -77,7 +77,8 @@ export default function AppHeader() {
       return <Clock className="h-4 w-4 text-yellow-500" />;
   }
   
-  const getUnitName = (unitId: string) => {
+  const getUnitName = (unitId?: string) => {
+    if (!unitId) return "";
     return units.find(u => u.id === unitId)?.name || "";
   }
 
@@ -188,5 +189,3 @@ export default function AppHeader() {
     </header>
   );
 }
-
-    
