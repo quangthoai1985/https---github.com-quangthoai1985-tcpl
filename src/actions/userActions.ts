@@ -3,19 +3,35 @@
 
 import type { UnitAndUserImport, User } from '@/lib/data';
 import * as admin from 'firebase-admin';
+import * as fs from 'fs';
+import * as path from 'path';
+
 
 // Initialize Firebase Admin SDK if not already initialized
 if (!admin.apps.length) {
   try {
     // This path is relative to the project root, where the server action runs.
-    const serviceAccount = require('../../service-account-credentials.json');
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
-     console.log("Firebase Admin SDK initialized successfully for userActions.");
+    const serviceAccountPath = path.resolve(process.cwd(), 'service-account-credentials.json');
+    
+    if (fs.existsSync(serviceAccountPath)) {
+        const serviceAccount = require('../../service-account-credentials.json');
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+        });
+        console.log("Firebase Admin SDK initialized successfully for userActions.");
+    } else {
+        console.warn("service-account-credentials.json not found. Firebase Admin SDK not initialized for userActions. This is expected in production if using Application Default Credentials.");
+        // In a real production environment on Google Cloud, you'd rely on Application Default Credentials.
+        // For App Hosting, you might need to use environment variables.
+        // For now, we just prevent it from crashing.
+         admin.initializeApp();
+    }
   } catch (error) {
     console.error("Error initializing Firebase Admin SDK in userActions:", error);
     // In a production environment, you should handle this more gracefully.
+    if (admin.apps.length === 0) {
+      admin.initializeApp(); // Initialize without credentials to avoid crashing other parts of the app if they depend on the SDK being initialized.
+    }
   }
 }
 
