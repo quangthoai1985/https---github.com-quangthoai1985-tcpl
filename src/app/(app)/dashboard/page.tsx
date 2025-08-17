@@ -47,7 +47,7 @@ import type { Unit } from '@/lib/data';
 
 
 const AdminDashboard = () => {
-    const { units, assessments, assessmentPeriods } from useData();
+    const { units, assessments, assessmentPeriods } = useData();
     const [selectedPeriod, setSelectedPeriod] = React.useState<string | undefined>(assessmentPeriods.find(p => p.isActive)?.id);
 
     const {
@@ -151,8 +151,14 @@ const AdminDashboard = () => {
         const unit = units.find(u => u.id === communeId);
         if (!unit) return { communeName: 'Không xác định', districtName: '', provinceName: '' };
         
+        if (unit.type === 'province') {
+            return { communeName: unit.name, districtName: '', provinceName: '' };
+        }
+        
         const district = units.find(u => u.id === unit.parentId);
-        const province = units.find(u => u.id === district?.parentId);
+        if (!district) return { communeName: unit.name, districtName: 'Không xác định', provinceName: '' };
+        
+        const province = units.find(u => u.id === district.parentId);
 
         return {
             communeName: unit.name,
@@ -431,3 +437,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    

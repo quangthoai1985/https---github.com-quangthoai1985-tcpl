@@ -54,13 +54,20 @@ export default function ReviewAssessmentsPage() {
         'not_sent': { text: 'Chưa gửi', icon: FileX, badge: 'secondary', className: 'bg-muted text-muted-foreground' }
     };
     
-    const getUnitName = (communeId: string) => {
+    const getUnitName = (communeId?: string) => {
+        if (!communeId) return { communeName: 'Không xác định', districtName: '', provinceName: '' };
+        
         const unit = units.find(u => u.id === communeId);
         if (!unit) return { communeName: 'Không xác định', districtName: '', provinceName: '' };
         
-        // This is a simplified logic. A real app would have proper relations.
+        if (unit.type === 'province') {
+            return { communeName: unit.name, districtName: '', provinceName: '' };
+        }
+        
         const district = units.find(u => u.id === unit.parentId);
-        const province = units.find(u => u.id === district?.parentId);
+        if (!district) return { communeName: unit.name, districtName: 'Không xác định', provinceName: '' };
+
+        const province = units.find(u => u.id === district.parentId);
 
         return {
             communeName: unit.name,
@@ -214,3 +221,5 @@ export default function ReviewAssessmentsPage() {
         </>
     );
 }
+
+    

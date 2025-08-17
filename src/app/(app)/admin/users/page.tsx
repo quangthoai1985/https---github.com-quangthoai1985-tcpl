@@ -212,7 +212,8 @@ function UserTable({ users, onEdit, onResetPassword, onDelete, onImport }: { use
   const { units } = useData();
   const getUnitName = (communeId?: string) => {
     if (!communeId) return 'Không xác định';
-    return units.find(u => u.id === communeId)?.name || 'Không xác định';
+    const unit = units.find(u => u.id === communeId);
+    return unit ? unit.name : 'Không xác định';
   }
   
   return (
@@ -500,3 +501,5 @@ export default function UserManagementPage() {
     </>
   );
 }
+
+    
