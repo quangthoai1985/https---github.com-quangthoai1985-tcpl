@@ -9,11 +9,13 @@ import { useData } from "@/context/DataContext";
 import { useToast } from "@/hooks/use-toast";
 import React from "react";
 import PageHeader from "@/components/layout/page-header";
+import { updateUser } from "@/actions/userActions";
+import type { User } from "@/lib/data";
 
 export default function ProfilePage() {
-    const { users, setUsers, currentUser } = useData();
-    const { units } = useData();
+    const { currentUser, units, refreshData } = useData();
     const { toast } = useToast();
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
 
     const [displayName, setDisplayName] = React.useState(currentUser?.displayName || '');
     
@@ -23,19 +25,33 @@ export default function ProfilePage() {
         }
     }, [currentUser]);
 
-    const handleProfileUpdate = (e: React.FormEvent) => {
+    const handleProfileUpdate = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (currentUser) {
-            const updatedUser = { ...currentUser, displayName };
-            setUsers(users.map(u => u.id === currentUser.id ? updatedUser : u));
+        if (!currentUser) return;
+        setIsSubmitting(true);
+
+        const updatedUser: User = { ...currentUser, displayName };
+
+        const result = await updateUser(updatedUser);
+
+        if (result.success) {
             toast({
                 title: "Thành công!",
                 description: "Thông tin cá nhân của bạn đã được cập nhật.",
             });
+            await refreshData();
+        } else {
+             toast({
+                variant: 'destructive',
+                title: "Lỗi!",
+                description: result.error || "Không thể cập nhật hồ sơ.",
+            });
         }
+        setIsSubmitting(false);
     };
     
-    const getUnitName = (unitId: string) => {
+    const getUnitName = (unitId?: string) => {
+        if (!unitId) return "Không xác định";
         return units.find(u => u.id === unitId)?.name || "Không xác định";
     }
 
@@ -69,7 +85,9 @@ export default function ProfilePage() {
                             <Input id="unit" value={getUnitName(currentUser.communeId)} disabled />
                         </div>
                         <div className="flex justify-end">
-                            <Button type="submit">Cập nhật hồ sơ</Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? 'Đang cập nhật...' : 'Cập nhật hồ sơ'}
+                            </Button>
                         </div>
                     </form>
                 </CardContent>
