@@ -217,11 +217,13 @@ export default function UnitManagementPage() {
             });
         }
         if (result.errorCount > 0) {
+            // Join all errors with a line break for better readability in the toast
+            const errorDetails = result.errors.join('\n');
             toast({
                 variant: 'destructive',
-                title: `Import có lỗi!`,
-                description: `Thất bại ${result.errorCount} dòng. Lỗi đầu tiên: ${result.errors[0]}`,
-                duration: 10000,
+                title: `Import có lỗi! (${result.errorCount} dòng thất bại)`,
+                description: <pre className="mt-2 w-[340px] rounded-md bg-slate-950 p-4"><code className="text-white whitespace-pre-wrap">{errorDetails}</code></pre>,
+                duration: 20000, // Increase duration for readability
             });
              console.error("Import errors:", result.errors);
         }

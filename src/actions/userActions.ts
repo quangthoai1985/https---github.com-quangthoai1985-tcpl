@@ -22,7 +22,7 @@ if (!admin.apps.length) {
     } else {
         // Fallback for environments where ADC is expected and the file is not present.
         // This might be the case in some CI/CD or other cloud environments.
-        console.warn("service-account-credentials.json not found. Attempting to initialize with default credentials.");
+        console.warn("service-account-credentials.json not found. Initializing with default credentials for production.");
         admin.initializeApp();
     }
   } catch (error: any) {
@@ -141,16 +141,17 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
     const unitsCollection = db.collection('units');
     const usersCollection = db.collection('users');
 
-    for (const row of data) {
+    for (const [index, row] of data.entries()) {
+        const rowIndex = index + 2; // Excel rows are 1-based, and we have a header
         try {
             // Step 1: Check for existing unit by ID
             let unitId = row.unitId;
             const unitDocRef = unitsCollection.doc(unitId);
             const unitDoc = await unitDocRef.get();
             if (unitDoc.exists) {
-                console.log(`Unit with ID '${unitId}' already exists. Skipping unit creation.`);
+                // Unit already exists, skip creation
             } else {
-                 // Step 1.1: Create Unit in Firestore if it doesn't exist
+                 // Create Unit in Firestore if it doesn't exist
                 await unitDocRef.set({
                     id: unitId,
                     name: row.unitName,
@@ -159,20 +160,19 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
                     address: row.unitAddress || '',
                     headquarters: row.unitHeadquarters || ''
                 });
-                 console.log(`Created new unit with ID: ${unitId}`);
             }
 
-
-            // Step 2: Check for existing user by email
+            // Step 2: Check if user already exists in Auth
             try {
                 await auth.getUserByEmail(row.userEmail);
+                // If it doesn't throw, user exists.
                 throw new Error(`Người dùng với email '${row.userEmail}' đã tồn tại trong Authentication.`);
             } catch (error: any) {
                  if (error.code !== 'auth/user-not-found') {
-                    // If the error is anything other than 'user-not-found', it's a real problem.
+                    // This will catch our custom error from above and other potential issues
                     throw error;
                 }
-                // If it is 'auth/user-not-found', we can safely proceed to create the user.
+                // If code is 'auth/user-not-found', we can proceed.
             }
             
             // Step 3: Create User in Authentication
@@ -198,18 +198,30 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
             results.successCount++;
         } catch (error: any) {
             results.errorCount++;
-            const errorMessage = error instanceof Error ? error.message : String(error);
-            console.error(`Error on row ${data.indexOf(row) + 2}:`, errorMessage);
-
-            // Extract the raw server response if it's a Firebase error
-            let detailedError = errorMessage;
-            if (error.errorInfo) {
-                detailedError = JSON.stringify(error.errorInfo);
-            } else if (error.cause) {
-                detailedError = JSON.stringify(error.cause);
+            let errorMessage = "Lỗi không xác định.";
+            if (error instanceof Error) {
+                // Check for Firebase-specific error codes for more user-friendly messages
+                if ('code' in error && typeof error.code === 'string') {
+                    switch (error.code) {
+                        case 'auth/invalid-email':
+                            errorMessage = `Email '${row.userEmail}' không hợp lệ.`;
+                            break;
+                        case 'auth/email-already-exists':
+                             errorMessage = `Email '${row.userEmail}' đã được sử dụng.`;
+                             break;
+                        case 'auth/weak-password':
+                             errorMessage = `Mật khẩu quá yếu. Phải có ít nhất 6 ký tự.`;
+                             break;
+                        default:
+                             errorMessage = error.message;
+                    }
+                } else {
+                     errorMessage = error.message;
+                }
             }
-            
-            results.errors.push(`Dòng ${data.indexOf(row) + 2}: ${detailedError}`);
+            const finalError = `Dòng ${rowIndex}: ${errorMessage}`;
+            console.error(finalError);
+            results.errors.push(finalError);
         }
     }
 
