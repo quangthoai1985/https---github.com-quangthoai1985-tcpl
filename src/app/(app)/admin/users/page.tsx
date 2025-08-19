@@ -44,11 +44,11 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import React from 'react';
+import React, { useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useData } from '@/context/DataContext';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import type { UnitAndUserImport, User } from '@/lib/data';
+import type { Unit, UnitAndUserImport, User } from '@/lib/data';
 import PageHeader from '@/components/layout/page-header';
 import { downloadUnitAndUserTemplate, readUnitsAndUsersFromExcel } from '@/lib/excelUtils';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -208,13 +208,34 @@ function ImportDialog({ onImport, onCancel }: { onImport: (data: UnitAndUserImpo
     );
 }
 
-function UserTable({ users, onEdit, onResetPassword, onDelete, onImport }: { users: User[], onEdit: (user?: User) => void, onResetPassword: (user: User) => void, onDelete: (user: User) => void, onImport: () => void }) {
-  const { units } = useData();
+function UserTable({ users, units, searchTerm, setSearchTerm, onEdit, onResetPassword, onDelete, onImport }: { 
+    users: User[], 
+    units: Unit[],
+    searchTerm: string,
+    setSearchTerm: (term: string) => void,
+    onEdit: (user?: User) => void, 
+    onResetPassword: (user: User) => void, 
+    onDelete: (user: User) => void, 
+    onImport: () => void 
+}) {
   const getUnitName = (communeId?: string) => {
     if (!communeId) return 'Không xác định';
     const unit = units.find(u => u.id === communeId);
     return unit ? unit.name : 'Không xác định';
   }
+
+  const filteredUsers = useMemo(() => {
+    if (!searchTerm) return users;
+    const lowercasedFilter = searchTerm.toLowerCase();
+    return users.filter(user => {
+      const unitName = getUnitName(user.communeId).toLowerCase();
+      return (
+        user.displayName.toLowerCase().includes(lowercasedFilter) ||
+        user.username.toLowerCase().includes(lowercasedFilter) ||
+        unitName.includes(lowercasedFilter)
+      );
+    });
+  }, [users, searchTerm, units]);
   
   return (
     <Card>
@@ -224,8 +245,10 @@ function UserTable({ users, onEdit, onResetPassword, onDelete, onImport }: { use
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
               type="search"
-              placeholder="Tìm kiếm..."
+              placeholder="Tìm kiếm theo tên, email, đơn vị..."
               className="w-full rounded-lg bg-background pl-8 md:w-[200px] lg:w-[320px]"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
           <div className='flex items-center gap-2'>
@@ -262,7 +285,7 @@ function UserTable({ users, onEdit, onResetPassword, onDelete, onImport }: { use
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((user) => (
+            {filteredUsers.length > 0 ? filteredUsers.map((user) => (
               <TableRow key={user.id}>
                 <TableCell className="hidden sm:table-cell">
                    <Avatar className="h-9 w-9">
@@ -304,13 +327,19 @@ function UserTable({ users, onEdit, onResetPassword, onDelete, onImport }: { use
                   </DropdownMenu>
                 </TableCell>
               </TableRow>
-            ))}
+            )) : (
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center">
+                  Không tìm thấy người dùng nào.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </CardContent>
       <CardFooter>
         <div className="text-xs text-muted-foreground">
-          Hiển thị <strong>1-{users.length}</strong> trên <strong>{users.length}</strong> người dùng
+          Hiển thị <strong>{filteredUsers.length}</strong> trên <strong>{users.length}</strong> người dùng
         </div>
       </CardFooter>
     </Card>
@@ -319,12 +348,13 @@ function UserTable({ users, onEdit, onResetPassword, onDelete, onImport }: { use
 
 
 export default function UserManagementPage() {
-  const { users, refreshData } = useData();
+  const { users, units, refreshData } = useData();
   const [editingUser, setEditingUser] = React.useState<Partial<User> | null>(null);
   const [isNewUserDialogOpen, setIsNewUserDialogOpen] = React.useState(false);
   const [isImportOpen, setIsImportOpen] = React.useState(false);
   const [resettingUser, setResettingUser] = React.useState<User | null>(null);
   const [deletingUser, setDeletingUser] = React.useState<User | null>(null);
+  const [searchTerm, setSearchTerm] = React.useState('');
   const { toast } = useToast();
 
   const handleEdit = (user?: User) => {
@@ -442,13 +472,22 @@ export default function UserManagementPage() {
       await refreshData();
   };
   
-  const staffUsers = users.filter(u => u.role === 'commune_staff');
+  // Filter for users who are commune staff and are linked to a valid commune
+  const staffUsers = users.filter(u => u.role === 'commune_staff' && u.communeId);
 
   return (
     <>
     <PageHeader title="Quản lý Người dùng" description="Quản lý tài khoản của các cán bộ trong hệ thống."/>
     
-    <UserTable users={staffUsers} onEdit={handleEdit} onResetPassword={handleResetPassword} onDelete={handleDelete} onImport={() => setIsImportOpen(true)} />
+    <UserTable 
+        users={staffUsers} 
+        units={units}
+        searchTerm={searchTerm}
+        setSearchTerm={setSearchTerm}
+        onEdit={handleEdit} 
+        onResetPassword={handleResetPassword} 
+        onDelete={handleDelete} 
+        onImport={() => setIsImportOpen(true)} />
 
     {/* Add/Edit User Dialog */}
     <Dialog open={isNewUserDialogOpen} onOpenChange={(open) => {
@@ -501,5 +540,3 @@ export default function UserManagementPage() {
     </>
   );
 }
-
-    
