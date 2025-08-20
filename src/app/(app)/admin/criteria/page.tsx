@@ -15,7 +15,7 @@ import {
   CardContent,
   CardHeader,
 } from '@/components/ui/card';
-import { MoreHorizontal, PlusCircle } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, CornerDownRight } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,7 +32,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import PageHeader from '@/components/layout/page-header';
 import { useData } from '@/context/DataContext';
-import type { Criterion, Indicator } from '@/lib/data';
+import type { Criterion, Indicator, SubIndicator } from '@/lib/data';
 
 
 function CriterionForm({ criterion, onSave, onCancel }: { criterion: Partial<Criterion>, onSave: (criterion: Partial<Criterion>) => void, onCancel: () => void }) {
@@ -69,8 +69,9 @@ function CriterionForm({ criterion, onSave, onCancel }: { criterion: Partial<Cri
   );
 }
 
-function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Indicator>, onSave: (indicator: Partial<Indicator>) => void, onCancel: () => void }) {
+function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: { indicator: Partial<Indicator | SubIndicator>, onSave: (indicator: Partial<Indicator | SubIndicator>) => void, onCancel: () => void, isSubIndicator?: boolean }) {
   const [formData, setFormData] = React.useState(indicator);
+  const title = isSubIndicator ? 'chỉ tiêu con' : 'chỉ tiêu';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
@@ -84,9 +85,9 @@ function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Ind
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{indicator.id ? 'Chỉnh sửa chỉ tiêu' : 'Tạo chỉ tiêu mới'}</DialogTitle>
+        <DialogTitle>{indicator.id ? `Chỉnh sửa ${title}` : `Tạo ${title} mới`}</DialogTitle>
         <DialogDescription>
-          {indicator.id ? 'Cập nhật thông tin chi tiết cho chỉ tiêu này.' : 'Điền thông tin để tạo chỉ tiêu mới.'}
+          {indicator.id ? `Cập nhật thông tin chi tiết cho ${title} này.` : `Điền thông tin để tạo ${title} mới.`}
         </DialogDescription>
       </DialogHeader>
       <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-6">
@@ -104,7 +105,7 @@ function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Ind
         </div>
         <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="inputType" className="text-right">Loại dữ liệu đầu vào</Label>
-          <Select value={formData.inputType} onValueChange={handleSelectChange}>
+          <Select value={(formData as Indicator).inputType} onValueChange={handleSelectChange}>
             <SelectTrigger className="col-span-3">
               <SelectValue placeholder="Chọn loại dữ liệu" />
             </SelectTrigger>
@@ -118,11 +119,11 @@ function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Ind
         </div>
         <div className="grid grid-cols-4 items-center gap-4">
           <Label htmlFor="calculationFormula" className="text-right">Công thức tính (nếu có)</Label>
-          <Input id="calculationFormula" value={formData.calculationFormula || ''} onChange={handleChange} className="col-span-3" />
+          <Input id="calculationFormula" value={(formData as Indicator).calculationFormula || ''} onChange={handleChange} className="col-span-3" />
         </div>
         <div className="grid grid-cols-4 items-start gap-4">
           <Label htmlFor="evidenceRequirement" className="text-right pt-2">Yêu cầu hồ sơ minh chứng</Label>
-          <Textarea id="evidenceRequirement" value={formData.evidenceRequirement || ''} onChange={handleChange} className="col-span-3" />
+          <Textarea id="evidenceRequirement" value={(formData as Indicator).evidenceRequirement || ''} onChange={handleChange} className="col-span-3" />
         </div>
       </div>
       <DialogFooter>
@@ -140,16 +141,14 @@ export default function CriteriaManagementPage() {
   const [addingCriterion, setAddingCriterion] = React.useState<boolean>(false);
   const [editingIndicator, setEditingIndicator] = React.useState<{criterionId: string, indicator: Partial<Indicator>} | null>(null);
   const [addingIndicatorTo, setAddingIndicatorTo] = React.useState<string | null>(null);
+  
+  const [editingSubIndicator, setEditingSubIndicator] = React.useState<{criterionId: string, indicatorId: string, subIndicator: Partial<SubIndicator>} | null>(null);
+  const [addingSubIndicatorTo, setAddingSubIndicatorTo] = React.useState<{criterionId: string, indicatorId: string} | null>(null);
+
   const { toast } = useToast();
   
-  const handleEditCriterion = (criterion: Criterion) => {
-    setEditingCriterion(criterion);
-  };
-  
-  const handleCancelEditCriterion = () => {
-    setEditingCriterion(null);
-    setAddingCriterion(false);
-  }
+  const handleEditCriterion = (criterion: Criterion) => setEditingCriterion(criterion);
+  const handleCancelEditCriterion = () => { setEditingCriterion(null); setAddingCriterion(false); }
 
   const handleSaveCriterion = async (criterionToSave: Partial<Criterion>) => {
     if (criterionToSave.id) {
@@ -172,15 +171,10 @@ export default function CriteriaManagementPage() {
     setEditingCriterion(null);
     setAddingCriterion(false);
   };
-
-  const handleEditIndicator = (criterionId: string, indicator: Indicator) => {
-    setEditingIndicator({ criterionId, indicator });
-  };
   
-  const handleCancelEditIndicator = () => {
-    setEditingIndicator(null);
-    setAddingIndicatorTo(null);
-  };
+  const handleAddIndicator = (criterionId: string) => setAddingIndicatorTo(criterionId);
+  const handleEditIndicator = (criterionId: string, indicator: Indicator) => setEditingIndicator({ criterionId, indicator });
+  const handleCancelEditIndicator = () => { setEditingIndicator(null); setAddingIndicatorTo(null); };
 
   const handleSaveIndicator = async (indicatorToSave: Partial<Indicator>) => {
     let newCriteria: Criterion[] = [];
@@ -205,6 +199,7 @@ export default function CriteriaManagementPage() {
         inputType: indicatorToSave.inputType || "text",
         calculationFormula: indicatorToSave.calculationFormula || null,
         evidenceRequirement: indicatorToSave.evidenceRequirement || "",
+        subIndicators: []
       };
 
       newCriteria = criteria.map(c => {
@@ -222,13 +217,69 @@ export default function CriteriaManagementPage() {
     if (newCriteria.length > 0) {
         await updateCriteria(newCriteria);
     }
-    setEditingIndicator(null);
-    setAddingIndicatorTo(null);
+    handleCancelEditIndicator();
   };
+  
+  const handleAddSubIndicator = (criterionId: string, indicatorId: string) => setAddingSubIndicatorTo({criterionId, indicatorId});
+  const handleEditSubIndicator = (criterionId: string, indicatorId: string, subIndicator: SubIndicator) => setEditingSubIndicator({criterionId, indicatorId, subIndicator});
+  const handleCancelEditSubIndicator = () => { setEditingSubIndicator(null); setAddingSubIndicatorTo(null); };
 
-  const handleAddIndicator = (criterionId: string) => {
-    setAddingIndicatorTo(criterionId);
-  };
+  const handleSaveSubIndicator = async (subIndicatorToSave: Partial<SubIndicator>) => {
+      let newCriteria: Criterion[] = [];
+      
+      if (editingSubIndicator) { // Editing existing sub-indicator
+        newCriteria = criteria.map(c => {
+            if (c.id === editingSubIndicator.criterionId) {
+                return {
+                    ...c,
+                    indicators: c.indicators.map(i => {
+                        if (i.id === editingSubIndicator.indicatorId) {
+                            return {
+                                ...i,
+                                subIndicators: i.subIndicators.map(si => si.id === subIndicatorToSave.id ? { ...si, ...subIndicatorToSave} as SubIndicator : si)
+                            }
+                        }
+                        return i;
+                    })
+                }
+            }
+            return c;
+        });
+        toast({ title: "Thành công!", description: "Đã cập nhật chỉ tiêu con."});
+
+      } else if (addingSubIndicatorTo) { // Adding new sub-indicator
+        const newSubIndicator: SubIndicator = {
+            id: `CTC${Date.now().toString().slice(-6)}`,
+            name: subIndicatorToSave.name || "Chỉ tiêu con mới",
+            description: subIndicatorToSave.description || "",
+            standardLevel: subIndicatorToSave.standardLevel || "",
+            inputType: (subIndicatorToSave as Indicator).inputType || "text",
+            calculationFormula: (subIndicatorToSave as Indicator).calculationFormula || null,
+            evidenceRequirement: (subIndicatorToSave as Indicator).evidenceRequirement || "",
+        };
+
+        newCriteria = criteria.map(c => {
+            if (c.id === addingSubIndicatorTo.criterionId) {
+                return {
+                    ...c,
+                    indicators: c.indicators.map(i => {
+                        if (i.id === addingSubIndicatorTo.indicatorId) {
+                            return { ...i, subIndicators: [...i.subIndicators, newSubIndicator] };
+                        }
+                        return i;
+                    })
+                };
+            }
+            return c;
+        });
+        toast({ title: "Thành công!", description: "Đã thêm chỉ tiêu con mới." });
+      }
+
+      if (newCriteria.length > 0) {
+          await updateCriteria(newCriteria);
+      }
+      handleCancelEditSubIndicator();
+  }
 
 
   return (
@@ -293,6 +344,8 @@ export default function CriteriaManagementPage() {
                                 <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>Hành động</DropdownMenuLabel>
                                 <DropdownMenuItem onClick={() => handleEditIndicator(criterion.id, indicator)}>Sửa chỉ tiêu</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleAddSubIndicator(criterion.id, indicator.id)}>Thêm chỉ tiêu con</DropdownMenuItem>
+                                <DropdownMenuSeparator />
                                 <DropdownMenuItem className="text-destructive">
                                     Xóa chỉ tiêu
                                 </DropdownMenuItem>
@@ -302,15 +355,39 @@ export default function CriteriaManagementPage() {
                       
                         <p className="text-sm text-muted-foreground">{indicator.description}</p>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                            <div><strong>Mức độ đạt chuẩn:</strong> <Badge variant="outline">{indicator.standardLevel}</Badge></div>
-                            <div><strong>Loại dữ liệu:</strong> <Badge variant="outline">{indicator.inputType}</Badge></div>
-                            {indicator.calculationFormula && <div><strong>Công thức tính:</strong> <code className="text-xs bg-muted p-1 rounded">{indicator.calculationFormula}</code></div>}
-                        </div>
-                        
-                        <div>
-                            <p className="font-medium text-sm">Yêu cầu hồ sơ minh chứng:</p>
-                            <p className="text-sm text-muted-foreground">{indicator.evidenceRequirement}</p>
+                        <div className="mt-4 pl-6 space-y-4 border-l-2 border-dashed">
+                            {indicator.subIndicators.map(sub => (
+                                <div key={sub.id} className="grid gap-3 rounded-md border bg-card p-4 shadow-sm relative">
+                                    <CornerDownRight className="absolute -left-9 top-6 h-5 w-5 text-muted-foreground"/>
+                                    <div className="flex justify-between items-start">
+                                        <h5 className="font-semibold text-base flex-1 pr-4">{sub.name}</h5>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className='h-8 w-8 flex-shrink-0'>
+                                                <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                            <DropdownMenuLabel>Hành động</DropdownMenuLabel>
+                                            <DropdownMenuItem onClick={() => handleEditSubIndicator(criterion.id, indicator.id, sub)}>Sửa chỉ tiêu con</DropdownMenuItem>
+                                            <DropdownMenuItem className="text-destructive">
+                                                Xóa chỉ tiêu con
+                                            </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">{sub.description}</p>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
+                                        <div><strong>Mức độ đạt chuẩn:</strong> <Badge variant="outline">{sub.standardLevel}</Badge></div>
+                                        <div><strong>Loại dữ liệu:</strong> <Badge variant="outline">{sub.inputType}</Badge></div>
+                                        {sub.calculationFormula && <div><strong>Công thức tính:</strong> <code className="text-xs bg-muted p-1 rounded">{sub.calculationFormula}</code></div>}
+                                    </div>
+                                    <div>
+                                        <p className="font-medium text-sm">Yêu cầu hồ sơ minh chứng:</p>
+                                        <p className="text-sm text-muted-foreground">{sub.evidenceRequirement}</p>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
 
                     </div>
@@ -342,6 +419,19 @@ export default function CriteriaManagementPage() {
                     indicator={editingIndicator?.indicator || {}}
                     onSave={handleSaveIndicator}
                     onCancel={handleCancelEditIndicator}
+                />
+            )}
+        </DialogContent>
+    </Dialog>
+    
+    <Dialog open={!!editingSubIndicator || !!addingSubIndicatorTo} onOpenChange={(open) => !open && handleCancelEditSubIndicator()}>
+        <DialogContent className="max-w-2xl">
+            {(editingSubIndicator || addingSubIndicatorTo) && (
+                <IndicatorForm 
+                    indicator={editingSubIndicator?.subIndicator || {}}
+                    onSave={handleSaveSubIndicator}
+                    onCancel={handleCancelEditSubIndicator}
+                    isSubIndicator={true}
                 />
             )}
         </DialogContent>

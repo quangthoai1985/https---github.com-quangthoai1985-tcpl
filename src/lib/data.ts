@@ -20,14 +20,7 @@ export type Unit = {
   headquarters?: string;
 };
 
-export type Criterion = {
-  id: string;
-  name: string;
-  description: string;
-  indicators: Indicator[];
-};
-
-export type Indicator = {
+export type SubIndicator = {
   id: string;
   name: string;
   description: string;
@@ -35,6 +28,27 @@ export type Indicator = {
   inputType: 'number' | 'text' | 'boolean' | 'select';
   calculationFormula: string | null;
   evidenceRequirement: string;
+};
+
+export type Indicator = {
+  id: string;
+  name: string;
+  description: string;
+  // An indicator might not have its own evaluation fields if it's just a container for sub-indicators.
+  // For simplicity, we keep them but they can be optional or ignored in the UI if subIndicators exist.
+  standardLevel: string;
+  inputType: 'number' | 'text' | 'boolean' | 'select';
+  calculationFormula: string | null;
+  evidenceRequirement: string;
+  subIndicators: SubIndicator[];
+};
+
+
+export type Criterion = {
+  id: string;
+  name: string;
+  description: string;
+  indicators: Indicator[];
 };
 
 export type AssessmentPeriod = {

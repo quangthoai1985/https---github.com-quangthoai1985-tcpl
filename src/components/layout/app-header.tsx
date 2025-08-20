@@ -112,7 +112,7 @@ export default function AppHeader() {
                 <p className="text-xs text-muted-foreground">
                   {currentUser.role === 'admin' 
                     ? 'Quản trị viên hệ thống' 
-                    : `Cán bộ, ${getUnitName(currentUser.communeId)}`
+                    : `Cán bộ - ${getUnitName(currentUser.communeId)}`
                   }
                 </p>
             </div>
