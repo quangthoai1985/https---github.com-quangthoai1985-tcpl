@@ -7,12 +7,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UploadCloud, File as FileIcon, X } from "lucide-react";
+import { UploadCloud, File as FileIcon, X, CornerDownRight } from "lucide-react";
 import React from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/context/DataContext";
 import PageHeader from "@/components/layout/page-header";
+import type { Indicator, SubIndicator } from "@/lib/data";
 
 function FileUploadComponent() {
     const [files, setFiles] = React.useState<File[]>([]);
@@ -47,7 +48,7 @@ function FileUploadComponent() {
     );
 }
 
-const renderInput = (indicator: any) => {
+const renderInput = (indicator: Indicator | SubIndicator) => {
     switch (indicator.inputType) {
         case 'boolean':
             return (
@@ -92,6 +93,26 @@ const renderInput = (indicator: any) => {
             );
     }
 }
+
+const IndicatorAssessment = ({ indicator }: { indicator: Indicator | SubIndicator }) => (
+    <div className="grid gap-6">
+        <div>
+            <h4 className="font-semibold text-base">{indicator.name}</h4>
+            <p className="text-sm text-muted-foreground mt-1">{indicator.description}</p>
+            <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn:</strong> <span className="font-semibold text-primary">{indicator.standardLevel}</span></p>
+        </div>
+        
+        <div className="grid gap-2">
+            <Label>Kết quả tự đánh giá</Label>
+            {renderInput(indicator)}
+        </div>
+
+        <div className="grid gap-2">
+            <p className="text-sm"><strong>Yêu cầu hồ sơ minh chứng:</strong> {indicator.evidenceRequirement}</p>
+            <FileUploadComponent />
+        </div>
+    </div>
+);
 
 
 export default function SelfAssessmentPage() {
@@ -138,21 +159,24 @@ export default function SelfAssessmentPage() {
                                     <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
                                         {criterion.indicators.map(indicator => (
                                             <div key={indicator.id} className="grid gap-6 p-4 rounded-lg bg-card shadow-sm border">
-                                                <div>
-                                                    <h4 className="font-semibold text-base">{indicator.name}</h4>
-                                                    <p className="text-sm text-muted-foreground mt-1">{indicator.description}</p>
-                                                    <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn:</strong> <span className="font-semibold text-primary">{indicator.standardLevel}</span></p>
-                                                </div>
-                                                
-                                                <div className="grid gap-2">
-                                                    <Label>Kết quả tự đánh giá</Label>
-                                                    {renderInput(indicator)}
-                                                </div>
-
-                                                <div className="grid gap-2">
-                                                    <p className="text-sm"><strong>Yêu cầu hồ sơ minh chứng:</strong> {indicator.evidenceRequirement}</p>
-                                                    <FileUploadComponent />
-                                                </div>
+                                                {(!indicator.subIndicators || indicator.subIndicators.length === 0) ? (
+                                                    <IndicatorAssessment indicator={indicator} />
+                                                ) : (
+                                                    <>
+                                                        <div>
+                                                          <h4 className="font-semibold text-base">{indicator.name}</h4>
+                                                          <p className="text-sm text-muted-foreground mt-1">{indicator.description}</p>
+                                                        </div>
+                                                        <div className="mt-4 pl-6 space-y-6 border-l-2 border-dashed">
+                                                          {(indicator.subIndicators || []).map(sub => (
+                                                              <div key={sub.id} className="relative pl-6">
+                                                                  <CornerDownRight className="absolute -left-3 top-1 h-5 w-5 text-muted-foreground"/>
+                                                                  <IndicatorAssessment indicator={sub} />
+                                                              </div>
+                                                          ))}
+                                                        </div>
+                                                    </>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
