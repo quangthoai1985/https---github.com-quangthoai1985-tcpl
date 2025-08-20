@@ -236,7 +236,7 @@ export default function CriteriaManagementPage() {
                         if (i.id === editingSubIndicator.indicatorId) {
                             return {
                                 ...i,
-                                subIndicators: i.subIndicators.map(si => si.id === subIndicatorToSave.id ? { ...si, ...subIndicatorToSave} as SubIndicator : si)
+                                subIndicators: (i.subIndicators || []).map(si => si.id === subIndicatorToSave.id ? { ...si, ...subIndicatorToSave} as SubIndicator : si)
                             }
                         }
                         return i;
@@ -264,7 +264,7 @@ export default function CriteriaManagementPage() {
                     ...c,
                     indicators: c.indicators.map(i => {
                         if (i.id === addingSubIndicatorTo.indicatorId) {
-                            return { ...i, subIndicators: [...i.subIndicators, newSubIndicator] };
+                            return { ...i, subIndicators: [...(i.subIndicators || []), newSubIndicator] };
                         }
                         return i;
                     })
@@ -356,7 +356,7 @@ export default function CriteriaManagementPage() {
                         <p className="text-sm text-muted-foreground">{indicator.description}</p>
                         
                         <div className="mt-4 pl-6 space-y-4 border-l-2 border-dashed">
-                            {indicator.subIndicators.map(sub => (
+                            {(indicator.subIndicators || []).map(sub => (
                                 <div key={sub.id} className="grid gap-3 rounded-md border bg-card p-4 shadow-sm relative">
                                     <CornerDownRight className="absolute -left-9 top-6 h-5 w-5 text-muted-foreground"/>
                                     <div className="flex justify-between items-start">
