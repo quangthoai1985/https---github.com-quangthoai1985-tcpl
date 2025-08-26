@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/context/DataContext";
 import PageHeader from "@/components/layout/page-header";
 import type { Indicator, SubIndicator, Criterion } from "@/lib/data";
-import { cn } from "@/lib/utils";
+import { Textarea } from "@/components/ui/textarea";
 
 type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
 type AssessmentValues = Record<string, { value: any; files: File[], note: string, status: AssessmentStatus }>;
@@ -71,7 +71,7 @@ const renderInput = (indicator: Indicator | SubIndicator, value: any, onValueCha
     switch (indicator.inputType) {
         case 'boolean':
             return (
-                <RadioGroup onValueChange={handleRadioChange} value={value === true ? 'true' : value === false ? 'false' : ''}>
+                <RadioGroup onValueChange={handleRadioChange} value={value === true ? 'true' : value === false ? 'false' : ''} className="flex items-center gap-6">
                     <div className="flex items-center space-x-2">
                         <RadioGroupItem value="true" id={`${indicator.id}-true`} />
                         <Label htmlFor={`${indicator.id}-true`}>Đạt</Label>
@@ -118,13 +118,11 @@ const evaluateStatus = (value: any, standardLevel: string): AssessmentStatus => 
 
     const standard = standardLevel.toLowerCase();
 
-    // Handle boolean inputs
     if (typeof value === 'boolean') {
         const required = standard === 'đạt' || standard === 'true';
         return value === required ? 'achieved' : 'not-achieved';
     }
 
-    // Handle number inputs (e.g., '>=85', '>=85%', '100%')
     if (typeof value === 'number' || !isNaN(Number(value))) {
         const numericValue = Number(value);
         const match = standard.match(/([>=<]+)?\s*(\d+)/);
@@ -142,7 +140,6 @@ const evaluateStatus = (value: any, standardLevel: string): AssessmentStatus => 
         }
     }
     
-    // Handle text inputs
     if (typeof value === 'string') {
         return value.toLowerCase().trim() === standard.trim() ? 'achieved' : 'not-achieved';
     }
@@ -163,10 +160,11 @@ const StatusIcon = ({ status }: { status: AssessmentStatus }) => {
 };
 
 
-const IndicatorAssessment = ({ indicator, data, onValueChange, onFileChange }: { 
+const IndicatorAssessment = ({ indicator, data, onValueChange, onNoteChange, onFileChange }: { 
     indicator: Indicator | SubIndicator,
     data: AssessmentValues[string],
     onValueChange: (id: string, value: any) => void,
+    onNoteChange: (id: string, note: string) => void,
     onFileChange: (id: string, files: File[]) => void
 }) => (
     <div className="grid gap-6">
@@ -179,13 +177,24 @@ const IndicatorAssessment = ({ indicator, data, onValueChange, onFileChange }: {
             <p className="text-sm mt-2 pl-7"><strong>Yêu cầu đạt chuẩn:</strong> <span className="font-semibold text-primary">{indicator.standardLevel}</span></p>
         </div>
         
-        <div className="grid gap-2">
-            <Label>Kết quả tự đánh giá</Label>
-            {renderInput(indicator, data.value, onValueChange)}
+        <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label>Kết quả tự đánh giá</Label>
+              {renderInput(indicator, data.value, onValueChange)}
+            </div>
+            <div className="grid gap-2">
+                <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
+                <Textarea 
+                    id={`note-${indicator.id}`} 
+                    placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
+                    value={data.note}
+                    onChange={(e) => onNoteChange(indicator.id, e.target.value)}
+                />
+            </div>
         </div>
 
         <div className="grid gap-2">
-            <p className="text-sm"><strong>Yêu cầu hồ sơ minh chứng:</strong> {indicator.evidenceRequirement}</p>
+            <p className="text-sm"><strong>Yêu cầu hồ sơ minh chứng:</strong> {indicator.evidenceRequirement || 'Không yêu cầu'}</p>
             <FileUploadComponent indicatorId={indicator.id} files={data.files} onFileChange={onFileChange} />
         </div>
     </div>
@@ -245,6 +254,17 @@ export default function SelfAssessmentPage() {
         }));
     }
   };
+  
+  const handleNoteChange = (indicatorId: string, note: string) => {
+    setAssessmentData(prev => ({
+        ...prev,
+        [indicatorId]: {
+            ...prev[indicatorId],
+            note: note,
+        }
+    }));
+  };
+
 
   const handleFileChange = (indicatorId: string, files: File[]) => {
       setAssessmentData(prev => ({
@@ -302,6 +322,7 @@ export default function SelfAssessmentPage() {
                                                         indicator={indicator} 
                                                         data={assessmentData[indicator.id]} 
                                                         onValueChange={handleValueChange}
+                                                        onNoteChange={handleNoteChange}
                                                         onFileChange={handleFileChange}
                                                     />
                                                 ) : (
@@ -318,6 +339,7 @@ export default function SelfAssessmentPage() {
                                                                       indicator={sub} 
                                                                       data={assessmentData[sub.id]}
                                                                       onValueChange={handleValueChange}
+                                                                      onNoteChange={handleNoteChange}
                                                                       onFileChange={handleFileChange}
                                                                   />
                                                               </div>
@@ -348,3 +370,5 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
+
+    
