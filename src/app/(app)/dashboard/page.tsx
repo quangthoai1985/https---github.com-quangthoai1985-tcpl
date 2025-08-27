@@ -13,7 +13,8 @@ import {
   ThumbsUp,
   ThumbsDown,
   UserCheck,
-  AlertTriangle
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import {
   Card,
@@ -49,6 +50,7 @@ import type { Assessment, Unit } from '@/lib/data';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 
 
 const AdminDashboard = () => {
@@ -330,39 +332,52 @@ const AdminDashboard = () => {
 )};
 
 const CommuneDashboard = () => {
-    const { units, assessments, currentUser, assessmentPeriods, updateAssessments } = useData();
+    const { storage, assessments, currentUser, assessmentPeriods, updateAssessments } = useData();
     const { toast } = useToast();
     const [registrationFile, setRegistrationFile] = useState<File | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
 
     const activePeriod = assessmentPeriods.find(p => p.isActive);
     const myAssessment = activePeriod && currentUser 
         ? assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId) 
         : undefined;
 
+    const uploadFileAndGetURL = async (file: File, periodId: string, communeId: string): Promise<string> => {
+        const filePath = `registrations/${periodId}/${communeId}/${file.name}`;
+        const storageRef = ref(storage, filePath);
+        await uploadBytes(storageRef, file);
+        return await getDownloadURL(storageRef);
+    };
+
     const handleRegister = async () => {
         if (!activePeriod || !currentUser || !registrationFile) {
             toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng chọn tệp đơn đăng ký.' });
             return;
         }
+        setIsSubmitting(true);
+        try {
+            const fileUrl = await uploadFileAndGetURL(registrationFile, activePeriod.id, currentUser.communeId);
 
-        // Mock file upload. In a real app, this would upload to Firebase Storage
-        // and get a download URL. For now, we'll just pretend.
-        const mockFileUrl = `https://placehold.co/600x400.pdf?text=Don_Dang_Ky_${currentUser.communeId}`;
+            const newAssessment: Assessment = {
+                id: `assess_${activePeriod.id}_${currentUser.communeId}`,
+                assessmentPeriodId: activePeriod.id,
+                communeId: currentUser.communeId,
+                status: 'pending_registration',
+                submissionDate: new Date().toLocaleDateString('vi-VN'),
+                submittedBy: currentUser.id,
+                registrationFormUrl: fileUrl,
+                registrationRejectionReason: '',
+            };
 
-        const newAssessment: Assessment = {
-            id: `assess_${activePeriod.id}_${currentUser.communeId}`,
-            assessmentPeriodId: activePeriod.id,
-            communeId: currentUser.communeId,
-            status: 'pending_registration',
-            submissionDate: new Date().toLocaleDateString('vi-VN'),
-            submittedBy: currentUser.id,
-            registrationFormUrl: mockFileUrl,
-            registrationRejectionReason: '',
-        };
-
-        const existingAssessments = assessments.filter(a => a.id !== newAssessment.id);
-        await updateAssessments([...existingAssessments, newAssessment]);
-        toast({ title: 'Thành công', description: 'Đã gửi đơn đăng ký. Vui lòng chờ Admin duyệt.' });
+            const existingAssessments = assessments.filter(a => a.id !== newAssessment.id);
+            await updateAssessments([...existingAssessments, newAssessment]);
+            toast({ title: 'Thành công', description: 'Đã gửi đơn đăng ký. Vui lòng chờ Admin duyệt.' });
+        } catch (error) {
+            console.error("File upload error: ", error);
+            toast({ variant: 'destructive', title: 'Lỗi tải tệp', description: 'Đã xảy ra lỗi khi tải tệp lên. Vui lòng thử lại.' });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
     
     const handleResubmit = async () => {
@@ -370,18 +385,26 @@ const CommuneDashboard = () => {
              toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng chọn tệp đơn đăng ký mới.' });
             return;
         }
-        const mockFileUrl = `https://placehold.co/600x400.pdf?text=Don_Dang_Ky_Moi_${myAssessment.communeId}`;
-        
-        const updatedAssessment: Assessment = {
-            ...myAssessment,
-            status: 'pending_registration',
-            registrationFormUrl: mockFileUrl,
-            registrationRejectionReason: '',
-             submissionDate: new Date().toLocaleDateString('vi-VN'),
-        };
+        setIsSubmitting(true);
+        try {
+            const fileUrl = await uploadFileAndGetURL(registrationFile, myAssessment.assessmentPeriodId, myAssessment.communeId);
+            
+            const updatedAssessment: Assessment = {
+                ...myAssessment,
+                status: 'pending_registration',
+                registrationFormUrl: fileUrl,
+                registrationRejectionReason: '',
+                submissionDate: new Date().toLocaleDateString('vi-VN'),
+            };
 
-        await updateAssessments(assessments.map(a => a.id === myAssessment.id ? updatedAssessment : a));
-        toast({ title: 'Thành công', description: 'Đã gửi lại đơn đăng ký. Vui lòng chờ Admin duyệt.' });
+            await updateAssessments(assessments.map(a => a.id === myAssessment.id ? updatedAssessment : a));
+            toast({ title: 'Thành công', description: 'Đã gửi lại đơn đăng ký. Vui lòng chờ Admin duyệt.' });
+        } catch (error) {
+            console.error("File re-upload error: ", error);
+            toast({ variant: 'destructive', title: 'Lỗi tải tệp', description: 'Đã xảy ra lỗi khi tải tệp lên. Vui lòng thử lại.' });
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
 
@@ -420,10 +443,11 @@ const CommuneDashboard = () => {
                         <>
                             <p className='text-sm text-muted-foreground'>Bạn cần tải lên đơn đăng ký (file văn bản hoặc PDF) để Admin phê duyệt trước khi có thể bắt đầu tự đánh giá.</p>
                             <div className="grid w-full max-w-sm items-center gap-1.5">
-                                <Input id="registration-file" type="file" onChange={(e) => setRegistrationFile(e.target.files ? e.target.files[0] : null)} />
+                                <Input id="registration-file" type="file" onChange={(e) => setRegistrationFile(e.target.files ? e.target.files[0] : null)} disabled={isSubmitting} />
                             </div>
-                            <Button onClick={handleRegister} disabled={!registrationFile}>
-                                <FilePenLine className="mr-2 h-4 w-4" /> Gửi đăng ký
+                            <Button onClick={handleRegister} disabled={!registrationFile || isSubmitting}>
+                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FilePenLine className="mr-2 h-4 w-4" />}
+                                {isSubmitting ? 'Đang gửi...' : 'Gửi đăng ký'}
                             </Button>
                         </>
                     )}
@@ -469,10 +493,11 @@ const CommuneDashboard = () => {
                                     <h4 className="font-medium">Gửi lại đơn đăng ký:</h4>
                                     <p className='text-sm text-muted-foreground'>Vui lòng tải lên đơn đăng ký đã được chỉnh sửa/bổ sung.</p>
                                     <div className="grid w-full max-w-sm items-center gap-1.5 mt-2">
-                                        <Input id="registration-file-resubmit" type="file" onChange={(e) => setRegistrationFile(e.target.files ? e.target.files[0] : null)} />
+                                        <Input id="registration-file-resubmit" type="file" onChange={(e) => setRegistrationFile(e.target.files ? e.target.files[0] : null)} disabled={isSubmitting} />
                                     </div>
-                                    <Button onClick={handleResubmit} disabled={!registrationFile} className='mt-2'>
-                                        <FilePenLine className="mr-2 h-4 w-4" /> Gửi lại
+                                    <Button onClick={handleResubmit} disabled={!registrationFile || isSubmitting} className='mt-2'>
+                                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FilePenLine className="mr-2 h-4 w-4" />}
+                                        {isSubmitting ? 'Đang gửi lại...' : 'Gửi lại'}
                                     </Button>
                                 </div>
                             )}
@@ -615,5 +640,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-

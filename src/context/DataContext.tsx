@@ -12,8 +12,9 @@ import {
     type Document as AppDocument
 } from '@/lib/data';
 import { initializeApp, getApp, getApps, FirebaseOptions, type FirebaseApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, doc, setDoc, deleteDoc, writeBatch, type Firestore } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, type Firestore } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser, type Auth } from 'firebase/auth';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
 // Hardcoded Firebase configuration from user
 const firebaseConfig: FirebaseOptions = {
@@ -29,6 +30,7 @@ const firebaseConfig: FirebaseOptions = {
 let app: FirebaseApp;
 let db: Firestore;
 let auth: Auth;
+let storage: FirebaseStorage;
 
 if (typeof window !== 'undefined') {
     if (!getApps().length) {
@@ -38,6 +40,7 @@ if (typeof window !== 'undefined') {
     }
     db = getFirestore(app);
     auth = getAuth(app);
+    storage = getStorage(app);
 }
 
 // Define a type for our dynamic notifications
@@ -69,6 +72,7 @@ interface DataContextType {
   notifications: Notification[];
   setLoginInfo: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
+  storage: FirebaseStorage;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -354,7 +358,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         currentUser, 
         notifications,
         setLoginInfo,
-        logout
+        logout,
+        storage,
     }}>
       {children}
     </DataContext.Provider>
