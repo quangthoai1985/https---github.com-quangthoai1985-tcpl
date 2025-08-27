@@ -17,7 +17,15 @@ import type { Indicator, SubIndicator, Criterion } from "@/lib/data";
 import { Textarea } from "@/components/ui/textarea";
 
 type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
-type AssessmentValues = Record<string, { value: any; files: File[], note: string, status: AssessmentStatus }>;
+// Updated value structure to handle the new logic for TC1
+type IndicatorValue = {
+    isTasked?: boolean; // For TC1: true if "Được giao nhiệm vụ", false if "Không được giao nhiệm vụ"
+    value: any; // The actual value (percentage, boolean, text, etc.)
+    files: File[];
+    note: string;
+    status: AssessmentStatus;
+};
+type AssessmentValues = Record<string, IndicatorValue>;
 
 
 function FileUploadComponent({ indicatorId, files, onFileChange }: { indicatorId: string; files: File[]; onFileChange: (id: string, files: File[]) => void; }) {
@@ -59,7 +67,14 @@ function FileUploadComponent({ indicatorId, files, onFileChange }: { indicatorId
     );
 }
 
-const renderInput = (indicator: Indicator | SubIndicator, value: any, onValueChange: (id: string, value: any) => void) => {
+// Updated to pass the full data object for conditional rendering
+const renderInput = (
+    indicator: Indicator | SubIndicator,
+    criterionId: string,
+    data: IndicatorValue,
+    onValueChange: (id: string, value: any) => void,
+    onIsTaskedChange: (id: string, isTasked: boolean) => void
+) => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         onValueChange(indicator.id, e.target.value);
     }
@@ -68,10 +83,32 @@ const renderInput = (indicator: Indicator | SubIndicator, value: any, onValueCha
         onValueChange(indicator.id, val === 'true');
     }
 
+    // Special logic for Tiêu chí 1
+    if (criterionId === criteria[0].id) {
+        return (
+            <RadioGroup onValueChange={(val) => onIsTaskedChange(indicator.id, val === 'true')} value={data.isTasked === true ? 'true' : data.isTasked === false ? 'false' : ''} className="grid gap-2">
+                 <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="false" id={`${indicator.id}-notask`} />
+                    <Label htmlFor={`${indicator.id}-notask`}>Không được giao nhiệm vụ</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="true" id={`${indicator.id}-hastask`} />
+                    <Label htmlFor={`${indicator.id}-hastask`}>Được giao nhiệm vụ</Label>
+                </div>
+                {data.isTasked === true && (
+                     <div className="grid gap-2 pl-6 pt-2">
+                        <Label htmlFor={`${indicator.id}-input`}>Tỷ lệ hoàn thành nhiệm vụ (%)</Label>
+                        <Input id={`${indicator.id}-input`} type="number" placeholder="Nhập tỷ lệ %" value={data.value || ''} onChange={handleChange} />
+                    </div>
+                )}
+            </RadioGroup>
+        )
+    }
+
     switch (indicator.inputType) {
         case 'boolean':
             return (
-                <RadioGroup onValueChange={handleRadioChange} value={value === true ? 'true' : value === false ? 'false' : ''} className="flex items-center gap-6">
+                <RadioGroup onValueChange={handleRadioChange} value={data.value === true ? 'true' : data.value === false ? 'false' : ''} className="grid gap-2">
                     <div className="flex items-center space-x-2">
                         <RadioGroupItem value="true" id={`${indicator.id}-true`} />
                         <Label htmlFor={`${indicator.id}-true`}>Đạt</Label>
@@ -86,7 +123,7 @@ const renderInput = (indicator: Indicator | SubIndicator, value: any, onValueCha
             return (
                 <div className="grid gap-2">
                     <Label htmlFor={`${indicator.id}-input`}>Tỷ lệ (%) hoặc số lượng</Label>
-                    <Input id={`${indicator.id}-input`} type="number" placeholder="Nhập giá trị" value={value || ''} onChange={handleChange} />
+                    <Input id={`${indicator.id}-input`} type="number" placeholder="Nhập giá trị" value={data.value || ''} onChange={handleChange} />
                 </div>
             );
         case 'select':
@@ -107,13 +144,18 @@ const renderInput = (indicator: Indicator | SubIndicator, value: any, onValueCha
              return (
                 <div className="grid gap-2">
                     <Label htmlFor={`${indicator.id}-input`}>Kết quả</Label>
-                    <Input id={`${indicator.id}-input`} type="text" placeholder="Nhập kết quả" value={value || ''} onChange={handleChange} />
+                    <Input id={`${indicator.id}-input`} type="text" placeholder="Nhập kết quả" value={data.value || ''} onChange={handleChange} />
                 </div>
             );
     }
 }
 
-const evaluateStatus = (value: any, standardLevel: string): AssessmentStatus => {
+const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean): AssessmentStatus => {
+    // For TC1, if not tasked, it's automatically achieved.
+    if (isTasked === false) {
+        return 'achieved';
+    }
+
     if (value === undefined || value === null || value === '') return 'pending';
 
     const standard = standardLevel.toLowerCase();
@@ -160,12 +202,14 @@ const StatusIcon = ({ status }: { status: AssessmentStatus }) => {
 };
 
 
-const IndicatorAssessment = ({ indicator, data, onValueChange, onNoteChange, onFileChange }: { 
+const IndicatorAssessment = ({ criterionId, indicator, data, onValueChange, onNoteChange, onFileChange, onIsTaskedChange }: { 
+    criterionId: string,
     indicator: Indicator | SubIndicator,
     data: AssessmentValues[string],
     onValueChange: (id: string, value: any) => void,
     onNoteChange: (id: string, note: string) => void,
-    onFileChange: (id: string, files: File[]) => void
+    onFileChange: (id: string, files: File[]) => void,
+    onIsTaskedChange: (id: string, isTasked: boolean) => void,
 }) => (
     <div className="grid gap-6">
         <div>
@@ -180,7 +224,7 @@ const IndicatorAssessment = ({ indicator, data, onValueChange, onNoteChange, onF
         <div className="grid gap-4">
             <div className="grid gap-2">
               <Label>Kết quả tự đánh giá</Label>
-              {renderInput(indicator, data.value, onValueChange)}
+              {renderInput(indicator, criterionId, data, onValueChange, onIsTaskedChange)}
             </div>
             <div className="grid gap-2">
                 <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
@@ -200,6 +244,7 @@ const IndicatorAssessment = ({ indicator, data, onValueChange, onNoteChange, onF
     </div>
 );
 
+const { criteria } = useData(); // Assuming this is available globally in the component scope for initializeState
 
 const initializeState = (criteria: Criterion[]): AssessmentValues => {
     const initialState: AssessmentValues = {};
@@ -207,10 +252,10 @@ const initializeState = (criteria: Criterion[]): AssessmentValues => {
         criterion.indicators.forEach(indicator => {
             if (indicator.subIndicators && indicator.subIndicators.length > 0) {
                 indicator.subIndicators.forEach(sub => {
-                    initialState[sub.id] = { value: '', files: [], note: '', status: 'pending' };
+                    initialState[sub.id] = { isTasked: undefined, value: '', files: [], note: '', status: 'pending' };
                 });
             } else {
-                initialState[indicator.id] = { value: '', files: [], note: '', status: 'pending' };
+                initialState[indicator.id] = { isTasked: undefined, value: '', files: [], note: '', status: 'pending' };
             }
         });
     });
@@ -223,27 +268,41 @@ export default function SelfAssessmentPage() {
   const activePeriod = assessmentPeriods.find(p => p.isActive);
   const [assessmentData, setAssessmentData] = useState<AssessmentValues>(() => initializeState(criteria));
 
-  const handleValueChange = (indicatorId: string, value: any) => {
-    let indicator: Indicator | SubIndicator | undefined;
+  const findIndicator = (indicatorId: string) => {
     for (const c of criteria) {
         for (const i of c.indicators) {
-            if (i.id === indicatorId) {
-                indicator = i;
-                break;
-            }
+            if (i.id === indicatorId) return i;
             if (i.subIndicators) {
                 const sub = i.subIndicators.find(si => si.id === indicatorId);
-                if (sub) {
-                    indicator = sub;
-                    break;
-                }
+                if (sub) return sub;
             }
         }
-        if (indicator) break;
     }
+    return null;
+  }
 
+  const handleIsTaskedChange = (indicatorId: string, isTasked: boolean) => {
+    const indicator = findIndicator(indicatorId);
     if (indicator) {
-        const newStatus = evaluateStatus(value, indicator.standardLevel);
+        const valueToEvaluate = isTasked ? assessmentData[indicatorId].value : null;
+        const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, isTasked);
+        setAssessmentData(prev => ({
+            ...prev,
+            [indicatorId]: {
+                ...prev[indicatorId],
+                isTasked: isTasked,
+                status: newStatus
+            }
+        }));
+    }
+  }
+
+
+  const handleValueChange = (indicatorId: string, value: any) => {
+    const indicator = findIndicator(indicatorId);
+    if (indicator) {
+        const isTasked = assessmentData[indicatorId].isTasked;
+        const newStatus = evaluateStatus(value, indicator.standardLevel, isTasked);
         setAssessmentData(prev => ({
             ...prev,
             [indicatorId]: {
@@ -291,7 +350,6 @@ export default function SelfAssessmentPage() {
       description: "Hồ sơ của bạn đã được gửi đến Admin để xem xét. Trạng thái hồ sơ: pending_review.",
     });
   };
-
   return (
     <>
     <PageHeader title="Tự Chấm điểm & Đánh giá" description="Thực hiện tự đánh giá theo các tiêu chí và cung cấp hồ sơ minh chứng đi kèm."/>
@@ -319,11 +377,13 @@ export default function SelfAssessmentPage() {
                                             <div key={indicator.id} className="grid gap-6 p-4 rounded-lg bg-card shadow-sm border">
                                                 {(!indicator.subIndicators || indicator.subIndicators.length === 0) ? (
                                                     <IndicatorAssessment 
+                                                        criterionId={criterion.id}
                                                         indicator={indicator} 
                                                         data={assessmentData[indicator.id]} 
                                                         onValueChange={handleValueChange}
                                                         onNoteChange={handleNoteChange}
                                                         onFileChange={handleFileChange}
+                                                        onIsTaskedChange={handleIsTaskedChange}
                                                     />
                                                 ) : (
                                                     <>
@@ -335,12 +395,14 @@ export default function SelfAssessmentPage() {
                                                           {(indicator.subIndicators || []).map(sub => (
                                                               <div key={sub.id} className="relative pl-6">
                                                                   <CornerDownRight className="absolute -left-3 top-1 h-5 w-5 text-muted-foreground"/>
-                                                                  <IndicatorAssessment 
+                                                                  <IndicatorAssessment
+                                                                      criterionId={criterion.id}
                                                                       indicator={sub} 
                                                                       data={assessmentData[sub.id]}
                                                                       onValueChange={handleValueChange}
                                                                       onNoteChange={handleNoteChange}
                                                                       onFileChange={handleFileChange}
+                                                                      onIsTaskedChange={handleIsTaskedChange}
                                                                   />
                                                               </div>
                                                           ))}
@@ -370,5 +432,3 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
-
-    
