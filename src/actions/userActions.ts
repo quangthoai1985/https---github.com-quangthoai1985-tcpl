@@ -13,7 +13,7 @@ function initializeFirebaseAdmin() {
       const serviceAccountPath = path.resolve(process.cwd(), 'service-account-credentials.json');
       
       if (fs.existsSync(serviceAccountPath)) {
-          const serviceAccount = require('../../service-account-credentials.json');
+          const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
           admin.initializeApp({
               credential: admin.credential.cert(serviceAccount),
           });
@@ -62,6 +62,8 @@ export async function createUser(userData: Omit<User, 'id'>, password: string): 
 
         await db.collection('users').doc(userRecord.uid).set(newUser);
         console.log(`User document created in Firestore with ID: ${userRecord.uid}`);
+
+        await auth.setCustomUserClaims(userRecord.uid, { role: userData.role });
 
         return { success: true, message: "Người dùng đã được tạo thành công.", userId: userRecord.uid };
     } catch (error: any) {
