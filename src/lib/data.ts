@@ -72,6 +72,7 @@ export type Assessment = {
   communeExplanation?: string; // Optional for resubmission
   submittedBy?: string; // User ID
   registrationFormUrl?: string; // URL to the uploaded registration form
+  registrationRejectionReason?: string;
 };
 
 export type Document = {

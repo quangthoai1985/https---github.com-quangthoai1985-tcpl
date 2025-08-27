@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Card,
   CardContent,
@@ -39,6 +39,9 @@ import PageHeader from '@/components/layout/page-header';
 import { useData } from '@/context/DataContext';
 import { useToast } from '@/hooks/use-toast';
 import type { Assessment, Unit } from '@/lib/data';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 
 export default function RegistrationManagementPage() {
   const {
@@ -52,6 +55,10 @@ export default function RegistrationManagementPage() {
   const [selectedPeriodId, setSelectedPeriodId] = React.useState<string | undefined>(
     assessmentPeriods.find((p) => p.isActive)?.id
   );
+  
+  const [rejectionTarget, setRejectionTarget] = useState<Assessment | null>(null);
+  const [rejectionReason, setRejectionReason] = useState('');
+
 
   const getUnitInfo = (communeId: string) => {
     const unit = units.find((u) => u.id === communeId);
@@ -62,16 +69,29 @@ export default function RegistrationManagementPage() {
 
   const handleUpdateStatus = async (
     assessment: Assessment,
-    newStatus: 'registration_approved' | 'registration_rejected'
+    newStatus: 'registration_approved' | 'registration_rejected',
+    reason?: string
   ) => {
-    const updatedAssessment = { ...assessment, status: newStatus };
+    
+    const updatedAssessment = { 
+      ...assessment, 
+      status: newStatus,
+      registrationRejectionReason: newStatus === 'registration_rejected' ? reason : ''
+    };
+    
     await updateAssessments(
       assessments.map((a) => (a.id === assessment.id ? updatedAssessment : a))
     );
+
     toast({
       title: 'Cập nhật thành công',
       description: `Đã ${newStatus === 'registration_approved' ? 'phê duyệt' : 'từ chối'} đăng ký của ${getUnitInfo(assessment.communeId).name}.`,
     });
+    
+    if(rejectionTarget) {
+      setRejectionTarget(null);
+      setRejectionReason('');
+    }
   };
 
   const {
@@ -174,7 +194,7 @@ export default function RegistrationManagementPage() {
                         <Button
                           size="sm"
                           className="bg-red-600 hover:bg-red-700"
-                          onClick={() => handleUpdateStatus(item as Assessment, 'registration_rejected')}
+                          onClick={() => setRejectionTarget(item as Assessment)}
                         >
                           <ThumbsDown className="mr-2 h-4 w-4" /> Từ chối
                         </Button>
@@ -260,6 +280,36 @@ export default function RegistrationManagementPage() {
           </Tabs>
         </CardContent>
       </Card>
+      
+      <Dialog open={!!rejectionTarget} onOpenChange={(open) => !open && setRejectionTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Lý do từ chối đăng ký</DialogTitle>
+            <DialogDescription>
+              Vui lòng nhập lý do từ chối cho đơn vị: <strong>{getUnitInfo(rejectionTarget?.communeId || '').name}</strong>. Xã sẽ thấy lý do này.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Label htmlFor="rejectionReason">Lý do từ chối</Label>
+            <Textarea 
+              id="rejectionReason"
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              placeholder="Ví dụ: Đơn đăng ký thiếu chữ ký của lãnh đạo..."
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRejectionTarget(null)}>Hủy</Button>
+            <Button 
+              variant="destructive" 
+              disabled={!rejectionReason.trim()}
+              onClick={() => handleUpdateStatus(rejectionTarget!, 'registration_rejected', rejectionReason)}
+            >
+              Xác nhận Từ chối
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

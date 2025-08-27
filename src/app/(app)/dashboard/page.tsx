@@ -337,7 +337,7 @@ const CommuneDashboard = () => {
     const activePeriod = assessmentPeriods.find(p => p.isActive);
     const myAssessment = activePeriod && currentUser 
         ? assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId) 
-        : null;
+        : undefined;
 
     const handleRegister = async () => {
         if (!activePeriod || !currentUser || !registrationFile) {
@@ -347,7 +347,7 @@ const CommuneDashboard = () => {
 
         // Mock file upload. In a real app, this would upload to Firebase Storage
         // and get a download URL. For now, we'll just pretend.
-        const mockFileUrl = `mock/path/${registrationFile.name}`;
+        const mockFileUrl = `https://placehold.co/600x400.pdf?text=Don_Dang_Ky_${currentUser.communeId}`;
 
         const newAssessment: Assessment = {
             id: `assess_${activePeriod.id}_${currentUser.communeId}`,
@@ -357,12 +357,33 @@ const CommuneDashboard = () => {
             submissionDate: new Date().toLocaleDateString('vi-VN'),
             submittedBy: currentUser.id,
             registrationFormUrl: mockFileUrl,
+            registrationRejectionReason: '',
         };
 
         const existingAssessments = assessments.filter(a => a.id !== newAssessment.id);
         await updateAssessments([...existingAssessments, newAssessment]);
         toast({ title: 'Thành công', description: 'Đã gửi đơn đăng ký. Vui lòng chờ Admin duyệt.' });
     };
+    
+    const handleResubmit = async () => {
+        if (!myAssessment || !registrationFile) {
+             toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng chọn tệp đơn đăng ký mới.' });
+            return;
+        }
+        const mockFileUrl = `https://placehold.co/600x400.pdf?text=Don_Dang_Ky_Moi_${myAssessment.communeId}`;
+        
+        const updatedAssessment: Assessment = {
+            ...myAssessment,
+            status: 'pending_registration',
+            registrationFormUrl: mockFileUrl,
+            registrationRejectionReason: '',
+             submissionDate: new Date().toLocaleDateString('vi-VN'),
+        };
+
+        await updateAssessments(assessments.map(a => a.id === myAssessment.id ? updatedAssessment : a));
+        toast({ title: 'Thành công', description: 'Đã gửi lại đơn đăng ký. Vui lòng chờ Admin duyệt.' });
+    };
+
 
     const getPeriodName = (periodId: string) => {
         return assessmentPeriods.find(p => p.id === periodId)?.name || 'Không xác định';
@@ -380,7 +401,7 @@ const CommuneDashboard = () => {
 
     const deadlinePassed = isRegistrationDeadlinePassed();
     const canStartAssessment = myAssessment?.status === 'registration_approved';
-    const isRegistrationFlowActive = !myAssessment || myAssessment.status === 'pending_registration' || myAssessment.status === 'registration_rejected';
+    const isRegistrationRejected = myAssessment?.status === 'registration_rejected';
 
     const renderRegistrationStatus = () => {
         if (!myAssessment) {
@@ -425,17 +446,38 @@ const CommuneDashboard = () => {
 
         if (statusInfo) {
              return (
-                <div>
-                    <p className="font-semibold text-lg">Trạng thái đăng ký:</p>
+                <div className='p-4 border rounded-lg space-y-4'>
+                    <h3 className='font-semibold text-lg'>Bước 1: Đăng ký tham gia</h3>
+                    <p className="font-semibold">Trạng thái đăng ký:</p>
                     <div className="flex items-center gap-4 mt-2">
                         <Badge className={`${statusInfo.className} text-white`}>
                            <statusInfo.icon className="mr-2 h-4 w-4" />
                            {statusInfo.text}
                         </Badge>
-                        {(currentStatus === 'registration_rejected') && (
-                             <Alert variant="destructive" className="p-2 text-sm">Lý do từ chối: Cần bổ sung chữ ký. <Button variant='link' className='p-1 h-auto text-destructive'>Gửi lại</Button></Alert>
-                        )}
                     </div>
+                     {(isRegistrationRejected) && (
+                        <>
+                            <Alert variant="destructive">
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertTitle>Lý do từ chối:</AlertTitle>
+                                <AlertDescription>
+                                    {myAssessment.registrationRejectionReason || "Không có lý do cụ thể."}
+                                </AlertDescription>
+                            </Alert>
+                            {!deadlinePassed && (
+                                <div className="pt-4 border-t border-dashed">
+                                    <h4 className="font-medium">Gửi lại đơn đăng ký:</h4>
+                                    <p className='text-sm text-muted-foreground'>Vui lòng tải lên đơn đăng ký đã được chỉnh sửa/bổ sung.</p>
+                                    <div className="grid w-full max-w-sm items-center gap-1.5 mt-2">
+                                        <Input id="registration-file-resubmit" type="file" onChange={(e) => setRegistrationFile(e.target.files ? e.target.files[0] : null)} />
+                                    </div>
+                                    <Button onClick={handleResubmit} disabled={!registrationFile} className='mt-2'>
+                                        <FilePenLine className="mr-2 h-4 w-4" /> Gửi lại
+                                    </Button>
+                                </div>
+                            )}
+                        </>
+                    )}
                 </div>
             );
         }
@@ -472,7 +514,7 @@ const CommuneDashboard = () => {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className='space-y-6'>
-                    {isRegistrationFlowActive && renderRegistrationStatus()}
+                    {renderRegistrationStatus()}
                     
                     <div className={`p-4 border rounded-lg ${!canStartAssessment && 'bg-muted opacity-60'}`}>
                          <h3 className='font-semibold text-lg'>Bước 2: Tự đánh giá</h3>
