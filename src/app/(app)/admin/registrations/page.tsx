@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
@@ -42,6 +42,7 @@ import type { Assessment, Unit } from '@/lib/data';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 export default function RegistrationManagementPage() {
   const {
@@ -51,6 +52,8 @@ export default function RegistrationManagementPage() {
     updateAssessments,
   } = useData();
   const { toast } = useToast();
+  const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [selectedPeriodId, setSelectedPeriodId] = React.useState<string | undefined>(
     assessmentPeriods.find((p) => p.isActive)?.id
@@ -58,7 +61,23 @@ export default function RegistrationManagementPage() {
   
   const [rejectionTarget, setRejectionTarget] = useState<Assessment | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  
+  const initialTab = searchParams.get('tab') || 'pending';
+  const [activeTab, setActiveTab] = useState(initialTab);
 
+  useEffect(() => {
+    // If the tab parameter is present in the URL, set it as the active tab.
+    const tabFromUrl = searchParams.get('tab');
+    if (tabFromUrl && TABS.some(t => t.value === tabFromUrl)) {
+      setActiveTab(tabFromUrl);
+    }
+  }, [searchParams]);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    // Optionally update URL without reloading the page
+    router.replace(`/admin/registrations?tab=${value}`);
+  }
 
   const getUnitInfo = (communeId: string) => {
     const unit = units.find((u) => u.id === communeId);
@@ -95,7 +114,6 @@ export default function RegistrationManagementPage() {
   };
 
   const {
-    registeredCommunes,
     unregisteredCommunes,
     pendingRegistrations,
     approvedRegistrations,
@@ -103,7 +121,6 @@ export default function RegistrationManagementPage() {
   } = useMemo(() => {
     if (!selectedPeriodId)
       return {
-        registeredCommunes: [],
         unregisteredCommunes: [],
         pendingRegistrations: [],
         approvedRegistrations: [],
@@ -133,7 +150,6 @@ export default function RegistrationManagementPage() {
     );
 
     return {
-      registeredCommunes: periodAssessments,
       unregisteredCommunes,
       pendingRegistrations,
       approvedRegistrations,
@@ -264,7 +280,7 @@ export default function RegistrationManagementPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Tabs defaultValue="pending">
+          <Tabs value={activeTab} onValueChange={handleTabChange}>
             <TabsList className="grid w-full grid-cols-4">
               {TABS.map((tab) => (
                 <TabsTrigger key={tab.value} value={tab.value}>

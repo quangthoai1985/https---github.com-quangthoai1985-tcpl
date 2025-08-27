@@ -106,7 +106,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                       title: `${communeName} vừa gửi yêu cầu đăng ký.`,
                       time: `Ngày ${assessment.submissionDate}`,
                       read: false, // This would be dynamic in a real app
-                      link: `/admin/registrations`
+                      link: `/admin/registrations?tab=pending`
                   });
               }
               if (assessment.status === 'pending_review') {
@@ -368,9 +368,3 @@ export const useData = () => {
   }
   return context;
 };
-
-    
-
-    
-
-    
