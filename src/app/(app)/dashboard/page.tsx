@@ -382,9 +382,24 @@ const CommuneDashboard = () => {
     const isRegistrationDisabled = !!myAssessment || !activePeriod || deadlinePassed;
     const canStartAssessment = myAssessment?.status === 'registration_approved';
 
+    const AssessmentButton = () => {
+        const buttonText = canStartAssessment ? 'Thực hiện Tự đánh giá' : 'Chưa thể tự đánh giá';
+        const button = (
+            <Button className='mt-4' disabled={!canStartAssessment}>
+                {buttonText} <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+        );
+
+        if (canStartAssessment) {
+            return <Link href="/commune/assessments">{button}</Link>;
+        }
+        return button;
+    };
+
+
     return (
         <>
-        <PageHeader title="Tổng quan" description="Thông tin tổng quan và các tác vụ nhanh."/>
+        <PageHeader title="Đăng ký & Theo dõi" description="Thực hiện đăng ký tham gia và theo dõi tiến độ hồ sơ đánh giá với Sở Tư pháp."/>
         <div className="flex flex-col gap-6">
             {activePeriod ? (
             <Card>
@@ -428,7 +443,7 @@ const CommuneDashboard = () => {
                                 </Alert>
                             ) : (
                                 <>
-                                    <p className='text-sm text-muted-foreground'>Bạn cần tải lên đơn đăng ký (file văn bản hoặc PDF) để Admin phê duyệt trước khi có thể bắt đầu tự chấm điểm.</p>
+                                    <p className='text-sm text-muted-foreground'>Bạn cần tải lên đơn đăng ký (file văn bản hoặc PDF) để Admin phê duyệt trước khi có thể bắt đầu tự đánh giá.</p>
                                     <div className="grid w-full max-w-sm items-center gap-1.5">
                                         <Input id="registration-file" type="file" onChange={(e) => setRegistrationFile(e.target.files ? e.target.files[0] : null)} disabled={isRegistrationDisabled} />
                                     </div>
@@ -441,13 +456,9 @@ const CommuneDashboard = () => {
                     )}
                     
                     <div className={`p-4 border rounded-lg ${!canStartAssessment && 'bg-muted opacity-60'}`}>
-                         <h3 className='font-semibold text-lg'>Bước 2: Tự chấm điểm</h3>
-                         <p className='text-sm text-muted-foreground mt-1'>Sau khi đăng ký được duyệt, bạn có thể bắt đầu tự chấm điểm theo bộ tiêu chí.</p>
-                         <Button asChild className='mt-4' disabled={!canStartAssessment}>
-                            <Link href="/commune/assessments">
-                                {canStartAssessment ? 'Bắt đầu Tự chấm điểm' : 'Chưa thể chấm điểm'} <ArrowRight className="ml-2 h-4 w-4" />
-                            </Link>
-                        </Button>
+                         <h3 className='font-semibold text-lg'>Bước 2: Tự đánh giá</h3>
+                         <p className='text-sm text-muted-foreground mt-1'>Sau khi đăng ký được duyệt, bạn có thể bắt đầu tự đánh giá theo bộ tiêu chí.</p>
+                         <AssessmentButton />
                     </div>
 
                 </CardContent>
