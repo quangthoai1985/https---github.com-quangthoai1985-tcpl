@@ -12,7 +12,8 @@ import {
   FileClock,
   ThumbsUp,
   ThumbsDown,
-  UserCheck
+  UserCheck,
+  AlertTriangle
 } from 'lucide-react';
 import {
   Card,
@@ -47,6 +48,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { Assessment, Unit } from '@/lib/data';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
 const AdminDashboard = () => {
@@ -366,7 +368,18 @@ const CommuneDashboard = () => {
         return assessmentPeriods.find(p => p.id === periodId)?.name || 'Không xác định';
     }
 
-    const isRegistrationDisabled = !!myAssessment || !activePeriod;
+    const isRegistrationDeadlinePassed = () => {
+        if (!activePeriod?.registrationDeadline) return false;
+        // Basic DD/MM/YYYY to Date conversion
+        const parts = activePeriod.registrationDeadline.split('/');
+        if (parts.length !== 3) return false;
+        const deadline = new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+        deadline.setHours(23, 59, 59, 999); // Set to end of day
+        return new Date() > deadline;
+    };
+
+    const deadlinePassed = isRegistrationDeadlinePassed();
+    const isRegistrationDisabled = !!myAssessment || !activePeriod || deadlinePassed;
     const canStartAssessment = myAssessment?.status === 'registration_approved';
 
     return (
@@ -403,15 +416,27 @@ const CommuneDashboard = () => {
                             </div>
                         </div>
                     ) : (
-                        <div className='space-y-4 p-4 border rounded-lg'>
+                        <div className={`space-y-4 p-4 border rounded-lg ${deadlinePassed ? 'bg-muted' : ''}`}>
                             <h3 className='font-semibold text-lg'>Bước 1: Đăng ký tham gia</h3>
-                            <p className='text-sm text-muted-foreground'>Bạn cần tải lên đơn đăng ký (file văn bản hoặc PDF) để Admin phê duyệt trước khi có thể bắt đầu tự chấm điểm.</p>
-                            <div className="grid w-full max-w-sm items-center gap-1.5">
-                                <Input id="registration-file" type="file" onChange={(e) => setRegistrationFile(e.target.files ? e.target.files[0] : null)} />
-                            </div>
-                            <Button onClick={handleRegister} disabled={isRegistrationDisabled || !registrationFile}>
-                                <FilePenLine className="mr-2 h-4 w-4" /> Gửi đăng ký
-                            </Button>
+                             {deadlinePassed ? (
+                                <Alert variant="destructive">
+                                    <AlertTriangle className="h-4 w-4" />
+                                    <AlertTitle>Đã hết hạn đăng ký!</AlertTitle>
+                                    <AlertDescription>
+                                        Đã qua thời hạn đăng ký cho kỳ đánh giá này ({activePeriod.registrationDeadline}). Vui lòng liên hệ Admin để biết thêm chi tiết.
+                                    </AlertDescription>
+                                </Alert>
+                            ) : (
+                                <>
+                                    <p className='text-sm text-muted-foreground'>Bạn cần tải lên đơn đăng ký (file văn bản hoặc PDF) để Admin phê duyệt trước khi có thể bắt đầu tự chấm điểm.</p>
+                                    <div className="grid w-full max-w-sm items-center gap-1.5">
+                                        <Input id="registration-file" type="file" onChange={(e) => setRegistrationFile(e.target.files ? e.target.files[0] : null)} disabled={isRegistrationDisabled} />
+                                    </div>
+                                    <Button onClick={handleRegister} disabled={isRegistrationDisabled || !registrationFile}>
+                                        <FilePenLine className="mr-2 h-4 w-4" /> Gửi đăng ký
+                                    </Button>
+                                </>
+                            )}
                         </div>
                     )}
                     

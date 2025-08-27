@@ -42,7 +42,14 @@ const communeNavItems = [
 
 export default function AppSidebar() {
   const pathname = usePathname();
-  const { role, notifications } = useData();
+  const { role, notifications, assessments, currentUser, assessmentPeriods } = useData();
+
+  const activePeriod = assessmentPeriods.find(p => p.isActive);
+  const myAssessment = activePeriod && currentUser 
+      ? assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId) 
+      : null;
+  const canStartAssessment = myAssessment?.status === 'registration_approved';
+
   const navItems = role === 'admin' ? adminNavItems : communeNavItems;
   const pendingCount = role === 'admin' ? notifications.filter(n => n.link.startsWith('/admin/reviews')).length : 0;
 
@@ -51,25 +58,44 @@ export default function AppSidebar() {
       <div className="flex h-full max-h-screen flex-col gap-2">
         <div className="flex-1 py-2">
           <nav className="grid items-start px-2 text-sm font-medium lg:px-4">
-            {navItems.map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary',
-                  pathname === item.href ? 'bg-muted text-primary' : 
-                  (pathname.startsWith(item.href) && item.href !== '/dashboard') ? 'bg-muted text-primary' : ''
-                )}
-              >
-                <item.icon className="h-4 w-4" />
-                {item.label}
-                {item.href === '/admin/reviews' && pendingCount > 0 && role === 'admin' && (
-                  <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
-                    {pendingCount}
-                  </Badge>
-                )}
-              </Link>
-            ))}
+            {navItems.map((item) => {
+              const isAssessmentLink = item.href === '/commune/assessments';
+              const isDisabled = role === 'commune_staff' && isAssessmentLink && !canStartAssessment;
+
+              const linkContent = (
+                <>
+                  <item.icon className="h-4 w-4" />
+                  {item.label}
+                  {item.href === '/admin/reviews' && pendingCount > 0 && role === 'admin' && (
+                    <Badge className="ml-auto flex h-6 w-6 shrink-0 items-center justify-center rounded-full">
+                      {pendingCount}
+                    </Badge>
+                  )}
+                </>
+              );
+
+              return (
+                <Link
+                  key={item.href}
+                  href={isDisabled ? '#' : item.href}
+                  className={cn(
+                    'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all',
+                    isDisabled 
+                      ? 'cursor-not-allowed opacity-50' 
+                      : 'hover:text-primary',
+                    pathname === item.href && !isDisabled ? 'bg-muted text-primary' : 
+                    (pathname.startsWith(item.href) && item.href !== '/dashboard' && !isDisabled) ? 'bg-muted text-primary' : ''
+                  )}
+                  aria-disabled={isDisabled}
+                  tabIndex={isDisabled ? -1 : undefined}
+                  onClick={(e) => {
+                    if (isDisabled) e.preventDefault();
+                  }}
+                >
+                  {linkContent}
+                </Link>
+              );
+            })}
           </nav>
         </div>
       </div>
