@@ -379,8 +379,70 @@ const CommuneDashboard = () => {
     };
 
     const deadlinePassed = isRegistrationDeadlinePassed();
-    const isRegistrationDisabled = !!myAssessment || !activePeriod || deadlinePassed;
     const canStartAssessment = myAssessment?.status === 'registration_approved';
+    const isRegistrationFlowActive = !myAssessment || myAssessment.status === 'pending_registration' || myAssessment.status === 'registration_rejected';
+
+    const renderRegistrationStatus = () => {
+        if (!myAssessment) {
+             return (
+                 <div className={`space-y-4 p-4 border rounded-lg ${deadlinePassed ? 'bg-muted' : ''}`}>
+                    <h3 className='font-semibold text-lg'>Bước 1: Đăng ký tham gia</h3>
+                    {deadlinePassed ? (
+                        <Alert variant="destructive">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>Đã hết hạn đăng ký!</AlertTitle>
+                            <AlertDescription>
+                                Đã qua thời hạn đăng ký cho kỳ đánh giá này ({activePeriod?.registrationDeadline}). Vui lòng liên hệ Admin để biết thêm chi tiết.
+                            </AlertDescription>
+                        </Alert>
+                    ) : (
+                        <>
+                            <p className='text-sm text-muted-foreground'>Bạn cần tải lên đơn đăng ký (file văn bản hoặc PDF) để Admin phê duyệt trước khi có thể bắt đầu tự đánh giá.</p>
+                            <div className="grid w-full max-w-sm items-center gap-1.5">
+                                <Input id="registration-file" type="file" onChange={(e) => setRegistrationFile(e.target.files ? e.target.files[0] : null)} />
+                            </div>
+                            <Button onClick={handleRegister} disabled={!registrationFile}>
+                                <FilePenLine className="mr-2 h-4 w-4" /> Gửi đăng ký
+                            </Button>
+                        </>
+                    )}
+                </div>
+            );
+        }
+
+        const statusMap = {
+            pending_registration: { text: 'Chờ duyệt đăng ký', icon: FileClock, className: 'bg-amber-500' },
+            registration_approved: { text: 'Đã duyệt đăng ký', icon: CheckCircle, className: 'bg-green-500' },
+            registration_rejected: { text: 'Đăng ký bị từ chối', icon: XCircle, className: 'bg-red-500' },
+        };
+        
+        const currentStatus = myAssessment.status;
+        let statusInfo = null;
+
+        if (currentStatus in statusMap) {
+            statusInfo = statusMap[currentStatus as keyof typeof statusMap];
+        }
+
+        if (statusInfo) {
+             return (
+                <div>
+                    <p className="font-semibold text-lg">Trạng thái đăng ký:</p>
+                    <div className="flex items-center gap-4 mt-2">
+                        <Badge className={`${statusInfo.className} text-white`}>
+                           <statusInfo.icon className="mr-2 h-4 w-4" />
+                           {statusInfo.text}
+                        </Badge>
+                        {(currentStatus === 'registration_rejected') && (
+                             <Alert variant="destructive" className="p-2 text-sm">Lý do từ chối: Cần bổ sung chữ ký. <Button variant='link' className='p-1 h-auto text-destructive'>Gửi lại</Button></Alert>
+                        )}
+                    </div>
+                </div>
+            );
+        }
+        
+        return null;
+    };
+
 
     const AssessmentButton = () => {
         const buttonText = canStartAssessment ? 'Thực hiện Tự đánh giá' : 'Chưa thể tự đánh giá';
@@ -410,50 +472,7 @@ const CommuneDashboard = () => {
                     </CardDescription>
                 </CardHeader>
                 <CardContent className='space-y-6'>
-                    {myAssessment ? (
-                        <div>
-                            <p className="font-semibold text-lg">Trạng thái hiện tại:</p>
-                            <div className="flex items-center gap-4 mt-2">
-                                <Badge className={
-                                    myAssessment.status === 'pending_registration' ? 'bg-amber-500' :
-                                    myAssessment.status === 'registration_approved' ? 'bg-green-500' :
-                                    myAssessment.status === 'registration_rejected' ? 'bg-red-500' :
-                                    'bg-gray-500'
-                                }>
-                                    {myAssessment.status === 'pending_registration' && <><FileClock className="mr-2 h-4 w-4" />Chờ duyệt đăng ký</>}
-                                    {myAssessment.status === 'registration_approved' && <><CheckCircle className="mr-2 h-4 w-4" />Đã duyệt đăng ký</>}
-                                    {myAssessment.status === 'registration_rejected' && <><XCircle className="mr-2 h-4 w-4" />Đăng ký bị từ chối</>}
-                                    {myAssessment.status !== 'pending_registration' && myAssessment.status !== 'registration_approved' && myAssessment.status !== 'registration_rejected' && 'Đang tiến hành'}
-                                </Badge>
-                                {(myAssessment.status === 'registration_rejected') && (
-                                     <Alert variant="destructive" className="p-2 text-sm">Lý do từ chối: Cần bổ sung chữ ký.</Alert>
-                                )}
-                            </div>
-                        </div>
-                    ) : (
-                        <div className={`space-y-4 p-4 border rounded-lg ${deadlinePassed ? 'bg-muted' : ''}`}>
-                            <h3 className='font-semibold text-lg'>Bước 1: Đăng ký tham gia</h3>
-                             {deadlinePassed ? (
-                                <Alert variant="destructive">
-                                    <AlertTriangle className="h-4 w-4" />
-                                    <AlertTitle>Đã hết hạn đăng ký!</AlertTitle>
-                                    <AlertDescription>
-                                        Đã qua thời hạn đăng ký cho kỳ đánh giá này ({activePeriod.registrationDeadline}). Vui lòng liên hệ Admin để biết thêm chi tiết.
-                                    </AlertDescription>
-                                </Alert>
-                            ) : (
-                                <>
-                                    <p className='text-sm text-muted-foreground'>Bạn cần tải lên đơn đăng ký (file văn bản hoặc PDF) để Admin phê duyệt trước khi có thể bắt đầu tự đánh giá.</p>
-                                    <div className="grid w-full max-w-sm items-center gap-1.5">
-                                        <Input id="registration-file" type="file" onChange={(e) => setRegistrationFile(e.target.files ? e.target.files[0] : null)} disabled={isRegistrationDisabled} />
-                                    </div>
-                                    <Button onClick={handleRegister} disabled={isRegistrationDisabled || !registrationFile}>
-                                        <FilePenLine className="mr-2 h-4 w-4" /> Gửi đăng ký
-                                    </Button>
-                                </>
-                            )}
-                        </div>
-                    )}
+                    {isRegistrationFlowActive && renderRegistrationStatus()}
                     
                     <div className={`p-4 border rounded-lg ${!canStartAssessment && 'bg-muted opacity-60'}`}>
                          <h3 className='font-semibold text-lg'>Bước 2: Tự đánh giá</h3>
@@ -555,4 +574,3 @@ export default function DashboardPage() {
   );
 }
 
-    
