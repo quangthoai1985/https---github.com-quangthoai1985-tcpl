@@ -6,32 +6,32 @@ import * as admin from 'firebase-admin';
 import * as fs from 'fs';
 import * as path from 'path';
 
-// Initialize Firebase Admin SDK only once.
-if (!admin.apps.length) {
-  try {
-    const serviceAccountPath = path.resolve(process.cwd(), 'service-account-credentials.json');
-    
-    // In production on App Hosting, the file should exist.
-    // Locally, we also use this file.
-    if (fs.existsSync(serviceAccountPath)) {
-        const serviceAccount = require('../../service-account-credentials.json');
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount),
-        });
-        console.log("Firebase Admin SDK initialized using service account file.");
-    } else {
-        // Fallback for environments where ADC is expected and the file is not present.
-        // This might be the case in some CI/CD or other cloud environments.
-        console.warn("service-account-credentials.json not found. Initializing with default credentials for production.");
-        admin.initializeApp();
+// A function to initialize Firebase Admin SDK idempotently.
+function initializeFirebaseAdmin() {
+  if (admin.apps.length === 0) {
+    try {
+      const serviceAccountPath = path.resolve(process.cwd(), 'service-account-credentials.json');
+      
+      if (fs.existsSync(serviceAccountPath)) {
+          const serviceAccount = require('../../service-account-credentials.json');
+          admin.initializeApp({
+              credential: admin.credential.cert(serviceAccount),
+          });
+          console.log("Firebase Admin SDK initialized using service account file.");
+      } else {
+          console.warn("service-account-credentials.json not found. Initializing with default credentials for production.");
+          admin.initializeApp();
+      }
+    } catch (error: any) {
+      console.error("CRITICAL: Failed to initialize Firebase Admin SDK. Error: ", error.message);
+      // Re-throw or handle as critical failure
+      throw new Error("Could not initialize Firebase Admin SDK.");
     }
-  } catch (error: any) {
-    console.error("CRITICAL: Failed to initialize Firebase Admin SDK in userActions.ts. Error: ", error.message);
-    // If initialization fails, subsequent Firestore/Auth calls will fail.
   }
 }
 
-
+// Ensure initialization before getting db and auth instances.
+initializeFirebaseAdmin();
 const db = admin.firestore();
 const auth = admin.auth();
 
@@ -43,6 +43,7 @@ type ServerActionResult = {
 };
 
 export async function createUser(userData: Omit<User, 'id'>, password: string): Promise<ServerActionResult> {
+    initializeFirebaseAdmin();
     try {
         console.log(`Creating user with email: ${userData.username}`);
         const userRecord = await auth.createUser({
@@ -71,6 +72,7 @@ export async function createUser(userData: Omit<User, 'id'>, password: string): 
 
 
 export async function updateUser(userData: User): Promise<ServerActionResult> {
+    initializeFirebaseAdmin();
     try {
         const { id, ...dataToUpdate } = userData;
         if (!id) throw new Error("User ID is required for update.");
@@ -101,6 +103,7 @@ export async function updateUser(userData: User): Promise<ServerActionResult> {
 }
 
 export async function deleteUser(userId: string): Promise<ServerActionResult> {
+    initializeFirebaseAdmin();
     try {
         if (!userId) throw new Error("User ID is required for deletion.");
         
@@ -120,6 +123,7 @@ export async function deleteUser(userId: string): Promise<ServerActionResult> {
 }
 
 export async function resetUserPassword(userId: string, newPassword: string):Promise<ServerActionResult> {
+    initializeFirebaseAdmin();
     try {
         if (!userId || !newPassword) throw new Error("User ID and new password are required.");
         
@@ -137,6 +141,7 @@ export async function resetUserPassword(userId: string, newPassword: string):Pro
 }
 
 export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{successCount: number, errorCount: number, errors: string[]}> {
+    initializeFirebaseAdmin();
     const results = { successCount: 0, errorCount: 0, errors: [] as string[] };
     const unitsCollection = db.collection('units');
     const usersCollection = db.collection('users');
