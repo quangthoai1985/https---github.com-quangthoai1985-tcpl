@@ -99,6 +99,16 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       if (user.role === 'admin') {
           // Notifications for Admin
           sortedAssessments.forEach(assessment => {
+              if (assessment.status === 'pending_registration') {
+                  const communeName = getUnitName(assessment.communeId, allUnits);
+                  generated.push({
+                      id: `admin-notif-reg-${assessment.id}`,
+                      title: `${communeName} vừa gửi yêu cầu đăng ký.`,
+                      time: `Ngày ${assessment.submissionDate}`,
+                      read: false, // This would be dynamic in a real app
+                      link: `/admin/registrations`
+                  });
+              }
               if (assessment.status === 'pending_review') {
                   const communeName = getUnitName(assessment.communeId, allUnits);
                   generated.push({
@@ -124,6 +134,24 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       } else { // commune_staff
           const userAssessments = sortedAssessments.filter(a => a.communeId === user.communeId);
           userAssessments.forEach(assessment => {
+              if (assessment.status === 'registration_approved') {
+                  generated.push({
+                      id: `commune-reg-approved-${assessment.id}`,
+                      title: `Đăng ký của bạn đã được duyệt.`,
+                      time: `Bây giờ bạn có thể bắt đầu tự đánh giá.`,
+                      read: false,
+                      link: `/dashboard`
+                  });
+              }
+               if (assessment.status === 'registration_rejected') {
+                  generated.push({
+                      id: `commune-reg-rejected-${assessment.id}`,
+                      title: `Đăng ký của bạn đã bị từ chối.`,
+                      time: `Vui lòng liên hệ Admin để biết chi tiết.`,
+                      read: false,
+                      link: `/dashboard`
+                  });
+              }
               if (assessment.status === 'approved') {
                   generated.push({
                       id: `commune-approved-${assessment.id}`,
@@ -288,6 +316,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const refreshData = useCallback(async () => {
+      if (!auth || !db) {
+        console.log("Auth or DB not initialized, skipping refresh.");
+        return;
+      }
       if (auth.currentUser) {
           const usersSnapshot = await getDocs(collection(db, 'users'));
           const allUsers = usersSnapshot.docs.map(d => d.data() as User);
@@ -336,6 +368,8 @@ export const useData = () => {
   }
   return context;
 };
+
+    
 
     
 

@@ -341,7 +341,7 @@ const CommuneDashboard = () => {
 
     const handleRegister = async () => {
         if (!activePeriod || !currentUser || !registrationFile) {
-            toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng chọn đợt đánh giá và tệp đơn đăng ký.' });
+            toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng chọn tệp đơn đăng ký.' });
             return;
         }
 
@@ -425,8 +425,8 @@ const CommuneDashboard = () => {
                                     {myAssessment.status === 'registration_rejected' && <><XCircle className="mr-2 h-4 w-4" />Đăng ký bị từ chối</>}
                                     {myAssessment.status !== 'pending_registration' && myAssessment.status !== 'registration_approved' && myAssessment.status !== 'registration_rejected' && 'Đang tiến hành'}
                                 </Badge>
-                                {(myAssessment.status === 'registration_rejected' || myAssessment.status === 'registration_approved') && (
-                                    <Button variant="outline" size="sm">Xem lý do/chi tiết</Button>
+                                {(myAssessment.status === 'registration_rejected') && (
+                                     <Alert variant="destructive" className="p-2 text-sm">Lý do từ chối: Cần bổ sung chữ ký.</Alert>
                                 )}
                             </div>
                         </div>
@@ -554,3 +554,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+    
