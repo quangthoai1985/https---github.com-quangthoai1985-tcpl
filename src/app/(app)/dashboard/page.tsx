@@ -6,12 +6,13 @@ import {
   Clock,
   CheckCircle,
   XCircle,
-  TrendingUp,
+  FilePenLine,
   ArrowRight,
   Edit,
   FileClock,
   ThumbsUp,
   ThumbsDown,
+  UserCheck
 } from 'lucide-react';
 import {
   Card,
@@ -39,11 +40,12 @@ import {
 } from '@/components/ui/chart';
 import Link from 'next/link';
 import { useData } from '@/context/DataContext';
-import { Pie, PieChart, Cell, ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Legend, Line } from 'recharts';
-import React from 'react';
+import { Pie, PieChart, Cell, ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Line } from 'recharts';
+import React, { useState } from 'react';
 import PageHeader from '@/components/layout/page-header';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Unit } from '@/lib/data';
+import type { Assessment, Unit } from '@/lib/data';
+import { Input } from '@/components/ui/input';
 
 
 const AdminDashboard = () => {
@@ -53,9 +55,10 @@ const AdminDashboard = () => {
     const {
         periodAssessments,
         totalCommunes,
-        pendingCount,
+        pendingReviewCount,
         approvedCount,
         rejectedCount,
+        pendingRegistrationCount,
         assessmentStatusChartData,
         chartConfig,
         progressData,
@@ -69,16 +72,19 @@ const AdminDashboard = () => {
         
         const sentCommuneIds = new Set(periodAssessments.map(a => a.communeId));
         
-        const pendingCount = periodAssessments.filter(a => a.status === 'pending_review').length;
+        const pendingReviewCount = periodAssessments.filter(a => a.status === 'pending_review').length;
         const approvedCount = periodAssessments.filter(a => a.status === 'approved').length;
         const rejectedCount = periodAssessments.filter(a => a.status === 'rejected').length;
-        const notSentCount = totalCommunes - sentCommuneIds.size;
+        const pendingRegistrationCount = periodAssessments.filter(a => a.status === 'pending_registration').length;
+
+        const notYetRegisteredCount = totalCommunes - sentCommuneIds.size;
 
         const chartData = [
             { name: 'Đã duyệt', value: approvedCount, fill: 'hsl(var(--chart-2))' },
-            { name: 'Chờ duyệt', value: pendingCount, fill: 'hsl(var(--chart-3))' },
+            { name: 'Chờ duyệt', value: pendingReviewCount, fill: 'hsl(var(--chart-3))' },
             { name: 'Bị từ chối', value: rejectedCount, fill: 'hsl(var(--chart-4))' },
-            { name: 'Chưa gửi', value: notSentCount, fill: 'hsl(var(--muted))' },
+            { name: 'Chưa đăng ký', value: notYetRegisteredCount, fill: 'hsl(var(--muted))' },
+            { name: 'Chờ duyệt ĐK', value: pendingRegistrationCount, fill: 'hsl(var(--chart-1))' },
         ];
         
         const assessmentStatusChartData = chartData.filter(d => d.value > 0);
@@ -103,9 +109,10 @@ const AdminDashboard = () => {
         return {
             periodAssessments,
             totalCommunes,
-            pendingCount,
+            pendingReviewCount,
             approvedCount,
             rejectedCount,
+            pendingRegistrationCount,
             assessmentStatusChartData,
             chartConfig,
             progressData,
@@ -119,12 +126,19 @@ const AdminDashboard = () => {
         title: "Tổng số xã", 
         value: totalCommunes.toString(), 
         icon: Users, 
-        color: "bg-blue-500",
+        color: "bg-gray-500",
         link: "/admin/units"
       },
       { 
-        title: "Chờ duyệt", 
-        value: pendingCount.toString(), 
+        title: "Chờ duyệt ĐK", 
+        value: pendingRegistrationCount.toString(), 
+        icon: UserCheck, 
+        color: "bg-blue-500",
+        link: "/admin/registrations"
+      },
+      { 
+        title: "Chờ duyệt HS", 
+        value: pendingReviewCount.toString(), 
         icon: FileClock, 
         color: "bg-amber-500",
         link: "/admin/reviews"
@@ -134,13 +148,6 @@ const AdminDashboard = () => {
         value: approvedCount.toString(), 
         icon: ThumbsUp, 
         color: "bg-emerald-500",
-        link: "/admin/reviews"
-      },
-      { 
-        title: "Bị từ chối", 
-        value: rejectedCount.toString(), 
-        icon: ThumbsDown, 
-        color: "bg-red-500",
         link: "/admin/reviews"
       },
     ];
@@ -320,22 +327,46 @@ const AdminDashboard = () => {
 )};
 
 const CommuneDashboard = () => {
-    const { units, assessments, currentUser, assessmentPeriods } = useData();
-    const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
-        'approved': { text: 'Đã duyệt', icon: CheckCircle, badge: 'default', className: 'bg-emerald-500' },
-        'pending_review': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary', className: 'bg-amber-500' },
-        'rejected': { text: 'Bị từ chối', icon: XCircle, badge: 'destructive', className: 'bg-red-500' },
-        'draft': { text: 'Bản nháp', icon: Edit, badge: 'secondary' },
-    };
+    const { units, assessments, currentUser, assessmentPeriods, updateAssessments } = useData();
+    const { toast } = useToast();
+    const [registrationFile, setRegistrationFile] = useState<File | null>(null);
 
-    const communeAssessments = currentUser ? assessments.filter(a => a.communeId === currentUser.communeId) : [];
-    
     const activePeriod = assessmentPeriods.find(p => p.isActive);
+    const myAssessment = activePeriod && currentUser 
+        ? assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId) 
+        : null;
+
+    const handleRegister = async () => {
+        if (!activePeriod || !currentUser || !registrationFile) {
+            toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng chọn đợt đánh giá và tệp đơn đăng ký.' });
+            return;
+        }
+
+        // Mock file upload. In a real app, this would upload to Firebase Storage
+        // and get a download URL. For now, we'll just pretend.
+        const mockFileUrl = `mock/path/${registrationFile.name}`;
+
+        const newAssessment: Assessment = {
+            id: `assess_${activePeriod.id}_${currentUser.communeId}`,
+            assessmentPeriodId: activePeriod.id,
+            communeId: currentUser.communeId,
+            status: 'pending_registration',
+            submissionDate: new Date().toLocaleDateString('vi-VN'),
+            submittedBy: currentUser.id,
+            registrationFormUrl: mockFileUrl,
+        };
+
+        const existingAssessments = assessments.filter(a => a.id !== newAssessment.id);
+        await updateAssessments([...existingAssessments, newAssessment]);
+        toast({ title: 'Thành công', description: 'Đã gửi đơn đăng ký. Vui lòng chờ Admin duyệt.' });
+    };
 
     const getPeriodName = (periodId: string) => {
         return assessmentPeriods.find(p => p.id === periodId)?.name || 'Không xác định';
     }
 
+    const isRegistrationDisabled = !!myAssessment || !activePeriod;
+    const canStartAssessment = myAssessment?.status === 'registration_approved';
 
     return (
         <>
@@ -346,15 +377,53 @@ const CommuneDashboard = () => {
                 <CardHeader>
                     <CardTitle>Kỳ đánh giá: {activePeriod.name}</CardTitle>
                     <CardDescription>
-                        Hạn chót nộp hồ sơ là ngày {activePeriod.endDate}. Vui lòng hoàn thành việc tự chấm điểm và gửi đi đúng hạn.
+                        Hạn chót đăng ký: {activePeriod.registrationDeadline || 'Chưa có'}. Hạn nộp hồ sơ: {activePeriod.endDate}.
                     </CardDescription>
                 </CardHeader>
-                <CardContent>
-                     <Button asChild>
-                        <Link href="/commune/assessments">
-                            Thực hiện Tự chấm điểm <ArrowRight className="ml-2 h-4 w-4" />
-                        </Link>
-                    </Button>
+                <CardContent className='space-y-6'>
+                    {myAssessment ? (
+                        <div>
+                            <p className="font-semibold text-lg">Trạng thái hiện tại:</p>
+                            <div className="flex items-center gap-4 mt-2">
+                                <Badge className={
+                                    myAssessment.status === 'pending_registration' ? 'bg-amber-500' :
+                                    myAssessment.status === 'registration_approved' ? 'bg-green-500' :
+                                    myAssessment.status === 'registration_rejected' ? 'bg-red-500' :
+                                    'bg-gray-500'
+                                }>
+                                    {myAssessment.status === 'pending_registration' && <><FileClock className="mr-2 h-4 w-4" />Chờ duyệt đăng ký</>}
+                                    {myAssessment.status === 'registration_approved' && <><CheckCircle className="mr-2 h-4 w-4" />Đã duyệt đăng ký</>}
+                                    {myAssessment.status === 'registration_rejected' && <><XCircle className="mr-2 h-4 w-4" />Đăng ký bị từ chối</>}
+                                    {myAssessment.status !== 'pending_registration' && myAssessment.status !== 'registration_approved' && myAssessment.status !== 'registration_rejected' && 'Đang tiến hành'}
+                                </Badge>
+                                {(myAssessment.status === 'registration_rejected' || myAssessment.status === 'registration_approved') && (
+                                    <Button variant="outline" size="sm">Xem lý do/chi tiết</Button>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <div className='space-y-4 p-4 border rounded-lg'>
+                            <h3 className='font-semibold text-lg'>Bước 1: Đăng ký tham gia</h3>
+                            <p className='text-sm text-muted-foreground'>Bạn cần tải lên đơn đăng ký (file văn bản hoặc PDF) để Admin phê duyệt trước khi có thể bắt đầu tự chấm điểm.</p>
+                            <div className="grid w-full max-w-sm items-center gap-1.5">
+                                <Input id="registration-file" type="file" onChange={(e) => setRegistrationFile(e.target.files ? e.target.files[0] : null)} />
+                            </div>
+                            <Button onClick={handleRegister} disabled={isRegistrationDisabled || !registrationFile}>
+                                <FilePenLine className="mr-2 h-4 w-4" /> Gửi đăng ký
+                            </Button>
+                        </div>
+                    )}
+                    
+                    <div className={`p-4 border rounded-lg ${!canStartAssessment && 'bg-muted opacity-60'}`}>
+                         <h3 className='font-semibold text-lg'>Bước 2: Tự chấm điểm</h3>
+                         <p className='text-sm text-muted-foreground mt-1'>Sau khi đăng ký được duyệt, bạn có thể bắt đầu tự chấm điểm theo bộ tiêu chí.</p>
+                         <Button asChild className='mt-4' disabled={!canStartAssessment}>
+                            <Link href="/commune/assessments">
+                                {canStartAssessment ? 'Bắt đầu Tự chấm điểm' : 'Chưa thể chấm điểm'} <ArrowRight className="ml-2 h-4 w-4" />
+                            </Link>
+                        </Button>
+                    </div>
+
                 </CardContent>
             </Card>
             ) : (
@@ -386,9 +455,20 @@ const CommuneDashboard = () => {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                           {communeAssessments.length > 0 ? communeAssessments.map(assessment => {
+                           {(assessments.filter(a => a.communeId === currentUser?.communeId) || []).length > 0 ? (assessments.filter(a => a.communeId === currentUser?.communeId) || []).map(assessment => {
                                if (!assessment) return null;
-                               const statusInfo = statusMap[assessment.status];
+                               
+                               const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
+                                    'approved': { text: 'Đã duyệt', icon: CheckCircle, badge: 'default', className: 'bg-emerald-500' },
+                                    'pending_review': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary', className: 'bg-amber-500' },
+                                    'rejected': { text: 'Bị từ chối', icon: XCircle, badge: 'destructive', className: 'bg-red-500' },
+                                    'draft': { text: 'Bản nháp', icon: Edit, badge: 'secondary' },
+                                    'pending_registration': { text: 'Chờ duyệt ĐK', icon: FileClock, badge: 'secondary', className: 'bg-blue-500' },
+                                    'registration_approved': { text: 'ĐK đã duyệt', icon: UserCheck, badge: 'default', className: 'bg-green-500' },
+                                    'registration_rejected': { text: 'ĐK bị từ chối', icon: XCircle, badge: 'destructive', className: 'bg-red-500' },
+                                };
+                               const statusInfo = statusMap[assessment.status] || { text: 'Không rõ', icon: Eye, badge: 'secondary' };
+
                                return (
                                     <TableRow key={assessment.id}>
                                         <TableCell className="font-medium">{getPeriodName(assessment.assessmentPeriodId)}</TableCell>
@@ -404,7 +484,7 @@ const CommuneDashboard = () => {
                                                 <Link href={`/admin/reviews/${assessment.id}`}>
                                                   {assessment.status === 'rejected' ? 
                                                     <><Edit className="mr-2 h-4 w-4" />Giải trình & Gửi lại</> : 
-                                                    assessment.status === 'draft' ?
+                                                    (assessment.status === 'draft' || assessment.status === 'registration_approved') ?
                                                     <><Edit className="mr-2 h-4 w-4" />Tiếp tục chấm điểm</> :
                                                     <><Eye className="mr-2 h-4 w-4" />Xem chi tiết</>
                                                   }
@@ -437,5 +517,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    

@@ -45,7 +45,7 @@ export type Indicator = {
 
 
 export type Criterion = {
-  id: string;
+  id:string;
   name: string;
   description: string;
   indicators: Indicator[];
@@ -57,19 +57,21 @@ export type AssessmentPeriod = {
     startDate: string; // Should ideally be a timestamp
     endDate: string;   // Should ideally be a timestamp
     isActive: boolean;
+    registrationDeadline?: string; // New field
 };
 
 export type Assessment = {
   id: string;
   communeId: string;
   assessmentPeriodId: string;
-  status: 'draft' | 'pending_review' | 'approved' | 'rejected';
+  status: 'draft' | 'pending_review' | 'approved' | 'rejected' | 'pending_registration' | 'registration_approved' | 'registration_rejected';
   submissionDate?: string; // Should be a timestamp, optional until submitted
   approvalDate?: string;   // Optional
   approverId?: string;     // Optional
   rejectionReason?: string; // Optional
   communeExplanation?: string; // Optional for resubmission
   submittedBy?: string; // User ID
+  registrationFormUrl?: string; // URL to the uploaded registration form
 };
 
 export type Document = {

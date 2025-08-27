@@ -13,6 +13,7 @@ import {
   CalendarClock,
   Users,
   HelpCircle,
+  UserCheck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -23,6 +24,7 @@ const adminNavItems = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Tổng quan' },
   { href: '/admin/users', icon: Users, label: 'Quản lý Người dùng' },
   { href: '/admin/units', icon: Building, label: 'Quản lý Đơn vị' },
+  { href: '/admin/registrations', icon: UserCheck, label: 'Quản lý Đăng ký'},
   { href: '/admin/criteria', icon: FileCheck2, label: 'Quản lý Tiêu chí' },
   { href: '/admin/assessment-periods', icon: CalendarClock, label: 'Quản lý Đợt đánh giá' },
   { href: '/admin/reviews', icon: GanttChartSquare, label: 'Duyệt Đánh giá' },

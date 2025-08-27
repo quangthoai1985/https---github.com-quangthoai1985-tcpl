@@ -67,6 +67,10 @@ function PeriodForm({ period, onSave, onCancel }: { period: Partial<AssessmentPe
           <Label htmlFor="endDate" className="text-right">Ngày kết thúc</Label>
           <Input id="endDate" value={formData.endDate || ''} onChange={handleChange} className="col-span-3" placeholder="DD/MM/YYYY" />
         </div>
+        <div className="grid grid-cols-4 items-center gap-4">
+          <Label htmlFor="registrationDeadline" className="text-right">Hạn chót đăng ký</Label>
+          <Input id="registrationDeadline" value={formData.registrationDeadline || ''} onChange={handleChange} className="col-span-3" placeholder="DD/MM/YYYY" />
+        </div>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Hủy</Button>
@@ -104,6 +108,7 @@ export default function AssessmentPeriodPage() {
                 startDate: periodToSave.startDate || '',
                 endDate: periodToSave.endDate || '',
                 isActive: false,
+                registrationDeadline: periodToSave.registrationDeadline || '',
             } as AssessmentPeriod;
             await updateAssessmentPeriods([...assessmentPeriods, newPeriod]);
             toast({ title: "Thành công!", description: "Đã tạo đợt đánh giá mới."});
@@ -157,6 +162,7 @@ export default function AssessmentPeriodPage() {
               <TableHead>Tên đợt đánh giá</TableHead>
               <TableHead>Ngày bắt đầu</TableHead>
               <TableHead>Ngày kết thúc</TableHead>
+              <TableHead>Hạn đăng ký</TableHead>
               <TableHead>Trạng thái</TableHead>
               <TableHead>Kích hoạt</TableHead>
               <TableHead>
@@ -170,6 +176,7 @@ export default function AssessmentPeriodPage() {
                 <TableCell className="font-medium">{period.name}</TableCell>
                 <TableCell>{period.startDate}</TableCell>
                 <TableCell>{period.endDate}</TableCell>
+                <TableCell>{period.registrationDeadline || 'N/A'}</TableCell>
                 <TableCell>
                     <Badge variant={period.isActive ? 'default' : 'secondary'} className={period.isActive ? 'bg-green-600' : ''}>
                         {period.isActive ? 'Đang hoạt động' : 'Không hoạt động'}
