@@ -71,6 +71,7 @@ function FileUploadComponent({ indicatorId, files, onFileChange }: { indicatorId
 const renderInput = (
     indicator: Indicator | SubIndicator,
     criterionId: string,
+    allCriteria: Criterion[], // Pass all criteria to find TC1
     data: IndicatorValue,
     onValueChange: (id: string, value: any) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void
@@ -84,7 +85,7 @@ const renderInput = (
     }
 
     // Special logic for Tiêu chí 1
-    if (criterionId === criteria[0].id) {
+    if (allCriteria.length > 0 && criterionId === allCriteria[0].id) {
         return (
             <RadioGroup onValueChange={(val) => onIsTaskedChange(indicator.id, val === 'true')} value={data.isTasked === true ? 'true' : data.isTasked === false ? 'false' : ''} className="grid gap-2">
                  <div className="flex items-center space-x-2">
@@ -202,8 +203,9 @@ const StatusIcon = ({ status }: { status: AssessmentStatus }) => {
 };
 
 
-const IndicatorAssessment = ({ criterionId, indicator, data, onValueChange, onNoteChange, onFileChange, onIsTaskedChange }: { 
+const IndicatorAssessment = ({ criterionId, allCriteria, indicator, data, onValueChange, onNoteChange, onFileChange, onIsTaskedChange }: { 
     criterionId: string,
+    allCriteria: Criterion[],
     indicator: Indicator | SubIndicator,
     data: AssessmentValues[string],
     onValueChange: (id: string, value: any) => void,
@@ -224,7 +226,7 @@ const IndicatorAssessment = ({ criterionId, indicator, data, onValueChange, onNo
         <div className="grid gap-4">
             <div className="grid gap-2">
               <Label>Kết quả tự đánh giá</Label>
-              {renderInput(indicator, criterionId, data, onValueChange, onIsTaskedChange)}
+              {renderInput(indicator, criterionId, allCriteria, data, onValueChange, onIsTaskedChange)}
             </div>
             <div className="grid gap-2">
                 <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
@@ -244,27 +246,26 @@ const IndicatorAssessment = ({ criterionId, indicator, data, onValueChange, onNo
     </div>
 );
 
-const { criteria } = useData(); // Assuming this is available globally in the component scope for initializeState
-
-const initializeState = (criteria: Criterion[]): AssessmentValues => {
-    const initialState: AssessmentValues = {};
-    criteria.forEach(criterion => {
-        criterion.indicators.forEach(indicator => {
-            if (indicator.subIndicators && indicator.subIndicators.length > 0) {
-                indicator.subIndicators.forEach(sub => {
-                    initialState[sub.id] = { isTasked: undefined, value: '', files: [], note: '', status: 'pending' };
-                });
-            } else {
-                initialState[indicator.id] = { isTasked: undefined, value: '', files: [], note: '', status: 'pending' };
-            }
-        });
-    });
-    return initialState;
-};
-
 export default function SelfAssessmentPage() {
   const { toast } = useToast();
   const { assessmentPeriods, criteria } = useData();
+  
+  const initializeState = (criteria: Criterion[]): AssessmentValues => {
+      const initialState: AssessmentValues = {};
+      criteria.forEach(criterion => {
+          criterion.indicators.forEach(indicator => {
+              if (indicator.subIndicators && indicator.subIndicators.length > 0) {
+                  indicator.subIndicators.forEach(sub => {
+                      initialState[sub.id] = { isTasked: undefined, value: '', files: [], note: '', status: 'pending' };
+                  });
+              } else {
+                  initialState[indicator.id] = { isTasked: undefined, value: '', files: [], note: '', status: 'pending' };
+              }
+          });
+      });
+      return initialState;
+  };
+
   const activePeriod = assessmentPeriods.find(p => p.isActive);
   const [assessmentData, setAssessmentData] = useState<AssessmentValues>(() => initializeState(criteria));
 
@@ -378,6 +379,7 @@ export default function SelfAssessmentPage() {
                                                 {(!indicator.subIndicators || indicator.subIndicators.length === 0) ? (
                                                     <IndicatorAssessment 
                                                         criterionId={criterion.id}
+                                                        allCriteria={criteria}
                                                         indicator={indicator} 
                                                         data={assessmentData[indicator.id]} 
                                                         onValueChange={handleValueChange}
@@ -397,6 +399,7 @@ export default function SelfAssessmentPage() {
                                                                   <CornerDownRight className="absolute -left-3 top-1 h-5 w-5 text-muted-foreground"/>
                                                                   <IndicatorAssessment
                                                                       criterionId={criterion.id}
+                                                                      allCriteria={criteria}
                                                                       indicator={sub} 
                                                                       data={assessmentData[sub.id]}
                                                                       onValueChange={handleValueChange}
@@ -432,3 +435,5 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
+
+    
