@@ -140,14 +140,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                       title: `Đăng ký của bạn đã được duyệt.`,
                       time: `Bây giờ bạn có thể bắt đầu tự đánh giá.`,
                       read: false,
-                      link: `/dashboard`
+                      link: `/commune/assessments`
                   });
               }
                if (assessment.status === 'registration_rejected') {
                   generated.push({
                       id: `commune-reg-rejected-${assessment.id}`,
                       title: `Đăng ký của bạn đã bị từ chối.`,
-                      time: `Vui lòng liên hệ Admin để biết chi tiết.`,
+                      time: `Vui lòng xem chi tiết và gửi lại.`,
                       read: false,
                       link: `/dashboard`
                   });

@@ -579,7 +579,7 @@ const CommuneDashboard = () => {
                                         </TableCell>
                                         <TableCell className="text-right">
                                              <Button variant="outline" size="sm" asChild>
-                                                <Link href={`/admin/reviews/${assessment.id}`}>
+                                                <Link href={assessment.status === 'registration_approved' ? '/commune/assessments' : `/admin/reviews/${assessment.id}`}>
                                                   {assessment.status === 'rejected' ? 
                                                     <><Edit className="mr-2 h-4 w-4" />Giải trình & Gửi lại</> : 
                                                     (assessment.status === 'draft' || assessment.status === 'registration_approved') ?
@@ -615,4 +615,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
 

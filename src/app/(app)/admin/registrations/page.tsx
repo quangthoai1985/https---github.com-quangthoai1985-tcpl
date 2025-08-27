@@ -42,7 +42,7 @@ import type { Assessment, Unit } from '@/lib/data';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { useSearchParams, useRouter } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 
 export default function RegistrationManagementPage() {
   const {
@@ -54,6 +54,7 @@ export default function RegistrationManagementPage() {
   const { toast } = useToast();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname();
 
   const [selectedPeriodId, setSelectedPeriodId] = React.useState<string | undefined>(
     assessmentPeriods.find((p) => p.isActive)?.id
@@ -66,7 +67,6 @@ export default function RegistrationManagementPage() {
   const [activeTab, setActiveTab] = useState(initialTab);
 
   useEffect(() => {
-    // If the tab parameter is present in the URL, set it as the active tab.
     const tabFromUrl = searchParams.get('tab');
     if (tabFromUrl && TABS.some(t => t.value === tabFromUrl)) {
       setActiveTab(tabFromUrl);
@@ -75,8 +75,9 @@ export default function RegistrationManagementPage() {
 
   const handleTabChange = (value: string) => {
     setActiveTab(value);
-    // Optionally update URL without reloading the page
-    router.replace(`/admin/registrations?tab=${value}`);
+    const params = new URLSearchParams(window.location.search);
+    params.set('tab', value);
+    router.replace(`${pathname}?${params.toString()}`);
   }
 
   const getUnitInfo = (communeId: string) => {
@@ -198,15 +199,17 @@ export default function RegistrationManagementPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-right space-x-2">
-                    {type === 'pending' && (
-                      <>
-                        <Button
+                     {type !== 'unregistered' && (item as Assessment).registrationFormUrl && (
+                       <Button
                           variant="outline"
                           size="sm"
                           onClick={() => window.open((item as Assessment).registrationFormUrl, '_blank')}
                         >
                           <Download className="mr-2 h-4 w-4" /> Xem đơn
                         </Button>
+                    )}
+                    {type === 'pending' && (
+                      <>
                         <Button
                           size="sm"
                           className="bg-red-600 hover:bg-red-700"
@@ -222,15 +225,6 @@ export default function RegistrationManagementPage() {
                           <ThumbsUp className="mr-2 h-4 w-4" /> Phê duyệt
                         </Button>
                       </>
-                    )}
-                     {type !== 'pending' && type !== 'unregistered' && (
-                       <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => window.open((item as Assessment).registrationFormUrl, '_blank')}
-                        >
-                          <Download className="mr-2 h-4 w-4" /> Xem đơn
-                        </Button>
                     )}
                   </TableCell>
                 </TableRow>
