@@ -69,7 +69,7 @@ function FileUploadComponent({ indicatorId, files, onFileChange }: { indicatorId
 
 // List of indicators that should have the special "isTasked" logic.
 const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
-    if (!criteria || criteria.length < 2) return [];
+    if (!criteria || criteria.length < 3) return [];
     
     // All indicators from the first criterion
     const firstCriterionIndicatorIds = (criteria[0]?.indicators || []).flatMap(i => 
@@ -93,16 +93,24 @@ const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
     if (secondCriterion.indicators?.length > 3 && secondCriterion.indicators[3].subIndicators?.length > 2) {
         specialIdsFromSecondCriterion.push(secondCriterion.indicators[3].subIndicators[2].id);
     }
+    
+    const thirdCriterion = criteria[2];
+    let specialIdsFromThirdCriterion: string[] = [];
+    // Subindicator 1.1 of Criterion 3
+    if (thirdCriterion.indicators?.length > 0 && thirdCriterion.indicators[0].subIndicators?.length > 0) {
+        specialIdsFromThirdCriterion.push(thirdCriterion.indicators[0].subIndicators[0].id);
+    }
 
 
-    return [...firstCriterionIndicatorIds, ...specialIdsFromSecondCriterion];
+    return [...firstCriterionIndicatorIds, ...specialIdsFromSecondCriterion, ...specialIdsFromThirdCriterion];
 }
 
 const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) => {
-    if (!criteria || criteria.length < 2) return { no: 'Không được giao nhiệm vụ', yes: 'Được giao nhiệm vụ' };
+    if (!criteria || criteria.length < 3) return { no: 'Không được giao nhiệm vụ', yes: 'Được giao nhiệm vụ' };
     
     const indicator3_tc2_id = criteria[1].indicators?.length >= 3 ? criteria[1].indicators[2].id : null;
     const subIndicator3_tc2_i4_id = criteria[1].indicators?.length > 3 && criteria[1].indicators[3].subIndicators?.length > 2 ? criteria[1].indicators[3].subIndicators[2].id : null;
+    const subIndicator1_tc3_i1_id = criteria[2].indicators?.length > 0 && criteria[2].indicators[0].subIndicators?.length > 0 ? criteria[2].indicators[0].subIndicators[0].id : null;
 
     if (indicatorId === indicator3_tc2_id) {
         return { no: "Không yêu cầu cung cấp", yes: "Có yêu cầu cung cấp" };
@@ -110,6 +118,10 @@ const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) =
     
     if (indicatorId === subIndicator3_tc2_i4_id) {
         return { no: "Không phát sinh nhiệm vụ ngoài kế hoạch", yes: "Có phát sinh nhiệm vụ ngoài kế hoạch" };
+    }
+    
+    if (indicatorId === subIndicator1_tc3_i1_id) {
+        return { no: "Không phát sinh yêu cầu thành lập", yes: "Có phát sinh yêu cầu thành lập" };
     }
 
 
