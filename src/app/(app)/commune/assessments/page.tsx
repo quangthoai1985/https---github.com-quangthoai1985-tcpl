@@ -100,6 +100,11 @@ const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
     if (thirdCriterion.indicators?.length > 0 && thirdCriterion.indicators[0].subIndicators?.length > 0) {
         specialIdsFromThirdCriterion.push(thirdCriterion.indicators[0].subIndicators[0].id);
     }
+    
+    // Subindicator 1.2 of Criterion 3
+     if (thirdCriterion.indicators?.length > 0 && thirdCriterion.indicators[0].subIndicators?.length > 1) {
+        specialIdsFromThirdCriterion.push(thirdCriterion.indicators[0].subIndicators[1].id);
+    }
 
 
     return [...firstCriterionIndicatorIds, ...specialIdsFromSecondCriterion, ...specialIdsFromThirdCriterion];
@@ -111,6 +116,7 @@ const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) =
     const indicator3_tc2_id = criteria[1].indicators?.length >= 3 ? criteria[1].indicators[2].id : null;
     const subIndicator3_tc2_i4_id = criteria[1].indicators?.length > 3 && criteria[1].indicators[3].subIndicators?.length > 2 ? criteria[1].indicators[3].subIndicators[2].id : null;
     const subIndicator1_tc3_i1_id = criteria[2].indicators?.length > 0 && criteria[2].indicators[0].subIndicators?.length > 0 ? criteria[2].indicators[0].subIndicators[0].id : null;
+    const subIndicator2_tc3_i1_id = criteria[2].indicators?.length > 0 && criteria[2].indicators[0].subIndicators?.length > 1 ? criteria[2].indicators[0].subIndicators[1].id : null;
 
     if (indicatorId === indicator3_tc2_id) {
         return { no: "Không yêu cầu cung cấp", yes: "Có yêu cầu cung cấp" };
@@ -122,6 +128,10 @@ const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) =
     
     if (indicatorId === subIndicator1_tc3_i1_id) {
         return { no: "Không phát sinh yêu cầu thành lập", yes: "Có phát sinh yêu cầu thành lập" };
+    }
+    
+    if (indicatorId === subIndicator2_tc3_i1_id) {
+        return { no: "Không phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên", yes: "Có phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên" };
     }
 
 
