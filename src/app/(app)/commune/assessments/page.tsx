@@ -68,24 +68,40 @@ function FileUploadComponent({ indicatorId, files, onFileChange }: { indicatorId
 }
 
 // List of indicators that should have the special "isTasked" logic.
-// This now includes all indicators from the first criterion and the second indicator of the second criterion.
 const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
     if (criteria.length < 2) return [];
     
+    // All indicators from the first criterion
     const firstCriterionIndicatorIds = criteria[0].indicators.flatMap(i => 
         i.subIndicators && i.subIndicators.length > 0 ? i.subIndicators.map(si => si.id) : [i.id]
     );
 
     const secondCriterion = criteria[1];
-    let secondIndicatorId = '';
+    let specialIdsFromSecondCriterion: string[] = [];
+
+    // Indicator 2.2
     if (secondCriterion.indicators.length >= 2) {
-        const secondIndicator = secondCriterion.indicators[1];
-        // If the second indicator has sub-indicators, we might need a more specific rule.
-        // For now, assuming it's a direct indicator. If it has subs, this logic needs refinement.
-        secondIndicatorId = secondIndicator.id;
+        specialIdsFromSecondCriterion.push(secondCriterion.indicators[1].id);
+    }
+    
+    // Indicator 2.3
+    if (secondCriterion.indicators.length >= 3) {
+        specialIdsFromSecondCriterion.push(secondCriterion.indicators[2].id);
     }
 
-    return [...firstCriterionIndicatorIds, ...(secondIndicatorId ? [secondIndicatorId] : [])];
+    return [...firstCriterionIndicatorIds, ...specialIdsFromSecondCriterion];
+}
+
+const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) => {
+    if (criteria.length < 2) return { no: 'Không được giao nhiệm vụ', yes: 'Được giao nhiệm vụ' };
+    
+    const indicator3_tc2_id = criteria[1].indicators.length >= 3 ? criteria[1].indicators[2].id : null;
+
+    if (indicatorId === indicator3_tc2_id) {
+        return { no: "Không yêu cầu cung cấp", yes: "Có yêu cầu cung cấp" };
+    }
+
+    return { no: 'Không được giao nhiệm vụ', yes: 'Được giao nhiệm vụ' };
 }
 
 
@@ -93,6 +109,7 @@ const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
 const renderInput = (
     indicator: Indicator | SubIndicator,
     specialIndicatorIds: string[], // Pass the list of special IDs
+    specialLabels: { no: string; yes: string },
     data: IndicatorValue,
     onValueChange: (id: string, value: any) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void
@@ -105,17 +122,17 @@ const renderInput = (
         onValueChange(indicator.id, val === 'true');
     }
 
-    // Special logic for specific indicators (from TC1 and TC2.2)
+    // Special logic for specific indicators
     if (specialIndicatorIds.includes(indicator.id)) {
         return (
             <RadioGroup onValueChange={(val) => onIsTaskedChange(indicator.id, val === 'true')} value={data.isTasked === true ? 'true' : data.isTasked === false ? 'false' : ''} className="grid gap-2">
                  <div className="flex items-center space-x-2">
                     <RadioGroupItem value="false" id={`${indicator.id}-notask`} />
-                    <Label htmlFor={`${indicator.id}-notask`}>Không được giao nhiệm vụ</Label>
+                    <Label htmlFor={`${indicator.id}-notask`}>{specialLabels.no}</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                     <RadioGroupItem value="true" id={`${indicator.id}-hastask`} />
-                    <Label htmlFor={`${indicator.id}-hastask`}>Được giao nhiệm vụ</Label>
+                    <Label htmlFor={`${indicator.id}-hastask`}>{specialLabels.yes}</Label>
                 </div>
                 {data.isTasked === true && (
                      <div className="grid gap-2 pl-6 pt-2">
@@ -173,7 +190,7 @@ const renderInput = (
 }
 
 const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean): AssessmentStatus => {
-    // For TC1, if not tasked, it's automatically achieved.
+    // If not tasked/required, it's automatically achieved.
     if (isTasked === false) {
         return 'achieved';
     }
@@ -224,8 +241,9 @@ const StatusIcon = ({ status }: { status: AssessmentStatus }) => {
 };
 
 
-const IndicatorAssessment = ({ specialIndicatorIds, indicator, data, onValueChange, onNoteChange, onFileChange, onIsTaskedChange }: { 
+const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, indicator, data, onValueChange, onNoteChange, onFileChange, onIsTaskedChange }: { 
     specialIndicatorIds: string[],
+    specialLabels: { no: string; yes: string },
     indicator: Indicator | SubIndicator,
     data: AssessmentValues[string],
     onValueChange: (id: string, value: any) => void,
@@ -246,7 +264,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, indicator, data, onValueChan
         <div className="grid gap-4">
             <div className="grid gap-2">
               <Label>Kết quả tự đánh giá</Label>
-              {renderInput(indicator, specialIndicatorIds, data, onValueChange, onIsTaskedChange)}
+              {renderInput(indicator, specialIndicatorIds, specialLabels, data, onValueChange, onIsTaskedChange)}
             </div>
             <div className="grid gap-2">
                 <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
@@ -401,6 +419,7 @@ export default function SelfAssessmentPage() {
                                                 {(!indicator.subIndicators || indicator.subIndicators.length === 0) ? (
                                                     <IndicatorAssessment 
                                                         specialIndicatorIds={specialLogicIndicatorIds}
+                                                        specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
                                                         indicator={indicator} 
                                                         data={assessmentData[indicator.id]} 
                                                         onValueChange={handleValueChange}
@@ -420,6 +439,7 @@ export default function SelfAssessmentPage() {
                                                                   <CornerDownRight className="absolute -left-3 top-1 h-5 w-5 text-muted-foreground"/>
                                                                   <IndicatorAssessment
                                                                       specialIndicatorIds={specialLogicIndicatorIds}
+                                                                      specialLabels={getSpecialIndicatorLabels(sub.id, criteria)}
                                                                       indicator={sub} 
                                                                       data={assessmentData[sub.id]}
                                                                       onValueChange={handleValueChange}
