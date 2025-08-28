@@ -104,12 +104,26 @@ const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) =
     return { no: 'Không được giao nhiệm vụ', yes: 'Được giao nhiệm vụ' };
 }
 
+const getCustomBooleanLabels = (indicatorId: string, criteria: Criterion[]) => {
+    if (criteria.length < 4) return null; // Ensure criterion 4 exists
+
+    const criterion4 = criteria[3];
+    if (criterion4.indicators.length > 0 && criterion4.indicators[0].subIndicators.length > 0) {
+        const subIndicator1_tc4_id = criterion4.indicators[0].subIndicators[0].id;
+        if (indicatorId === subIndicator1_tc4_id) {
+            return { true: 'Ban hành đúng thời hạn', false: 'Ban hành không đúng thời hạn' };
+        }
+    }
+    return null; // No custom labels
+}
+
 
 // Updated to pass the full data object for conditional rendering
 const renderInput = (
     indicator: Indicator | SubIndicator,
     specialIndicatorIds: string[], // Pass the list of special IDs
     specialLabels: { no: string; yes: string },
+    customBooleanLabels: { true: string, false: string } | null,
     data: IndicatorValue,
     onValueChange: (id: string, value: any) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void
@@ -145,19 +159,22 @@ const renderInput = (
     }
 
     switch (indicator.inputType) {
-        case 'boolean':
+        case 'boolean': {
+            const trueLabel = customBooleanLabels ? customBooleanLabels.true : 'Đạt';
+            const falseLabel = customBooleanLabels ? customBooleanLabels.false : 'Không đạt';
             return (
                 <RadioGroup onValueChange={handleRadioChange} value={data.value === true ? 'true' : data.value === false ? 'false' : ''} className="grid gap-2">
                     <div className="flex items-center space-x-2">
                         <RadioGroupItem value="true" id={`${indicator.id}-true`} />
-                        <Label htmlFor={`${indicator.id}-true`}>Đạt</Label>
+                        <Label htmlFor={`${indicator.id}-true`}>{trueLabel}</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                         <RadioGroupItem value="false" id={`${indicator.id}-false`} />
-                        <Label htmlFor={`${indicator.id}-false`}>Không đạt</Label>
+                        <Label htmlFor={`${indicator.id}-false`}>{falseLabel}</Label>
                     </div>
                 </RadioGroup>
             );
+        }
         case 'number':
             return (
                 <div className="grid gap-2">
@@ -200,7 +217,7 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean): 
     const standard = standardLevel.toLowerCase();
 
     if (typeof value === 'boolean') {
-        const required = standard === 'đạt' || standard === 'true';
+        const required = standard === 'đạt' || standard === 'true' || standard === 'ban hành đúng thời hạn';
         return value === required ? 'achieved' : 'not-achieved';
     }
 
@@ -241,9 +258,10 @@ const StatusIcon = ({ status }: { status: AssessmentStatus }) => {
 };
 
 
-const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, indicator, data, onValueChange, onNoteChange, onFileChange, onIsTaskedChange }: { 
+const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBooleanLabels, indicator, data, onValueChange, onNoteChange, onFileChange, onIsTaskedChange }: { 
     specialIndicatorIds: string[],
     specialLabels: { no: string; yes: string },
+    customBooleanLabels: { true: string, false: string} | null,
     indicator: Indicator | SubIndicator,
     data: AssessmentValues[string],
     onValueChange: (id: string, value: any) => void,
@@ -264,7 +282,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, indicator, da
         <div className="grid gap-4">
             <div className="grid gap-2">
               <Label>Kết quả tự đánh giá</Label>
-              {renderInput(indicator, specialIndicatorIds, specialLabels, data, onValueChange, onIsTaskedChange)}
+              {renderInput(indicator, specialIndicatorIds, specialLabels, customBooleanLabels, data, onValueChange, onIsTaskedChange)}
             </div>
             <div className="grid gap-2">
                 <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
@@ -420,6 +438,7 @@ export default function SelfAssessmentPage() {
                                                     <IndicatorAssessment 
                                                         specialIndicatorIds={specialLogicIndicatorIds}
                                                         specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
+                                                        customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
                                                         indicator={indicator} 
                                                         data={assessmentData[indicator.id]} 
                                                         onValueChange={handleValueChange}
@@ -440,6 +459,7 @@ export default function SelfAssessmentPage() {
                                                                   <IndicatorAssessment
                                                                       specialIndicatorIds={specialLogicIndicatorIds}
                                                                       specialLabels={getSpecialIndicatorLabels(sub.id, criteria)}
+                                                                      customBooleanLabels={getCustomBooleanLabels(sub.id, criteria)}
                                                                       indicator={sub} 
                                                                       data={assessmentData[sub.id]}
                                                                       onValueChange={handleValueChange}
