@@ -20,7 +20,7 @@ type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
 // Updated value structure to handle the new logic for TC1
 type IndicatorValue = {
     isTasked?: boolean; // For TC1: true if "Được giao nhiệm vụ", false if "Không được giao nhiệm vụ"
-    value: any; // The actual value (percentage, boolean, text, etc.)
+    value: any; // The actual value (percentage, boolean, text, object for checkboxes etc.)
     files: File[];
     note: string;
     status: AssessmentStatus;
@@ -132,6 +132,25 @@ const getCustomBooleanLabels = (indicatorId: string, criteria: Criterion[]) => {
     return null; // No custom labels
 }
 
+const getCheckboxOptions = (indicatorId: string, criteria: Criterion[]) => {
+    if (!criteria || criteria.length < 2) return null;
+    const criterion2 = criteria[1];
+    
+    if (criterion2.indicators?.length > 4 && indicatorId === criterion2.indicators[4].id) {
+        return [
+            "Tổ chức cuộc thi tìm hiểu pháp luật trực tuyến",
+            "Tổ chức tập huấn phổ biến kiến thức pháp luật và kỹ năng phổ biến, giáo dục pháp luật cho đội ngũ nhân lực làm công tác phổ biến, giáo dục pháp luật bằng hình thức trực tuyến",
+            "Phổ biến, giáo dục pháp luật trên Cổng Thông tin điện tử/Trang Thông tin điện tử của Hội đồng nhân dân, Uỷ ban nhân dân cấp xã và có sự kết nối với Cổng Pháp luật Quốc gia (đối với cấp xã đã có Cổng/Trang thông tin điện tử)",
+            "Sử dụng mạng xã hội và các nền tảng cộng đồng trực tuyến khác để thực hiện phổ biến, giáo dục pháp luật",
+            "Xây dựng, số hoá các tài liệu, sản phẩm truyền thông, phổ biến, giáo dục pháp luật như video clip, podcast, audio...",
+            "Xây dựng chatbox giải đáp pháp luật",
+            "Phổ biến, giáo dục pháp luật thông qua tin nhắn điện thoại",
+            "Hoạt động khác về chuyển đổi số, ứng dụng công nghệ số bảo đảm phù hợp"
+        ];
+    }
+    return null;
+}
+
 
 // Updated to pass the full data object for conditional rendering
 const renderInput = (
@@ -139,6 +158,7 @@ const renderInput = (
     specialIndicatorIds: string[], // Pass the list of special IDs
     specialLabels: { no: string; yes: string },
     customBooleanLabels: { true: string, false: string } | null,
+    checkboxOptions: string[] | null,
     data: IndicatorValue,
     onValueChange: (id: string, value: any) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void
@@ -149,6 +169,28 @@ const renderInput = (
     
     const handleRadioChange = (val: string) => {
         onValueChange(indicator.id, val === 'true');
+    }
+
+    const handleCheckboxChange = (option: string, checked: boolean) => {
+        const newValue = { ...((data.value as object) || {}), [option]: checked };
+        onValueChange(indicator.id, newValue);
+    };
+
+    if (checkboxOptions) {
+        return (
+            <div className="grid gap-3">
+                {checkboxOptions.map((option, index) => (
+                     <div key={index} className="flex items-center space-x-2">
+                        <Checkbox 
+                            id={`${indicator.id}-check-${index}`}
+                            checked={data.value?.[option] || false}
+                            onCheckedChange={(checked) => handleCheckboxChange(option, !!checked)}
+                        />
+                        <Label htmlFor={`${indicator.id}-check-${index}`} className="font-normal">{option}</Label>
+                    </div>
+                ))}
+            </div>
+        )
     }
 
     // Special logic for specific indicators
@@ -226,6 +268,14 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean): 
     if (isTasked === false) {
         return 'achieved';
     }
+    
+    // Handle checkbox logic
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        const checkedCount = Object.values(value).filter(v => v === true).length;
+        const requiredCount = parseInt(standardLevel.match(/(\d+)/)?.[0] || '2', 10);
+        return checkedCount >= requiredCount ? 'achieved' : 'not-achieved';
+    }
+
 
     if (value === undefined || value === null || value === '') return 'pending';
 
@@ -273,10 +323,11 @@ const StatusIcon = ({ status }: { status: AssessmentStatus }) => {
 };
 
 
-const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBooleanLabels, indicator, data, onValueChange, onNoteChange, onFileChange, onIsTaskedChange }: { 
+const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, indicator, data, onValueChange, onNoteChange, onFileChange, onIsTaskedChange }: { 
     specialIndicatorIds: string[],
     specialLabels: { no: string; yes: string },
     customBooleanLabels: { true: string, false: string} | null,
+    checkboxOptions: string[] | null,
     indicator: Indicator | SubIndicator,
     data: AssessmentValues[string],
     onValueChange: (id: string, value: any) => void,
@@ -297,7 +348,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
         <div className="grid gap-4">
             <div className="grid gap-2">
               <Label>Kết quả tự đánh giá</Label>
-              {renderInput(indicator, specialIndicatorIds, specialLabels, customBooleanLabels, data, onValueChange, onIsTaskedChange)}
+              {renderInput(indicator, specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, data, onValueChange, onIsTaskedChange)}
             </div>
             <div className="grid gap-2">
                 <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
@@ -454,6 +505,7 @@ export default function SelfAssessmentPage() {
                                                         specialIndicatorIds={specialLogicIndicatorIds}
                                                         specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
                                                         customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
+                                                        checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
                                                         indicator={indicator} 
                                                         data={assessmentData[indicator.id]} 
                                                         onValueChange={handleValueChange}
@@ -475,6 +527,7 @@ export default function SelfAssessmentPage() {
                                                                       specialIndicatorIds={specialLogicIndicatorIds}
                                                                       specialLabels={getSpecialIndicatorLabels(sub.id, criteria)}
                                                                       customBooleanLabels={getCustomBooleanLabels(sub.id, criteria)}
+                                                                      checkboxOptions={getCheckboxOptions(sub.id, criteria)}
                                                                       indicator={sub} 
                                                                       data={assessmentData[sub.id]}
                                                                       onValueChange={handleValueChange}
