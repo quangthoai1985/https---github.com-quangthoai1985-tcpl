@@ -70,7 +70,6 @@ export async function createUser(userData: Omit<User, 'id'>, password: string): 
         
         // The Cloud Function will automatically sync claims from Firestore,
         // so we don't need to explicitly set them here.
-        // await auth.setCustomUserClaims(userRecord.uid, { role: userData.role });
 
         return { success: true, message: "Người dùng đã được tạo thành công.", userId: userRecord.uid };
     } catch (error: any) {
