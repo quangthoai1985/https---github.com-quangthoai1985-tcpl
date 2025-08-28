@@ -7,34 +7,37 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash } from "lucide-react";
+import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2 } from "lucide-react";
 import React, { useState } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/context/DataContext";
 import PageHeader from "@/components/layout/page-header";
-import type { Indicator, SubIndicator, Criterion } from "@/lib/data";
+import type { Indicator, SubIndicator, Criterion, Assessment } from "@/lib/data";
 import { Textarea } from "@/components/ui/textarea";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
 type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
-// Updated value structure to handle the new logic for TC1
+// Updated value structure to handle the new logic
 type IndicatorValue = {
-    isTasked?: boolean; // For TC1: true if "Được giao nhiệm vụ", false if "Không được giao nhiệm vụ"
+    isTasked?: boolean;
     value: any; // The actual value (percentage, boolean, text, object for checkboxes etc.)
-    files: File[];
+    files: (File | { name: string, url: string })[]; // Can hold local files or uploaded file info
     note: string;
     status: AssessmentStatus;
 };
 type AssessmentValues = Record<string, IndicatorValue>;
+type AssessmentFileUrls = Record<string, { name: string, url: string }[]>;
 
 
-function FileUploadComponent({ indicatorId, files, onFileChange }: { indicatorId: string; files: File[]; onFileChange: (id: string, files: File[]) => void; }) {
+function FileUploadComponent({ indicatorId, files, onFileChange }: { indicatorId: string; files: (File | { name: string, url: string })[]; onFileChange: (id: string, files: (File | { name: string, url: string })[]) => void; }) {
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-        onFileChange(indicatorId, Array.from(e.target.files || []));
+        const newFiles = Array.from(e.target.files || []);
+        onFileChange(indicatorId, [...files, ...newFiles]);
     };
     
-    const handleFileRemove = (fileToRemove: File) => {
-        onFileChange(indicatorId, files.filter(f => f !== fileToRemove));
+    const handleFileRemove = (fileToRemove: File | { name: string, url: string }) => {
+        onFileChange(indicatorId, files.filter(f => f.name !== fileToRemove.name));
     };
 
     return (
@@ -375,7 +378,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
     data: AssessmentValues[string],
     onValueChange: (id: string, value: any) => void,
     onNoteChange: (id: string, note: string) => void,
-    onFileChange: (id: string, files: File[]) => void,
+    onFileChange: (id: string, files: (File | { name: string; url: string; })[]) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void,
 }) => (
     <div className="grid gap-6">
@@ -413,7 +416,8 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
 
 export default function SelfAssessmentPage() {
   const { toast } = useToast();
-  const { assessmentPeriods, criteria } = useData();
+  const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments } = useData();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const initializeState = (criteria: Criterion[]): AssessmentValues => {
       const initialState: AssessmentValues = {};
@@ -459,7 +463,8 @@ export default function SelfAssessmentPage() {
             [indicatorId]: {
                 ...prev[indicatorId],
                 isTasked: isTasked,
-                status: newStatus
+                status: newStatus,
+                files: isTasked ? prev[indicatorId].files : [], // Clear files if not tasked
             }
         }));
     }
@@ -493,7 +498,7 @@ export default function SelfAssessmentPage() {
   };
 
 
-  const handleFileChange = (indicatorId: string, files: File[]) => {
+  const handleFileChange = (indicatorId: string, files: (File | { name: string, url: string })[]) => {
       setAssessmentData(prev => ({
           ...prev,
           [indicatorId]: {
@@ -503,7 +508,40 @@ export default function SelfAssessmentPage() {
       }))
   }
 
-  const handleSaveDraft = () => {
+  const uploadEvidenceFiles = async (periodId: string, communeId: string): Promise<AssessmentFileUrls> => {
+    const uploadedFileUrls: AssessmentFileUrls = {};
+    const uploadPromises: Promise<void>[] = [];
+
+    for (const indicatorId in assessmentData) {
+        const indicatorData = assessmentData[indicatorId];
+        const filesToUpload = indicatorData.files.filter(f => f instanceof File) as File[];
+
+        if (filesToUpload.length > 0) {
+            uploadedFileUrls[indicatorId] = [];
+            
+            // Keep already uploaded files
+            const existingFiles = indicatorData.files.filter(f => !(f instanceof File)) as { name: string, url: string }[];
+            uploadedFileUrls[indicatorId].push(...existingFiles);
+
+            for (const file of filesToUpload) {
+                const filePath = `assessments/${periodId}/${communeId}/evidence/${indicatorId}/${file.name}`;
+                const storageRef = ref(storage, filePath);
+                
+                const uploadTask = uploadBytes(storageRef, file).then(async (snapshot) => {
+                    const downloadURL = await getDownloadURL(snapshot.ref);
+                    uploadedFileUrls[indicatorId].push({ name: file.name, url: downloadURL });
+                });
+                uploadPromises.push(uploadTask);
+            }
+        }
+    }
+
+    await Promise.all(uploadPromises);
+    return uploadedFileUrls;
+  }
+
+  const handleSaveDraft = async () => {
+    // This function can be expanded to save to localStorage or a 'drafts' collection in Firestore
     console.log("Saving Draft: ", assessmentData);
     toast({
       title: "Lưu nháp thành công!",
@@ -511,13 +549,59 @@ export default function SelfAssessmentPage() {
     });
   };
 
-  const handleSubmit = () => {
-    console.log("Submitting: ", assessmentData);
-    toast({
-      title: "Gửi đánh giá thành công!",
-      description: "Hồ sơ của bạn đã được gửi đến Admin để xem xét. Trạng thái hồ sơ: pending_review.",
-    });
+  const handleSubmit = async () => {
+    if (!activePeriod || !currentUser) {
+        toast({ variant: 'destructive', title: 'Lỗi', description: 'Không tìm thấy kỳ đánh giá hoặc thông tin người dùng.' });
+        return;
+    }
+
+    setIsSubmitting(true);
+    toast({ title: 'Đang gửi hồ sơ...', description: 'Vui lòng chờ trong giây lát.' });
+
+    try {
+        const fileUrls = await uploadEvidenceFiles(activePeriod.id, currentUser.communeId);
+        
+        // Create a serializable version of assessmentData with file URLs
+        const assessmentDataForFirestore = Object.entries(assessmentData).reduce((acc, [key, value]) => {
+            acc[key] = {
+                ...value,
+                files: fileUrls[key] || [], // Use the uploaded URLs
+            };
+            return acc;
+        }, {} as AssessmentValues);
+
+        const myAssessment = assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId);
+        
+        if (!myAssessment) {
+             toast({ variant: 'destructive', title: 'Lỗi', description: 'Không tìm thấy hồ sơ đăng ký hợp lệ.' });
+             setIsSubmitting(false);
+             return;
+        }
+
+        const updatedAssessment: Assessment = {
+            ...myAssessment,
+            status: 'pending_review',
+            submissionDate: new Date().toLocaleDateString('vi-VN'),
+            submittedBy: currentUser.id,
+            assessmentData: assessmentDataForFirestore, // Save the detailed assessment data
+        };
+
+        await updateAssessments(assessments.map(a => a.id === myAssessment.id ? updatedAssessment : a));
+
+        toast({
+            title: "Gửi đánh giá thành công!",
+            description: "Hồ sơ của bạn đã được gửi đến Admin để xem xét.",
+        });
+
+    } catch (error) {
+        console.error("Submission error:", error);
+        toast({ variant: 'destructive', title: 'Lỗi khi gửi', description: 'Đã xảy ra lỗi khi tải tệp hoặc lưu dữ liệu.' });
+    } finally {
+        setIsSubmitting(false);
+    }
   };
+
+
   return (
     <>
     <PageHeader title="Tự Chấm điểm & Đánh giá" description="Thực hiện tự đánh giá theo các tiêu chí và cung cấp hồ sơ minh chứng đi kèm."/>
@@ -592,8 +676,11 @@ export default function SelfAssessmentPage() {
                     </Accordion>
                 </CardContent>
                 <CardFooter className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={handleSaveDraft}>Lưu nháp</Button>
-                    <Button onClick={handleSubmit}>Gửi đánh giá</Button>
+                    <Button variant="outline" onClick={handleSaveDraft} disabled={isSubmitting}>Lưu nháp</Button>
+                    <Button onClick={handleSubmit} disabled={isSubmitting}>
+                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        {isSubmitting ? 'Đang gửi...' : 'Gửi đánh giá'}
+                    </Button>
                 </CardFooter>
                 </>
             ) : (

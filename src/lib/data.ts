@@ -1,5 +1,15 @@
 
 
+// Define a structure for how the self-assessment data for each indicator will be stored.
+export type IndicatorResult = {
+    isTasked?: boolean;
+    value: any;
+    files: { name: string, url: string }[];
+    note: string;
+    status: 'achieved' | 'not-achieved' | 'pending';
+};
+
+
 // Types based on Firestore data structure
 export type Role = 'admin' | 'commune_staff';
 
@@ -73,6 +83,7 @@ export type Assessment = {
   submittedBy?: string; // User ID
   registrationFormUrl?: string; // URL to the uploaded registration form
   registrationRejectionReason?: string;
+  assessmentData?: Record<string, IndicatorResult>; // Holds all self-assessment data
 };
 
 export type Document = {
@@ -81,6 +92,7 @@ export type Document = {
   number: string;
   issueDate: string;
   excerpt: string;
+  fileUrl?: string; // Add a field for the download URL
 };
 
 // Type for the combined Unit and User import from Excel
