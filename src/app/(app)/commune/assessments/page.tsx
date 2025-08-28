@@ -105,15 +105,15 @@ const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) =
 }
 
 const getCustomBooleanLabels = (indicatorId: string, criteria: Criterion[]) => {
-    // Check if criteria has at least 4 elements, matching the index 3 for "Tiêu chí 4"
-    if (criteria.length < 4) return null;
+    // Check if criteria has at least 2 elements for "Tiêu chí 2"
+    if (criteria.length < 2) return null;
 
-    const criterion4 = criteria[3]; // Tiêu chí 4 is at index 3
+    const criterion2 = criteria[1]; // Tiêu chí 2 is at index 1
     
-    // Check if the first indicator of TC4 exists and has at least one sub-indicator
-    if (criterion4.indicators.length > 0 && criterion4.indicators[0].subIndicators.length > 0) {
-        const subIndicator1_tc4_id = criterion4.indicators[0].subIndicators[0].id;
-        if (indicatorId === subIndicator1_tc4_id) {
+    // Check for Indicator 4 (index 3) and its first sub-indicator (index 0)
+    if (criterion2.indicators.length > 3 && criterion2.indicators[3].subIndicators.length > 0) {
+        const subIndicator1_tc2_i4_id = criterion2.indicators[3].subIndicators[0].id;
+        if (indicatorId === subIndicator1_tc2_i4_id) {
             return { true: 'Ban hành đúng thời hạn', false: 'Ban hành không đúng thời hạn' };
         }
     }
