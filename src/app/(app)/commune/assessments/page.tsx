@@ -69,10 +69,10 @@ function FileUploadComponent({ indicatorId, files, onFileChange }: { indicatorId
 
 // List of indicators that should have the special "isTasked" logic.
 const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
-    if (criteria.length < 2) return [];
+    if (!criteria || criteria.length < 2) return [];
     
     // All indicators from the first criterion
-    const firstCriterionIndicatorIds = criteria[0].indicators.flatMap(i => 
+    const firstCriterionIndicatorIds = (criteria[0]?.indicators || []).flatMap(i => 
         i.subIndicators && i.subIndicators.length > 0 ? i.subIndicators.map(si => si.id) : [i.id]
     );
 
@@ -80,38 +80,50 @@ const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
     let specialIdsFromSecondCriterion: string[] = [];
 
     // Indicator 2.2
-    if (secondCriterion.indicators.length >= 2) {
+    if (secondCriterion.indicators?.length >= 2) {
         specialIdsFromSecondCriterion.push(secondCriterion.indicators[1].id);
     }
     
     // Indicator 2.3
-    if (secondCriterion.indicators.length >= 3) {
+    if (secondCriterion.indicators?.length >= 3) {
         specialIdsFromSecondCriterion.push(secondCriterion.indicators[2].id);
     }
+    
+    // Subindicator 4.3 of Criterion 2
+    if (secondCriterion.indicators?.length > 3 && secondCriterion.indicators[3].subIndicators?.length > 2) {
+        specialIdsFromSecondCriterion.push(secondCriterion.indicators[3].subIndicators[2].id);
+    }
+
 
     return [...firstCriterionIndicatorIds, ...specialIdsFromSecondCriterion];
 }
 
 const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) => {
-    if (criteria.length < 2) return { no: 'Không được giao nhiệm vụ', yes: 'Được giao nhiệm vụ' };
+    if (!criteria || criteria.length < 2) return { no: 'Không được giao nhiệm vụ', yes: 'Được giao nhiệm vụ' };
     
-    const indicator3_tc2_id = criteria[1].indicators.length >= 3 ? criteria[1].indicators[2].id : null;
+    const indicator3_tc2_id = criteria[1].indicators?.length >= 3 ? criteria[1].indicators[2].id : null;
+    const subIndicator3_tc2_i4_id = criteria[1].indicators?.length > 3 && criteria[1].indicators[3].subIndicators?.length > 2 ? criteria[1].indicators[3].subIndicators[2].id : null;
 
     if (indicatorId === indicator3_tc2_id) {
         return { no: "Không yêu cầu cung cấp", yes: "Có yêu cầu cung cấp" };
     }
+    
+    if (indicatorId === subIndicator3_tc2_i4_id) {
+        return { no: "Không phát sinh nhiệm vụ ngoài kế hoạch", yes: "Có phát sinh nhiệm vụ ngoài kế hoạch" };
+    }
+
 
     return { no: 'Không được giao nhiệm vụ', yes: 'Được giao nhiệm vụ' };
 }
 
 const getCustomBooleanLabels = (indicatorId: string, criteria: Criterion[]) => {
     // Check if criteria has at least 2 elements for "Tiêu chí 2"
-    if (criteria.length < 2) return null;
+    if (!criteria || criteria.length < 2) return null;
 
     const criterion2 = criteria[1]; // Tiêu chí 2 is at index 1
     
     // Check for Indicator 4 (index 3) and its first sub-indicator (index 0)
-    if (criterion2.indicators.length > 3 && criterion2.indicators[3].subIndicators.length > 0) {
+    if (criterion2.indicators?.length > 3 && criterion2.indicators[3].subIndicators?.length > 0) {
         const subIndicator1_tc2_i4_id = criterion2.indicators[3].subIndicators[0].id;
         if (indicatorId === subIndicator1_tc2_i4_id) {
             return { true: 'Ban hành đúng thời hạn', false: 'Ban hành không đúng thời hạn' };
@@ -312,7 +324,7 @@ export default function SelfAssessmentPage() {
   const initializeState = (criteria: Criterion[]): AssessmentValues => {
       const initialState: AssessmentValues = {};
       criteria.forEach(criterion => {
-          criterion.indicators.forEach(indicator => {
+          (criterion.indicators || []).forEach(indicator => {
               if (indicator.subIndicators && indicator.subIndicators.length > 0) {
                   indicator.subIndicators.forEach(sub => {
                       initialState[sub.id] = { isTasked: undefined, value: '', files: [], note: '', status: 'pending' };
@@ -332,7 +344,7 @@ export default function SelfAssessmentPage() {
 
   const findIndicator = (indicatorId: string) => {
     for (const c of criteria) {
-        for (const i of c.indicators) {
+        for (const i of (c.indicators || [])) {
             if (i.id === indicatorId) return i;
             if (i.subIndicators) {
                 const sub = i.subIndicators.find(si => si.id === indicatorId);
@@ -435,7 +447,7 @@ export default function SelfAssessmentPage() {
                                 <AccordionTrigger className="font-headline text-lg">Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</AccordionTrigger>
                                 <AccordionContent>
                                     <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
-                                        {criterion.indicators.map(indicator => (
+                                        {(criterion.indicators || []).map(indicator => (
                                             <div key={indicator.id} className="grid gap-6 p-4 rounded-lg bg-card shadow-sm border">
                                                 {(!indicator.subIndicators || indicator.subIndicators.length === 0) ? (
                                                     <IndicatorAssessment 
