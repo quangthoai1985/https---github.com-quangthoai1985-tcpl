@@ -1,21 +1,20 @@
 
-import * as functions from "firebase-functions";
+import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 
 admin.initializeApp();
 
 // This function automatically runs whenever a document in the 'users' collection
-// is created or updated.
-export const syncUserClaims = functions.firestore
-  .document("users/{userId}")
-  .onWrite(async (change, context) => {
+// is created or updated. Using the v2 SDK syntax.
+export const syncUserClaims = onDocumentWritten("users/{userId}", async (event) => {
     // If the document is deleted, do nothing.
-    if (!change.after.exists) {
+    if (!event.data?.after.exists) {
+      console.log(`User document ${event.params.userId} deleted. No action taken.`);
       return null;
     }
 
-    const userData = change.after.data();
-    const userId = context.params.userId; // This is the user's Auth UID
+    const userData = event.data.after.data();
+    const userId = event.params.userId; // This is the user's Auth UID
 
     const role = userData.role;
     const communeId = userData.communeId;
