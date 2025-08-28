@@ -139,7 +139,7 @@ const AdminDashboard = () => {
         value: pendingRegistrationCount.toString(), 
         icon: UserCheck, 
         color: "bg-blue-500",
-        link: "/admin/registrations"
+        link: "/admin/registrations?tab=pending"
       },
       { 
         title: "Chờ duyệt HS", 
