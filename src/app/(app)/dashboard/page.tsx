@@ -342,8 +342,8 @@ const CommuneDashboard = () => {
         ? assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId) 
         : undefined;
 
-    const uploadFileAndGetURL = async (file: File, assessmentId: string): Promise<string> => {
-        const filePath = `registrations/${assessmentId}/${file.name}`;
+    const uploadFileAndGetURL = async (periodId: string, communeId: string, file: File): Promise<string> => {
+        const filePath = `assessments/${periodId}/${communeId}/registration/${file.name}`;
         const storageRef = ref(storage, filePath);
         await uploadBytes(storageRef, file);
         return await getDownloadURL(storageRef);
@@ -355,10 +355,10 @@ const CommuneDashboard = () => {
             return;
         }
         setIsSubmitting(true);
-        const assessmentId = `assess_${activePeriod.id}_${currentUser.communeId}`;
         try {
-            const fileUrl = await uploadFileAndGetURL(registrationFile, assessmentId);
-
+            const fileUrl = await uploadFileAndGetURL(activePeriod.id, currentUser.communeId, registrationFile);
+            
+            const assessmentId = `assess_${activePeriod.id}_${currentUser.communeId}`;
             const newAssessment: Assessment = {
                 id: assessmentId,
                 assessmentPeriodId: activePeriod.id,
@@ -369,25 +369,24 @@ const CommuneDashboard = () => {
                 registrationFormUrl: fileUrl,
             };
 
-            const existingAssessments = assessments.filter(a => a.id !== newAssessment.id);
-            await updateAssessments([...existingAssessments, newAssessment]);
+            await updateAssessments([...assessments, newAssessment]);
             toast({ title: 'Thành công', description: 'Đã gửi đơn đăng ký. Vui lòng chờ Admin duyệt.' });
         } catch (error) {
             console.error("File upload error: ", error);
-            toast({ variant: 'destructive', title: 'Lỗi tải tệp', description: 'Đã xảy ra lỗi khi tải tệp lên. Vui lòng thử lại.' });
+            toast({ variant: 'destructive', title: 'Lỗi tải tệp', description: 'Đã xảy ra lỗi khi tải tệp lên. Vui lòng kiểm tra lại quy tắc bảo mật của Storage và thử lại.' });
         } finally {
             setIsSubmitting(false);
         }
     };
     
     const handleResubmit = async () => {
-        if (!myAssessment || !registrationFile) {
+        if (!myAssessment || !registrationFile || !activePeriod) {
              toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng chọn tệp đơn đăng ký mới.' });
             return;
         }
         setIsSubmitting(true);
         try {
-            const fileUrl = await uploadFileAndGetURL(registrationFile, myAssessment.id);
+            const fileUrl = await uploadFileAndGetURL(activePeriod.id, myAssessment.communeId, registrationFile);
             
             const updatedAssessment: Assessment = {
                 ...myAssessment,
