@@ -67,11 +67,32 @@ function FileUploadComponent({ indicatorId, files, onFileChange }: { indicatorId
     );
 }
 
+// List of indicators that should have the special "isTasked" logic.
+// This now includes all indicators from the first criterion and the second indicator of the second criterion.
+const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
+    if (criteria.length < 2) return [];
+    
+    const firstCriterionIndicatorIds = criteria[0].indicators.flatMap(i => 
+        i.subIndicators && i.subIndicators.length > 0 ? i.subIndicators.map(si => si.id) : [i.id]
+    );
+
+    const secondCriterion = criteria[1];
+    let secondIndicatorId = '';
+    if (secondCriterion.indicators.length >= 2) {
+        const secondIndicator = secondCriterion.indicators[1];
+        // If the second indicator has sub-indicators, we might need a more specific rule.
+        // For now, assuming it's a direct indicator. If it has subs, this logic needs refinement.
+        secondIndicatorId = secondIndicator.id;
+    }
+
+    return [...firstCriterionIndicatorIds, ...(secondIndicatorId ? [secondIndicatorId] : [])];
+}
+
+
 // Updated to pass the full data object for conditional rendering
 const renderInput = (
     indicator: Indicator | SubIndicator,
-    criterionId: string,
-    allCriteria: Criterion[], // Pass all criteria to find TC1
+    specialIndicatorIds: string[], // Pass the list of special IDs
     data: IndicatorValue,
     onValueChange: (id: string, value: any) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void
@@ -84,8 +105,8 @@ const renderInput = (
         onValueChange(indicator.id, val === 'true');
     }
 
-    // Special logic for Tiêu chí 1
-    if (allCriteria.length > 0 && criterionId === allCriteria[0].id) {
+    // Special logic for specific indicators (from TC1 and TC2.2)
+    if (specialIndicatorIds.includes(indicator.id)) {
         return (
             <RadioGroup onValueChange={(val) => onIsTaskedChange(indicator.id, val === 'true')} value={data.isTasked === true ? 'true' : data.isTasked === false ? 'false' : ''} className="grid gap-2">
                  <div className="flex items-center space-x-2">
@@ -203,9 +224,8 @@ const StatusIcon = ({ status }: { status: AssessmentStatus }) => {
 };
 
 
-const IndicatorAssessment = ({ criterionId, allCriteria, indicator, data, onValueChange, onNoteChange, onFileChange, onIsTaskedChange }: { 
-    criterionId: string,
-    allCriteria: Criterion[],
+const IndicatorAssessment = ({ specialIndicatorIds, indicator, data, onValueChange, onNoteChange, onFileChange, onIsTaskedChange }: { 
+    specialIndicatorIds: string[],
     indicator: Indicator | SubIndicator,
     data: AssessmentValues[string],
     onValueChange: (id: string, value: any) => void,
@@ -226,7 +246,7 @@ const IndicatorAssessment = ({ criterionId, allCriteria, indicator, data, onValu
         <div className="grid gap-4">
             <div className="grid gap-2">
               <Label>Kết quả tự đánh giá</Label>
-              {renderInput(indicator, criterionId, allCriteria, data, onValueChange, onIsTaskedChange)}
+              {renderInput(indicator, specialIndicatorIds, data, onValueChange, onIsTaskedChange)}
             </div>
             <div className="grid gap-2">
                 <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
@@ -268,6 +288,8 @@ export default function SelfAssessmentPage() {
 
   const activePeriod = assessmentPeriods.find(p => p.isActive);
   const [assessmentData, setAssessmentData] = useState<AssessmentValues>(() => initializeState(criteria));
+  
+  const specialLogicIndicatorIds = React.useMemo(() => getSpecialLogicIndicatorIds(criteria), [criteria]);
 
   const findIndicator = (indicatorId: string) => {
     for (const c of criteria) {
@@ -378,8 +400,7 @@ export default function SelfAssessmentPage() {
                                             <div key={indicator.id} className="grid gap-6 p-4 rounded-lg bg-card shadow-sm border">
                                                 {(!indicator.subIndicators || indicator.subIndicators.length === 0) ? (
                                                     <IndicatorAssessment 
-                                                        criterionId={criterion.id}
-                                                        allCriteria={criteria}
+                                                        specialIndicatorIds={specialLogicIndicatorIds}
                                                         indicator={indicator} 
                                                         data={assessmentData[indicator.id]} 
                                                         onValueChange={handleValueChange}
@@ -398,8 +419,7 @@ export default function SelfAssessmentPage() {
                                                               <div key={sub.id} className="relative pl-6">
                                                                   <CornerDownRight className="absolute -left-3 top-1 h-5 w-5 text-muted-foreground"/>
                                                                   <IndicatorAssessment
-                                                                      criterionId={criterion.id}
-                                                                      allCriteria={criteria}
+                                                                      specialIndicatorIds={specialLogicIndicatorIds}
                                                                       indicator={sub} 
                                                                       data={assessmentData[sub.id]}
                                                                       onValueChange={handleValueChange}
@@ -435,5 +455,3 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
-
-    
