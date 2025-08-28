@@ -165,8 +165,9 @@ const getCustomBooleanLabels = (indicatorId: string, criteria: Criterion[]) => {
 }
 
 const getCheckboxOptions = (indicatorId: string, criteria: Criterion[]) => {
-    if (!criteria || criteria.length < 2) return null;
+    if (!criteria || criteria.length < 3) return null;
     const criterion2 = criteria[1];
+    const criterion3 = criteria[2];
     
     if (criterion2.indicators?.length > 4 && indicatorId === criterion2.indicators[4].id) {
         return [
@@ -180,6 +181,16 @@ const getCheckboxOptions = (indicatorId: string, criteria: Criterion[]) => {
             "Hoạt động khác về chuyển đổi số, ứng dụng công nghệ số bảo đảm phù hợp"
         ];
     }
+    
+    if(criterion3.indicators?.length > 2 && indicatorId === criterion3.indicators[2].id) {
+        return [
+            "Huy động đội ngũ luật sư, luật gia, Hội thẩm nhân dân, lực lượng Công an nhân dân, Bộ đội Biên phòng, báo cáo viên pháp luật, tuyên truyền viên pháp luật, lực lượng tham gia bảo vệ an ninh, trật tự ở cơ sở, người đã từng là Thẩm phán, Kiểm sát viên, Điều tra viên, người đã hoặc đang công tác trong lĩnh vực pháp luật tham gia làm hòa giải viên ở cơ sở.",
+            "Huy động đội ngũ nêu trên hỗ trợ pháp lý, tư vấn cho tổ hoà giải để giải quyết vụ, việc thuộc phạm vi hoà giải ở cơ sở.",
+            "Huy động đội ngũ nêu trên tham gia tập huấn, bồi dưỡng cho hoà giải viên.",
+            "Các hoạt động phối hợp, hỗ trợ hiệu quả của cá nhân, tổ chức khác trong triển khai công tác hòa giải ở cơ sở."
+        ];
+    }
+
     return null;
 }
 
