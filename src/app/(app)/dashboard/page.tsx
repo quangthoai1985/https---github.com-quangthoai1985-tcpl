@@ -342,8 +342,8 @@ const CommuneDashboard = () => {
         ? assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId) 
         : undefined;
 
-    const uploadFileAndGetURL = async (file: File, periodId: string, communeId: string): Promise<string> => {
-        const filePath = `registrations/${periodId}/${communeId}/${file.name}`;
+    const uploadFileAndGetURL = async (file: File, assessmentId: string): Promise<string> => {
+        const filePath = `registrations/${assessmentId}/${file.name}`;
         const storageRef = ref(storage, filePath);
         await uploadBytes(storageRef, file);
         return await getDownloadURL(storageRef);
@@ -355,18 +355,18 @@ const CommuneDashboard = () => {
             return;
         }
         setIsSubmitting(true);
+        const assessmentId = `assess_${activePeriod.id}_${currentUser.communeId}`;
         try {
-            const fileUrl = await uploadFileAndGetURL(registrationFile, activePeriod.id, currentUser.communeId);
+            const fileUrl = await uploadFileAndGetURL(registrationFile, assessmentId);
 
             const newAssessment: Assessment = {
-                id: `assess_${activePeriod.id}_${currentUser.communeId}`,
+                id: assessmentId,
                 assessmentPeriodId: activePeriod.id,
                 communeId: currentUser.communeId,
                 status: 'pending_registration',
                 submissionDate: new Date().toLocaleDateString('vi-VN'),
                 submittedBy: currentUser.id,
                 registrationFormUrl: fileUrl,
-                registrationRejectionReason: '',
             };
 
             const existingAssessments = assessments.filter(a => a.id !== newAssessment.id);
@@ -387,7 +387,7 @@ const CommuneDashboard = () => {
         }
         setIsSubmitting(true);
         try {
-            const fileUrl = await uploadFileAndGetURL(registrationFile, myAssessment.assessmentPeriodId, myAssessment.communeId);
+            const fileUrl = await uploadFileAndGetURL(registrationFile, myAssessment.id);
             
             const updatedAssessment: Assessment = {
                 ...myAssessment,
@@ -464,9 +464,10 @@ const CommuneDashboard = () => {
         const currentStatus = myAssessment.status;
         let statusInfo = null;
 
-        if (currentStatus in statusMap) {
+        if (Object.prototype.hasOwnProperty.call(statusMap, currentStatus)) {
             statusInfo = statusMap[currentStatus as keyof typeof statusMap];
         }
+
 
         if (statusInfo) {
              return (
@@ -505,6 +506,23 @@ const CommuneDashboard = () => {
                     )}
                 </div>
             );
+        }
+        
+        // This handles statuses beyond the registration phase ('pending_review', 'approved', 'rejected', 'draft')
+        // We can just show the registration was approved.
+        if (myAssessment.status) {
+            return (
+                <div className='p-4 border rounded-lg space-y-4'>
+                    <h3 className='font-semibold text-lg'>Bước 1: Đăng ký tham gia</h3>
+                    <p className="font-semibold">Trạng thái đăng ký:</p>
+                    <div className="flex items-center gap-4 mt-2">
+                         <Badge className="bg-green-500 text-white">
+                           <CheckCircle className="mr-2 h-4 w-4" />
+                           Đã duyệt đăng ký
+                        </Badge>
+                    </div>
+                </div>
+            )
         }
         
         return null;
@@ -640,5 +658,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
