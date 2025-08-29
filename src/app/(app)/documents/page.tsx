@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Download, MoreHorizontal, PlusCircle, Search } from 'lucide-react';
+import { Download, MoreHorizontal, PlusCircle, Search, Eye } from 'lucide-react';
 import React, { useState } from 'react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
@@ -79,6 +79,7 @@ export default function DocumentsPage() {
   const { guidanceDocuments: documents, updateGuidanceDocuments: setDocuments, role } = useData();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingDocument, setEditingDocument] = useState<Partial<Document> | null>(null);
+  const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
   const { toast } = useToast();
 
   const handleNew = () => {
@@ -102,6 +103,9 @@ export default function DocumentsPage() {
         number: docToSave.number || '',
         issueDate: docToSave.issueDate || '',
         excerpt: docToSave.excerpt || '',
+        // In a real app, you would handle file upload here and get the URL.
+        // For now, we'll use a placeholder.
+        fileUrl: "https://firebasestorage.googleapis.com/v0/b/chuan-tiep-can-pl.appspot.com/o/hoso%2FXA02%2Fregistration%2FDOT2024_2%2FDon%20dang%20ky%20tham%20gia%20danh%20gia.docx?alt=media&token=81c3c3a7-be55-46f4-a957-3f3607755869",
       };
       await setDocuments([newDoc, ...documents]);
       toast({ title: "Thành công", description: "Văn bản mới đã được thêm." });
@@ -119,6 +123,22 @@ export default function DocumentsPage() {
     setIsFormOpen(false);
     setEditingDocument(null);
   }
+  
+  const handlePreview = (doc: Document) => {
+    if (doc.fileUrl) {
+      setPreviewFile({ name: doc.name, url: doc.fileUrl });
+    } else {
+      toast({ variant: 'destructive', title: 'Lỗi', description: 'Không tìm thấy tệp đính kèm cho văn bản này.' });
+    }
+  };
+
+  const handleDownload = (doc: Document) => {
+    if (doc.fileUrl) {
+        window.open(doc.fileUrl, '_blank');
+    } else {
+        toast({ variant: 'destructive', title: 'Lỗi', description: 'Không tìm thấy tệp đính kèm cho văn bản này.' });
+    }
+  };
 
   return (
     <>
@@ -170,7 +190,8 @@ export default function DocumentsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                        <DropdownMenuItem><Download className="mr-2 h-4 w-4" />Tải về</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handlePreview(doc)}><Eye className="mr-2 h-4 w-4"/>Xem trước</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDownload(doc)}><Download className="mr-2 h-4 w-4" />Tải về</DropdownMenuItem>
                         {role === 'admin' && (
                           <>
                             <DropdownMenuItem onClick={() => handleEdit(doc)}>Sửa</DropdownMenuItem>
@@ -192,6 +213,27 @@ export default function DocumentsPage() {
           {editingDocument && <DocumentForm document={editingDocument} onSave={handleSave} onCancel={handleCancel} />}
         </DialogContent>
       </Dialog>
+      
+      <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
+            <DialogHeader className="p-6 pb-0">
+                <DialogTitle>Xem trước: {previewFile?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 px-6 pb-6 h-full">
+                {previewFile && (
+                   <iframe 
+                        src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`} 
+                        className="w-full h-full border rounded-md" 
+                        title={previewFile.name}
+                    ></iframe>
+                )}
+            </div>
+            <DialogFooter className="p-6 pt-0 border-t">
+                 <Button variant="secondary" onClick={() => window.open(previewFile?.url, '_blank')}><Download className="mr-2 h-4 w-4"/> Tải xuống</Button>
+                <Button variant="outline" onClick={() => setPreviewFile(null)}>Đóng</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
     </>
   );
 }
