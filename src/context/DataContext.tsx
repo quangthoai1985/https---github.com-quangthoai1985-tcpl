@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
@@ -21,34 +20,37 @@ const firebaseConfig: FirebaseOptions = {
   apiKey: "AIzaSyCj0H_a8O7znR_M1bFim9Lzt5MfnsptxH4",
   authDomain: "chuan-tiep-can-pl.firebaseapp.com",
   projectId: "chuan-tiep-can-pl",
-  storageBucket: "chuan-tiep-can-pl.appspot.com",
+  storageBucket: "chuan-tiep-can-pl.firebasestorage.app",
   messagingSenderId: "851876581009",
   appId: "1:851876581009:web:60bfbcc40055f76f607930"
 };
 
-// Initialize Firebase
-let app: FirebaseApp;
-let db: Firestore;
-let auth: Auth;
-let storage: FirebaseStorage;
+// =================== START OF FIXED CODE ===================
 
-if (typeof window !== 'undefined') {
-    if (!getApps().length) {
-        app = initializeApp(firebaseConfig);
-    } else {
-        app = getApp();
+// Helper function to initialize Firebase services safely on the client-side (for Next.js SSR)
+const getFirebaseServices = () => {
+    // If we're on the server, return nulls to avoid errors
+    if (typeof window === 'undefined') {
+        return { app: null, db: null, auth: null, storage: null };
     }
-    db = getFirestore(app);
-    auth = getAuth(app);
-    storage = getStorage(app);
-}
+
+    // If we're on the client, initialize Firebase
+    const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+    const storage = getStorage(app);
+    
+    return { app, db, auth, storage };
+};
+
+// =================== END OF FIXED CODE =====================
 
 // Define a type for our dynamic notifications
 export type Notification = {
   id: string;
   title: string;
-  time: string; // For simplicity, we'll use a string like "2 giờ trước"
-  read: boolean; // We'll mock this for now
+  time: string;
+  read: boolean;
   link: string;
 };
 
@@ -72,12 +74,17 @@ interface DataContextType {
   notifications: Notification[];
   setLoginInfo: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
-  storage: FirebaseStorage;
+  storage: FirebaseStorage | null; // Can be null during server-side rendering
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
+  // States for Firebase services, initialized to null
+  const [db, setDb] = useState<Firestore | null>(null);
+  const [auth, setAuth] = useState<Auth | null>(null);
+  const [storage, setStorage] = useState<FirebaseStorage | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<User[]>([]);
   const [units, setUnits] = useState<Unit[]>([]);
@@ -89,6 +96,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   const [role, setRole] = useState<Role | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // This effect runs only on the client-side after mounting
+  useEffect(() => {
+    const services = getFirebaseServices();
+    if (services.db) setDb(services.db);
+    if (services.auth) setAuth(services.auth);
+    if (services.storage) setStorage(services.storage);
+  }, []);
 
   const getUnitName = (unitId: string, allUnits: Unit[]) => {
       return allUnits.find(u => u.id === unitId)?.name || 'Không xác định';
@@ -109,7 +124,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                       id: `admin-notif-reg-${assessment.id}`,
                       title: `${communeName} vừa gửi yêu cầu đăng ký.`,
                       time: `Ngày ${assessment.submissionDate}`,
-                      read: false, // This would be dynamic in a real app
+                      read: false,
                       link: `/admin/registrations?tab=pending`
                   });
               }
@@ -177,7 +192,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           });
       }
 
-      return generated.slice(0, 10); // Limit to 10 most recent notifications
+      return generated.slice(0, 10);
   };
 
   const fetchData = useCallback(async (loggedInUser: User | null) => {
@@ -219,19 +234,21 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       } catch (error) {
         console.error("Error fetching data from Firestore:", error);
       }
-    }, []);
+    }, [db]); // Add db as a dependency
 
   useEffect(() => {
-    if (!auth) return;
+    if (!auth || !db) return; // Wait for services to be initialized
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       setLoading(true);
       if (firebaseUser && firebaseUser.email) {
-        
+        // ======================= THÊM ĐOẠN CODE NÀY VÀO =======================
+        const idTokenResult = await firebaseUser.getIdTokenResult(true); // true = force refresh
+        console.log("%c USER TOKEN CLAIMS:", "color: blue; font-size: 16px;", idTokenResult.claims);
+        // =========================================================================
         try {
             const usersSnapshot = await getDocs(collection(db, 'users'));
             const allUsers = usersSnapshot.docs.map(doc => ({ ...doc.data()} as User));
             
-            // Find user by comparing the full email address
             const loggedInUser = allUsers.find(u => u.username.toLowerCase() === firebaseUser.email!.toLowerCase());
 
             if (loggedInUser) {
@@ -259,9 +276,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [fetchData]);
+  }, [auth, db, fetchData]); // Add auth and db as dependencies
 
   const setLoginInfo = async (email: string, password: string): Promise<boolean> => {
+    if (!auth) return false; // Safety check
     setLoading(true);
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -274,6 +292,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
+    if (!auth) return; // Safety check
     setLoading(true);
     try {
       await signOut(auth);
@@ -289,7 +308,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     stateUpdater: React.Dispatch<React.SetStateAction<T[]>>
   ) => {
     return async (newData: T[]) => {
-      if (!db) return;
+      if (!db) return; // Safety check
       setLoading(true);
       const batch = writeBatch(db);
       
@@ -297,13 +316,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       const currentStateIds = new Set(currentStateSnapshot.docs.map(d => d.id));
       const newStateIds = new Set(newData.map(item => item.id));
 
-      // Add or update documents
       newData.forEach(item => {
         const docRef = doc(db, collectionName, item.id);
         batch.set(docRef, item);
       });
 
-      // Delete documents that are not in the new data
       currentStateIds.forEach(id => {
         if (!newStateIds.has(id)) {
           const docRef = doc(db, collectionName, id);
@@ -313,7 +330,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       
       await batch.commit();
       stateUpdater(newData);
-      // After any update, refresh all data to ensure consistency, especially for notifications
       await refreshData();
       setLoading(false);
     };
@@ -334,7 +350,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       } else {
           await fetchData(null);
       }
-  }, [fetchData]);
+  }, [auth, db, fetchData]); // Add auth and db as dependencies
 
   const updateUsers = createFirestoreUpdater('users', setUsers);
   const updateUnits = createFirestoreUpdater('units', setUnits);
@@ -359,7 +375,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         notifications,
         setLoginInfo,
         logout,
-        storage,
+        storage, // This is now the state variable, which is guaranteed to be initialized on the client
     }}>
       {children}
     </DataContext.Provider>

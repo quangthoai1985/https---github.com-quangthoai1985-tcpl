@@ -30,6 +30,7 @@ import {
   CheckCircle,
   Clock,
   Download,
+  Eye,
   FileX,
   ThumbsDown,
   ThumbsUp,
@@ -62,6 +63,7 @@ export default function RegistrationManagementPage() {
   
   const [rejectionTarget, setRejectionTarget] = useState<Assessment | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
+  const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
   
   const initialTab = searchParams.get('tab') || 'pending';
   const [activeTab, setActiveTab] = useState(initialTab);
@@ -203,9 +205,9 @@ export default function RegistrationManagementPage() {
                        <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => window.open((item as Assessment).registrationFormUrl, '_blank')}
+                          onClick={() => setPreviewFile({ name: `Đơn của ${unitInfo.name}`, url: (item as Assessment).registrationFormUrl! })}
                         >
-                          <Download className="mr-2 h-4 w-4" /> Xem đơn
+                          <Eye className="mr-2 h-4 w-4" /> Xem đơn
                         </Button>
                     )}
                     {type === 'pending' && (
@@ -320,6 +322,23 @@ export default function RegistrationManagementPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
+            <DialogHeader className="p-6 pb-0">
+                <DialogTitle>Xem trước: {previewFile?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 px-6 pb-6 h-full">
+                {previewFile && (
+                   <iframe src={previewFile.url} className="w-full h-full border rounded-md" title={previewFile.name}></iframe>
+                )}
+            </div>
+            <DialogFooter className="p-6 pt-0 border-t">
+                 <Button variant="secondary" onClick={() => window.open(previewFile?.url, '_blank')}><Download className="mr-2 h-4 w-4"/> Tải xuống</Button>
+                <Button variant="outline" onClick={() => setPreviewFile(null)}>Đóng</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
     </>
   );
 }

@@ -343,7 +343,9 @@ const CommuneDashboard = () => {
         : undefined;
 
     const uploadFileAndGetURL = async (periodId: string, communeId: string, file: File): Promise<string> => {
-        const filePath = `assessments/${periodId}/${communeId}/registration/${file.name}`;
+        // THÊM DÒNG KIỂM TRA NÀY VÀO
+        if (!storage) throw new Error("Firebase Storage is not initialized.");
+        const filePath = `hoso/${communeId}/registration/${periodId}/${file.name}`;
         const storageRef = ref(storage, filePath);
         await uploadBytes(storageRef, file);
         return await getDownloadURL(storageRef);

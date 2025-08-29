@@ -524,7 +524,7 @@ export default function SelfAssessmentPage() {
             uploadedFileUrls[indicatorId].push(...existingFiles);
 
             for (const file of filesToUpload) {
-                const filePath = `assessments/${periodId}/${communeId}/evidence/${indicatorId}/${file.name}`;
+                const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${file.name}`;
                 const storageRef = ref(storage, filePath);
                 
                 const uploadTask = uploadBytes(storageRef, file).then(async (snapshot) => {
