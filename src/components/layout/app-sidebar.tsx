@@ -34,7 +34,7 @@ const adminNavItems = [
 ];
 
 const communeNavItems = [
-    { href: '/dashboard', icon: LayoutDashboard, label: 'Tổng quan' },
+    { href: '/dashboard', icon: LayoutDashboard, label: 'Đăng ký đánh giá' },
     { href: '/commune/assessments', icon: FileCheck2, label: 'Tự Chấm điểm' },
     { href: '/documents', icon: Book, label: 'Văn bản Hướng dẫn' },
     { href: '/user-guide', icon: HelpCircle, label: 'Hướng dẫn sử dụng' },
