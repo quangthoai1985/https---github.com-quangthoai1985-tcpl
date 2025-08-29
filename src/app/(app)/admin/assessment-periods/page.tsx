@@ -20,6 +20,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   Table,
@@ -37,6 +38,7 @@ import { useData } from '@/context/DataContext';
 import { Switch } from '@/components/ui/switch';
 import type { AssessmentPeriod } from '@/lib/data';
 import PageHeader from '@/components/layout/page-header';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 function PeriodForm({ period, onSave, onCancel }: { period: Partial<AssessmentPeriod>, onSave: (p: Partial<AssessmentPeriod>) => void, onCancel: () => void }) {
   const [formData, setFormData] = React.useState(period);
@@ -85,6 +87,7 @@ export default function AssessmentPeriodPage() {
     const { assessmentPeriods, updateAssessmentPeriods } = useData();
     const [isFormOpen, setIsFormOpen] = React.useState(false);
     const [editingPeriod, setEditingPeriod] = React.useState<Partial<AssessmentPeriod> | null>(null);
+    const [deletingPeriod, setDeletingPeriod] = React.useState<AssessmentPeriod | null>(null);
     const { toast } = useToast();
 
     const handleNew = () => {
@@ -95,6 +98,23 @@ export default function AssessmentPeriodPage() {
     const handleEdit = (period: AssessmentPeriod) => {
         setEditingPeriod(period);
         setIsFormOpen(true);
+    };
+
+    const handleDelete = (period: AssessmentPeriod) => {
+        setDeletingPeriod(period);
+    };
+
+    const confirmDelete = async () => {
+        if (!deletingPeriod) return;
+        // This currently only removes the period from the list.
+        // A Cloud Function would be needed to clean up related assessments and files.
+        await updateAssessmentPeriods(assessmentPeriods.filter(p => p.id !== deletingPeriod.id));
+        toast({
+            title: "Đã xóa đợt đánh giá",
+            description: `Đợt "${deletingPeriod.name}" đã được xóa. Lưu ý: các hồ sơ liên quan chưa được dọn dẹp.`,
+            variant: "destructive",
+        });
+        setDeletingPeriod(null);
     };
 
     const handleSave = async (periodToSave: Partial<AssessmentPeriod>) => {
@@ -203,6 +223,10 @@ export default function AssessmentPeriodPage() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Hành động</DropdownMenuLabel>
                       <DropdownMenuItem onClick={() => handleEdit(period)}>Sửa</DropdownMenuItem>
+                       <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleDelete(period)} className="text-destructive">
+                        Xóa
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -227,6 +251,24 @@ export default function AssessmentPeriodPage() {
         {editingPeriod && <PeriodForm period={editingPeriod} onSave={handleSave} onCancel={handleCancel} />}
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={!!deletingPeriod} onOpenChange={(open) => !open && setDeletingPeriod(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Bạn có chắc chắn muốn xóa đợt đánh giá <strong>{deletingPeriod?.name}</strong>?
+                    Hành động này không thể hoàn tác và sẽ xóa đợt đánh giá khỏi danh sách.
+                    <br/><br/>
+                    <strong className="text-destructive">Cảnh báo:</strong> Thao tác này hiện tại chưa tự động xóa các hồ sơ và tệp tin liên quan.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setDeletingPeriod(null)}>Hủy</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">Xác nhận Xóa</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     </>
   );
 }
