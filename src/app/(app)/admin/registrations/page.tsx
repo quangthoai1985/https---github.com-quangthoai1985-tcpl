@@ -166,7 +166,6 @@ export default function RegistrationManagementPage() {
         <TableHeader>
           <TableRow>
             <TableHead>Tên đơn vị (Xã)</TableHead>
-            <TableHead>Huyện/Thị xã</TableHead>
             <TableHead>Trạng thái</TableHead>
             <TableHead className="text-right">Hành động</TableHead>
           </TableRow>
@@ -191,7 +190,6 @@ export default function RegistrationManagementPage() {
               return (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{unitInfo.name}</TableCell>
-                  <TableCell>{unitInfo.parent}</TableCell>
                   <TableCell>
                     {statusInfo && (
                        <Badge className={`${statusInfo.className} text-white`}>
@@ -234,7 +232,7 @@ export default function RegistrationManagementPage() {
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={4} className="h-24 text-center">
+              <TableCell colSpan={3} className="h-24 text-center">
                 Không có dữ liệu.
               </TableCell>
             </TableRow>
