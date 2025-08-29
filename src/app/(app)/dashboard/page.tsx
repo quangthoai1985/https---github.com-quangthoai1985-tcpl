@@ -547,7 +547,6 @@ const CommuneDashboard = () => {
 
     return (
         <>
-        <PageHeader title="Đăng ký & Theo dõi" description="Thực hiện đăng ký tham gia và theo dõi tiến độ hồ sơ đánh giá với Sở Tư pháp."/>
         <div className="flex flex-col gap-6">
             {activePeriod ? (
             <Card>
