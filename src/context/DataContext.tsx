@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
@@ -72,6 +73,7 @@ interface DataContextType {
   role: Role | null;
   currentUser: User | null;
   notifications: Notification[];
+  markNotificationAsRead: (notificationId: string) => void;
   setLoginInfo: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   storage: FirebaseStorage | null; // Can be null during server-side rendering
@@ -351,6 +353,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           await fetchData(null);
       }
   }, [auth, db, fetchData]); // Add auth and db as dependencies
+  
+  const markNotificationAsRead = (notificationId: string) => {
+    setNotifications(prevNotifications => 
+        prevNotifications.map(n => 
+            n.id === notificationId ? { ...n, read: true } : n
+        )
+    );
+  };
 
   const updateUsers = createFirestoreUpdater('users', setUsers);
   const updateUnits = createFirestoreUpdater('units', setUnits);
@@ -373,6 +383,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         role,
         currentUser, 
         notifications,
+        markNotificationAsRead,
         setLoginInfo,
         logout,
         storage, // This is now the state variable, which is guaranteed to be initialized on the client

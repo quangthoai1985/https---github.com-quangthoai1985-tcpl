@@ -37,7 +37,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 export default function AppHeader() {
-  const { role, currentUser, units, logout, notifications } = useData();
+  const { role, currentUser, logout, notifications, markNotificationAsRead } = useData();
   const router = useRouter();
   const unreadNotifications = notifications.filter(n => !n.read).length;
   
@@ -45,6 +45,11 @@ export default function AppHeader() {
     await logout();
     router.push('/');
   };
+
+  const handleNotificationClick = (notificationId: string, link: string) => {
+    markNotificationAsRead(notificationId);
+    router.push(link);
+  }
 
   const getAvatarContent = () => {
     if (role === 'admin') {
@@ -135,23 +140,25 @@ export default function AppHeader() {
                     <p className="text-sm text-muted-foreground">Bạn có {unreadNotifications} thông báo mới.</p>
                 </div>
                 <Separator />
-                {notifications.length > 0 ? (
+                {notifications.filter(n => !n.read).length > 0 ? (
                     <div className="p-2 max-h-80 overflow-y-auto">
-                        {notifications.map(notification => (
-                            <Link href={notification.link} key={notification.id} className="block">
-                                <div className={cn(
-                                    "mb-1 flex items-start gap-4 rounded-lg p-3 text-sm transition-colors hover:bg-muted/50",
+                        {notifications.filter(n => !n.read).map(notification => (
+                            <div 
+                                key={notification.id} 
+                                className={cn(
+                                    "mb-1 flex items-start gap-4 rounded-lg p-3 text-sm transition-colors hover:bg-muted/50 cursor-pointer",
                                     !notification.read && "bg-blue-50/50"
-                                )}>
-                                    <div className="mt-1">
-                                    {getNotificationIcon(notification.title)}
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className="leading-snug">{notification.title}</p>
-                                        <p className="text-xs text-muted-foreground">{notification.time}</p>
-                                    </div>
+                                )}
+                                onClick={() => handleNotificationClick(notification.id, notification.link)}
+                            >
+                                <div className="mt-1">
+                                {getNotificationIcon(notification.title)}
                                 </div>
-                            </Link>
+                                <div className="flex-1">
+                                    <p className="leading-snug">{notification.title}</p>
+                                    <p className="text-xs text-muted-foreground">{notification.time}</p>
+                                </div>
+                            </div>
                         ))}
                     </div>
                 ) : (
