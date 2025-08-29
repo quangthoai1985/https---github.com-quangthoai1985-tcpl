@@ -76,11 +76,6 @@ export default function AppHeader() {
       if (lowerCaseTitle.includes('gửi lại')) return notificationIcons['gửi lại'];
       return <Clock className="h-4 w-4 text-yellow-500" />;
   }
-  
-  const getUnitName = (unitId?: string) => {
-    if (!unitId) return "";
-    return units.find(u => u.id === unitId)?.name || "";
-  }
 
   return (
     <header className="sticky top-0 z-30 flex h-[72px] items-center gap-4 border-b bg-background px-4 sm:px-6">
@@ -112,7 +107,7 @@ export default function AppHeader() {
                 <p className="text-xs text-muted-foreground">
                   {currentUser.role === 'admin' 
                     ? 'Quản trị viên hệ thống' 
-                    : `Cán bộ - ${getUnitName(currentUser.communeId)}`
+                    : 'Cán bộ phụ trách'
                   }
                 </p>
             </div>
@@ -189,5 +184,3 @@ export default function AppHeader() {
     </header>
   );
 }
-
-    
