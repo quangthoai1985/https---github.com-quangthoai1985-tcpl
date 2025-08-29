@@ -330,7 +330,11 @@ export default function RegistrationManagementPage() {
             </DialogHeader>
             <div className="flex-1 px-6 pb-6 h-full">
                 {previewFile && (
-                   <iframe src={previewFile.url} className="w-full h-full border rounded-md" title={previewFile.name}></iframe>
+                   <iframe 
+                        src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`} 
+                        className="w-full h-full border rounded-md" 
+                        title={previewFile.name}
+                    ></iframe>
                 )}
             </div>
             <DialogFooter className="p-6 pt-0 border-t">
