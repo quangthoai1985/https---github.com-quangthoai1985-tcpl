@@ -509,36 +509,34 @@ export default function SelfAssessmentPage() {
   }
 
   const uploadEvidenceFiles = async (periodId: string, communeId: string): Promise<AssessmentFileUrls> => {
+    if (!storage) throw new Error("Firebase Storage is not initialized.");
+
     const uploadedFileUrls: AssessmentFileUrls = {};
-    const uploadPromises: Promise<void>[] = [];
+    const allUploadPromises: Promise<void>[] = [];
 
     for (const indicatorId in assessmentData) {
         const indicatorData = assessmentData[indicatorId];
-        const filesToUpload = indicatorData.files.filter(f => f instanceof File) as File[];
+        const localFilesToUpload = indicatorData.files.filter((f): f is File => f instanceof File);
+        
+        // Initialize the array for the current indicator
+        uploadedFileUrls[indicatorId] = indicatorData.files.filter((f): f is {name: string, url: string} => !(f instanceof File));
 
-        if (filesToUpload.length > 0) {
-            uploadedFileUrls[indicatorId] = [];
-            
-            // Keep already uploaded files
-            const existingFiles = indicatorData.files.filter(f => !(f instanceof File)) as { name: string, url: string }[];
-            uploadedFileUrls[indicatorId].push(...existingFiles);
-
-            for (const file of filesToUpload) {
+        if (localFilesToUpload.length > 0) {
+            const indicatorPromises = localFilesToUpload.map(async file => {
                 const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${file.name}`;
                 const storageRef = ref(storage, filePath);
-                
-                const uploadTask = uploadBytes(storageRef, file).then(async (snapshot) => {
-                    const downloadURL = await getDownloadURL(snapshot.ref);
-                    uploadedFileUrls[indicatorId].push({ name: file.name, url: downloadURL });
-                });
-                uploadPromises.push(uploadTask);
-            }
+                const snapshot = await uploadBytes(storageRef, file);
+                const downloadURL = await getDownloadURL(snapshot.ref);
+                uploadedFileUrls[indicatorId].push({ name: file.name, url: downloadURL });
+            });
+            allUploadPromises.push(...indicatorPromises);
         }
     }
 
-    await Promise.all(uploadPromises);
+    await Promise.all(allUploadPromises);
     return uploadedFileUrls;
-  }
+}
+
 
   const handleSaveDraft = async () => {
     // This function can be expanded to save to localStorage or a 'drafts' collection in Firestore
@@ -550,8 +548,8 @@ export default function SelfAssessmentPage() {
   };
 
   const handleSubmit = async () => {
-    if (!activePeriod || !currentUser) {
-        toast({ variant: 'destructive', title: 'Lỗi', description: 'Không tìm thấy kỳ đánh giá hoặc thông tin người dùng.' });
+    if (!activePeriod || !currentUser || !storage) {
+        toast({ variant: 'destructive', title: 'Lỗi', description: 'Không tìm thấy kỳ đánh giá, người dùng hoặc dịch vụ lưu trữ.' });
         return;
     }
 
