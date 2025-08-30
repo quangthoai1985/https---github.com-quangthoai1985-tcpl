@@ -15,7 +15,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Download, MoreHorizontal, PlusCircle, Search, Eye, Loader2 } from 'lucide-react';
+import { Download, MoreHorizontal, PlusCircle, Search, Eye, Trash2, Edit } from 'lucide-react';
 import React, { useState } from 'react';
 import {
   DropdownMenu,
@@ -23,6 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
+  DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -30,11 +31,12 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useData } from '@/context/DataContext';
 import PageHeader from '@/components/layout/page-header';
-import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { getDownloadURL, ref, uploadBytes, deleteObject } from 'firebase/storage';
 import type { Document as AppDocument } from '@/lib/data';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 
-function DocumentForm({ document, onSave, onCancel }: { document: Partial<AppDocument>, onSave: (doc: Partial<AppDocument>, file?: File | null) => void, onCancel: () => void }) {
+function DocumentForm({ document, onSave, onCancel, isSubmitting }: { document: Partial<AppDocument>, onSave: (doc: Partial<AppDocument>, file?: File | null) => void, onCancel: () => void, isSubmitting: boolean }) {
   const [formData, setFormData] = React.useState(document);
   const [file, setFile] = React.useState<File | null>(null);
 
@@ -78,12 +80,14 @@ function DocumentForm({ document, onSave, onCancel }: { document: Partial<AppDoc
             <Label htmlFor="file" className="text-right">Tệp đính kèm</Label>
             <Input id="file" type="file" onChange={handleFileChange} className="col-span-3"/>
         </div>
-        {file && <p className="text-sm text-muted-foreground text-right col-span-4">Đã chọn tệp: {file.name}</p>}
-        {formData.fileUrl && !file && <p className="text-sm text-muted-foreground text-right col-span-4">Tệp hiện tại: {formData.fileUrl.split('%2F').pop()?.split('?')[0]}</p>}
+        {file && <p className="text-sm text-muted-foreground text-right col-span-4">Tệp mới: {file.name}</p>}
+        {formData.fileUrl && !file && <p className="text-sm text-muted-foreground text-right col-span-4">Tệp hiện tại: {decodeURIComponent(formData.fileUrl.split('%2F').pop()?.split('?')[0] || '')}</p>}
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Hủy</Button>
-        <Button type="submit" onClick={() => onSave(formData, file)}>Lưu văn bản</Button>
+        <Button type="submit" onClick={() => onSave(formData, file)} disabled={isSubmitting}>
+            {isSubmitting ? "Đang lưu..." : "Lưu văn bản"}
+        </Button>
       </DialogFooter>
     </>
   );
@@ -94,6 +98,7 @@ export default function DocumentsPage() {
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingDocument, setEditingDocument] = useState<Partial<AppDocument> | null>(null);
+    const [deletingDocument, setDeletingDocument] = useState<AppDocument | null>(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
     const { toast } = useToast();
@@ -108,6 +113,39 @@ export default function DocumentsPage() {
         setIsFormOpen(true);
     };
 
+    const handleDelete = (doc: AppDocument) => {
+        setDeletingDocument(doc);
+    };
+    
+    const confirmDelete = async () => {
+        if (!deletingDocument || !storage) return;
+
+        try {
+            // Delete file from storage if it exists
+            if (deletingDocument.fileUrl) {
+                const fileRef = ref(storage, deletingDocument.fileUrl);
+                await deleteObject(fileRef);
+                toast({ title: "Thành công", description: "Đã xóa tệp đính kèm khỏi Storage." });
+            }
+
+            // Delete document from Firestore
+            await updateGuidanceDocuments(guidanceDocuments.filter(d => d.id !== deletingDocument.id));
+            toast({ title: "Thành công!", description: `Đã xóa văn bản "${deletingDocument.name}".` });
+
+        } catch (error: any) {
+            if (error.code === 'storage/object-not-found') {
+                 // If file doesn't exist, just delete from DB, this is not a critical error
+                await updateGuidanceDocuments(guidanceDocuments.filter(d => d.id !== deletingDocument.id));
+                toast({ title: "Thành công!", description: `Đã xóa văn bản "${deletingDocument.name}" (không tìm thấy tệp đính kèm).` });
+            } else {
+                console.error("Error deleting document:", error);
+                toast({ variant: 'destructive', title: "Lỗi!", description: "Không thể xóa văn bản hoặc tệp đính kèm." });
+            }
+        } finally {
+            setDeletingDocument(null);
+        }
+    };
+
     const handleSave = async (docData: Partial<AppDocument>, file: File | null | undefined) => {
         if (!storage) {
             toast({ variant: 'destructive', title: 'Lỗi', description: 'Dịch vụ lưu trữ chưa sẵn sàng.'});
@@ -117,20 +155,32 @@ export default function DocumentsPage() {
         let updatedDoc = { ...docData };
 
         try {
-            // Upload file if a new one is selected
             if (file) {
                 toast({ title: 'Đang tải tệp lên...'});
-                const filePath = `guidance_documents/${file.name}`;
+                const filePath = `guidance_documents/${Date.now()}-${file.name}`;
                 const storageRef = ref(storage, filePath);
+                
+                // Delete old file if editing and a new file is uploaded
+                if (updatedDoc.id && updatedDoc.fileUrl) {
+                    try {
+                        const oldFileRef = ref(storage, updatedDoc.fileUrl);
+                        await deleteObject(oldFileRef);
+                    } catch (error: any) {
+                       if (error.code !== 'storage/object-not-found') {
+                           console.warn("Could not delete old file, it might not exist:", error);
+                       }
+                    }
+                }
+                
                 const snapshot = await uploadBytes(storageRef, file);
                 const downloadURL = await getDownloadURL(snapshot.ref);
                 updatedDoc.fileUrl = downloadURL;
             }
 
-            if (updatedDoc.id) { // Editing existing document
+            if (updatedDoc.id) {
                 await updateGuidanceDocuments(guidanceDocuments.map(d => d.id === updatedDoc.id ? updatedDoc as AppDocument : d));
                 toast({ title: "Thành công!", description: "Đã cập nhật văn bản."});
-            } else { // Creating new document
+            } else {
                 const newDoc: AppDocument = {
                     id: `DOC${Date.now()}`,
                     ...updatedDoc,
@@ -159,7 +209,6 @@ export default function DocumentsPage() {
     }
     
     const handleDownload = (fileUrl: string, fileName: string) => {
-        // This is a simplified download. For cross-origin, a server-side proxy might be needed.
         window.open(fileUrl, '_blank');
     }
 
@@ -235,7 +284,13 @@ export default function DocumentsPage() {
                            <Download className="mr-2 h-4 w-4" /> Tải về
                         </DropdownMenuItem>
                       )}
-                      <DropdownMenuItem onClick={() => handleEdit(doc)}>Sửa</DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => handleEdit(doc)}>
+                        <Edit className="mr-2 h-4 w-4" /> Sửa
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDelete(doc)} className="text-destructive">
+                        <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
@@ -248,9 +303,25 @@ export default function DocumentsPage() {
     
     <Dialog open={isFormOpen} onOpenChange={(open) => !open && handleCancel()}>
         <DialogContent>
-            {editingDocument && <DocumentForm document={editingDocument} onSave={handleSave} onCancel={handleCancel} />}
+            {editingDocument && <DocumentForm document={editingDocument} onSave={handleSave} onCancel={handleCancel} isSubmitting={isSubmitting} />}
         </DialogContent>
     </Dialog>
+    
+    <AlertDialog open={!!deletingDocument} onOpenChange={(open) => !open && setDeletingDocument(null)}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Xác nhận xóa</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Bạn có chắc chắn muốn xóa văn bản <strong>{deletingDocument?.name}</strong>?
+                    Hành động này sẽ xóa cả tệp đính kèm và không thể hoàn tác.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setDeletingDocument(null)}>Hủy</AlertDialogCancel>
+                <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">Xác nhận Xóa</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
 
     <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
