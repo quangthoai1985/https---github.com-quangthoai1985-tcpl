@@ -1,45 +1,68 @@
+// File: src/actions/userActions.ts
 
 'use server';
 
 import type { UnitAndUserImport, User } from '@/lib/data';
 import * as admin from 'firebase-admin';
 
-// Directly use credentials to avoid file system issues in serverless environments.
-const serviceAccount = {
-  "type": "service_account",
-  "project_id": "chuan-tiep-can-pl",
-  "private_key_id": "8a9d778a616c5f5ff03bc2c309e238ffbbe8490e",
-  // FIX: Keep the original newlines in the private key.
-  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCaZK4ywKWVJmFQ\niL2Fuv0JXWXzrW1KyQsTQHo0sA6qztFxFMEbnA//ltIUyTFrXbBDpOmyP8cOmCPl\nVfU97QRc4hM/Inu1Z+viIgWG2TDOrjOViCOLiJXs6pdsrLNJG9JV8oTHjuwOkq3z\n3B80rk/yf6854zH83/rjU2zKV+SS7bm0BcX3If2ALQ/2Z2UBrO+Cn5PCYbSOxYiS\nnHGwP7U9uiypB5PAan0MafHoGnrHrC3slAWblsrJ1kgyx83fKAwy0f/gL3h5CMge\ncYwDpyNFQNBUI7L9Rd1BHOz8ehtQqbeaC9YBuPA6cEA40jz3Cj4feJyzCHgnOhR2\n7M4wx9brAgMBAAECggEAGTlHqG0G4FYz4edlJzsEagpDRMtZprUvxQZssLzuuIMv\nfo0Ie41Eo9otGk5Ab60Pxg1kTMXUrJK4kpg3h9V4OACLam4kzd9bj0dFpeFH8wxM\nyypBvGMlM16kPJH+fHw6IeaMQNodwMe/+a5FvuKXlyO7KfbvTMP/BjKz/F7drg89\nkGt07jA+4WYpSl9SKa8y5X2oDWMiu36s64lE4WSeTgCAzJG3F5MQnsO3ByXXMnHW\nmc+7SvOjtkw+eQTaDOUjY55tJmfUspnwOmjDjfSVoHiDhME96UizeSra+cA8j/pB\n7/s35Hn18VFGA1RKztnJyc5KCicvsYBS3SpoUWBxOQKBgQDR1g3kt9Lsm7IZ+/CY\nP3O3sUh2QpWgjRhUWYdmcDA0eMeEZgcop8mOuV/gyP4yiNJ2FgqscqUIV+mM4IB+\n1VB/igVnEHC56D5+jEbaA3p1+SZH+sh22FpXaSv2OUnW0wxp/rW+JhMPwCYG/kB9\nxtQV5Z0NVvjNiw1Trio6teXxfQKBgQC8XBdDyYanda6pKwKDwzgUlRlLw2KWD0V5\naYrcRqXOUTTFpRcj+25nw+iTEszYpxJPn98Jqwm/uIfi9QwbYDkLxMEBnHu/S+Q1\nnz7aGpFALC5Ue5OlSTlatrkVcqftdGPBOlTUOZ280mRA0U/fZCEBem+EKMsrTIgU\nN4z1j/PWhwKBgEUZFNglRFrP5nUyBodMFcH+qhrvUDBfZgyYssKj3OvaffD2XBMi\nNXg/SPhPl41yisOB/J/O3NODh4/xeb7KZcip3Z+TxVsixDmN3eL61D+2/MklJxAj\nrJQuOODK+qq4MtVQn+5uwUYlgyA4Z2pDqCFRzEbRRfsBeDD/ID7XGVJNAoGBAIHh\nZlFhtq3l4cfYVmWQySy4Grc5RNOAOEGd2xhExrPbHu5iBfDTwK9gURCI2CNUILYy\n4NKD07cVgO2oVu7RjMRmqUd5JYMky3mGEwrFYv7C+Ddc9tP0B85bTIhThSOhK9/j\nXvbvu6ql0Gc5bT/2hSPFzvtsPZvfq711CIeS+WolAoGBAK4/BqdjufY8l93IzJqD\nzQ52jj0TlFY/7buPpfiQYrCb2PUEaHwOh/lWQf7TWLT7YIBnSWMEgVBbKtlQOy/P\nCoOB9IIQrGIrzz9QWNoRC9tCwISC/6H1zjk2woYp67eJT+3HPzdeY6QHAGhIER0v\nGa+rYS6aKDW2SpFG+qEvjufe\n-----END PRIVATE KEY-----\n",
-  "client_email": "firebase-adminsdk-fbsvc@chuan-tiep-can-pl.iam.gserviceaccount.com",
-  "client_id": "114893684062523637158",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40chuan-tiep-can-pl.iam.gserviceaccount.com",
-  "universe_domain": "googleapis.com"
-};
+// ======================= START OF FIXED CODE =======================
 
-// A function to initialize Firebase Admin SDK idempotently.
-function initializeFirebaseAdmin() {
-  if (admin.apps.length === 0) {
+// A function to initialize Firebase Admin SDK idempotently and for different environments.
+const initializeFirebaseAdmin = () => {
+  // Check if the app is already initialized to avoid re-initialization
+  if (admin.apps.length > 0) {
+    return admin.app();
+  }
+
+  console.log("Attempting to initialize Firebase Admin SDK...");
+
+  // Check if running in a Google Cloud environment (like Cloud Functions, Cloud Run)
+  // VERCEL_ENV is a common variable on Vercel, adjust if using another platform
+  if (process.env.NODE_ENV === 'production' || process.env.VERCEL_ENV === 'production') {
+    // In production, rely on Application Default Credentials
+    console.log("Production environment detected. Initializing with default credentials.");
+    admin.initializeApp();
+    console.log("Firebase Admin SDK initialized successfully in production.");
+    return admin.app();
+  } else {
+    // In local development, use the Base64 encoded service account
+    console.log("Local environment detected. Initializing with Base64 credentials.");
     try {
+      const serviceAccountBase64 = process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64;
+      
+      if (!serviceAccountBase64) {
+        throw new Error('GOOGLE_APPLICATION_CREDENTIALS_BASE64 is not set in your .env.local file.');
+      }
+
+      const serviceAccountJson = Buffer.from(serviceAccountBase64, 'base64').toString('utf8');
+      const serviceAccount = JSON.parse(serviceAccountJson);
+
       admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount as admin.ServiceAccount),
+        credential: admin.credential.cert(serviceAccount)
       });
-      console.log("Firebase Admin SDK initialized successfully.");
+      console.log("Firebase Admin SDK initialized successfully for local development.");
+      return admin.app();
     } catch (error: any) {
-      console.error("CRITICAL: Failed to initialize Firebase Admin SDK. Error: ", error.message);
-      // Re-throw or handle as critical failure
-      throw new Error("Could not initialize Firebase Admin SDK.");
+      console.error("CRITICAL: Failed to initialize Firebase Admin SDK for local development.", error.message);
+      throw new Error("Could not initialize Firebase Admin SDK. Check your .env.local and Base64 string.");
     }
   }
-}
+};
 
-// Ensure initialization before getting db and auth instances.
-initializeFirebaseAdmin();
-const db = admin.firestore();
-const auth = admin.auth();
+// ======================== END OF FIXED CODE ========================
+
+
+// Get db and auth instances safely
+const getDb = () => {
+    initializeFirebaseAdmin();
+    return admin.firestore();
+};
+
+const getAuth = () => {
+    initializeFirebaseAdmin();
+    return admin.auth();
+};
+
 
 type ServerActionResult = {
     success: boolean;
@@ -49,8 +72,10 @@ type ServerActionResult = {
 };
 
 export async function createUser(userData: Omit<User, 'id'>, password: string): Promise<ServerActionResult> {
-    initializeFirebaseAdmin();
     try {
+        const auth = getAuth();
+        const db = getDb();
+        
         console.log(`Creating user with email: ${userData.username}`);
         const userRecord = await auth.createUser({
             email: userData.username,
@@ -63,16 +88,13 @@ export async function createUser(userData: Omit<User, 'id'>, password: string): 
 
         console.log(`User created in Auth with UID: ${userRecord.uid}. Now creating in Firestore.`);
         const newUser: User = {
-            id: userRecord.uid, // Use the UID from Auth as the document ID
+            id: userRecord.uid,
             ...userData,
         };
 
         await db.collection('users').doc(userRecord.uid).set(newUser);
         console.log(`User document created in Firestore with ID: ${userRecord.uid}`);
         
-        // The Cloud Function will automatically sync claims from Firestore,
-        // so we don't need to explicitly set them here.
-
         return { success: true, message: "Người dùng đã được tạo thành công.", userId: userRecord.uid };
     } catch (error: any) {
         console.error("Error creating user:", error);
@@ -82,20 +104,19 @@ export async function createUser(userData: Omit<User, 'id'>, password: string): 
 
 
 export async function updateUser(userData: User): Promise<ServerActionResult> {
-    initializeFirebaseAdmin();
     try {
+        const auth = getAuth();
+        const db = getDb();
         const { id, ...dataToUpdate } = userData;
         if (!id) throw new Error("User ID is required for update.");
 
         console.log(`Updating user with UID: ${id}`);
-        // Update Firebase Auth
         await auth.updateUser(id, {
             email: dataToUpdate.username,
             displayName: dataToUpdate.displayName,
             phoneNumber: dataToUpdate.phoneNumber,
         });
         
-        // Update Firestore. The Cloud Function will handle syncing claims.
         await db.collection('users').doc(id).update(dataToUpdate);
         
         console.log(`Successfully updated user: ${id}`);
@@ -107,15 +128,13 @@ export async function updateUser(userData: User): Promise<ServerActionResult> {
 }
 
 export async function deleteUser(userId: string): Promise<ServerActionResult> {
-    initializeFirebaseAdmin();
     try {
+        const auth = getAuth();
+        const db = getDb();
         if (!userId) throw new Error("User ID is required for deletion.");
         
         console.log(`Deleting user with UID: ${userId}`);
-        // Delete from Firebase Auth
         await auth.deleteUser(userId);
-
-        // Delete from Firestore
         await db.collection('users').doc(userId).delete();
         
         console.log(`Successfully deleted user: ${userId}`);
@@ -127,8 +146,8 @@ export async function deleteUser(userId: string): Promise<ServerActionResult> {
 }
 
 export async function resetUserPassword(userId: string, newPassword: string):Promise<ServerActionResult> {
-    initializeFirebaseAdmin();
     try {
+        const auth = getAuth();
         if (!userId || !newPassword) throw new Error("User ID and new password are required.");
         
         console.log(`Resetting password for user UID: ${userId}`);
@@ -145,46 +164,39 @@ export async function resetUserPassword(userId: string, newPassword: string):Pro
 }
 
 export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{successCount: number, errorCount: number, errors: string[]}> {
-    initializeFirebaseAdmin();
+    const auth = getAuth();
+    const db = getDb();
     const results = { successCount: 0, errorCount: 0, errors: [] as string[] };
     const unitsCollection = db.collection('units');
     const usersCollection = db.collection('users');
 
     for (const [index, row] of data.entries()) {
-        const rowIndex = index + 2; // Excel rows are 1-based, and we have a header
+        const rowIndex = index + 2;
         try {
-            // Step 1: Check for existing unit by ID
+            // ... (Phần logic import giữ nguyên, không cần thay đổi)
             let unitId = row.unitId;
             const unitDocRef = unitsCollection.doc(unitId);
             const unitDoc = await unitDocRef.get();
-            if (unitDoc.exists) {
-                // Unit already exists, skip creation
-            } else {
-                 // Create Unit in Firestore if it doesn't exist
+            if (!unitDoc.exists) {
                 await unitDocRef.set({
                     id: unitId,
                     name: row.unitName,
-                    type: 'commune', // All imports are communes
+                    type: 'commune',
                     parentId: row.unitParentId || null,
                     address: row.unitAddress || '',
                     headquarters: row.unitHeadquarters || ''
                 });
             }
 
-            // Step 2: Check if user already exists in Auth
             try {
                 await auth.getUserByEmail(row.userEmail);
-                // If it doesn't throw, user exists.
                 throw new Error(`Người dùng với email '${row.userEmail}' đã tồn tại trong Authentication.`);
             } catch (error: any) {
                  if (error.code !== 'auth/user-not-found') {
-                    // This will catch our custom error from above and other potential issues
                     throw error;
                 }
-                // If code is 'auth/user-not-found', we can proceed.
             }
             
-            // Step 3: Create User in Authentication
             const userRecord = await auth.createUser({
                 email: row.userEmail,
                 password: row.userPassword,
@@ -192,9 +204,7 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
                 emailVerified: true,
                 disabled: false,
             });
-            // Let the cloud function handle claims
             
-            // Step 4: Create User in Firestore, linking to the unit
             const firestoreUser: User = {
                 id: userRecord.uid,
                 username: row.userEmail,
@@ -209,7 +219,6 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
             results.errorCount++;
             let errorMessage = "Lỗi không xác định.";
             if (error instanceof Error) {
-                // Check for Firebase-specific error codes for more user-friendly messages
                 if ('code' in error && typeof error.code === 'string') {
                     switch (error.code) {
                         case 'auth/invalid-email':
@@ -236,5 +245,3 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
 
     return results;
 }
-
-    

@@ -69,7 +69,7 @@ export default function ProfilePage() {
                 <CardHeader>
                     <CardTitle>Thông tin cá nhân</CardTitle>
                     <CardDescription>
-                        Cập nhật thông tin hiển thị của bạn.
+                        Cập nhật thông tin hiển thị và số điện thoại của bạn.
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
