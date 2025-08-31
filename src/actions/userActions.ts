@@ -1,3 +1,4 @@
+
 'use server';
 
 import type { UnitAndUserImport, User } from '@/lib/data';
@@ -52,10 +53,32 @@ const auth = admin.auth();
 // KẾT THÚC KHỐI CODE SỬA LỖI
 // ====================================================================
 
+// Hàm tiện ích chuyển đổi số điện thoại sang định dạng E.164
+const convertToE164 = (phoneNumber?: string): string | undefined => {
+    if (!phoneNumber) return undefined;
+    
+    // Loại bỏ khoảng trắng
+    let cleanNumber = phoneNumber.replace(/\s+/g, '');
 
-// ====================================================================
-// CÁC HÀM ACTION CŨ CỦA BẠN - GIỮ NGUYÊN HOÀN TOÀN
-// ====================================================================
+    // Nếu đã đúng định dạng E.164, trả về
+    if (cleanNumber.startsWith('+')) {
+        return cleanNumber;
+    }
+    
+    // Nếu bắt đầu bằng số 0, thay thế bằng +84
+    if (cleanNumber.startsWith('0')) {
+        return `+84${cleanNumber.substring(1)}`;
+    }
+
+    // Nếu bắt đầu bằng 84, thêm dấu +
+    if (cleanNumber.startsWith('84')) {
+        return `+${cleanNumber}`;
+    }
+
+    // Mặc định trả về số đã làm sạch, trường hợp không xác định được
+    return cleanNumber;
+};
+
 
 type ServerActionResult = {
     success: boolean;
@@ -72,7 +95,7 @@ export async function createUser(userData: Omit<User, 'id'>, password: string): 
             emailVerified: true,
             password: password,
             displayName: userData.displayName,
-            phoneNumber: userData.phoneNumber,
+            phoneNumber: convertToE164(userData.phoneNumber), // Chuyển đổi SĐT
             disabled: false,
         });
 
@@ -91,6 +114,10 @@ export async function createUser(userData: Omit<User, 'id'>, password: string): 
         return { success: true, message: "Người dùng đã được tạo thành công.", userId: userRecord.uid };
     } catch (error: any) {
         console.error("Error creating user:", error);
+        // Trả về thông báo lỗi thân thiện hơn
+        if (error.code === 'auth/invalid-phone-number') {
+            return { success: false, error: 'Số điện thoại không hợp lệ. Vui lòng kiểm tra lại.' };
+        }
         return { success: false, error: error.message || "Không thể tạo người dùng." };
     }
 }
@@ -106,7 +133,7 @@ export async function updateUser(userData: User): Promise<ServerActionResult> {
         await auth.updateUser(id, {
             email: dataToUpdate.username,
             displayName: dataToUpdate.displayName,
-            phoneNumber: dataToUpdate.phoneNumber,
+            phoneNumber: convertToEstrange(dataToUpdate.phoneNumber), // Chuyển đổi SĐT
         });
         
         // Update Firestore. The Cloud Function will handle syncing claims.
@@ -116,6 +143,10 @@ export async function updateUser(userData: User): Promise<ServerActionResult> {
         return { success: true, message: "Thông tin người dùng đã được cập nhật." };
     } catch (error: any) {
         console.error("Error updating user:", error);
+        // Trả về thông báo lỗi thân thiện hơn
+        if (error.code === 'auth/invalid-phone-number') {
+            return { success: false, error: 'Số điện thoại không hợp lệ. Vui lòng kiểm tra lại.' };
+        }
         return { success: false, error: error.message || "Không thể cập nhật người dùng." };
     }
 }
