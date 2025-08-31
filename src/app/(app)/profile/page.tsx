@@ -18,10 +18,12 @@ export default function ProfilePage() {
     const [isSubmitting, setIsSubmitting] = React.useState(false);
 
     const [displayName, setDisplayName] = React.useState(currentUser?.displayName || '');
+    const [phoneNumber, setPhoneNumber] = React.useState(currentUser?.phoneNumber || '');
     
     React.useEffect(() => {
         if (currentUser) {
             setDisplayName(currentUser.displayName);
+            setPhoneNumber(currentUser.phoneNumber || '');
         }
     }, [currentUser]);
 
@@ -30,7 +32,7 @@ export default function ProfilePage() {
         if (!currentUser) return;
         setIsSubmitting(true);
 
-        const updatedUser: User = { ...currentUser, displayName };
+        const updatedUser: User = { ...currentUser, displayName, phoneNumber };
 
         const result = await updateUser(updatedUser);
 
@@ -79,6 +81,10 @@ export default function ProfilePage() {
                         <div className="grid gap-2">
                             <Label htmlFor="username">Tên đăng nhập</Label>
                             <Input id="username" type="text" value={currentUser.username} disabled />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="phoneNumber">Số điện thoại</Label>
+                            <Input id="phoneNumber" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} />
                         </div>
                          <div className="grid gap-2">
                             <Label htmlFor="unit">Đơn vị</Label>

@@ -88,6 +88,10 @@ function UserForm({ user, onSave, onCancel }: { user: Partial<User>, onSave: (us
               <Label htmlFor="username" className="text-right">Tên đăng nhập (Email)</Label>
               <Input id="username" type="email" value={formData.username || ''} onChange={handleChange} className="col-span-3" placeholder="user@example.com" disabled={!!user.id} />
           </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="phoneNumber" className="text-right">Số điện thoại</Label>
+              <Input id="phoneNumber" value={formData.phoneNumber || ''} onChange={handleChange} className="col-span-3" />
+          </div>
            <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="communeId" className="text-right">Đơn vị</Label>
               <Select value={formData.communeId} onValueChange={handleSelectChange('communeId')}>
@@ -276,6 +280,7 @@ function UserTable({ users, units, searchTerm, setSearchTerm, onEdit, onResetPas
               </TableHead>
               <TableHead>Họ và tên</TableHead>
               <TableHead>Email</TableHead>
+              <TableHead>Số điện thoại</TableHead>
               <TableHead className="hidden md:table-cell">
                 Đơn vị
               </TableHead>
@@ -299,6 +304,9 @@ function UserTable({ users, units, searchTerm, setSearchTerm, onEdit, onResetPas
                 </TableCell>
                  <TableCell>
                   {user.username}
+                </TableCell>
+                <TableCell>
+                  {user.phoneNumber || 'N/A'}
                 </TableCell>
                 <TableCell className="hidden md:table-cell">
                   {getUnitName(user.communeId)}
@@ -329,7 +337,7 @@ function UserTable({ users, units, searchTerm, setSearchTerm, onEdit, onResetPas
               </TableRow>
             )) : (
               <TableRow>
-                <TableCell colSpan={5} className="h-24 text-center">
+                <TableCell colSpan={6} className="h-24 text-center">
                   Không tìm thấy người dùng nào.
                 </TableCell>
               </TableRow>

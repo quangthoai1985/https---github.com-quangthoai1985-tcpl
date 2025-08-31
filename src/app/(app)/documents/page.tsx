@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -94,7 +93,7 @@ function DocumentForm({ document, onSave, onCancel, isSubmitting }: { document: 
 }
 
 export default function DocumentsPage() {
-    const { guidanceDocuments, updateGuidanceDocuments, storage } = useData();
+    const { guidanceDocuments, updateGuidanceDocuments, storage, role } = useData();
     const [isFormOpen, setIsFormOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [editingDocument, setEditingDocument] = useState<Partial<AppDocument> | null>(null);
@@ -102,6 +101,8 @@ export default function DocumentsPage() {
     const [searchTerm, setSearchTerm] = useState('');
     const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
     const { toast } = useToast();
+
+    const isAdmin = role === 'admin';
 
     const handleNew = () => {
         setEditingDocument({});
@@ -120,9 +121,19 @@ export default function DocumentsPage() {
     const confirmDelete = async () => {
         if (!deletingDocument || !storage) return;
 
+        // **FIX**: Security Check
+        if (!isAdmin) {
+            toast({ variant: 'destructive', title: "Lỗi!", description: "Bạn không có quyền thực hiện hành động này." });
+            setDeletingDocument(null);
+            return;
+        }
+        
+        setIsSubmitting(true);
         try {
             // Delete file from storage if it exists
             if (deletingDocument.fileUrl) {
+                // We need to get the reference from the full URL.
+                // Firebase SDK v9+ can do this directly.
                 const fileRef = ref(storage, deletingDocument.fileUrl);
                 await deleteObject(fileRef);
                 toast({ title: "Thành công", description: "Đã xóa tệp đính kèm khỏi Storage." });
@@ -133,16 +144,18 @@ export default function DocumentsPage() {
             toast({ title: "Thành công!", description: `Đã xóa văn bản "${deletingDocument.name}".` });
 
         } catch (error: any) {
+            // If file doesn't exist, we can ignore the error and still delete the document entry
             if (error.code === 'storage/object-not-found') {
-                 // If file doesn't exist, just delete from DB, this is not a critical error
+                console.warn("File to delete was not found in Storage, proceeding to delete from Firestore.");
                 await updateGuidanceDocuments(guidanceDocuments.filter(d => d.id !== deletingDocument.id));
                 toast({ title: "Thành công!", description: `Đã xóa văn bản "${deletingDocument.name}" (không tìm thấy tệp đính kèm).` });
             } else {
                 console.error("Error deleting document:", error);
-                toast({ variant: 'destructive', title: "Lỗi!", description: "Không thể xóa văn bản hoặc tệp đính kèm." });
+                toast({ variant: 'destructive', title: "Lỗi!", description: "Không thể xóa văn bản. Kiểm tra lại quyền hạn của bạn." });
             }
         } finally {
             setDeletingDocument(null);
+            setIsSubmitting(false);
         }
     };
 
@@ -151,19 +164,28 @@ export default function DocumentsPage() {
             toast({ variant: 'destructive', title: 'Lỗi', description: 'Dịch vụ lưu trữ chưa sẵn sàng.'});
             return;
         }
+
+        // **FIX**: Security Check
+        if (!isAdmin) {
+            toast({ variant: 'destructive', title: "Lỗi!", description: "Bạn không có quyền thực hiện hành động này." });
+            return;
+        }
+
         setIsSubmitting(true);
-        let updatedDoc = { ...docData };
+        const docId = docData.id || `DOC${Date.now()}`;
+        let updatedDoc = { ...docData, id: docId };
 
         try {
             if (file) {
                 toast({ title: 'Đang tải tệp lên...'});
-                const filePath = `guidance_documents/${Date.now()}-${file.name}`;
+                // **FIX**: Create a structured and secure file path
+                const filePath = `guidance_documents/${docId}/${file.name}`;
                 const storageRef = ref(storage, filePath);
                 
                 // Delete old file if editing and a new file is uploaded
-                if (updatedDoc.id && updatedDoc.fileUrl) {
+                if (docData.id && docData.fileUrl) {
                     try {
-                        const oldFileRef = ref(storage, updatedDoc.fileUrl);
+                        const oldFileRef = ref(storage, docData.fileUrl);
                         await deleteObject(oldFileRef);
                     } catch (error: any) {
                        if (error.code !== 'storage/object-not-found') {
@@ -177,12 +199,11 @@ export default function DocumentsPage() {
                 updatedDoc.fileUrl = downloadURL;
             }
 
-            if (updatedDoc.id) {
+            if (docData.id) { // This is an update
                 await updateGuidanceDocuments(guidanceDocuments.map(d => d.id === updatedDoc.id ? updatedDoc as AppDocument : d));
                 toast({ title: "Thành công!", description: "Đã cập nhật văn bản."});
-            } else {
+            } else { // This is a new document
                 const newDoc: AppDocument = {
-                    id: `DOC${Date.now()}`,
                     ...updatedDoc,
                     name: updatedDoc.name || 'Văn bản không tên',
                     number: updatedDoc.number || '',
@@ -197,7 +218,7 @@ export default function DocumentsPage() {
             setEditingDocument(null);
         } catch(error) {
             console.error("Error saving document:", error);
-            toast({ variant: 'destructive', title: "Lỗi!", description: "Đã xảy ra lỗi khi lưu văn bản hoặc tải tệp."});
+            toast({ variant: 'destructive', title: "Lỗi!", description: "Đã xảy ra lỗi. Vui lòng kiểm tra Security Rules và thử lại."});
         } finally {
             setIsSubmitting(false);
         }
@@ -234,10 +255,12 @@ export default function DocumentsPage() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                 />
             </div>
-             <Button onClick={handleNew}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Thêm văn bản
-            </Button>
+            {isAdmin && (
+                <Button onClick={handleNew}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Thêm văn bản
+                </Button>
+            )}
         </div>
       </CardHeader>
       <CardContent>
@@ -272,26 +295,37 @@ export default function DocumentsPage() {
                         <span className="sr-only">Toggle menu</span>
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                      {doc.fileUrl && (
-                        <DropdownMenuItem onClick={() => setPreviewFile({name: doc.name, url: doc.fileUrl!})}>
-                            <Eye className="mr-2 h-4 w-4" /> Xem trước
-                        </DropdownMenuItem>
-                      )}
-                      {doc.fileUrl && (
-                        <DropdownMenuItem onClick={() => handleDownload(doc.fileUrl!, doc.name)}>
-                           <Download className="mr-2 h-4 w-4" /> Tải về
-                        </DropdownMenuItem>
-                      )}
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onClick={() => handleEdit(doc)}>
-                        <Edit className="mr-2 h-4 w-4" /> Sửa
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDelete(doc)} className="text-destructive">
-                        <Trash2 className="mr-2 h-4 w-4" /> Xóa
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
+<DropdownMenuContent align="end">
+  <DropdownMenuLabel>Hành động</DropdownMenuLabel>
+  
+  {/* Kiểm tra xem văn bản có file đính kèm không */}
+  {doc.fileUrl ? (
+    <>
+      <DropdownMenuItem onClick={() => setPreviewFile({name: doc.name, url: doc.fileUrl!})}>
+          <Eye className="mr-2 h-4 w-4" /> Xem trước
+      </DropdownMenuItem>
+      <DropdownMenuItem onClick={() => handleDownload(doc.fileUrl!, doc.name)}>
+         <Download className="mr-2 h-4 w-4" /> Tải về
+      </DropdownMenuItem>
+    </>
+  ) : (
+    // Nếu không có file, hiển thị thông báo
+    <DropdownMenuItem disabled>Không có tệp đính kèm</DropdownMenuItem>
+  )}
+
+  {/* Chỉ Admin mới thấy các hành động quản trị */}
+  {isAdmin && (
+    <>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleEdit(doc)}>
+            <Edit className="mr-2 h-4 w-4" /> Sửa
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleDelete(doc)} className="text-destructive">
+            <Trash2 className="mr-2 h-4 w-4" /> Xóa
+        </DropdownMenuItem>
+    </>
+  )}
+</DropdownMenuContent>
                   </DropdownMenu>
                 </TableCell>
               </TableRow>
@@ -318,7 +352,9 @@ export default function DocumentsPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel onClick={() => setDeletingDocument(null)}>Hủy</AlertDialogCancel>
-                <AlertDialogAction onClick={confirmDelete} className="bg-destructive hover:bg-destructive/90">Xác nhận Xóa</AlertDialogAction>
+                <AlertDialogAction onClick={confirmDelete} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">
+                    {isSubmitting ? "Đang xóa..." : "Xác nhận Xóa"}
+                </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>

@@ -56,6 +56,7 @@ export async function createUser(userData: Omit<User, 'id'>, password: string): 
             emailVerified: true,
             password: password,
             displayName: userData.displayName,
+            phoneNumber: userData.phoneNumber,
             disabled: false,
         });
 
@@ -90,6 +91,7 @@ export async function updateUser(userData: User): Promise<ServerActionResult> {
         await auth.updateUser(id, {
             email: dataToUpdate.username,
             displayName: dataToUpdate.displayName,
+            phoneNumber: dataToUpdate.phoneNumber,
         });
         
         // Update Firestore. The Cloud Function will handle syncing claims.

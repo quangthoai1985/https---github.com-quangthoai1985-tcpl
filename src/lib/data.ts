@@ -1,5 +1,4 @@
 
-
 // Define a structure for how the self-assessment data for each indicator will be stored.
 export type IndicatorResult = {
     isTasked?: boolean;
@@ -17,6 +16,7 @@ export type User = {
   id: string; // Corresponds to Firebase Auth UID
   username: string;
   displayName: string;
+  phoneNumber?: string; // Add new field
   role: Role;
   communeId: string;
 };
