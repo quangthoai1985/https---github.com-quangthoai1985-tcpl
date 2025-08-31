@@ -133,7 +133,7 @@ export async function updateUser(userData: User): Promise<ServerActionResult> {
         await auth.updateUser(id, {
             email: dataToUpdate.username,
             displayName: dataToUpdate.displayName,
-            phoneNumber: convertToEstrange(dataToUpdate.phoneNumber), // Chuyển đổi SĐT
+            phoneNumber: convertToE164(dataToUpdate.phoneNumber), // Chuyển đổi SĐT
         });
         
         // Update Firestore. The Cloud Function will handle syncing claims.
@@ -278,3 +278,5 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
 
     return results;
 }
+
+    
