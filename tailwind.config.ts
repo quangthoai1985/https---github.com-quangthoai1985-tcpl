@@ -1,3 +1,4 @@
+
 import type {Config} from 'tailwindcss';
 
 export default {
@@ -19,7 +20,7 @@ export default {
       fontFamily: {
         body: ['var(--font-roboto-flex)', 'sans-serif'],
         headline: ['var(--font-roboto-flex)', 'sans-serif'],
-        'display-header': ['var(--font-roboto-flex)', 'sans-serif'],
+        'display-header': ['var(--font-oswald)', 'sans-serif'],
         'display-subheader': ['var(--font-montserrat)', 'serif'],
         code: ['monospace'],
       },

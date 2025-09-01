@@ -2,7 +2,7 @@
 'use client';
 
 import type { Metadata } from 'next';
-import { Montserrat, Roboto_Flex } from 'next/font/google';
+import { Montserrat, Roboto_Flex, Oswald } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { DataProvider } from '@/context/DataContext';
@@ -18,6 +18,13 @@ const montserrat = Montserrat({
     subsets: ['latin', 'vietnamese'],
     weight: '400',
     variable: '--font-montserrat',
+    display: 'swap',
+});
+
+const oswald = Oswald({
+    subsets: ['latin', 'vietnamese'],
+    weight: '500',
+    variable: '--font-oswald',
     display: 'swap',
 });
 
@@ -38,7 +45,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={`${roboto_flex.variable} ${montserrat.variable}`}>
+    <html lang="vi" className={`${roboto_flex.variable} ${montserrat.variable} ${oswald.variable}`}>
       <body className="font-body antialiased">
         <DataProvider>
             {children}
