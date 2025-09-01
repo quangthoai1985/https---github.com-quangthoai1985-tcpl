@@ -35,6 +35,7 @@ import {
   ThumbsDown,
   ThumbsUp,
   XCircle,
+  Undo2, // Import Return icon
 } from 'lucide-react';
 import PageHeader from '@/components/layout/page-header';
 import { useData } from '@/context/DataContext';
@@ -61,7 +62,7 @@ export default function RegistrationManagementPage() {
     assessmentPeriods.find((p) => p.isActive)?.id
   );
   
-  const [rejectionTarget, setRejectionTarget] = useState<Assessment | null>(null);
+  const [actionTarget, setActionTarget] = useState<{assessment: Assessment, type: 'reject' | 'return'} | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
   
@@ -105,13 +106,15 @@ export default function RegistrationManagementPage() {
       assessments.map((a) => (a.id === assessment.id ? updatedAssessment : a))
     );
 
+    const actionText = actionTarget?.type === 'return' ? 'trả lại' : 'từ chối';
+
     toast({
       title: 'Cập nhật thành công',
-      description: `Đã ${newStatus === 'registration_approved' ? 'phê duyệt' : 'từ chối'} đăng ký của ${getUnitInfo(assessment.communeId).name}.`,
+      description: `Đã ${newStatus === 'registration_approved' ? 'phê duyệt' : actionText} đăng ký của ${getUnitInfo(assessment.communeId).name}.`,
     });
     
-    if(rejectionTarget) {
-      setRejectionTarget(null);
+    if(actionTarget) {
+      setActionTarget(null);
       setRejectionReason('');
     }
   };
@@ -213,7 +216,7 @@ export default function RegistrationManagementPage() {
                         <Button
                           size="sm"
                           className="bg-red-600 hover:bg-red-700"
-                          onClick={() => setRejectionTarget(item as Assessment)}
+                          onClick={() => setActionTarget({ assessment: item as Assessment, type: 'reject'})}
                         >
                           <ThumbsDown className="mr-2 h-4 w-4" /> Từ chối
                         </Button>
@@ -225,6 +228,15 @@ export default function RegistrationManagementPage() {
                           <ThumbsUp className="mr-2 h-4 w-4" /> Phê duyệt
                         </Button>
                       </>
+                    )}
+                    {type === 'approved' && (
+                       <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => setActionTarget({ assessment: item as Assessment, type: 'return'})}
+                        >
+                          <Undo2 className="mr-2 h-4 w-4" /> Trả lại
+                        </Button>
                     )}
                   </TableCell>
                 </TableRow>
@@ -291,31 +303,33 @@ export default function RegistrationManagementPage() {
         </CardContent>
       </Card>
       
-      <Dialog open={!!rejectionTarget} onOpenChange={(open) => !open && setRejectionTarget(null)}>
+      <Dialog open={!!actionTarget} onOpenChange={(open) => !open && setActionTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Lý do từ chối đăng ký</DialogTitle>
+            <DialogTitle>
+                {actionTarget?.type === 'reject' ? 'Lý do từ chối đăng ký' : 'Lý do trả lại hồ sơ'}
+            </DialogTitle>
             <DialogDescription>
-              Vui lòng nhập lý do từ chối cho đơn vị: <strong>{getUnitInfo(rejectionTarget?.communeId || '').name}</strong>. Xã sẽ thấy lý do này.
+              Vui lòng nhập lý do. Đơn vị <strong>{getUnitInfo(actionTarget?.assessment.communeId || '').name}</strong> sẽ thấy lý do này.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
-            <Label htmlFor="rejectionReason">Lý do từ chối</Label>
+            <Label htmlFor="rejectionReason">Lý do</Label>
             <Textarea 
               id="rejectionReason"
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
-              placeholder="Ví dụ: Đơn đăng ký thiếu chữ ký của lãnh đạo..."
+              placeholder={actionTarget?.type === 'reject' ? "Ví dụ: Đơn đăng ký thiếu chữ ký của lãnh đạo..." : "Ví dụ: Cần bổ sung thêm thông tin trong đơn..."}
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectionTarget(null)}>Hủy</Button>
+            <Button variant="outline" onClick={() => setActionTarget(null)}>Hủy</Button>
             <Button 
               variant="destructive" 
               disabled={!rejectionReason.trim()}
-              onClick={() => handleUpdateStatus(rejectionTarget!, 'registration_rejected', rejectionReason)}
+              onClick={() => handleUpdateStatus(actionTarget!.assessment, 'registration_rejected', rejectionReason)}
             >
-              Xác nhận Từ chối
+              Xác nhận
             </Button>
           </DialogFooter>
         </DialogContent>

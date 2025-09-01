@@ -167,7 +167,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                if (assessment.status === 'registration_rejected') {
                   generated.push({
                       id: `commune-reg-rejected-${assessment.id}`,
-                      title: `Đăng ký của bạn đã bị từ chối.`,
+                      title: `Đăng ký của bạn đã bị từ chối/bị trả lại.`,
                       time: `Vui lòng xem chi tiết và gửi lại.`,
                       read: false,
                       link: `/dashboard`
