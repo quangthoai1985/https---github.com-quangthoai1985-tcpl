@@ -53,17 +53,17 @@ export default function LoginPageContent() {
 
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
-      <div className="hidden bg-muted lg:block">
+      <div className="hidden bg-muted lg:flex items-center justify-center p-8" style={backgroundColor ? { backgroundColor } : {}}>
         <Image
           src={bgImageUrl}
           alt="Image"
           width="1920"
           height="1080"
-          className="h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+          className="h-full w-full object-contain dark:brightness-[0.8]"
           data-ai-hint="login background"
         />
       </div>
-      <div className="flex items-center justify-center py-12" style={backgroundColor ? { backgroundColor } : {}}>
+      <div className="flex items-center justify-center py-12">
         <div className="mx-auto grid w-[350px] gap-6">
            <div className="grid gap-2 text-center">
              <div className="flex justify-center p-6">
