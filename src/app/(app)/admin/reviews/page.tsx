@@ -38,12 +38,20 @@ export default function ReviewAssessmentsPage() {
 
         const currentPeriodAssessments = assessments.filter(a => a.assessmentPeriodId === selectedPeriod);
         
-        const allCommuneUnits = units.filter(u => u.type === 'commune');
-        const sentCommuneIds = new Set(currentPeriodAssessments.map(a => a.communeId));
+        // Find units that have their registration approved
+        const approvedRegistrationCommuneIds = new Set(
+            currentPeriodAssessments
+                .filter(a => ['registration_approved', 'pending_review', 'approved', 'rejected'].includes(a.status))
+                .map(a => a.communeId)
+        );
 
-        const notSent = allCommuneUnits.filter(u => !sentCommuneIds.has(u.id));
+        // From those units, find the ones that haven't submitted their self-assessment yet
+        // Their status would still be 'registration_approved'
+        const notSentAssessments = currentPeriodAssessments.filter(a => a.status === 'registration_approved');
 
-        return { filteredAssessments: currentPeriodAssessments, notSentCommunes: notSent };
+        const notSentCommuneUnits = units.filter(u => notSentAssessments.some(a => a.communeId === u.id));
+
+        return { filteredAssessments: currentPeriodAssessments, notSentCommunes: notSentCommuneUnits };
     }, [selectedPeriod, units, assessments]);
     
     const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
@@ -51,7 +59,7 @@ export default function ReviewAssessmentsPage() {
         'pending_review': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary' },
         'rejected': { text: 'Đã trả lại', icon: XCircle, badge: 'destructive' },
         'draft': { text: 'Bản nháp', icon: ShieldQuestion, badge: 'secondary' },
-        'not_sent': { text: 'Chưa gửi', icon: FileX, badge: 'secondary', className: 'bg-muted text-muted-foreground' }
+        'not_sent': { text: 'Chưa gửi HS', icon: FileX, badge: 'secondary', className: 'bg-muted text-muted-foreground' }
     };
     
     const getUnitName = (communeId?: string) => {
@@ -112,7 +120,7 @@ export default function ReviewAssessmentsPage() {
                     ) : (
                         <TableRow>
                         <TableCell colSpan={4} className="h-24 text-center">
-                            Tất cả các xã đã gửi hồ sơ.
+                            Không có đơn vị nào đã được duyệt ĐK nhưng chưa gửi hồ sơ.
                         </TableCell>
                         </TableRow>
                     )}
@@ -180,7 +188,7 @@ export default function ReviewAssessmentsPage() {
         { value: "pending_review", label: "Chờ duyệt", data: filteredAssessments.filter(a => a.status === 'pending_review') },
         { value: "approved", label: "Đã duyệt", data: filteredAssessments.filter(a => a.status === 'approved') },
         { value: "rejected", label: "Đã trả lại", data: filteredAssessments.filter(a => a.status === 'rejected') },
-        { value: "not_sent", label: "Chưa gửi", data: notSentCommunes },
+        { value: "not_sent", label: "Chưa gửi HS", data: notSentCommunes },
     ];
 
     return (
