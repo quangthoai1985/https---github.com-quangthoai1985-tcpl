@@ -17,10 +17,10 @@ export default {
     },
     extend: {
       fontFamily: {
-        body: ['var(--font-inter)', 'sans-serif'],
-        headline: ['var(--font-inter)', 'sans-serif'],
-        'display-header': ['var(--font-montserrat)', 'sans-serif'],
-        'display-subheader': ['var(--font-playfair)', 'serif'],
+        body: ['var(--font-roboto-flex)', 'sans-serif'],
+        headline: ['var(--font-roboto-flex)', 'sans-serif'],
+        'display-header': ['var(--font-roboto-flex)', 'sans-serif'],
+        'display-subheader': ['var(--font-montserrat)', 'serif'],
         code: ['monospace'],
       },
       colors: {

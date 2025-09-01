@@ -2,26 +2,22 @@
 'use client';
 
 import type { Metadata } from 'next';
-import { Inter, Montserrat, Playfair_Display } from 'next/font/google';
+import { Montserrat, Roboto_Flex } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { DataProvider } from '@/context/DataContext';
 
-const inter = Inter({
+const roboto_flex = Roboto_Flex({
   subsets: ['latin', 'vietnamese'],
+  weight: '400',
   display: 'swap',
-  variable: '--font-inter',
+  variable: '--font-roboto-flex',
 });
 
 const montserrat = Montserrat({
     subsets: ['latin', 'vietnamese'],
+    weight: '400',
     variable: '--font-montserrat',
-    display: 'swap',
-});
-
-const playfair = Playfair_Display({
-    subsets: ['latin', 'vietnamese'],
-    variable: '--font-playfair',
     display: 'swap',
 });
 
@@ -42,7 +38,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={`${inter.variable} ${montserrat.variable} ${playfair.variable}`}>
+    <html lang="vi" className={`${roboto_flex.variable} ${montserrat.variable}`}>
       <body className="font-body antialiased">
         <DataProvider>
             {children}

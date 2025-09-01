@@ -100,7 +100,7 @@ export default function AppHeader() {
          <Link href="/dashboard" className="flex items-center gap-3 font-semibold">
             <Image src="/logo.png" alt="Logo" width={40} height={40} data-ai-hint="application logo" />
             <div>
-                <h1 className="font-display-header text-lg font-bold uppercase tracking-wide text-header-blue">
+                <h1 className="font-display-header text-lg font-normal uppercase tracking-wide text-header-blue">
                 ĐÁNH GIÁ CHUẨN TIẾP CẬN PHÁP LUẬT
                 </h1>
                 <h2 className="font-display-subheader text-base font-normal uppercase text-header-red">
