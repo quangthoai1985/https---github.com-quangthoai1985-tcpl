@@ -78,10 +78,13 @@ export default function LoginPageContent() {
                 />
             </div>
             <CardHeader className="text-center pt-0">
-                <CardTitle className="text-2xl font-headline leading-snug">
+                <h1 className="font-display-header text-xl uppercase tracking-wide text-header-blue whitespace-nowrap">
                     ĐÁNH GIÁ CHUẨN TIẾP CẬN PHÁP LUẬT
-                </CardTitle>
-                <CardDescription>
+                </h1>
+                <h2 className="font-display-subheader text-xl uppercase text-header-red whitespace-nowrap">
+                    TỈNH AN GIANG
+                </h2>
+                <CardDescription className="pt-4">
                     Đăng nhập vào tài khoản của bạn để tiếp tục
                 </CardDescription>
             </CardHeader>
