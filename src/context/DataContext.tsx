@@ -12,7 +12,7 @@ import {
     type Document as AppDocument
 } from '@/lib/data';
 import { initializeApp, getApp, getApps, FirebaseOptions, type FirebaseApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, type Firestore } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, type Firestore, deleteDoc } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser, type Auth } from 'firebase/auth';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
@@ -25,8 +25,6 @@ const firebaseConfig: FirebaseOptions = {
   messagingSenderId: "851876581009",
   appId: "1:851876581009:web:60bfbcc40055f76f607930"
 };
-
-// =================== START OF FIXED CODE ===================
 
 // Helper function to initialize Firebase services safely on the client-side (for Next.js SSR)
 const getFirebaseServices = () => {
@@ -43,8 +41,6 @@ const getFirebaseServices = () => {
     
     return { app, db, auth, storage };
 };
-
-// =================== END OF FIXED CODE =====================
 
 // Define a type for our dynamic notifications
 export type Notification = {
@@ -66,6 +62,7 @@ interface DataContextType {
   updateAssessmentPeriods: (newPeriods: AssessmentPeriod[]) => Promise<void>;
   assessments: Assessment[];
   updateAssessments: (newAssessments: Assessment[]) => Promise<void>;
+  deleteAssessment: (assessmentId: string) => Promise<void>;
   criteria: Criterion[];
   updateCriteria: (newCriteria: Criterion[]) => Promise<void>;
   guidanceDocuments: AppDocument[];
@@ -76,13 +73,12 @@ interface DataContextType {
   markNotificationAsRead: (notificationId: string) => void;
   setLoginInfo: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
-  storage: FirebaseStorage | null; // Can be null during server-side rendering
+  storage: FirebaseStorage | null;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const DataProvider = ({ children }: { children: ReactNode }) => {
-  // States for Firebase services, initialized to null
   const [db, setDb] = useState<Firestore | null>(null);
   const [auth, setAuth] = useState<Auth | null>(null);
   const [storage, setStorage] = useState<FirebaseStorage | null>(null);
@@ -99,7 +95,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [role, setRole] = useState<Role | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
 
-  // This effect runs only on the client-side after mounting
   useEffect(() => {
     const services = getFirebaseServices();
     if (services.db) setDb(services.db);
@@ -118,7 +113,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       const sortedAssessments = [...allAssessments].sort((a,b) => (b.submissionDate || '').localeCompare(a.submissionDate || ''));
 
       if (user.role === 'admin') {
-          // Notifications for Admin
           sortedAssessments.forEach(assessment => {
               if (assessment.status === 'pending_registration') {
                   const communeName = getUnitName(assessment.communeId, allUnits);
@@ -236,17 +230,15 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       } catch (error) {
         console.error("Error fetching data from Firestore:", error);
       }
-    }, [db]); // Add db as a dependency
+    }, [db]);
 
   useEffect(() => {
-    if (!auth || !db) return; // Wait for services to be initialized
+    if (!auth || !db) return;
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       setLoading(true);
       if (firebaseUser && firebaseUser.email) {
-        // ======================= THÊM ĐOẠN CODE NÀY VÀO =======================
-        const idTokenResult = await firebaseUser.getIdTokenResult(true); // true = force refresh
+        const idTokenResult = await firebaseUser.getIdTokenResult(true);
         console.log("%c USER TOKEN CLAIMS:", "color: blue; font-size: 16px;", idTokenResult.claims);
-        // =========================================================================
         try {
             const usersSnapshot = await getDocs(collection(db, 'users'));
             const allUsers = usersSnapshot.docs.map(doc => ({ ...doc.data()} as User));
@@ -278,10 +270,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, [auth, db, fetchData]); // Add auth and db as dependencies
+  }, [auth, db, fetchData]);
 
   const setLoginInfo = async (email: string, password: string): Promise<boolean> => {
-    if (!auth) return false; // Safety check
+    if (!auth) return false;
     setLoading(true);
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -294,7 +286,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    if (!auth) return; // Safety check
+    if (!auth) return;
     setLoading(true);
     try {
       await signOut(auth);
@@ -310,7 +302,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     stateUpdater: React.Dispatch<React.SetStateAction<T[]>>
   ) => {
     return async (newData: T[]) => {
-      if (!db) return; // Safety check
+      if (!db) return;
       setLoading(true);
       const batch = writeBatch(db);
       
@@ -337,6 +329,20 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     };
   };
 
+  const deleteAssessment = async (assessmentId: string) => {
+      if (!db) return;
+      setLoading(true);
+      try {
+          await deleteDoc(doc(db, 'assessments', assessmentId));
+          setAssessments(prev => prev.filter(a => a.id !== assessmentId));
+      } catch (error) {
+          console.error("Error deleting assessment:", error);
+          throw error;
+      } finally {
+          setLoading(false);
+      }
+  };
+
   const refreshData = useCallback(async () => {
       if (!auth || !db) {
         console.log("Auth or DB not initialized, skipping refresh.");
@@ -352,7 +358,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       } else {
           await fetchData(null);
       }
-  }, [auth, db, fetchData]); // Add auth and db as dependencies
+  }, [auth, db, fetchData]);
   
   const markNotificationAsRead = (notificationId: string) => {
     setNotifications(prevNotifications => 
@@ -378,6 +384,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         units, updateUnits, 
         assessmentPeriods, updateAssessmentPeriods, 
         assessments, updateAssessments, 
+        deleteAssessment,
         criteria, updateCriteria,
         guidanceDocuments, updateGuidanceDocuments,
         role,
@@ -386,7 +393,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         markNotificationAsRead,
         setLoginInfo,
         logout,
-        storage, // This is now the state variable, which is guaranteed to be initialized on the client
+        storage,
     }}>
       {children}
     </DataContext.Provider>

@@ -14,7 +14,8 @@ import {
   ThumbsDown,
   UserCheck,
   AlertTriangle,
-  Loader2
+  Loader2,
+  Undo2,
 } from 'lucide-react';
 import {
   Card,
@@ -51,6 +52,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 
 const AdminDashboard = () => {
@@ -332,10 +334,11 @@ const AdminDashboard = () => {
 )};
 
 const CommuneDashboard = () => {
-    const { storage, assessments, currentUser, assessmentPeriods, updateAssessments } = useData();
+    const { storage, assessments, currentUser, assessmentPeriods, updateAssessments, deleteAssessment } = useData();
     const { toast } = useToast();
     const [registrationFile, setRegistrationFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isWithdrawing, setIsWithdrawing] = useState(false);
 
     const activePeriod = assessmentPeriods.find(p => p.isActive);
     const myAssessment = activePeriod && currentUser 
@@ -343,7 +346,6 @@ const CommuneDashboard = () => {
         : undefined;
 
     const uploadFileAndGetURL = async (periodId: string, communeId: string, file: File): Promise<string> => {
-        // THÊM DÒNG KIỂM TRA NÀY VÀO
         if (!storage) throw new Error("Firebase Storage is not initialized.");
         const filePath = `hoso/${communeId}/registration/${periodId}/${file.name}`;
         const storageRef = ref(storage, filePath);
@@ -408,6 +410,20 @@ const CommuneDashboard = () => {
         }
     };
 
+    const handleWithdraw = async () => {
+        if (!myAssessment) return;
+        setIsWithdrawing(true);
+        try {
+            await deleteAssessment(myAssessment.id);
+            toast({ title: "Thành công", description: "Đã thu hồi đơn đăng ký. Bạn có thể nộp lại đơn mới." });
+        } catch (error) {
+            console.error("Withdrawal error:", error);
+            toast({ variant: 'destructive', title: 'Lỗi', description: 'Không thể thu hồi đơn đăng ký.' });
+        } finally {
+            setIsWithdrawing(false);
+        }
+    };
+
 
     const getPeriodName = (periodId: string) => {
         return assessmentPeriods.find(p => p.id === periodId)?.name || 'Không xác định';
@@ -426,6 +442,7 @@ const CommuneDashboard = () => {
     const deadlinePassed = isRegistrationDeadlinePassed();
     const canStartAssessment = myAssessment?.status === 'registration_approved';
     const isRegistrationRejected = myAssessment?.status === 'registration_rejected';
+    const isPendingRegistration = myAssessment?.status === 'pending_registration';
 
     const renderRegistrationStatus = () => {
         if (!myAssessment) {
@@ -475,11 +492,36 @@ const CommuneDashboard = () => {
                 <div className='p-4 border rounded-lg space-y-4'>
                     <h3 className='font-semibold text-lg'>Bước 1: Đăng ký tham gia</h3>
                     <p className="font-semibold">Trạng thái đăng ký:</p>
-                    <div className="flex items-center gap-4 mt-2">
+                    <div className="flex items-center justify-between">
                         <Badge className={`${statusInfo.className} text-white`}>
                            <statusInfo.icon className="mr-2 h-4 w-4" />
                            {statusInfo.text}
                         </Badge>
+                        {isPendingRegistration && (
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="destructive" size="sm">
+                                        <Undo2 className="mr-2 h-4 w-4" /> Thu hồi & Chỉnh sửa
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Xác nhận thu hồi?</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Hành động này sẽ thu hồi đơn đăng ký đã gửi. Bạn sẽ có thể tải lên một đơn mới và gửi lại.
+                                            Admin sẽ không thể duyệt đơn đã thu hồi.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Hủy</AlertDialogCancel>
+                                        <AlertDialogAction onClick={handleWithdraw} disabled={isWithdrawing} className="bg-destructive hover:bg-destructive/90">
+                                            {isWithdrawing ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : null}
+                                            Xác nhận thu hồi
+                                        </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        )}
                     </div>
                      {(isRegistrationRejected) && (
                         <>
