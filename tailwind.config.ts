@@ -19,6 +19,8 @@ export default {
       fontFamily: {
         body: ['var(--font-inter)', 'sans-serif'],
         headline: ['var(--font-inter)', 'sans-serif'],
+        'display-header': ['var(--font-montserrat)', 'sans-serif'],
+        'display-subheader': ['var(--font-playfair)', 'serif'],
         code: ['monospace'],
       },
       colors: {
@@ -55,6 +57,8 @@ export default {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
+        'header-blue': '#2C3E50',
+        'header-red': '#FF0000',
         chart: {
           '1': 'hsl(var(--chart-1))',
           '2': 'hsl(var(--chart-2))',
