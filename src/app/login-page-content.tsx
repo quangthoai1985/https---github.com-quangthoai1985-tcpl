@@ -19,7 +19,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
 export default function LoginPageContent() {
-  const { setLoginInfo, loading, currentUser } = useData();
+  const { setLoginInfo, loading, currentUser, loginConfig } = useData();
   const router = useRouter();
   const { toast } = useToast();
   const [email, setEmail] = React.useState('');
@@ -45,11 +45,17 @@ export default function LoginPageContent() {
     }
   };
 
+  const bgImageUrl = loginConfig?.backgroundImageUrl || "https://picsum.photos/1200/1800";
+  const logoUrl = loginConfig?.logoUrl || "/logo.png";
+  const logoWidth = loginConfig?.logoWidth || 100;
+  const logoHeight = loginConfig?.logoHeight || 100;
+  const backgroundColor = loginConfig?.backgroundColor;
+
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
       <div className="hidden bg-muted lg:block">
         <Image
-          src="https://picsum.photos/1200/1800"
+          src={bgImageUrl}
           alt="Image"
           width="1920"
           height="1080"
@@ -57,11 +63,17 @@ export default function LoginPageContent() {
           data-ai-hint="login background"
         />
       </div>
-      <div className="flex items-center justify-center py-12">
+      <div className="flex items-center justify-center py-12" style={backgroundColor ? { backgroundColor } : {}}>
         <div className="mx-auto grid w-[350px] gap-6">
            <div className="grid gap-2 text-center">
              <div className="flex justify-center p-6">
-                <Image src="/logo.png" alt="Logo Bộ Tư pháp" width={100} height={100} data-ai-hint="application logo"/>
+                <Image 
+                    src={logoUrl} 
+                    alt="Logo Bộ Tư pháp" 
+                    width={logoWidth} 
+                    height={logoHeight} 
+                    data-ai-hint="application logo"
+                />
             </div>
             <CardHeader className="text-center pt-0">
                 <CardTitle className="text-2xl font-headline leading-snug">

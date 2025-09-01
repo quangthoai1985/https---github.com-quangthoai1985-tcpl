@@ -110,6 +110,15 @@ export type UnitAndUserImport = {
     userDisplayName: string;
 };
 
+export type LoginConfig = {
+    id: 'loginPage'; // Singleton document
+    backgroundColor?: string;
+    backgroundImageUrl?: string;
+    logoUrl?: string;
+    logoWidth?: number;
+    logoHeight?: number;
+};
+
 
 // This file now only contains type definitions.
 // Mock data has been removed or replaced with dynamic logic.

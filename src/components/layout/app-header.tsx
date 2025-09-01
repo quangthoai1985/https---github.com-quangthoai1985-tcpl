@@ -14,6 +14,7 @@ import {
   Shield,
   User,
   HelpCircle,
+  Paintbrush,
 } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -110,7 +111,7 @@ export default function AppHeader() {
           </Link>
       </div>
 
-       <div className="ml-auto flex items-center gap-4">
+       <div className="ml-auto flex items-center gap-2">
         {currentUser && (
             <div className="hidden text-right lg:block">
               {currentUser.role === 'admin' ? (
@@ -131,6 +132,16 @@ export default function AppHeader() {
               )}
             </div>
         )}
+        
+        {role === 'admin' && (
+          <Link href="/admin/login-config">
+              <Button variant="outline" size="icon">
+                  <Paintbrush className="h-4 w-4" />
+                  <span className="sr-only">Cấu hình trang đăng nhập</span>
+              </Button>
+          </Link>
+        )}
+
         <Link href="/user-guide">
             <Button variant="outline" size="icon">
                 <HelpCircle className="h-4 w-4" />

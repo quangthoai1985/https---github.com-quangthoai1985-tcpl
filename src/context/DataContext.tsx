@@ -9,7 +9,8 @@ import {
     type Assessment,
     type Role,
     type Criterion,
-    type Document as AppDocument
+    type Document as AppDocument,
+    type LoginConfig
 } from '@/lib/data';
 import { initializeApp, getApp, getApps, FirebaseOptions, type FirebaseApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, type Firestore, deleteDoc } from 'firebase/firestore';
@@ -67,6 +68,8 @@ interface DataContextType {
   updateCriteria: (newCriteria: Criterion[]) => Promise<void>;
   guidanceDocuments: AppDocument[];
   updateGuidanceDocuments: (newDocs: AppDocument[]) => Promise<void>;
+  loginConfig: LoginConfig | null;
+  updateLoginConfig: (newConfig: LoginConfig) => Promise<void>;
   role: Role | null;
   currentUser: User | null;
   notifications: Notification[];
@@ -91,6 +94,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [criteria, setCriteria] = useState<Criterion[]>([]);
   const [guidanceDocuments, setGuidanceDocuments] = useState<AppDocument[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loginConfig, setLoginConfig] = useState<LoginConfig | null>(null);
 
   const [role, setRole] = useState<Role | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
@@ -201,7 +205,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           assessmentsSnapshot,
           criteriaSnapshot,
           documentsSnapshot,
-          usersSnapshot
+          usersSnapshot,
+          configSnapshot,
         ] = await Promise.all([
           getDocs(collection(db, 'units')),
           getDocs(collection(db, 'assessmentPeriods')),
@@ -209,10 +214,14 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           getDocs(collection(db, 'criteria')),
           getDocs(collection(db, 'guidanceDocuments')),
           getDocs(collection(db, 'users')),
+          getDocs(collection(db, 'configurations')),
         ]);
         
         const fetchedUnits = unitsSnapshot.docs.map(d => d.data() as Unit);
         const fetchedAssessments = assessmentsSnapshot.docs.map(d => d.data() as Assessment);
+
+        const loginConfigDoc = configSnapshot.docs.find(doc => doc.id === 'loginPage');
+        setLoginConfig(loginConfigDoc ? loginConfigDoc.data() as LoginConfig : null);
 
         setUnits(fetchedUnits);
         setAssessmentPeriods(periodsSnapshot.docs.map(d => d.data() as AssessmentPeriod));
@@ -263,6 +272,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
 
       } else {
+        await fetchData(null); // Fetch public data like login config
         setCurrentUser(null);
         setRole(null);
       }
@@ -329,6 +339,15 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     };
   };
 
+  const updateLoginConfig = async (newConfig: LoginConfig) => {
+      if (!db) return;
+      setLoading(true);
+      const docRef = doc(db, 'configurations', 'loginPage');
+      await setDoc(docRef, newConfig, { merge: true });
+      setLoginConfig(newConfig);
+      setLoading(false);
+  }
+
   const deleteAssessment = async (assessmentId: string) => {
       if (!db) return;
       setLoading(true);
@@ -387,6 +406,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         deleteAssessment,
         criteria, updateCriteria,
         guidanceDocuments, updateGuidanceDocuments,
+        loginConfig, updateLoginConfig,
         role,
         currentUser, 
         notifications,
