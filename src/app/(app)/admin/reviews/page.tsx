@@ -28,7 +28,7 @@ import type { Assessment, Unit } from '@/lib/data';
 import PageHeader from '@/components/layout/page-header';
 
 export default function ReviewAssessmentsPage() {
-    const { assessmentPeriods, units, assessments } = useData();
+    const { assessmentPeriods, units, assessments, users } = useData();
     const [selectedPeriod, setSelectedPeriod] = React.useState<string | undefined>(
         assessmentPeriods.find(p => p.isActive)?.id
     );
@@ -83,8 +83,8 @@ export default function ReviewAssessmentsPage() {
                     <TableHeader>
                     <TableRow>
                         <TableHead>Tên đơn vị</TableHead>
-                        <TableHead>Huyện</TableHead>
-                        <TableHead>Tỉnh</TableHead>
+                        <TableHead>Tên cán bộ</TableHead>
+                        <TableHead>Số điện thoại</TableHead>
                         <TableHead>Trạng thái</TableHead>
                     </TableRow>
                     </TableHeader>
@@ -92,14 +92,14 @@ export default function ReviewAssessmentsPage() {
                     {(assessmentsToShow as Unit[]).length > 0 ? (
                         (assessmentsToShow as Unit[]).map((unit) => {
                             const statusInfo = statusMap['not_sent'];
-                            const unitInfo = getUnitName(unit.id);
+                            const responsibleUser = users.find(u => u.communeId === unit.id);
                             return (
                                 <TableRow key={unit.id}>
                                     <TableCell>
-                                        <div className="font-medium">{unitInfo.communeName}</div>
+                                        <div className="font-medium">{unit.name}</div>
                                     </TableCell>
-                                    <TableCell>{unitInfo.districtName}</TableCell>
-                                    <TableCell>{unitInfo.provinceName}</TableCell>
+                                    <TableCell>{responsibleUser?.displayName || 'Chưa có'}</TableCell>
+                                    <TableCell>{responsibleUser?.phoneNumber || 'Chưa có'}</TableCell>
                                     <TableCell>
                                     <Badge variant={statusInfo.badge} className={statusInfo.className}>
                                         <statusInfo.icon className="mr-2 h-4 w-4" />
@@ -221,5 +221,3 @@ export default function ReviewAssessmentsPage() {
         </>
     );
 }
-
-    
