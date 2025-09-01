@@ -46,21 +46,23 @@ export default function LoginPageContent() {
   };
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-background px-4">
-      <Card className="mx-auto w-full max-w-sm shadow-2xl">
-         <div className="flex justify-center p-6">
-            <Image src="/logo.png" alt="Logo Bộ Tư pháp" width={100} height={100} data-ai-hint="application logo"/>
-        </div>
-        <CardHeader className="text-center pt-0">
-          <CardTitle className="text-2xl font-headline leading-snug">
-            ĐÁNH GIÁ CHUẨN TIẾP CẬN PHÁP LUẬT
-          </CardTitle>
-          <CardDescription>
-            Đăng nhập vào tài khoản của bạn để tiếp tục
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleLogin} className="grid gap-4">
+    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
+      <div className="flex items-center justify-center py-12">
+        <div className="mx-auto grid w-[350px] gap-6">
+           <div className="grid gap-2 text-center">
+             <div className="flex justify-center p-6">
+                <Image src="/logo.png" alt="Logo Bộ Tư pháp" width={100} height={100} data-ai-hint="application logo"/>
+            </div>
+            <CardHeader className="text-center pt-0">
+                <CardTitle className="text-2xl font-headline leading-snug">
+                    ĐÁNH GIÁ CHUẨN TIẾP CẬN PHÁP LUẬT
+                </CardTitle>
+                <CardDescription>
+                    Đăng nhập vào tài khoản của bạn để tiếp tục
+                </CardDescription>
+            </CardHeader>
+           </div>
+           <form onSubmit={handleLogin} className="grid gap-4">
             <div className="grid gap-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -93,8 +95,18 @@ export default function LoginPageContent() {
               </Button>
             </div>
           </form>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+      <div className="hidden bg-muted lg:block">
+        <Image
+          src="https://picsum.photos/1200/1800"
+          alt="Image"
+          width="1920"
+          height="1080"
+          className="h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
+          data-ai-hint="login background"
+        />
+      </div>
     </div>
   );
 }
