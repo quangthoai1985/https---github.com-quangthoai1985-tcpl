@@ -37,7 +37,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 
 export default function AppHeader() {
-  const { role, currentUser, logout, notifications, markNotificationAsRead } = useData();
+  const { role, currentUser, units, logout, notifications, markNotificationAsRead } = useData();
   const router = useRouter();
   const unreadNotifications = notifications.filter(n => !n.read).length;
   
@@ -108,13 +108,22 @@ export default function AppHeader() {
        <div className="ml-auto flex items-center gap-4">
         {currentUser && (
             <div className="hidden text-right lg:block">
-                <p className="font-semibold text-sm">{currentUser.displayName}</p>
-                <p className="text-xs text-muted-foreground">
-                  {currentUser.role === 'admin' 
-                    ? 'Quản trị viên hệ thống' 
-                    : 'Cán bộ phụ trách'
-                  }
-                </p>
+              {currentUser.role === 'admin' ? (
+                 <>
+                    <p className="font-semibold text-sm">{currentUser.displayName}</p>
+                    <p className="text-xs text-muted-foreground">Quản trị viên hệ thống</p>
+                 </>
+              ) : (
+                <>
+                    <p className="font-semibold text-sm">
+                        {units.find(u => u.id === currentUser.communeId)?.name || 'Đơn vị không xác định'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                        {currentUser.displayName}
+                        {currentUser.phoneNumber && ` - ${currentUser.phoneNumber}`}
+                    </p>
+                </>
+              )}
             </div>
         )}
         <Link href="/user-guide">
