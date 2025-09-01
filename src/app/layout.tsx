@@ -2,7 +2,7 @@
 'use client';
 
 import type { Metadata } from 'next';
-import { Montserrat, Roboto_Flex, Oswald } from 'next/font/google';
+import { Montserrat, Roboto_Flex, Oswald, Roboto_Condensed } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 import { DataProvider } from '@/context/DataContext';
@@ -28,6 +28,13 @@ const oswald = Oswald({
     display: 'swap',
 });
 
+const roboto_condensed = Roboto_Condensed({
+    subsets: ['latin', 'vietnamese'],
+    weight: '400',
+    variable: '--font-roboto-condensed',
+    display: 'swap',
+});
+
 
 // Metadata can't be in a client component, so we export it separately.
 // We will handle metadata in a separate file if needed or a parent server component.
@@ -45,7 +52,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="vi" className={`${roboto_flex.variable} ${montserrat.variable} ${oswald.variable}`}>
+    <html lang="vi" className={`${roboto_flex.variable} ${montserrat.variable} ${oswald.variable} ${roboto_condensed.variable}`}>
       <body className="font-body antialiased">
         <DataProvider>
             {children}
