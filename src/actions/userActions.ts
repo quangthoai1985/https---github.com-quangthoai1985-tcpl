@@ -8,7 +8,8 @@ import * as admin from 'firebase-admin';
 // KHỐI CODE KHỞI TẠO FIREBASE ADMIN SDK ĐÃ ĐƯỢC SỬA LỖI
 // ====================================================================
 // Hàm này sẽ khởi tạo Firebase Admin một cách an toàn, chỉ một lần duy nhất.
-// Nó đọc thông tin xác thực từ biến môi trường được cấu hình trong apphosting.yaml.
+// Nó sử dụng tệp service account credentials trực tiếp để đảm bảo hoạt động
+// ổn định trong môi trường development, nơi các biến env từ apphosting.yaml không được nạp.
 const initializeFirebaseAdmin = () => {
   // Kiểm tra xem app đã được khởi tạo chưa để tránh lỗi "already exists".
   if (admin.apps.length > 0) {
@@ -16,30 +17,23 @@ const initializeFirebaseAdmin = () => {
   }
 
   try {
-    // Lấy chuỗi Base64 từ biến môi trường.
-    const serviceAccountBase64 = process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64;
-    
-    // Nếu không tìm thấy biến môi trường, ném ra lỗi rõ ràng.
-    if (!serviceAccountBase64) {
-      throw new Error('CRITICAL: GOOGLE_APPLICATION_CREDENTIALS_BASE64 is not set in apphosting.yaml');
-    }
+    // Import tệp service account JSON một cách an toàn.
+    const serviceAccount = require('../../service-account-credentials.json');
 
-    // Giải mã chuỗi Base64 trở lại thành chuỗi JSON.
-    const serviceAccountJson = Buffer.from(serviceAccountBase64, 'base64').toString('utf8');
-    // Parse chuỗi JSON thành object.
-    const serviceAccount = JSON.parse(serviceAccountJson);
-
-    console.log("Initializing Firebase Admin SDK...");
-    // Khởi tạo Admin SDK với thông tin đã giải mã.
+    console.log("Initializing Firebase Admin SDK for Server Actions...");
+    // Khởi tạo Admin SDK với thông tin từ tệp JSON.
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });
-    console.log("Firebase Admin SDK initialized successfully.");
+    console.log("Firebase Admin SDK for Server Actions initialized successfully.");
 
   } catch (error: any) {
     console.error("CRITICAL: Failed to initialize Firebase Admin SDK. Error:", error.message);
-    // Ném ra lỗi để báo hiệu quá trình khởi tạo thất bại.
-    throw new Error(`Could not initialize Firebase Admin SDK. Check your apphosting.yaml and Base64 string.`);
+    // Ném ra lỗi rõ ràng nếu không tìm thấy tệp hoặc tệp không hợp lệ.
+    if (error.code === 'MODULE_NOT_FOUND') {
+         throw new Error('Could not initialize Firebase Admin SDK. Make sure "service-account-credentials.json" exists in the project root.');
+    }
+    throw new Error(`Could not initialize Firebase Admin SDK. Check your service-account-credentials.json file.`);
   }
 };
 
@@ -278,5 +272,3 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
 
     return results;
 }
-
-    
