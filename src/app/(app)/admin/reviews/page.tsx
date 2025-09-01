@@ -49,7 +49,7 @@ export default function ReviewAssessmentsPage() {
     const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
         'approved': { text: 'Đã duyệt', icon: CheckCircle, badge: 'default', className: 'bg-green-600' },
         'pending_review': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary' },
-        'rejected': { text: 'Bị từ chối', icon: XCircle, badge: 'destructive' },
+        'rejected': { text: 'Đã trả lại', icon: XCircle, badge: 'destructive' },
         'draft': { text: 'Bản nháp', icon: ShieldQuestion, badge: 'secondary' },
         'not_sent': { text: 'Chưa gửi', icon: FileX, badge: 'secondary', className: 'bg-muted text-muted-foreground' }
     };
@@ -179,7 +179,7 @@ export default function ReviewAssessmentsPage() {
     const tabs = [
         { value: "pending_review", label: "Chờ duyệt", data: filteredAssessments.filter(a => a.status === 'pending_review') },
         { value: "approved", label: "Đã duyệt", data: filteredAssessments.filter(a => a.status === 'approved') },
-        { value: "rejected", label: "Bị từ chối", data: filteredAssessments.filter(a => a.status === 'rejected') },
+        { value: "rejected", label: "Đã trả lại", data: filteredAssessments.filter(a => a.status === 'rejected') },
         { value: "not_sent", label: "Chưa gửi", data: notSentCommunes },
     ];
 
