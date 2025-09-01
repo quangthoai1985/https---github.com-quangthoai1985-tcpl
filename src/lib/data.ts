@@ -117,6 +117,8 @@ export type LoginConfig = {
     logoUrl?: string;
     logoWidth?: number;
     logoHeight?: number;
+    backgroundImageWidth?: number;
+    backgroundImageHeight?: number;
 };
 
 

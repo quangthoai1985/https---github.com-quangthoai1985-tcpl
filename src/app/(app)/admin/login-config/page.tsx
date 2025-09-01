@@ -157,13 +157,24 @@ export default function LoginConfigPage() {
                  <Card className="md:col-span-2">
                     <CardHeader>
                         <CardTitle>Ảnh nền</CardTitle>
-                        <CardDescription>Tải lên ảnh nền cho cột bên trái của trang đăng nhập.</CardDescription>
+                        <CardDescription>Tải lên ảnh nền cho cột bên trái của trang đăng nhập và điều chỉnh kích thước.</CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-6">
                         <div className="grid gap-2">
                             <Label htmlFor="bgImageFile">Tải lên ảnh nền mới</Label>
                             <Input id="bgImageFile" type="file" accept="image/*" onChange={handleFileChange(setBgImageFile)} />
                              {bgImageFile && <p className='text-sm text-muted-foreground'>Tệp mới: {bgImageFile.name}</p>}
+                        </div>
+
+                         <div className="grid grid-cols-2 gap-4">
+                            <div className="grid gap-2">
+                                <Label htmlFor="backgroundImageWidth">Chiều rộng ảnh nền (px)</Label>
+                                <Input id="backgroundImageWidth" type="number" value={config.backgroundImageWidth || 1200} onChange={handleInputChange}/>
+                            </div>
+                            <div className="grid gap-2">
+                                <Label htmlFor="backgroundImageHeight">Chiều cao ảnh nền (px)</Label>
+                                <Input id="backgroundImageHeight" type="number" value={config.backgroundImageHeight || 800} onChange={handleInputChange}/>
+                            </div>
                         </div>
 
                         {config.backgroundImageUrl && (

@@ -45,11 +45,13 @@ export default function LoginPageContent() {
     }
   };
 
-  const bgImageUrl = loginConfig?.backgroundImageUrl || "https://picsum.photos/1200/1800";
+  const bgImageUrl = loginConfig?.backgroundImageUrl || "https://picsum.photos/1200/800";
   const logoUrl = loginConfig?.logoUrl || "/logo.png";
   const logoWidth = loginConfig?.logoWidth || 100;
   const logoHeight = loginConfig?.logoHeight || 100;
   const backgroundColor = loginConfig?.backgroundColor;
+  const bgImageWidth = loginConfig?.backgroundImageWidth || 1200;
+  const bgImageHeight = loginConfig?.backgroundImageHeight || 800;
 
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
@@ -57,9 +59,9 @@ export default function LoginPageContent() {
         <Image
           src={bgImageUrl}
           alt="Image"
-          width="1920"
-          height="1080"
-          className="h-full w-full object-contain dark:brightness-[0.8]"
+          width={bgImageWidth}
+          height={bgImageHeight}
+          className="object-contain dark:brightness-[0.8]"
           data-ai-hint="login background"
         />
       </div>
