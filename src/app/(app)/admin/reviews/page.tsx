@@ -17,7 +17,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Eye, CheckCircle, XCircle, Clock, FileX, ShieldQuestion } from 'lucide-react';
+import { Eye, CheckCircle, XCircle, Clock, FileX, ShieldQuestion, Award } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -26,9 +26,12 @@ import { useData } from '@/context/DataContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Assessment, Unit } from '@/lib/data';
 import PageHeader from '@/components/layout/page-header';
+import { useToast } from '@/hooks/use-toast';
 
 export default function ReviewAssessmentsPage() {
-    const { assessmentPeriods, units, assessments, users } = useData();
+    const { assessmentPeriods, units, assessments, users, updateAssessments, currentUser } = useData();
+    const { toast } = useToast();
+
     const [selectedPeriod, setSelectedPeriod] = React.useState<string | undefined>(
         assessmentPeriods.find(p => p.isActive)?.id
     );
@@ -41,7 +44,7 @@ export default function ReviewAssessmentsPage() {
         // Find units that have their registration approved
         const approvedRegistrationCommuneIds = new Set(
             currentPeriodAssessments
-                .filter(a => ['registration_approved', 'pending_review', 'approved', 'rejected'].includes(a.status))
+                .filter(a => ['registration_approved', 'pending_review', 'approved', 'rejected', 'achieved_standard'].includes(a.status))
                 .map(a => a.communeId)
         );
 
@@ -54,12 +57,31 @@ export default function ReviewAssessmentsPage() {
         return { filteredAssessments: currentPeriodAssessments, notSentCommunes: notSentCommuneUnits };
     }, [selectedPeriod, units, assessments]);
     
+    const handleRecognizeAchievement = async (assessment: Assessment) => {
+        if (!currentUser) return;
+        
+        const updatedAssessment = {
+            ...assessment,
+            status: 'achieved_standard' as const,
+            achievementDate: new Date().toLocaleDateString('vi-VN'),
+            recognizerId: currentUser.id,
+        };
+
+        await updateAssessments(assessments.map(a => a.id === assessment.id ? updatedAssessment : a));
+        
+        toast({
+            title: "Công nhận thành công!",
+            description: `Đã công nhận ${getUnitName(assessment.communeId).communeName} đạt chuẩn tiếp cận pháp luật.`
+        });
+    };
+
     const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
         'approved': { text: 'Đã duyệt', icon: CheckCircle, badge: 'default', className: 'bg-green-600' },
         'pending_review': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary' },
         'rejected': { text: 'Đã trả lại', icon: XCircle, badge: 'destructive' },
         'draft': { text: 'Bản nháp', icon: ShieldQuestion, badge: 'secondary' },
-        'not_sent': { text: 'Chưa gửi HS', icon: FileX, badge: 'secondary', className: 'bg-muted text-muted-foreground' }
+        'not_sent': { text: 'Chưa gửi HS', icon: FileX, badge: 'secondary', className: 'bg-muted text-muted-foreground' },
+        'achieved_standard': { text: 'Đạt chuẩn', icon: Award, badge: 'default', className: 'bg-blue-600' }
     };
     
     const getUnitName = (communeId?: string) => {
@@ -161,13 +183,18 @@ export default function ReviewAssessmentsPage() {
                                         {statusInfo.text}
                                     </Badge>
                                 </TableCell>
-                                <TableCell className="text-right">
-                                <Button variant="outline" size="sm" asChild>
-                                    <Link href={`/admin/reviews/${assessment.id}`}>
-                                    <Eye className="mr-2 h-4 w-4" />
-                                    Xem chi tiết
-                                    </Link>
-                                </Button>
+                                <TableCell className="text-right space-x-2">
+                                    <Button variant="outline" size="sm" asChild>
+                                        <Link href={`/admin/reviews/${assessment.id}`}>
+                                        <Eye className="mr-2 h-4 w-4" />
+                                        Xem chi tiết
+                                        </Link>
+                                    </Button>
+                                    {assessment.status === 'approved' && (
+                                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleRecognizeAchievement(assessment)}>
+                                            <Award className="mr-2 h-4 w-4"/> Công nhận đạt chuẩn
+                                        </Button>
+                                    )}
                                 </TableCell>
                             </TableRow>
                         );
@@ -187,6 +214,7 @@ export default function ReviewAssessmentsPage() {
     const tabs = [
         { value: "pending_review", label: "Chờ duyệt", data: filteredAssessments.filter(a => a.status === 'pending_review') },
         { value: "approved", label: "Đã duyệt", data: filteredAssessments.filter(a => a.status === 'approved') },
+        { value: "achieved_standard", label: "Đã đạt chuẩn", data: filteredAssessments.filter(a => a.status === 'achieved_standard') },
         { value: "rejected", label: "Đã trả lại", data: filteredAssessments.filter(a => a.status === 'rejected') },
         { value: "not_sent", label: "Chưa gửi HS", data: notSentCommunes },
     ];
@@ -211,7 +239,7 @@ export default function ReviewAssessmentsPage() {
         </CardHeader>
         <CardContent>
             <Tabs defaultValue="pending_review">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
                 {tabs.map(tab => (
                     <TabsTrigger key={tab.value} value={tab.value}>
                         {tab.label} ({tab.data.length})

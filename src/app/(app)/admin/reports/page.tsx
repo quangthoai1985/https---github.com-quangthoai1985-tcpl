@@ -25,7 +25,7 @@ import {
 import {
   ChartContainer,
 } from '@/components/ui/chart';
-import { Download } from 'lucide-react';
+import { Download, Award } from 'lucide-react';
 import { Pie, PieChart, Cell, BarChart, XAxis, YAxis, Bar, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { useState, useMemo } from 'react';
 import { useData } from '@/context/DataContext';
@@ -45,13 +45,15 @@ export default function ReportsPage() {
 
         const allCommuneUnits = allUnits.filter(u => u.type === 'commune');
         const sentCommuneIds = new Set(periodAssessments.map(a => a.communeId));
-
+        
+        const achievedCount = periodAssessments.filter(a => a.status === 'achieved_standard').length;
         const approvedCount = periodAssessments.filter(a => a.status === 'approved').length;
         const pendingCount = periodAssessments.filter(a => a.status === 'pending_review').length;
         const rejectedCount = periodAssessments.filter(a => a.status === 'rejected').length;
         const notSentCount = allCommuneUnits.length - sentCommuneIds.size;
 
         const statusData = [
+            { name: 'Đạt chuẩn', value: achievedCount, fill: 'hsl(var(--chart-1))' },
             { name: 'Đã duyệt', value: approvedCount, fill: 'hsl(var(--chart-2))' },
             { name: 'Chờ duyệt', value: pendingCount, fill: 'hsl(var(--chart-3))' },
             { name: 'Bị từ chối', value: rejectedCount, fill: 'hsl(var(--chart-4))' },

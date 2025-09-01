@@ -1,4 +1,5 @@
 
+
 // Define a structure for how the self-assessment data for each indicator will be stored.
 export type IndicatorResult = {
     isTasked?: boolean;
@@ -74,7 +75,7 @@ export type Assessment = {
   id: string;
   communeId: string;
   assessmentPeriodId: string;
-  status: 'draft' | 'pending_review' | 'approved' | 'rejected' | 'pending_registration' | 'registration_approved' | 'registration_rejected';
+  status: 'draft' | 'pending_review' | 'approved' | 'rejected' | 'pending_registration' | 'registration_approved' | 'registration_rejected' | 'achieved_standard';
   submissionDate?: string; // Should be a timestamp, optional until submitted
   approvalDate?: string;   // Optional
   approverId?: string;     // Optional
@@ -84,6 +85,8 @@ export type Assessment = {
   registrationFormUrl?: string; // URL to the uploaded registration form
   registrationRejectionReason?: string;
   assessmentData?: Record<string, IndicatorResult>; // Holds all self-assessment data
+  achievementDate?: string; // Date when standard was achieved
+  recognizerId?: string; // User ID of who recognized the achievement
 };
 
 export type Document = {
