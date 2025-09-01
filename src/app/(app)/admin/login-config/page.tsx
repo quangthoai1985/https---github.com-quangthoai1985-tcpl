@@ -50,6 +50,7 @@ export default function LoginConfigPage() {
         let updatedConfig = { ...config };
 
         try {
+            // Tải lên logo nếu có tệp mới
             if (logoFile) {
                 const filePath = `config/logo/${logoFile.name}`;
                 const storageRef = ref(storage, filePath);
@@ -59,6 +60,7 @@ export default function LoginConfigPage() {
                 toast({ title: 'Thành công', description: 'Đã tải lên logo mới.' });
             }
 
+            // Tải lên ảnh nền nếu có tệp mới
             if (bgImageFile) {
                 const filePath = `config/background/${bgImageFile.name}`;
                 const storageRef = ref(storage, filePath);
@@ -68,14 +70,21 @@ export default function LoginConfigPage() {
                 toast({ title: 'Thành công', description: 'Đã tải lên ảnh nền mới.' });
             }
             
+            // Lưu toàn bộ cấu hình (bao gồm các URL mới và các thay đổi khác) vào Firestore
             await updateLoginConfig(updatedConfig as LoginConfig);
             toast({ title: 'Thành công!', description: 'Đã lưu cấu hình trang đăng nhập.' });
 
-        } catch (error) {
+        } catch (error: any) {
             console.error("Error saving login config:", error);
-            toast({ variant: 'destructive', title: 'Lỗi', description: 'Không thể lưu cấu hình.' });
+            if (error.code === 'storage/unauthorized' || error.code === 'permission-denied') {
+                 toast({ variant: 'destructive', title: 'Lỗi quyền hạn', description: 'Bạn không có quyền tải tệp lên. Vui lòng kiểm tra lại Firebase Rules.' });
+            } else {
+                toast({ variant: 'destructive', title: 'Lỗi', description: 'Không thể lưu cấu hình.' });
+            }
         } finally {
             setIsSubmitting(false);
+            setLogoFile(null);
+            setBgImageFile(null);
         }
     };
 
@@ -102,6 +111,7 @@ export default function LoginConfigPage() {
                                     className='p-1 h-10 w-12'
                                 />
                                 <Input 
+                                    id="backgroundColor"
                                     type="text"
                                     value={config.backgroundColor || ''}
                                     onChange={handleInputChange}
@@ -161,7 +171,7 @@ export default function LoginConfigPage() {
                                 <Label>Ảnh nền hiện tại</Label>
                                 <div className='mt-2 p-4 border rounded-md flex justify-center bg-muted'>
                                     <div className='relative w-full h-48'>
-                                        <Image src={config.backgroundImageUrl} alt="background" layout='fill' objectFit='contain' />
+                                        <Image src={config.backgroundImageUrl} alt="background" fill objectFit='contain' />
                                     </div>
                                 </div>
                             </div>
