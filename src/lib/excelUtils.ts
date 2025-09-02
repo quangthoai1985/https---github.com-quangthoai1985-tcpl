@@ -16,7 +16,8 @@ const unitAndUserTemplateData = [
         unitHeadquarters: 'Số 1 Nguyễn Cơ Thạch',
         userEmail: 'mydinh1@hanoi.gov.vn', 
         userPassword: 'Password123!', 
-        userDisplayName: 'Nguyễn Văn A'
+        userDisplayName: 'Nguyễn Văn A',
+        userPhoneNumber: '0912345678'
     },
     { 
         unitId: 'XA_TAYMO', 
@@ -26,7 +27,8 @@ const unitAndUserTemplateData = [
         unitHeadquarters: 'Số 1 đường 70',
         userEmail: 'taymo@hanoi.gov.vn', 
         userPassword: 'Password123!', 
-        userDisplayName: 'Trần Thị B'
+        userDisplayName: 'Trần Thị B',
+        userPhoneNumber: '0987654321'
     },
 ];
 
@@ -61,6 +63,7 @@ export const readUnitsAndUsersFromExcel = (file: File): Promise<UnitAndUserImpor
                         userEmail: String(row.userEmail),
                         userPassword: String(row.userPassword),
                         userDisplayName: String(row.userDisplayName),
+                        userPhoneNumber: row.userPhoneNumber ? String(row.userPhoneNumber) : undefined,
                     }
                 });
 
@@ -73,3 +76,5 @@ export const readUnitsAndUsersFromExcel = (file: File): Promise<UnitAndUserImpor
         reader.readAsBinaryString(file);
     });
 };
+
+    

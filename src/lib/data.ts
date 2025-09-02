@@ -2,7 +2,7 @@
 
 // Define a structure for how the self-assessment data for each indicator will be stored.
 export type IndicatorResult = {
-    isTasked?: boolean;
+    isTasked?: boolean | null;
     value: any;
     files: { name: string, url: string }[];
     note: string;
@@ -111,6 +111,7 @@ export type UnitAndUserImport = {
     userEmail: string;
     userPassword: string;
     userDisplayName: string;
+    userPhoneNumber?: string;
 };
 
 export type LoginConfig = {
@@ -136,3 +137,5 @@ export const progressData = [
   { name: 'Tuần 5', 'Số lượng': 13 },
   { name: 'Tuần 6', 'Số lượng': 20 },
 ];
+
+    

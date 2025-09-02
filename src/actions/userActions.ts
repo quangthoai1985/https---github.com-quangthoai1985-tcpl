@@ -181,6 +181,14 @@ export async function resetUserPassword(userId: string, newPassword: string):Pro
     }
 }
 
+const generateRandomPhoneNumber = (): string => {
+    const prefixes = ['090', '091', '092', '093', '094', '095', '096', '097', '098', '099', '086', '088', '089', '032', '033', '034', '035', '036', '037', '038', '039', '070', '079', '077', '076', '078', '081', '082', '083', '084', '085', '056', '058', '059'];
+    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const suffix = Math.floor(1000000 + Math.random() * 9000000).toString().substring(1);
+    return `${prefix}${suffix}`;
+};
+
+
 export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{successCount: number, errorCount: number, errors: string[]}> {
     const results = { successCount: 0, errorCount: 0, errors: [] as string[] };
     const unitsCollection = db.collection('units');
@@ -220,11 +228,15 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
                 // If code is 'auth/user-not-found', we can proceed.
             }
             
+            // Generate a random phone number if it's missing from the import
+            const userPhoneNumber = row.userPhoneNumber || generateRandomPhoneNumber();
+
             // Step 3: Create User in Authentication
             const userRecord = await auth.createUser({
                 email: row.userEmail,
                 password: row.userPassword,
                 displayName: row.userDisplayName,
+                phoneNumber: convertToE164(userPhoneNumber),
                 emailVerified: true,
                 disabled: false,
             });
@@ -235,6 +247,7 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
                 id: userRecord.uid,
                 username: row.userEmail,
                 displayName: row.userDisplayName,
+                phoneNumber: userPhoneNumber,
                 role: 'commune_staff',
                 communeId: unitId,
             };
@@ -257,6 +270,9 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
                         case 'auth/weak-password':
                              errorMessage = `Mật khẩu quá yếu. Phải có ít nhất 6 ký tự.`;
                              break;
+                        case 'auth/invalid-phone-number':
+                             errorMessage = `Số điện thoại '${row.userPhoneNumber}' không hợp lệ.`;
+                             break;
                         default:
                              errorMessage = error.message;
                     }
@@ -272,3 +288,5 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
 
     return results;
 }
+
+    
