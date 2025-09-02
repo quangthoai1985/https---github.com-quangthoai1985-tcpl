@@ -141,14 +141,14 @@ const AdminDashboard = () => {
         value: achievedCount.toString(), 
         icon: Award, 
         color: "bg-green-500",
-        link: "/admin/reviews"
+        link: "/admin/reviews?tab=achieved_standard"
       },
       { 
-        title: "Không đạt chuẩn TCDPL", 
+        title: "Không đạt chuẩn", 
         value: notAchievedCount.toString(), 
         icon: AlertTriangle, 
         color: "bg-red-500",
-        link: "/admin/reviews"
+        link: "/admin/reviews?tab=rejected"
       },
       { 
         title: "Không đăng ký", 
