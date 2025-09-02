@@ -14,7 +14,8 @@
     "seed:firestore": "tsx src/scripts/seed-firestore.ts",
     "cleanup": "tsx src/scripts/cleanup-communes.ts",
     "update:phones": "tsx src/scripts/update-phone-numbers.ts",
-    "update:names": "tsx src/scripts/update-display-names.ts"
+    "update:names": "tsx src/scripts/update-display-names.ts",
+    "migrate:status": "tsx src/scripts/migrate-assessment-status.ts"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.14.1",
