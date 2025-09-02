@@ -218,15 +218,15 @@ const AdminDashboard = () => {
           const percentage = hasRatio ? Math.round((card.value / card.total!) * 100) : 0;
           
           return (
-            <Link href={card.link} key={index}>
-              <Card className={`${card.color} text-white shadow-lg transition-transform transform hover:scale-102`}>
+            <Link href={card.link} key={index} className="flex">
+              <Card className={`${card.color} text-white shadow-lg transition-transform transform hover:scale-102 flex flex-col w-full`}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
                     {card.title}
                   </CardTitle>
                   <Icon className="h-5 w-5" />
                 </CardHeader>
-                <CardContent>
+                <CardContent className="flex-1">
                     <div className="flex items-baseline gap-2">
                         <div className="text-4xl font-bold">{card.value}</div>
                         {hasRatio && (
