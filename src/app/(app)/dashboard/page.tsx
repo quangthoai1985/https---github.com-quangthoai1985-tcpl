@@ -88,14 +88,13 @@ const AdminDashboard = () => {
 
     const {
         totalCommunes,
+        totalRegisteredCommunes,
         achievedCount,
         notAchievedCount,
         notRegisteredCount,
         assessmentStatusChartData,
         chartConfig,
         progressData,
-        pendingReviewCount,
-        returnedForRevisionCount
     } = React.useMemo(() => {
         const allCommuneUnits = units.filter(u => u.type === 'commune');
         const totalCommunes = allCommuneUnits.length;
@@ -105,13 +104,14 @@ const AdminDashboard = () => {
             : [];
         
         const registeredCommuneIds = new Set(periodAssessments.map(a => a.communeId));
+        const totalRegisteredCommunes = registeredCommuneIds.size;
         
         const achievedCount = periodAssessments.filter(a => a.assessmentStatus === 'achieved_standard').length;
         const notAchievedCount = periodAssessments.filter(a => a.assessmentStatus === 'rejected').length;
         const pendingReviewCount = periodAssessments.filter(a => a.assessmentStatus === 'pending_review').length;
         const returnedForRevisionCount = periodAssessments.filter(a => a.assessmentStatus === 'returned_for_revision').length;
 
-        const notRegisteredCount = allCommuneUnits.length - registeredCommuneIds.size;
+        const notRegisteredCount = allCommuneUnits.length - totalRegisteredCommunes;
 
 
         const chartData = [
@@ -134,53 +134,53 @@ const AdminDashboard = () => {
 
         // Mock progress data for now, as we don't have time-series data
         const progressData = [
-          { name: 'Tuần 1', 'Số lượng': Math.max(0, Math.floor(registeredCommuneIds.size * 0.1) - 1) },
-          { name: 'Tuần 2', 'Số lượng': Math.max(0, Math.floor(registeredCommuneIds.size * 0.3) - 2) },
-          { name: 'Tuần 3', 'Số lượng': Math.max(0, Math.floor(registeredCommuneIds.size * 0.6) - 5) },
-          { name: 'Tuần 4', 'Số lượng': registeredCommuneIds.size },
+          { name: 'Tuần 1', 'Số lượng': Math.max(0, Math.floor(totalRegisteredCommunes * 0.1) - 1) },
+          { name: 'Tuần 2', 'Số lượng': Math.max(0, Math.floor(totalRegisteredCommunes * 0.3) - 2) },
+          { name: 'Tuần 3', 'Số lượng': Math.max(0, Math.floor(totalRegisteredCommunes * 0.6) - 5) },
+          { name: 'Tuần 4', 'Số lượng': totalRegisteredCommunes },
         ];
 
 
         return {
             totalCommunes,
+            totalRegisteredCommunes,
             achievedCount,
             notAchievedCount,
             notRegisteredCount,
             assessmentStatusChartData,
             chartConfig,
             progressData,
-            pendingReviewCount,
-            returnedForRevisionCount
         };
 
     }, [selectedPeriod, assessments, units]);
 
-
     const kpiCards = [
       { 
         title: "Tổng số xã", 
-        value: totalCommunes.toString(), 
+        value: totalCommunes, 
         icon: Users, 
         color: "bg-blue-500",
         link: "/admin/units"
       },
       { 
-        title: "Đạt chuẩn TCDPL", 
-        value: achievedCount.toString(), 
+        title: "Đạt chuẩn TCPL", 
+        value: achievedCount,
+        total: totalRegisteredCommunes,
         icon: Award, 
         color: "bg-green-500",
         link: "/admin/reviews?tab=achieved_standard"
       },
       { 
-        title: "Không đạt chuẩn", 
-        value: notAchievedCount.toString(), 
+        title: "Không đạt chuẩn TCPL", 
+        value: notAchievedCount,
+        total: totalRegisteredCommunes,
         icon: AlertTriangle, 
         color: "bg-red-500",
         link: "/admin/reviews?tab=rejected"
       },
       { 
         title: "Chưa đăng ký", 
-        value: notRegisteredCount.toString(), 
+        value: notRegisteredCount, 
         icon: FileX, 
         color: "bg-gray-500",
         link: "/admin/registrations?tab=unregistered"
@@ -214,6 +214,9 @@ const AdminDashboard = () => {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {kpiCards.map((card, index) => {
           const Icon = card.icon;
+          const hasRatio = card.total !== undefined && card.total > 0;
+          const percentage = hasRatio ? Math.round((card.value / card.total!) * 100) : 0;
+          
           return (
             <Link href={card.link} key={index}>
               <Card className={`${card.color} text-white shadow-lg transition-transform transform hover:scale-102`}>
@@ -224,7 +227,17 @@ const AdminDashboard = () => {
                   <Icon className="h-5 w-5" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-5xl font-bold">{card.value}</div>
+                    <div className="flex items-baseline gap-2">
+                        <div className="text-4xl font-bold">{card.value}</div>
+                        {hasRatio && (
+                            <span className="text-lg font-medium text-white/80">/ {card.total}</span>
+                        )}
+                    </div>
+                     {hasRatio && (
+                        <p className="text-xs text-white/80 pt-1">
+                            Chiếm {percentage}% tổng số đã đăng ký
+                        </p>
+                    )}
                 </CardContent>
               </Card>
             </Link>
