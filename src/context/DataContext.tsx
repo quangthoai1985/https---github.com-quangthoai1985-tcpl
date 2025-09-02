@@ -195,33 +195,28 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       return generated.slice(0, 10);
   };
 
-  const fetchData = useCallback(async (loggedInUser: User | null) => {
-      if (!db) return;
-      try {
-        console.log("Fetching all data from Firestore...");
+const fetchPrivateData = useCallback(async (loggedInUser: User) => {
+    if (!db) return;
+    console.log("Fetching private data for logged in user...");
+    try {
         const [
-          unitsSnapshot,
-          periodsSnapshot,
-          assessmentsSnapshot,
-          criteriaSnapshot,
-          documentsSnapshot,
-          usersSnapshot,
-          configSnapshot,
+            unitsSnapshot,
+            periodsSnapshot,
+            assessmentsSnapshot,
+            criteriaSnapshot,
+            documentsSnapshot,
+            usersSnapshot,
         ] = await Promise.all([
-          getDocs(collection(db, 'units')),
-          getDocs(collection(db, 'assessmentPeriods')),
-          getDocs(collection(db, 'assessments')),
-          getDocs(collection(db, 'criteria')),
-          getDocs(collection(db, 'guidanceDocuments')),
-          getDocs(collection(db, 'users')),
-          getDocs(collection(db, 'configurations')),
+            getDocs(collection(db, 'units')),
+            getDocs(collection(db, 'assessmentPeriods')),
+            getDocs(collection(db, 'assessments')),
+            getDocs(collection(db, 'criteria')),
+            getDocs(collection(db, 'guidanceDocuments')),
+            getDocs(collection(db, 'users')),
         ]);
-        
+
         const fetchedUnits = unitsSnapshot.docs.map(d => d.data() as Unit);
         const fetchedAssessments = assessmentsSnapshot.docs.map(d => d.data() as Assessment);
-
-        const loginConfigDoc = configSnapshot.docs.find(doc => doc.id === 'loginPage');
-        setLoginConfig(loginConfigDoc ? loginConfigDoc.data() as LoginConfig : null);
 
         setUnits(fetchedUnits);
         setAssessmentPeriods(periodsSnapshot.docs.map(d => d.data() as AssessmentPeriod));
@@ -230,16 +225,27 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         setGuidanceDocuments(documentsSnapshot.docs.map(d => d.data() as AppDocument));
         setUsers(usersSnapshot.docs.map(d => d.data() as User));
         
-        if (loggedInUser) {
-           setNotifications(generateNotifications(loggedInUser, fetchedAssessments, fetchedUnits));
-        }
+        setNotifications(generateNotifications(loggedInUser, fetchedAssessments, fetchedUnits));
+        console.log("Private data fetched successfully.");
+    } catch (error) {
+        console.error("Error fetching private data:", error);
+    }
+}, [db]);
 
-        console.log("Data fetched successfully.");
-        
-      } catch (error) {
-        console.error("Error fetching data from Firestore:", error);
-      }
-    }, [db]);
+
+const fetchPublicData = useCallback(async () => {
+    if (!db) return;
+    console.log("Fetching public data (login config)...");
+    try {
+        const configSnapshot = await getDocs(collection(db, 'configurations'));
+        const loginConfigDoc = configSnapshot.docs.find(doc => doc.id === 'loginPage');
+        setLoginConfig(loginConfigDoc ? loginConfigDoc.data() as LoginConfig : null);
+        console.log("Public data fetched successfully.");
+    } catch (error) {
+        console.error("Error fetching public data:", error);
+    }
+}, [db]);
+
 
   useEffect(() => {
     if (!auth || !db) return;
@@ -257,7 +263,8 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             if (loggedInUser) {
               setCurrentUser(loggedInUser);
               setRole(loggedInUser.role);
-              await fetchData(loggedInUser);
+              await fetchPublicData();
+              await fetchPrivateData(loggedInUser);
             } else {
               console.error("User profile not found in Firestore for email:", firebaseUser.email);
               await signOut(auth);
@@ -272,15 +279,23 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
 
       } else {
-        await fetchData(null); // Fetch public data like login config
+        await fetchPublicData(); // Fetch only public data when logged out
         setCurrentUser(null);
         setRole(null);
+        // Clear sensitive data on logout
+        setUsers([]);
+        setUnits([]);
+        setAssessments([]);
+        setAssessmentPeriods([]);
+        setCriteria([]);
+        setGuidanceDocuments([]);
+        setNotifications([]);
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [auth, db, fetchData]);
+  }, [auth, db, fetchPublicData, fetchPrivateData]);
 
   const setLoginInfo = async (email: string, password: string): Promise<boolean> => {
     if (!auth) return false;
@@ -367,17 +382,22 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         console.log("Auth or DB not initialized, skipping refresh.");
         return;
       }
+      setLoading(true);
       if (auth.currentUser) {
           const usersSnapshot = await getDocs(collection(db, 'users'));
           const allUsers = usersSnapshot.docs.map(d => d.data() as User);
           const loggedInUser = allUsers.find(u => u.username.toLowerCase() === auth.currentUser?.email?.toLowerCase());
           if (loggedInUser) {
-              await fetchData(loggedInUser);
+              await fetchPrivateData(loggedInUser);
+          } else {
+              // User might have been deleted, log them out
+              await logout();
           }
       } else {
-          await fetchData(null);
+          await fetchPublicData();
       }
-  }, [auth, db, fetchData]);
+      setLoading(false);
+  }, [auth, db, fetchPrivateData, fetchPublicData]);
   
   const markNotificationAsRead = (notificationId: string) => {
     setNotifications(prevNotifications => 
@@ -427,3 +447,5 @@ export const useData = () => {
   }
   return context;
 };
+
+    
