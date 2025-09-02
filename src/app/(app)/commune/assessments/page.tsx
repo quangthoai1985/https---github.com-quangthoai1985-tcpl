@@ -16,6 +16,7 @@ import PageHeader from "@/components/layout/page-header";
 import type { Indicator, SubIndicator, Criterion, Assessment, IndicatorResult } from "@/lib/data";
 import { Textarea } from "@/components/ui/textarea";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { cn } from "@/lib/utils";
 
 type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
 // Updated value structure to handle the new logic
@@ -318,7 +319,7 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean): 
     // Handle checkbox logic
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         const checkedCount = Object.values(value).filter(v => v === true).length;
-        const requiredCount = parseInt(standardLevel.match(/(\d+)/)?.[0] || '2', 10);
+        const requiredCount = parseInt(standardLevel.match(/(\\d+)/)?.[0] || '2', 10);
         return checkedCount >= requiredCount ? 'achieved' : 'not-achieved';
     }
 
@@ -334,7 +335,7 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean): 
 
     if (typeof value === 'number' || !isNaN(Number(value))) {
         const numericValue = Number(value);
-        const match = standard.match(/([>=<]+)?\s*(\d+)/);
+        const match = standard.match(/([>=<]+)?\\s*(\\d+)/);
         if (match) {
             const operator = match[1] || '==';
             const standardValue = parseInt(match[2], 10);
@@ -669,50 +670,67 @@ export default function SelfAssessmentPage() {
                                 <AccordionTrigger className="font-headline text-lg">Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</AccordionTrigger>
                                 <AccordionContent>
                                     <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
-                                        {(criterion.indicators || []).map(indicator => (
-                                            <div key={indicator.id} className="grid gap-6 p-4 rounded-lg bg-card shadow-sm border">
-                                                {(!indicator.subIndicators || indicator.subIndicators.length === 0) ? (
-                                                    <IndicatorAssessment 
-                                                        specialIndicatorIds={specialLogicIndicatorIds}
-                                                        specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
-                                                        customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
-                                                        checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
-                                                        indicator={indicator} 
-                                                        data={assessmentData[indicator.id]} 
-                                                        onValueChange={handleValueChange}
-                                                        onNoteChange={handleNoteChange}
-                                                        onFileChange={handleFileChange}
-                                                        onIsTaskedChange={handleIsTaskedChange}
-                                                    />
-                                                ) : (
-                                                    <>
-                                                        <div>
-                                                          <h4 className="font-semibold text-base">{indicator.name}</h4>
-                                                          <p className="text-sm text-muted-foreground mt-1">{indicator.description}</p>
-                                                        </div>
-                                                        <div className="mt-4 pl-6 space-y-6 border-l-2 border-dashed">
-                                                          {(indicator.subIndicators || []).map(sub => (
-                                                              <div key={sub.id} className="relative pl-6">
-                                                                  <CornerDownRight className="absolute -left-3 top-1 h-5 w-5 text-muted-foreground"/>
-                                                                  <IndicatorAssessment
-                                                                      specialIndicatorIds={specialLogicIndicatorIds}
-                                                                      specialLabels={getSpecialIndicatorLabels(sub.id, criteria)}
-                                                                      customBooleanLabels={getCustomBooleanLabels(sub.id, criteria)}
-                                                                      checkboxOptions={getCheckboxOptions(sub.id, criteria)}
-                                                                      indicator={sub} 
-                                                                      data={assessmentData[sub.id]}
-                                                                      onValueChange={handleValueChange}
-                                                                      onNoteChange={handleNoteChange}
-                                                                      onFileChange={handleFileChange}
-                                                                      onIsTaskedChange={handleIsTaskedChange}
-                                                                  />
-                                                              </div>
-                                                          ))}
-                                                        </div>
-                                                    </>
-                                                )}
-                                            </div>
-                                        ))}
+                                        {(criterion.indicators || []).map(indicator => {
+                                            const status = assessmentData[indicator.id]?.status;
+                                            const blockClasses = cn(
+                                                "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
+                                                status === 'achieved' && 'bg-green-50 border-green-200',
+                                                status === 'not-achieved' && 'bg-red-50 border-red-200'
+                                            );
+
+                                            return (
+                                                <div key={indicator.id} className={blockClasses}>
+                                                    {(!indicator.subIndicators || indicator.subIndicators.length === 0) ? (
+                                                        <IndicatorAssessment 
+                                                            specialIndicatorIds={specialLogicIndicatorIds}
+                                                            specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
+                                                            customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
+                                                            checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
+                                                            indicator={indicator} 
+                                                            data={assessmentData[indicator.id]} 
+                                                            onValueChange={handleValueChange}
+                                                            onNoteChange={handleNoteChange}
+                                                            onFileChange={handleFileChange}
+                                                            onIsTaskedChange={handleIsTaskedChange}
+                                                        />
+                                                    ) : (
+                                                        <>
+                                                            <div>
+                                                              <h4 className="font-semibold text-base">{indicator.name}</h4>
+                                                              <p className="text-sm text-muted-foreground mt-1">{indicator.description}</p>
+                                                            </div>
+                                                            <div className="mt-4 pl-6 space-y-6 border-l-2 border-dashed">
+                                                              {(indicator.subIndicators || []).map(sub => {
+                                                                    const subStatus = assessmentData[sub.id]?.status;
+                                                                    const subBlockClasses = cn(
+                                                                        "relative pl-6 transition-colors rounded-r-lg py-4",
+                                                                         subStatus === 'achieved' && 'bg-green-50',
+                                                                         subStatus === 'not-achieved' && 'bg-red-50'
+                                                                    );
+                                                                    return (
+                                                                      <div key={sub.id} className={subBlockClasses}>
+                                                                          <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
+                                                                          <IndicatorAssessment
+                                                                              specialIndicatorIds={specialLogicIndicatorIds}
+                                                                              specialLabels={getSpecialIndicatorLabels(sub.id, criteria)}
+                                                                              customBooleanLabels={getCustomBooleanLabels(sub.id, criteria)}
+                                                                              checkboxOptions={getCheckboxOptions(sub.id, criteria)}
+                                                                              indicator={sub} 
+                                                                              data={assessmentData[sub.id]}
+                                                                              onValueChange={handleValueChange}
+                                                                              onNoteChange={handleNoteChange}
+                                                                              onFileChange={handleFileChange}
+                                                                              onIsTaskedChange={handleIsTaskedChange}
+                                                                          />
+                                                                      </div>
+                                                                    )
+                                                              })}
+                                                            </div>
+                                                        </>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 </AccordionContent>
                             </AccordionItem>
@@ -737,3 +755,4 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
+
