@@ -23,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/context/DataContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Assessment, Unit, Criterion } from '@/lib/data';
+import type { Assessment, Unit, Criterion, User } from '@/lib/data';
 import PageHeader from '@/components/layout/page-header';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -60,10 +60,10 @@ export default function ReviewAssessmentsPage() {
     }, [selectedPeriod, assessments]);
 
     const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
-        'pending_review': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary' },
+        'pending_review': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary', className: 'bg-amber-500 hover:bg-amber-600' },
         'returned_for_revision': { text: 'Yêu cầu Bổ sung', icon: Undo2, badge: 'destructive', className: 'bg-amber-600 hover:bg-amber-700' },
         'rejected': { text: 'Không đạt chuẩn', icon: XCircle, badge: 'destructive' },
-        'achieved_standard': { text: 'Đạt chuẩn', icon: Award, badge: 'default', className: 'bg-blue-600' },
+        'achieved_standard': { text: 'Đạt chuẩn', icon: Award, badge: 'default', className: 'bg-blue-600 hover:bg-blue-700' },
         'draft': { text: 'Bản nháp', icon: ShieldQuestion, badge: 'secondary' },
         'not_started': { text: 'Chưa gửi HS', icon: FileX, badge: 'secondary', className: 'bg-muted text-muted-foreground' },
     };
@@ -72,6 +72,11 @@ export default function ReviewAssessmentsPage() {
         if (!communeId) return 'Không xác định';
         const unit = units.find(u => u.id === communeId);
         return unit ? unit.name : 'Không xác định';
+    }
+
+    const getUserForCommune = (communeId?: string): User | undefined => {
+        if (!communeId) return undefined;
+        return users.find(u => u.communeId === communeId);
     }
     
     const totalIndicators = useMemo(() => countTotalIndicators(criteria), [criteria]);
@@ -86,14 +91,26 @@ export default function ReviewAssessmentsPage() {
     };
 
 
-    const AssessmentTable = ({ assessmentsToShow }: { assessmentsToShow: Assessment[] }) => {
+    const AssessmentTable = ({ assessmentsToShow, type }: { assessmentsToShow: Assessment[], type: string }) => {
         return (
             <Table>
                 <TableHeader>
                 <TableRow>
                     <TableHead>Tên xã</TableHead>
+                    {(type === 'pending_review' || type === 'not_sent') && (
+                        <>
+                          <TableHead className="hidden md:table-cell">Tên cán bộ</TableHead>
+                          <TableHead className="hidden md:table-cell">Số điện thoại</TableHead>
+                        </>
+                    )}
                     <TableHead className="hidden md:table-cell">Ngày nộp</TableHead>
-                    <TableHead className="hidden lg:table-cell">Trạng thái</TableHead>
+                    
+                    {type === 'not_sent' ? (
+                       <TableHead className="hidden lg:table-cell">Tiến độ</TableHead>
+                    ) : (
+                       <TableHead className="hidden lg:table-cell">Trạng thái</TableHead>
+                    )}
+                    
                     <TableHead className="text-right">Hành động</TableHead>
                 </TableRow>
                 </TableHeader>
@@ -102,20 +119,36 @@ export default function ReviewAssessmentsPage() {
                     assessmentsToShow.map((assessment) => {
                         const statusInfo = statusMap[assessment.assessmentStatus];
                         const unitName = getUnitName(assessment.communeId);
+                        const communeUser = getUserForCommune(assessment.communeId);
+                        const progress = calculateProgress(assessment);
+
                         return (
                             <TableRow key={assessment.id}>
                                 <TableCell>
                                     <div className="font-medium">{unitName}</div>
                                 </TableCell>
+                                {(type === 'pending_review' || type === 'not_sent') && (
+                                    <>
+                                        <TableCell className="hidden md:table-cell">{communeUser?.displayName || 'N/A'}</TableCell>
+                                        <TableCell className="hidden md:table-cell">{communeUser?.phoneNumber || 'N/A'}</TableCell>
+                                    </>
+                                )}
                                 <TableCell className="hidden md:table-cell">
                                 {assessment.assessmentSubmissionDate || 'Chưa nộp'}
                                 </TableCell>
                                 <TableCell className="hidden lg:table-cell">
-                                    {statusInfo && (
-                                        <Badge variant={statusInfo.badge} className={statusInfo.className}>
-                                            <statusInfo.icon className="mr-2 h-4 w-4" />
-                                            {statusInfo.text}
-                                        </Badge>
+                                    {type === 'not_sent' ? (
+                                        <div className="flex items-center gap-2">
+                                            <Progress value={progress} className="w-[80px] h-2" />
+                                            <span className="text-xs text-muted-foreground">{progress}%</span>
+                                        </div>
+                                    ) : (
+                                        statusInfo && (
+                                            <Badge variant={statusInfo.badge} className={statusInfo.className}>
+                                                <statusInfo.icon className="mr-2 h-4 w-4" />
+                                                {statusInfo.text}
+                                            </Badge>
+                                        )
                                     )}
                                 </TableCell>
                                 <TableCell className="text-right space-x-2">
@@ -131,7 +164,7 @@ export default function ReviewAssessmentsPage() {
                     })
                 ) : (
                     <TableRow>
-                    <TableCell colSpan={4} className="h-24 text-center">
+                    <TableCell colSpan={6} className="h-24 text-center">
                         Không có hồ sơ nào trong mục này.
                     </TableCell>
                     </TableRow>
@@ -183,7 +216,7 @@ export default function ReviewAssessmentsPage() {
             </TabsList>
             {tabs.map(tab => (
                  <TabsContent key={tab.value} value={tab.value} className="mt-4">
-                    <AssessmentTable assessmentsToShow={tab.data} />
+                    <AssessmentTable assessmentsToShow={tab.data} type={tab.value} />
                 </TabsContent>
             ))}
             </Tabs>
