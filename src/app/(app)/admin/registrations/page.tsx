@@ -48,6 +48,7 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 
 export default function RegistrationManagementPage() {
   const {
+    users,
     units,
     assessmentPeriods,
     assessments,
@@ -169,6 +170,8 @@ export default function RegistrationManagementPage() {
         <TableHeader>
           <TableRow>
             <TableHead>Tên đơn vị (Xã)</TableHead>
+            <TableHead>Tên cán bộ</TableHead>
+            <TableHead>Số điện thoại</TableHead>
             <TableHead>Trạng thái</TableHead>
             <TableHead className="text-right">Hành động</TableHead>
           </TableRow>
@@ -176,7 +179,10 @@ export default function RegistrationManagementPage() {
         <TableBody>
           {data.length > 0 ? (
             data.map((item) => {
-              const unitInfo = getUnitInfo((item as Assessment).communeId || item.id);
+              const communeId = (item as Assessment).communeId || item.id;
+              const unitInfo = getUnitInfo(communeId);
+              const responsibleUser = users.find(u => u.communeId === communeId);
+
               let statusInfo;
               if(type === 'unregistered') {
                   statusInfo = { text: 'Chưa đăng ký', icon: FileX, className: 'bg-gray-400' };
@@ -193,6 +199,8 @@ export default function RegistrationManagementPage() {
               return (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{unitInfo.name}</TableCell>
+                  <TableCell>{responsibleUser?.displayName || 'N/A'}</TableCell>
+                  <TableCell>{responsibleUser?.phoneNumber || 'N/A'}</TableCell>
                   <TableCell>
                     {statusInfo && (
                        <Badge className={`${statusInfo.className} text-white`}>
@@ -244,7 +252,7 @@ export default function RegistrationManagementPage() {
             })
           ) : (
             <TableRow>
-              <TableCell colSpan={3} className="h-24 text-center">
+              <TableCell colSpan={5} className="h-24 text-center">
                 Không có dữ liệu.
               </TableCell>
             </TableRow>
