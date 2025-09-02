@@ -100,24 +100,14 @@ export default function ReviewAssessmentsPage() {
         if (!assessment?.assessmentData || totalIndicators === 0) {
             return 0;
         }
-        const assessedCount = Object.values(assessment.assessmentData).filter(
-            (result) => result.status !== 'pending'
-        ).length;
+        const assessedCount = Object.keys(assessment.assessmentData).length;
         
         return Math.round((assessedCount / totalIndicators) * 100);
     };
 
 
-    const AssessmentTable = ({ assessmentsToShow, status }: { assessmentsToShow: (Assessment | Unit)[], status: string }) => {
+    const AssessmentTable = ({ assessmentsToShow, status }: { assessmentsToShow: Assessment[], status: string }) => {
         if (status === 'not_sent') {
-             const communesWithDrafts = (assessmentsToShow as Unit[]).map(unit => {
-                const draftAssessment = filteredAssessments.find(
-                    a => a.communeId === unit.id && (a.status === 'draft' || a.status === 'registration_approved')
-                );
-                const progress = calculateProgress(draftAssessment);
-                return { unit, draftAssessment, progress };
-            });
-
             return (
                  <Table>
                     <TableHeader>
@@ -129,8 +119,12 @@ export default function ReviewAssessmentsPage() {
                         </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {communesWithDrafts.length > 0 ? (
-                        communesWithDrafts.map(({ unit, progress }) => {
+                    {assessmentsToShow.length > 0 ? (
+                        assessmentsToShow.map((assessment) => {
+                            const unit = units.find(u => u.id === assessment.communeId);
+                            if (!unit) return null;
+
+                            const progress = calculateProgress(assessment);
                             const responsibleUser = users.find(u => u.communeId === unit.id);
                             const progressColor = progress < 30 ? 'bg-red-500' : progress < 70 ? 'bg-amber-500' : 'bg-green-500';
                             return (
@@ -172,8 +166,8 @@ export default function ReviewAssessmentsPage() {
                 </TableRow>
                 </TableHeader>
                 <TableBody>
-                {(assessmentsToShow as Assessment[]).length > 0 ? (
-                    (assessmentsToShow as Assessment[]).map((assessment) => {
+                {assessmentsToShow.length > 0 ? (
+                    assessmentsToShow.map((assessment) => {
                         const statusInfo = statusMap[assessment.status];
                         const unitName = getUnitName(assessment.communeId);
                         return (
@@ -225,14 +219,9 @@ export default function ReviewAssessmentsPage() {
         );
     };
 
-    const notSentCommunes = useMemo(() => {
-        const registeredCommuneIds = new Set(
-            filteredAssessments
-                .map(a => a.communeId)
-        );
-         const allCommunes = units.filter(u => u.type === 'commune');
-        return allCommunes.filter(u => !registeredCommuneIds.has(u.id));
-    }, [filteredAssessments, units]);
+    const notSentAssessments = useMemo(() => {
+        return filteredAssessments.filter(a => a.status === 'registration_approved' || a.status === 'draft');
+    }, [filteredAssessments]);
 
 
     const tabs = [
@@ -240,7 +229,7 @@ export default function ReviewAssessmentsPage() {
         { value: "achieved_standard", label: "Đạt chuẩn", data: filteredAssessments.filter(a => a.status === 'achieved_standard') },
         { value: "returned_for_revision", label: "Yêu cầu Bổ sung", data: filteredAssessments.filter(a => a.status === 'returned_for_revision') },
         { value: "rejected", label: "Không đạt chuẩn", data: filteredAssessments.filter(a => a.status === 'rejected') },
-        { value: "not_sent", label: "Chưa gửi HS", data: notSentCommunes },
+        { value: "not_sent", label: "Chưa gửi HS", data: notSentAssessments },
     ];
 
     return (
