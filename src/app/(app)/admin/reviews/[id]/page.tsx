@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock } from "lucide-react";
+import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock, Check } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,7 +17,7 @@ import Image from "next/image";
 import { useData } from "@/context/DataContext";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/layout/page-header";
-import type { Assessment } from '@/lib/data';
+import type { Assessment, IndicatorResult } from '@/lib/data';
 
 function FileUploadComponent() {
     const [files, setFiles] = React.useState<File[]>([]);
@@ -128,11 +128,52 @@ export default function AssessmentDetailPage() {
       router.push('/dashboard');
   }
 
-
-  const getIndicatorResult = (indicatorId: string) => {
-    // This is now a placeholder. A real implementation would fetch or calculate this.
-    return { value: 'N/A', note: 'Chưa có dữ liệu chấm điểm chi tiết.', files: [] };
+  const getIndicatorResult = (indicatorId: string): IndicatorResult => {
+    if (!assessment?.assessmentData || !assessment.assessmentData[indicatorId]) {
+      // Return a default/empty state if no data is found for this indicator
+      return { value: 'Chưa chấm', note: 'Chưa có giải trình.', files: [], status: 'pending' };
+    }
+    return assessment.assessmentData[indicatorId];
   };
+  
+  const renderResultValue = (result: IndicatorResult) => {
+    if (result.isTasked === false) {
+      return <Badge variant="secondary">Không được giao nhiệm vụ</Badge>;
+    }
+
+    const { value } = result;
+
+    if (typeof value === 'boolean') {
+      return <Badge variant={value ? 'default' : 'destructive'} className={value ? 'bg-green-600' : ''}>{value ? 'Đạt' : 'Không đạt'}</Badge>;
+    }
+    
+    if (typeof value === 'number') {
+      return <Badge variant="outline">{`${value}%`}</Badge>;
+    }
+    
+    if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        const selectedOptions = Object.entries(value)
+            .filter(([, isChecked]) => isChecked)
+            .map(([option]) => option);
+
+        if (selectedOptions.length === 0) {
+            return <p className="text-sm text-muted-foreground">Không có lựa chọn nào.</p>;
+        }
+
+        return (
+            <ul className="list-disc pl-5 space-y-1">
+                {selectedOptions.map((opt, i) => <li key={i} className="text-sm">{opt}</li>)}
+            </ul>
+        )
+    }
+
+    if (value) {
+      return <Badge variant="outline">{String(value)}</Badge>;
+    }
+    
+    return <Badge variant="secondary">Chưa có dữ liệu</Badge>;
+  };
+
 
   const isActionDisabled = assessment.status === 'approved' || (role === 'admin' && assessment.status === 'rejected' && !assessment.communeExplanation);
 
@@ -198,50 +239,109 @@ export default function AssessmentDetailPage() {
                 <AccordionContent>
                   <div className="space-y-6 pl-8 pr-4">
                     {criterion.indicators.map(indicator => {
-                      const result = getIndicatorResult(indicator.id);
                       const isRejected = assessment.status === 'rejected';
 
                       return (
                         <div key={indicator.id} className="grid gap-4 p-4 rounded-lg bg-card border shadow-sm">
                           <h4 className="font-semibold">{indicator.name}</h4>
-
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="md:col-span-1 font-medium text-muted-foreground">Kết quả tự chấm:</div>
-                            <div className="md:col-span-2 font-semibold">
-                               <Badge variant="outline">{result.value}</Badge>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="md:col-span-1 font-medium text-muted-foreground">Giải trình ban đầu:</div>
-                            <p className="md:col-span-2 text-sm">{result.note || "Không có giải trình."}</p>
-                          </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="md:col-span-1 font-medium text-muted-foreground">Minh chứng ban đầu:</div>
-                            <div className="md:col-span-2">
-                              {result.files.length > 0 ? (
-                                <div className="space-y-2">
-                                  {result.files.map((file: {name: string, url: string}, i: number) => (
-                                    <div key={i} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
-                                      <div className="flex items-center gap-2 truncate">
-                                        <FileIcon className="h-4 w-4 flex-shrink-0" />
-                                        <span className="truncate">{file.name}</span>
+                          
+                          {(!indicator.subIndicators || indicator.subIndicators.length === 0) ? (
+                            <>
+                                {(() => {
+                                  const result = getIndicatorResult(indicator.id);
+                                  return (
+                                    <>
+                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="md:col-span-1 font-medium text-muted-foreground">Kết quả tự chấm:</div>
+                                        <div className="md:col-span-2 font-semibold">
+                                            {renderResultValue(result)}
+                                        </div>
                                       </div>
-                                      <div className="flex items-center">
-                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewFile(file)}>
-                                          <Eye className="h-4 w-4" />
-                                        </Button>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8"><Download className="h-4 w-4" /></Button>
+            
+                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="md:col-span-1 font-medium text-muted-foreground">Giải trình ban đầu:</div>
+                                        <p className="md:col-span-2 text-sm">{result.note || "Không có giải trình."}</p>
                                       </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="text-sm text-muted-foreground">Không có tệp đính kèm.</p>
-                              )}
+            
+                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="md:col-span-1 font-medium text-muted-foreground">Minh chứng ban đầu:</div>
+                                        <div className="md:col-span-2">
+                                          {result.files.length > 0 ? (
+                                            <div className="space-y-2">
+                                              {result.files.map((file: {name: string, url: string}, i: number) => (
+                                                <div key={i} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
+                                                  <div className="flex items-center gap-2 truncate">
+                                                    <FileIcon className="h-4 w-4 flex-shrink-0" />
+                                                    <span className="truncate">{file.name}</span>
+                                                  </div>
+                                                  <div className="flex items-center">
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewFile(file)}>
+                                                      <Eye className="h-4 w-4" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.open(file.url, '_blank')}><Download className="h-4 w-4" /></Button>
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          ) : (
+                                            <p className="text-sm text-muted-foreground">Không có tệp đính kèm.</p>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </>
+                                  )
+                                })()}
+                            </>
+                          ) : (
+                            <div className="pl-6 border-l-2 border-dashed space-y-4">
+                               {indicator.subIndicators.map(sub => {
+                                  const result = getIndicatorResult(sub.id);
+                                   return (
+                                       <div key={sub.id} className="pt-2">
+                                            <p className="font-medium text-base">{sub.name}</p>
+                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                                                <div className="md:col-span-1 font-medium text-muted-foreground">Kết quả tự chấm:</div>
+                                                <div className="md                          :col-span-2 font-semibold">
+                                                    {renderResultValue(result)}
+                                                </div>
+                                              </div>
+                    
+                                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                                                <div className="md:col-span-1 font-medium text-muted-foreground">Giải trình ban đầu:</div>
+                                                <p className="md:col-span-2 text-sm">{result.note || "Không có giải trình."}</p>
+                                              </div>
+                    
+                                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
+                                                <div className="md:col-span-1 font-medium text-muted-foreground">Minh chứng ban đầu:</div>
+                                                <div className="md:col-span-2">
+                                                  {result.files.length > 0 ? (
+                                                    <div className="space-y-2">
+                                                      {result.files.map((file: {name: string, url: string}, i: number) => (
+                                                        <div key={i} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
+                                                          <div className="flex items-center gap-2 truncate">
+                                                            <FileIcon className="h-4 w-4 flex-shrink-0" />
+                                                            <span className="truncate">{file.name}</span>
+                                                          </div>
+                                                          <div className="flex items-center">
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewFile(file)}>
+                                                              <Eye className="h-4 w-4" />
+                                                            </Button>
+                                                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.open(file.url, '_blank')}><Download className="h-4 w-4" /></Button>
+                                                          </div>
+                                                        </div>
+                                                      ))}
+                                                    </div>
+                                                  ) : (
+                                                    <p className="text-sm text-muted-foreground">Không có tệp đính kèm.</p>
+                                                  )}
+                                                </div>
+                                              </div>
+                                       </div>
+                                   )
+                               })}
                             </div>
-                          </div>
+                          )}
+
                           
                           {role === 'commune_staff' && isRejected && (
                               <div className="mt-4 p-4 border-t border-dashed border-amber-500 bg-amber-50/50 rounded-b-lg grid gap-4">
