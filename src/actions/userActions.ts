@@ -7,35 +7,40 @@ import * as admin from 'firebase-admin';
 // ====================================================================
 // KHỐI CODE KHỞI TẠO FIREBASE ADMIN SDK ĐÃ ĐƯỢC SỬA LỖI
 // ====================================================================
-// Hàm này sẽ khởi tạo Firebase Admin một cách an toàn, chỉ một lần duy nhất.
-// Nó sử dụng tệp service account credentials trực tiếp để đảm bảo hoạt động
-// ổn định trong môi trường development, nơi các biến env từ apphosting.yaml không được nạp.
 const initializeFirebaseAdmin = () => {
-  // Kiểm tra xem app đã được khởi tạo chưa để tránh lỗi "already exists".
+  // Tránh khởi tạo lại nếu đã có instance
   if (admin.apps.length > 0) {
     return;
   }
 
+  // Sử dụng biến môi trường được cung cấp bởi App Hosting
+  const credsBase64 = process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64;
+
+  if (!credsBase64) {
+    console.error("CRITICAL: GOOGLE_APPLICATION_CREDENTIALS_BASE64 env var is not set.");
+    throw new Error('Firebase credentials are not configured on the server.');
+  }
+
   try {
-    // Import tệp service account JSON một cách an toàn.
-    const serviceAccount = require('../../service-account-credentials.json');
+    console.log("Decoding Firebase credentials from base64...");
+    // Giải mã chuỗi base64 thành chuỗi JSON
+    const decodedCreds = Buffer.from(credsBase64, 'base64').toString('utf-8');
+    // Parse chuỗi JSON thành object
+    const serviceAccount = JSON.parse(decodedCreds);
 
     console.log("Initializing Firebase Admin SDK for Server Actions...");
-    // Khởi tạo Admin SDK với thông tin từ tệp JSON.
+    // Khởi tạo Admin SDK với credentials đã được parse
     admin.initializeApp({
       credential: admin.credential.cert(serviceAccount)
     });
     console.log("Firebase Admin SDK for Server Actions initialized successfully.");
 
   } catch (error: any) {
-    console.error("CRITICAL: Failed to initialize Firebase Admin SDK. Error:", error.message);
-    // Ném ra lỗi rõ ràng nếu không tìm thấy tệp hoặc tệp không hợp lệ.
-    if (error.code === 'MODULE_NOT_FOUND') {
-         throw new Error('Could not initialize Firebase Admin SDK. Make sure "service-account-credentials.json" exists in the project root.');
-    }
-    throw new Error(`Could not initialize Firebase Admin SDK. Check your service-account-credentials.json file.`);
+    console.error("CRITICAL: Failed to initialize Firebase Admin SDK from environment variable. Error:", error.message);
+    throw new Error(`Could not initialize Firebase Admin SDK. Error parsing credentials.`);
   }
 };
+
 
 // Gọi hàm khởi tạo một lần khi file này được load trên server.
 initializeFirebaseAdmin();
