@@ -319,7 +319,7 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean): 
     // Handle checkbox logic
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         const checkedCount = Object.values(value).filter(v => v === true).length;
-        const requiredCount = parseInt(standardLevel.match(/(\\d+)/)?.[0] || '2', 10);
+        const requiredCount = parseInt(standardLevel.match(/(\d+)/)?.[0] || '2', 10);
         return checkedCount >= requiredCount ? 'achieved' : 'not-achieved';
     }
 
@@ -335,7 +335,7 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean): 
 
     if (typeof value === 'number' || !isNaN(Number(value))) {
         const numericValue = Number(value);
-        const match = standard.match(/([>=<]+)?\\s*(\\d+)/);
+        const match = standard.match(/([>=<]+)?\s*(\d+)/);
         if (match) {
             const operator = match[1] || '==';
             const standardValue = parseInt(match[2], 10);
@@ -414,6 +414,25 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
         </div>
     </div>
 );
+
+// Function to clean the data object for Firestore
+const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, IndicatorResult> => {
+    const sanitizedData: Record<string, IndicatorResult> = {};
+    for (const key in data) {
+        if (Object.prototype.hasOwnProperty.call(data, key)) {
+            const indicatorData = data[key];
+            sanitizedData[key] = {
+                ...indicatorData,
+                isTasked: indicatorData.isTasked === undefined ? null : indicatorData.isTasked,
+                value: indicatorData.value === undefined ? null : indicatorData.value,
+                 // Ensure files only contain URL and name for Firestore
+                files: indicatorData.files.map(f => !(f instanceof File) ? f : { name: f.name, url: '' }) // Placeholder for now
+            };
+        }
+    }
+    return sanitizedData;
+};
+
 
 export default function SelfAssessmentPage() {
   const { toast } = useToast();
@@ -574,10 +593,12 @@ export default function SelfAssessmentPage() {
     toast({ title: 'Đang lưu nháp...' });
     
     try {
+        const dataToSave = sanitizeDataForFirestore(assessmentData);
+
         const updatedAssessment: Assessment = {
             ...currentAssessment,
             status: 'draft',
-            assessmentData: assessmentData as Record<string, IndicatorResult>,
+            assessmentData: dataToSave,
         };
         
         await updateAssessments(assessments.map(a => a.id === updatedAssessment.id ? updatedAssessment : a));
@@ -606,14 +627,15 @@ export default function SelfAssessmentPage() {
     try {
         const fileUrls = await uploadEvidenceFiles(activePeriod.id, currentUser.communeId);
         
-        // Create a serializable version of assessmentData with file URLs
-        const assessmentDataForFirestore = Object.entries(assessmentData).reduce((acc, [key, value]) => {
+        // Create a serializable version of assessmentData with file URLs, also sanitizing it
+        const sanitizedData = sanitizeDataForFirestore(assessmentData);
+        const assessmentDataForFirestore = Object.entries(sanitizedData).reduce((acc, [key, value]) => {
             acc[key] = {
                 ...value,
                 files: fileUrls[key] || [], // Use the uploaded URLs
             };
             return acc;
-        }, {} as AssessmentValues);
+        }, {} as Record<string, IndicatorResult>);
 
         const myAssessment = assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId);
         
@@ -628,7 +650,7 @@ export default function SelfAssessmentPage() {
             status: 'pending_review',
             submissionDate: new Date().toLocaleDateString('vi-VN'),
             submittedBy: currentUser.id,
-            assessmentData: assessmentDataForFirestore as Record<string, IndicatorResult>,
+            assessmentData: assessmentDataForFirestore,
         };
 
         await updateAssessments(assessments.map(a => a.id === myAssessment.id ? updatedAssessment : a));
