@@ -5,7 +5,6 @@ import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -17,17 +16,20 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Eye, CheckCircle, XCircle, Clock, FileX, ShieldQuestion, Award } from 'lucide-react';
+import { Eye, CheckCircle, XCircle, Clock, FileX, ShieldQuestion, Award, Undo2 } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useData } from '@/context/DataContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { Assessment, Unit, Criterion } from '@/lib/data';
 import PageHeader from '@/components/layout/page-header';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 const countTotalIndicators = (criteria: Criterion[]): number => {
     return criteria.reduce((total, criterion) => {
@@ -47,49 +49,49 @@ export default function ReviewAssessmentsPage() {
     const [selectedPeriod, setSelectedPeriod] = React.useState<string | undefined>(
         assessmentPeriods.find(p => p.isActive)?.id
     );
+    const [actionTarget, setActionTarget] = useState<{assessment: Assessment, type: 'return'} | null>(null);
+    const [returnReason, setReturnReason] = useState('');
 
-    const { filteredAssessments, notSentCommunes } = useMemo(() => {
-        if (!selectedPeriod) return { filteredAssessments: [], notSentCommunes: [] };
-
+    const { filteredAssessments } = useMemo(() => {
+        if (!selectedPeriod) return { filteredAssessments: [] };
         const currentPeriodAssessments = assessments.filter(a => a.assessmentPeriodId === selectedPeriod);
+        return { filteredAssessments: currentPeriodAssessments };
+    }, [selectedPeriod, assessments]);
+    
+    const handleReturnForRevision = async () => {
+        if (!actionTarget || !returnReason.trim()) {
+            toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng nhập lý do trả lại.' });
+            return;
+        }
+
+        const { assessment } = actionTarget;
         
-        const registeredCommuneIds = new Set(
-            currentPeriodAssessments
-                .filter(a => ['registration_approved', 'pending_review', 'approved', 'rejected', 'achieved_standard', 'draft'].includes(a.status))
-                .map(a => a.communeId)
+        const updatedAssessment = { 
+            ...assessment, 
+            status: 'rejected' as const, // Use 'rejected' status to indicate it's returned to commune
+            rejectionReason: returnReason,
+            communeExplanation: '', // Clear previous explanation
+        };
+        
+        await updateAssessments(
+            assessments.map((a) => (a.id === assessment.id ? updatedAssessment : a))
         );
 
-        const allCommunes = units.filter(u => u.type === 'commune');
-        const notSentCommuneUnits = allCommunes.filter(u => !registeredCommuneIds.has(u.id));
-
-        return { filteredAssessments: currentPeriodAssessments, notSentCommunes: notSentCommuneUnits };
-    }, [selectedPeriod, units, assessments]);
-    
-    const handleRecognizeAchievement = async (assessment: Assessment) => {
-        if (!currentUser) return;
-        
-        const updatedAssessment = {
-            ...assessment,
-            status: 'achieved_standard' as const,
-            achievementDate: new Date().toLocaleDateString('vi-VN'),
-            recognizerId: currentUser.id,
-        };
-
-        await updateAssessments(assessments.map(a => a.id === assessment.id ? updatedAssessment : a));
-        
         toast({
-            title: "Công nhận thành công!",
-            description: `Đã công nhận ${getUnitName(assessment.communeId)} đạt chuẩn tiếp cận pháp luật.`
+            title: 'Đã trả lại hồ sơ',
+            description: `Đã gửi yêu cầu bổ sung cho ${getUnitName(assessment.communeId)}.`,
         });
+        
+        setActionTarget(null);
+        setReturnReason('');
     };
 
     const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
-        'approved': { text: 'Đã duyệt', icon: CheckCircle, badge: 'default', className: 'bg-green-600' },
         'pending_review': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary' },
-        'rejected': { text: 'Đã trả lại', icon: XCircle, badge: 'destructive' },
+        'rejected': { text: 'Yêu cầu Bổ sung', icon: Undo2, badge: 'destructive', className: 'bg-amber-600' },
         'draft': { text: 'Bản nháp', icon: ShieldQuestion, badge: 'secondary' },
         'not_sent': { text: 'Chưa gửi HS', icon: FileX, badge: 'secondary', className: 'bg-muted text-muted-foreground' },
-        'achieved_standard': { text: 'Đạt chuẩn', icon: Award, badge: 'default', className: 'bg-blue-600' }
+        'achieved_standard': { text: 'Đạt chuẩn', icon: Award, badge: 'default', className: 'bg-blue-600' },
     };
     
     const getUnitName = (communeId?: string) => {
@@ -112,7 +114,7 @@ export default function ReviewAssessmentsPage() {
     };
 
 
-    const AssessmentTable = ({ assessmentsToShow, status }: { assessmentsToShow: Assessment[] | Unit[], status: string }) => {
+    const AssessmentTable = ({ assessmentsToShow, status }: { assessmentsToShow: (Assessment | Unit)[], status: string }) => {
         if (status === 'not_sent') {
              const communesWithDrafts = (assessmentsToShow as Unit[]).map(unit => {
                 const draftAssessment = filteredAssessments.find(
@@ -183,16 +185,18 @@ export default function ReviewAssessmentsPage() {
                         return (
                             <TableRow key={assessment.id}>
                                 <TableCell>
-                                <div className="font-medium">{unitName}</div>
+                                    <div className="font-medium">{unitName}</div>
                                 </TableCell>
                                 <TableCell className="hidden md:table-cell">
                                 {assessment.submissionDate}
                                 </TableCell>
                                 <TableCell className="hidden lg:table-cell">
-                                    <Badge variant={statusInfo.badge} className={statusInfo.className}>
-                                        <statusInfo.icon className="mr-2 h-4 w-4" />
-                                        {statusInfo.text}
-                                    </Badge>
+                                    {statusInfo && (
+                                        <Badge variant={statusInfo.badge} className={statusInfo.className}>
+                                            <statusInfo.icon className="mr-2 h-4 w-4" />
+                                            {statusInfo.text}
+                                        </Badge>
+                                    )}
                                 </TableCell>
                                 <TableCell className="text-right space-x-2">
                                     <Button variant="outline" size="sm" asChild>
@@ -201,9 +205,14 @@ export default function ReviewAssessmentsPage() {
                                         Xem chi tiết
                                         </Link>
                                     </Button>
-                                    {assessment.status === 'approved' && (
-                                        <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={() => handleRecognizeAchievement(assessment)}>
-                                            <Award className="mr-2 h-4 w-4"/> Công nhận đạt chuẩn
+                                    {assessment.status === 'pending_review' && (
+                                        <Button 
+                                            size="sm" 
+                                            variant="outline" 
+                                            className="text-amber-600 border-amber-500 hover:bg-amber-50 hover:text-amber-700"
+                                            onClick={() => setActionTarget({assessment, type: 'return'})}
+                                        >
+                                            <Undo2 className="mr-2 h-4 w-4"/> Trả lại
                                         </Button>
                                     )}
                                 </TableCell>
@@ -222,14 +231,22 @@ export default function ReviewAssessmentsPage() {
         );
     };
 
+    const notSentCommunes = useMemo(() => {
+        const registeredCommuneIds = new Set(
+            filteredAssessments
+                .map(a => a.communeId)
+        );
+         const allCommunes = units.filter(u => u.type === 'commune');
+        return allCommunes.filter(u => !registeredCommuneIds.has(u.id));
+    }, [filteredAssessments, units]);
+
+
     const tabs = [
         { value: "pending_review", label: "Chờ duyệt", data: filteredAssessments.filter(a => a.status === 'pending_review') },
-        { value: "approved", label: "Đã duyệt", data: filteredAssessments.filter(a => a.status === 'approved') },
-        { value: "achieved_standard", label: "Đã đạt chuẩn", data: filteredAssessments.filter(a => a.status === 'achieved_standard') },
-        { value: "rejected", label: "Đã trả lại", data: filteredAssessments.filter(a => a.status === 'rejected') },
-        { value: "not_sent", label: "Chưa gửi HS", data: filteredAssessments.filter(a => a.status === 'registration_approved' || a.status === 'draft')
-                .map(a => units.find(u => u.id === a.communeId))
-                .filter((u): u is Unit => !!u) },
+        { value: "achieved_standard", label: "Đạt chuẩn", data: filteredAssessments.filter(a => a.status === 'achieved_standard') },
+        { value: "revision_required", label: "Yêu cầu Bổ sung", data: filteredAssessments.filter(a => a.status === 'rejected' && a.rejectionReason?.toLowerCase().includes('bổ sung')) }, // A simple check, can be improved
+        { value: "not_achieved", label: "Không đạt chuẩn", data: filteredAssessments.filter(a => a.status === 'rejected' && !a.rejectionReason?.toLowerCase().includes('bổ sung')) },
+        { value: "not_sent", label: "Chưa gửi HS", data: notSentCommunes },
     ];
 
     return (
@@ -267,8 +284,36 @@ export default function ReviewAssessmentsPage() {
             </Tabs>
         </CardContent>
         </Card>
+
+        <Dialog open={!!actionTarget} onOpenChange={(open) => !open && setActionTarget(null)}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Lý do trả lại hồ sơ</DialogTitle>
+                    <DialogDescription>
+                    Vui lòng nhập lý do trả lại. Đơn vị <strong>{getUnitName(actionTarget?.assessment.communeId)}</strong> sẽ thấy thông báo này và cần phải nộp lại hồ sơ sau khi chỉnh sửa.
+                    </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                    <Label htmlFor="returnReason">Lý do</Label>
+                    <Textarea 
+                    id="returnReason"
+                    value={returnReason}
+                    onChange={(e) => setReturnReason(e.target.value)}
+                    placeholder={"Ví dụ: Cần bổ sung thêm minh chứng cho chỉ tiêu 1.2..."}
+                    />
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => setActionTarget(null)}>Hủy</Button>
+                    <Button 
+                    variant="destructive" 
+                    disabled={!returnReason.trim()}
+                    onClick={handleReturnForRevision}
+                    >
+                    Xác nhận Trả lại
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
         </>
     );
 }
-
-    

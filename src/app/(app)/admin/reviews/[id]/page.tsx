@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock, Check } from "lucide-react";
+import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock, Award } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -89,21 +89,22 @@ export default function AssessmentDetailPage() {
   const assessmentUnitName = getUnitName(assessment.communeId);
 
   const handleApprove = async () => {
-    const updatedAssessment = { ...assessment, status: 'approved' as const, approvalDate: new Date().toLocaleDateString('vi-VN'), approverId: currentUser?.id };
+    const updatedAssessment = { ...assessment, status: 'achieved_standard' as const, approvalDate: new Date().toLocaleDateString('vi-VN'), approverId: currentUser?.id };
     await updateAssessments(assessments.map(a => a.id === id ? updatedAssessment : a));
     
     toast({
       title: "Phê duyệt thành công!",
-      description: `Hồ sơ của ${assessmentUnitName} đã được phê duyệt.`,
+      description: `Đã công nhận ${assessmentUnitName} đạt chuẩn.`,
       className: "bg-green-100 border-green-400 text-green-800",
     });
+    router.push('/admin/reviews');
   };
 
   const handleReject = async () => {
      if (!rejectionReason.trim()) {
         toast({
             title: "Lỗi",
-            description: "Vui lòng nhập lý do từ chối.",
+            description: "Vui lòng nhập lý do từ chối/không đạt chuẩn.",
             variant: "destructive"
         });
         return;
@@ -113,9 +114,10 @@ export default function AssessmentDetailPage() {
     
     toast({
       title: "Đã từ chối hồ sơ",
-      description: `Hồ sơ của ${assessmentUnitName} đã bị từ chối.`,
+      description: `Hồ sơ của ${assessmentUnitName} đã được ghi nhận là "Không đạt chuẩn".`,
       variant: "destructive",
     });
+     router.push('/admin/reviews');
   };
   
   const handleResubmit = async () => {
@@ -175,7 +177,7 @@ export default function AssessmentDetailPage() {
   };
 
 
-  const isActionDisabled = assessment.status === 'approved' || (role === 'admin' && assessment.status === 'rejected' && !assessment.communeExplanation);
+  const isActionDisabled = assessment.status === 'achieved_standard' || (role === 'admin' && assessment.status === 'rejected' && !assessment.communeExplanation);
 
   return (
     <>
@@ -187,19 +189,19 @@ export default function AssessmentDetailPage() {
             <div className="flex-1"></div>
             <Badge
               variant={
-                assessment.status === 'approved'
+                assessment.status === 'achieved_standard'
                   ? 'default'
                   : assessment.status === 'rejected'
                   ? 'destructive'
                   : 'secondary'
               }
-              className={assessment.status === 'approved' ? 'bg-green-600' : ''}
+              className={assessment.status === 'achieved_standard' ? 'bg-blue-600' : ''}
             >
-              {assessment.status === 'approved' && <CheckCircle className="mr-2 h-4 w-4" />}
+              {assessment.status === 'achieved_standard' && <Award className="mr-2 h-4 w-4" />}
               {assessment.status === 'rejected' && <XCircle className="mr-2 h-4 w-4" />}
               {assessment.status === 'pending_review' && <Clock className="mr-2 h-4 w-4" />}
-              {assessment.status === 'approved' ? 'Đã duyệt' :
-               assessment.status === 'rejected' ? 'Bị từ chối' :
+              {assessment.status === 'achieved_standard' ? 'Đạt chuẩn' :
+               assessment.status === 'rejected' ? 'Không đạt chuẩn / Bị trả lại' :
                assessment.status === 'pending_review' ? 'Chờ duyệt' :
                'Bản nháp'
               }
@@ -210,7 +212,7 @@ export default function AssessmentDetailPage() {
           {(assessment.status === 'rejected' || (assessment.status === 'pending_review' && assessment.rejectionReason)) && (
             <Card className="mb-6 bg-destructive/10 border-destructive">
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle /> Lý do từ chối chung</CardTitle>
+                    <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle /> Lý do từ chối / Trả lại</CardTitle>
                 </CardHeader>
                 <CardContent>
                     <p className="text-sm whitespace-pre-wrap">{assessment.rejectionReason}</p>
@@ -301,7 +303,7 @@ export default function AssessmentDetailPage() {
                                             <p className="font-medium text-base">{sub.name}</p>
                                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
                                                 <div className="md:col-span-1 font-medium text-muted-foreground">Kết quả tự chấm:</div>
-                                                <div className="md                          :col-span-2 font-semibold">
+                                                <div className="md:col-span-2 font-semibold">
                                                     {renderResultValue(result)}
                                                 </div>
                                               </div>
@@ -367,10 +369,10 @@ export default function AssessmentDetailPage() {
             <>
                 <Separator className="my-6" />
                 <div className="grid gap-4">
-                    <h3 className="text-lg font-headline">Thẩm định và Phê duyệt</h3>
+                    <h3 className="text-lg font-headline">Thẩm định và Ra quyết định</h3>
                     <div className="grid gap-2">
-                         <Label htmlFor="review-notes" className="font-medium">Ghi chú/Lý do từ chối chung (nếu có)</Label>
-                        <Textarea id="review-notes" placeholder="Nhập lý do từ chối chung hoặc các ý kiến thẩm định của bạn..." onChange={(e) => setRejectionReason(e.target.value)} defaultValue={rejectionReason} />
+                         <Label htmlFor="review-notes" className="font-medium">Ghi chú/Lý do (Nếu Từ chối)</Label>
+                        <Textarea id="review-notes" placeholder="Nếu 'Từ chối', vui lòng nhập lý do để xã biết và khắc phục..." onChange={(e) => setRejectionReason(e.target.value)} defaultValue={rejectionReason} />
                     </div>
                 </div>
             </>
@@ -381,12 +383,12 @@ export default function AssessmentDetailPage() {
             <Button variant="outline" onClick={() => router.back()}>Quay lại</Button>
             {role === 'admin' && assessment.status === 'pending_review' &&(
               <>
-                <Button variant="destructive" onClick={handleReject} disabled={isActionDisabled}><ThumbsDown className="mr-2 h-4 w-4" />Từ chối</Button>
-                <Button className="bg-green-600 hover:bg-green-700" onClick={handleApprove} disabled={isActionDisabled}><ThumbsUp className="mr-2 h-4 w-4" />Phê duyệt</Button>
+                <Button variant="destructive" onClick={handleReject} disabled={isActionDisabled}><ThumbsDown className="mr-2 h-4 w-4" />Từ chối (Không đạt)</Button>
+                <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleApprove} disabled={isActionDisabled}><Award className="mr-2 h-4 w-4" />Phê duyệt (Đạt chuẩn)</Button>
               </>
             )}
              {role === 'admin' && assessment.status === 'rejected' && assessment.communeExplanation && (
-                 <Button className="bg-green-600 hover:bg-green-700" onClick={handleApprove}><ThumbsUp className="mr-2 h-4 w-4" />Phê duyệt lại</Button>
+                 <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleApprove}><Award className="mr-2 h-4 w-4" />Phê duyệt lại (Đạt chuẩn)</Button>
             )}
             {role === 'commune_staff' && assessment.status === 'rejected' && (
                 <>

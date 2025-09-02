@@ -62,7 +62,6 @@ const AdminDashboard = () => {
     const [selectedPeriod, setSelectedPeriod] = React.useState<string | undefined>(assessmentPeriods.find(p => p.isActive)?.id);
 
     const {
-        periodAssessments,
         totalCommunes,
         achievedCount,
         notAchievedCount,
@@ -82,7 +81,7 @@ const AdminDashboard = () => {
         const registeredCommuneIds = new Set(periodAssessments.map(a => a.communeId));
         
         const achievedCount = periodAssessments.filter(a => a.status === 'achieved_standard').length;
-        const notAchievedCount = periodAssessments.filter(a => a.status === 'approved').length; // Approved but not yet 'achieved'
+        const notAchievedCount = periodAssessments.filter(a => a.status === 'rejected').length;
         
         const notRegisteredAssessments = allCommuneUnits.filter(u => !registeredCommuneIds.has(u.id));
         const notRegisteredCount = notRegisteredAssessments.length;
@@ -92,7 +91,7 @@ const AdminDashboard = () => {
         const chartData = [
             { name: 'Đạt chuẩn', value: achievedCount, fill: 'hsl(var(--chart-2))' },
             { name: 'Chờ duyệt', value: pendingReviewCount, fill: 'hsl(var(--chart-3))' },
-            { name: 'Đã duyệt (chưa đạt)', value: notAchievedCount, fill: 'hsl(var(--chart-4))' },
+            { name: 'Không đạt chuẩn', value: notAchievedCount, fill: 'hsl(var(--chart-4))' },
             { name: 'Chưa đăng ký', value: notRegisteredCount, fill: 'hsl(var(--muted))' },
         ];
         
@@ -116,7 +115,6 @@ const AdminDashboard = () => {
 
 
         return {
-            periodAssessments,
             totalCommunes,
             achievedCount,
             notAchievedCount,
@@ -166,10 +164,6 @@ const AdminDashboard = () => {
         
         const unit = units.find(u => u.id === communeId);
         if (!unit) return { communeName: 'Không xác định', districtName: '', provinceName: '' };
-        
-        if (unit.type === 'province') {
-            return { communeName: unit.name, districtName: '', provinceName: '' };
-        }
         
         const district = units.find(u => u.id === unit.parentId);
         if (!district) return { communeName: unit.name, districtName: 'Không xác định', provinceName: '' };
@@ -304,8 +298,8 @@ const AdminDashboard = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {periodAssessments.filter(a => a.status === 'pending_review').length > 0 ? 
-                  periodAssessments.filter(a => a.status === 'pending_review').map((assessment) => {
+                {assessments.filter(a => a.status === 'pending_review' && a.assessmentPeriodId === selectedPeriod).length > 0 ? 
+                  assessments.filter(a => a.status === 'pending_review' && a.assessmentPeriodId === selectedPeriod).map((assessment) => {
                       const unitInfo = getUnitName(assessment.communeId);
                       return (
                           <TableRow key={assessment.id} className="hover:bg-muted/50">
@@ -453,6 +447,7 @@ const CommuneDashboard = () => {
     const canStartAssessment = myAssessment?.status === 'registration_approved' || myAssessment?.status === 'draft';
     const isRegistrationRejected = myAssessment?.status === 'registration_rejected';
     const isPendingRegistration = myAssessment?.status === 'pending_registration';
+    const isAssessmentRejected = myAssessment?.status === 'rejected';
 
     const renderRegistrationStatus = () => {
         if (!myAssessment) {
@@ -561,8 +556,7 @@ const CommuneDashboard = () => {
             );
         }
         
-        // This handles statuses beyond the registration phase ('pending_review', 'approved', 'rejected', 'draft')
-        // We can just show the registration was approved.
+        // This handles statuses beyond the registration phase
         if (myAssessment.status) {
             return (
                 <div className='p-4 border rounded-lg space-y-4'>
@@ -617,6 +611,26 @@ const CommuneDashboard = () => {
                          <AssessmentButton />
                     </div>
 
+                    {isAssessmentRejected && myAssessment?.rejectionReason && (
+                         <div className={`p-4 border rounded-lg bg-amber-50 border-amber-300`}>
+                            <h3 className='font-semibold text-lg text-amber-800'>Thông báo: Yêu cầu bổ sung/chỉnh sửa</h3>
+                             <Alert variant="destructive" className="mt-2 border-amber-400 text-amber-900 [&>svg]:text-amber-600">
+                                <AlertTriangle className="h-4 w-4" />
+                                <AlertTitle className="text-amber-800">Lý do từ Admin:</AlertTitle>
+                                <AlertDescription>
+                                    {myAssessment.rejectionReason}
+                                </AlertDescription>
+                            </Alert>
+                             <Button className='mt-4' asChild>
+                                <Link href="/commune/assessments">
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Chỉnh sửa & Gửi lại hồ sơ
+                                </Link>
+                            </Button>
+                        </div>
+                    )}
+
+
                 </CardContent>
             </Card>
             ) : (
@@ -652,9 +666,9 @@ const CommuneDashboard = () => {
                                if (!assessment) return null;
                                
                                const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
-                                    'approved': { text: 'Đã duyệt', icon: CheckCircle, badge: 'default', className: 'bg-emerald-500' },
+                                    'achieved_standard': { text: 'Đạt chuẩn', icon: Award, badge: 'default', className: 'bg-blue-600' },
                                     'pending_review': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary', className: 'bg-amber-500' },
-                                    'rejected': { text: 'Bị từ chối', icon: XCircle, badge: 'destructive', className: 'bg-red-500' },
+                                    'rejected': { text: 'Yêu cầu Bổ sung', icon: Undo2, badge: 'destructive' },
                                     'draft': { text: 'Bản nháp', icon: Edit, badge: 'secondary' },
                                     'pending_registration': { text: 'Chờ duyệt ĐK', icon: FileClock, badge: 'secondary', className: 'bg-blue-500' },
                                     'registration_approved': { text: 'ĐK đã duyệt', icon: UserCheck, badge: 'default', className: 'bg-green-500' },
@@ -674,7 +688,7 @@ const CommuneDashboard = () => {
                                         </TableCell>
                                         <TableCell className="text-right">
                                              <Button variant="outline" size="sm" asChild>
-                                                <Link href={['draft', 'registration_approved'].includes(assessment.status) ? '/commune/assessments' : `/admin/reviews/${assessment.id}`}>
+                                                <Link href={['draft', 'registration_approved', 'rejected'].includes(assessment.status) ? '/commune/assessments' : `/admin/reviews/${assessment.id}`}>
                                                   {assessment.status === 'rejected' ? 
                                                     <><Edit className="mr-2 h-4 w-4" />Giải trình & Gửi lại</> : 
                                                     (assessment.status === 'draft' || assessment.status === 'registration_approved') ?

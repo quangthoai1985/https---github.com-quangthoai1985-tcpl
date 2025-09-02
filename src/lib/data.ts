@@ -76,7 +76,7 @@ export type Assessment = {
   id: string;
   communeId: string;
   assessmentPeriodId: string;
-  status: 'draft' | 'pending_review' | 'approved' | 'rejected' | 'pending_registration' | 'registration_approved' | 'registration_rejected' | 'achieved_standard';
+  status: 'draft' | 'pending_review' | 'rejected' | 'pending_registration' | 'registration_approved' | 'registration_rejected' | 'achieved_standard';
   submissionDate?: string; // Should be a timestamp, optional until submitted
   approvalDate?: string;   // Optional
   approverId?: string;     // Optional
