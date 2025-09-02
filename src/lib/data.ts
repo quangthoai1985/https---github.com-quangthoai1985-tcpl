@@ -69,6 +69,7 @@ export type AssessmentPeriod = {
     endDate: string;   // Should ideally be a timestamp
     isActive: boolean;
     registrationDeadline?: string; // New field
+    totalIndicators?: number; // Total indicators for this period
 };
 
 export type Assessment = {

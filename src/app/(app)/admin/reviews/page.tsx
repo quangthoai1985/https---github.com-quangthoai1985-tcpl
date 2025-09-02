@@ -24,12 +24,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import React, { useMemo } from 'react';
 import { useData } from '@/context/DataContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Assessment, Unit } from '@/lib/data';
+import type { Assessment, Unit, Criterion } from '@/lib/data';
 import PageHeader from '@/components/layout/page-header';
 import { useToast } from '@/hooks/use-toast';
+import { Progress } from '@/components/ui/progress';
+
+const countTotalIndicators = (criteria: Criterion[]): number => {
+    return criteria.reduce((total, criterion) => {
+        return total + criterion.indicators.reduce((indicatorTotal, indicator) => {
+            if (indicator.subIndicators && indicator.subIndicators.length > 0) {
+                return indicatorTotal + indicator.subIndicators.length;
+            }
+            return indicatorTotal + 1;
+        }, 0);
+    }, 0);
+};
 
 export default function ReviewAssessmentsPage() {
-    const { assessmentPeriods, units, assessments, users, updateAssessments, currentUser } = useData();
+    const { assessmentPeriods, units, assessments, users, updateAssessments, currentUser, criteria } = useData();
     const { toast } = useToast();
 
     const [selectedPeriod, setSelectedPeriod] = React.useState<string | undefined>(
@@ -41,18 +53,14 @@ export default function ReviewAssessmentsPage() {
 
         const currentPeriodAssessments = assessments.filter(a => a.assessmentPeriodId === selectedPeriod);
         
-        // Find units that have their registration approved
-        const approvedRegistrationCommuneIds = new Set(
+        const registeredCommuneIds = new Set(
             currentPeriodAssessments
-                .filter(a => ['registration_approved', 'pending_review', 'approved', 'rejected', 'achieved_standard'].includes(a.status))
+                .filter(a => ['registration_approved', 'pending_review', 'approved', 'rejected', 'achieved_standard', 'draft'].includes(a.status))
                 .map(a => a.communeId)
         );
 
-        // From those units, find the ones that haven't submitted their self-assessment yet
-        // Their status would still be 'registration_approved'
-        const notSentAssessments = currentPeriodAssessments.filter(a => a.status === 'registration_approved');
-
-        const notSentCommuneUnits = units.filter(u => notSentAssessments.some(a => a.communeId === u.id));
+        const allCommunes = units.filter(u => u.type === 'commune');
+        const notSentCommuneUnits = allCommunes.filter(u => !registeredCommuneIds.has(u.id));
 
         return { filteredAssessments: currentPeriodAssessments, notSentCommunes: notSentCommuneUnits };
     }, [selectedPeriod, units, assessments]);
@@ -105,36 +113,64 @@ export default function ReviewAssessmentsPage() {
             provinceName: province?.name || '',
         }
     }
+    
+    const totalIndicators = useMemo(() => countTotalIndicators(criteria), [criteria]);
+
+    const calculateProgress = (assessment: Assessment | undefined): number => {
+        if (!assessment?.assessmentData || totalIndicators === 0) {
+            return 0;
+        }
+        const assessedCount = Object.values(assessment.assessmentData).filter(
+            (result) => result.status !== 'pending'
+        ).length;
+        
+        return Math.round((assessedCount / totalIndicators) * 100);
+    };
+
 
     const AssessmentTable = ({ assessmentsToShow, status }: { assessmentsToShow: Assessment[] | Unit[], status: string }) => {
         if (status === 'not_sent') {
+             const communesWithDrafts = (assessmentsToShow as Unit[]).map(unit => {
+                const draftAssessment = filteredAssessments.find(
+                    a => a.communeId === unit.id && (a.status === 'draft' || a.status === 'registration_approved')
+                );
+                const progress = calculateProgress(draftAssessment);
+                return { unit, draftAssessment, progress };
+            });
+
             return (
                  <Table>
                     <TableHeader>
-                    <TableRow>
-                        <TableHead>Tên đơn vị</TableHead>
-                        <TableHead>Tên cán bộ</TableHead>
-                        <TableHead>Số điện thoại</TableHead>
-                        <TableHead>Trạng thái</TableHead>
-                    </TableRow>
+                        <TableRow>
+                            <TableHead>Tên đơn vị</TableHead>
+                            <TableHead>Tên cán bộ</TableHead>
+                            <TableHead>Tiến độ</TableHead>
+                            <TableHead>Trạng thái</TableHead>
+                        </TableRow>
                     </TableHeader>
                     <TableBody>
-                    {(assessmentsToShow as Unit[]).length > 0 ? (
-                        (assessmentsToShow as Unit[]).map((unit) => {
+                    {communesWithDrafts.length > 0 ? (
+                        communesWithDrafts.map(({ unit, progress }) => {
                             const statusInfo = statusMap['not_sent'];
                             const responsibleUser = users.find(u => u.communeId === unit.id);
+                             const progressColor = progress < 30 ? 'bg-red-500' : progress < 70 ? 'bg-amber-500' : 'bg-green-500';
                             return (
                                 <TableRow key={unit.id}>
                                     <TableCell>
                                         <div className="font-medium">{unit.name}</div>
                                     </TableCell>
                                     <TableCell>{responsibleUser?.displayName || 'Chưa có'}</TableCell>
-                                    <TableCell>{responsibleUser?.phoneNumber || 'Chưa có'}</TableCell>
                                     <TableCell>
-                                    <Badge variant={statusInfo.badge} className={statusInfo.className}>
-                                        <statusInfo.icon className="mr-2 h-4 w-4" />
-                                        {statusInfo.text}
-                                    </Badge>
+                                        <div className="flex items-center gap-2">
+                                            <Progress value={progress} className="w-32 h-2" indicatorClassName={progressColor} />
+                                            <span className="text-xs font-medium text-muted-foreground">{progress}%</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant={statusInfo.badge} className={statusInfo.className}>
+                                            <statusInfo.icon className="mr-2 h-4 w-4" />
+                                            {statusInfo.text}
+                                        </Badge>
                                     </TableCell>
                                 </TableRow>
                             )
@@ -216,7 +252,9 @@ export default function ReviewAssessmentsPage() {
         { value: "approved", label: "Đã duyệt", data: filteredAssessments.filter(a => a.status === 'approved') },
         { value: "achieved_standard", label: "Đã đạt chuẩn", data: filteredAssessments.filter(a => a.status === 'achieved_standard') },
         { value: "rejected", label: "Đã trả lại", data: filteredAssessments.filter(a => a.status === 'rejected') },
-        { value: "not_sent", label: "Chưa gửi HS", data: notSentCommunes },
+        { value: "not_sent", label: "Chưa gửi HS", data: filteredAssessments.filter(a => a.status === 'registration_approved' || a.status === 'draft')
+                .map(a => units.find(u => u.id === a.communeId))
+                .filter((u): u is Unit => !!u) },
     ];
 
     return (
