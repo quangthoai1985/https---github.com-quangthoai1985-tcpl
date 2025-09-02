@@ -99,6 +99,10 @@ export type Assessment = {
   // Assessment-related fields
   assessmentRejectionReason?: string; // Final rejection reason
   assessmentData?: Record<string, IndicatorResult>; // Holds all self-assessment data
+
+  // Announcement fields
+  announcementDecisionUrl?: string;
+  announcementDate?: string;
 };
 
 

@@ -19,6 +19,8 @@ import {
   Award,
   FileX,
   Send,
+  Megaphone,
+  Newspaper,
 } from 'lucide-react';
 import {
   Card,
@@ -26,6 +28,7 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
+  CardFooter
 } from '@/components/ui/card';
 import {
   Table,
@@ -202,6 +205,49 @@ const AdminDashboard = () => {
           );
         })}
       </div>
+      
+       <div className="grid gap-6 md:grid-cols-2">
+            <Card className="flex flex-col">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Megaphone className="text-primary"/>Công bố Đánh giá</CardTitle>
+                <CardDescription>
+                  Quản lý việc công bố kết quả và tải lên quyết định công nhận cho các xã đã đạt chuẩn.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex-1">
+                 <p className="text-sm text-muted-foreground">
+                    Đây là nơi trình UBND tỉnh ra quyết định công nhận "Xã đạt chuẩn tiếp cận Pháp luật" và tải lên các giấy chứng nhận tương ứng.
+                 </p>
+              </CardContent>
+              <CardFooter>
+                 <Link href="/admin/announcements" className='w-full'>
+                    <Button className="w-full">
+                       Tới trang Công bố
+                       <ArrowRight className="ml-2 h-4 w-4" />
+                    </Button>
+                </Link>
+              </CardFooter>
+            </Card>
+            <Card className="flex flex-col">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><Newspaper className="text-primary"/>Quản lý Tin tức</CardTitle>
+                 <CardDescription>
+                  Tạo và quản lý các bài viết, tin tức, thông báo để hiển thị trên cổng thông tin.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="flex-1">
+                 <p className="text-sm text-muted-foreground">
+                    Module đang trong quá trình phát triển.
+                 </p>
+              </CardContent>
+              <CardFooter>
+                <Button className="w-full" disabled>
+                   Quản lý Tin tức
+                </Button>
+              </CardFooter>
+            </Card>
+        </div>
+
     </div>
     </>
 )};
