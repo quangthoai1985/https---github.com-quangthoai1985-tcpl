@@ -49,7 +49,7 @@ const calculateProgress = (assessmentData: Record<string, IndicatorResult> | und
     
     // Đếm số chỉ tiêu đã có giá trị hoặc được đánh dấu là không thực hiện
     const assessedCount = Object.values(assessmentData).filter(result => 
-        result.isTasked === false || (result.value !== null && result.value !== undefined && result.value !== '')
+        result.isTasked === false || (result.value !== null && result.value !== undefined && result.value !== '' && result.value !== 0)
     ).length;
     
     return Math.round((assessedCount / totalIndicators) * 100);
@@ -108,9 +108,13 @@ export default function ReviewAssessmentsPage() {
                     )}
                     <TableHead className="hidden md:table-cell">Ngày nộp</TableHead>
                     
-                    {type === 'not_sent' ? (
+                    {type === 'not_sent' && (
                        <TableHead className="hidden lg:table-cell">Tiến độ</TableHead>
-                    ) : (
+                    )}
+                    {type === 'pending_review' && (
+                       <TableHead className="hidden lg:table-cell">Tiến độ</TableHead>
+                    )}
+                     {(type !== 'not_sent' && type !== 'pending_review') && (
                        <TableHead className="hidden lg:table-cell">Trạng thái</TableHead>
                     )}
                     
@@ -140,7 +144,7 @@ export default function ReviewAssessmentsPage() {
                                 {assessment.assessmentSubmissionDate || 'Chưa nộp'}
                                 </TableCell>
                                 <TableCell className="hidden lg:table-cell">
-                                    {type === 'not_sent' ? (
+                                    {(type === 'not_sent' || type === 'pending_review') ? (
                                         <div className="flex items-center gap-2">
                                             <Progress value={progress} className="w-[80px] h-2" />
                                             <span className="text-xs text-muted-foreground">{progress}%</span>
