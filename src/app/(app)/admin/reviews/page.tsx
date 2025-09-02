@@ -79,7 +79,7 @@ export default function ReviewAssessmentsPage() {
         
         toast({
             title: "Công nhận thành công!",
-            description: `Đã công nhận ${getUnitName(assessment.communeId).communeName} đạt chuẩn tiếp cận pháp luật.`
+            description: `Đã công nhận ${getUnitName(assessment.communeId)} đạt chuẩn tiếp cận pháp luật.`
         });
     };
 
@@ -93,25 +93,9 @@ export default function ReviewAssessmentsPage() {
     };
     
     const getUnitName = (communeId?: string) => {
-        if (!communeId) return { communeName: 'Không xác định', districtName: '', provinceName: '' };
-        
+        if (!communeId) return 'Không xác định';
         const unit = units.find(u => u.id === communeId);
-        if (!unit) return { communeName: 'Không xác định', districtName: '', provinceName: '' };
-        
-        if (unit.type === 'province') {
-            return { communeName: unit.name, districtName: '', provinceName: '' };
-        }
-        
-        const district = units.find(u => u.id === unit.parentId);
-        if (!district) return { communeName: unit.name, districtName: 'Không xác định', provinceName: '' };
-
-        const province = units.find(u => u.id === district.parentId);
-
-        return {
-            communeName: unit.name,
-            districtName: district?.name || '',
-            provinceName: province?.name || '',
-        }
+        return unit ? unit.name : 'Không xác định';
     }
     
     const totalIndicators = useMemo(() => countTotalIndicators(criteria), [criteria]);
@@ -145,7 +129,7 @@ export default function ReviewAssessmentsPage() {
                             <TableHead>Tên đơn vị</TableHead>
                             <TableHead>Tên cán bộ</TableHead>
                             <TableHead>Số điện thoại</TableHead>
-                            <TableHead>Tiến độ</TableHead>
+                            <TableHead className="text-right">Tiến độ</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -160,8 +144,8 @@ export default function ReviewAssessmentsPage() {
                                     </TableCell>
                                     <TableCell>{responsibleUser?.displayName || 'Chưa có'}</TableCell>
                                     <TableCell>{responsibleUser?.phoneNumber || 'N/A'}</TableCell>
-                                    <TableCell>
-                                        <div className="flex items-center gap-2">
+                                    <TableCell className="text-right">
+                                        <div className="flex items-center justify-end gap-2">
                                             <Progress value={progress} className="w-32 h-2" indicatorClassName={progressColor} />
                                             <span className="text-xs font-medium text-muted-foreground">{progress}%</span>
                                         </div>
@@ -195,14 +179,11 @@ export default function ReviewAssessmentsPage() {
                 {(assessmentsToShow as Assessment[]).length > 0 ? (
                     (assessmentsToShow as Assessment[]).map((assessment) => {
                         const statusInfo = statusMap[assessment.status];
-                        const unitInfo = getUnitName(assessment.communeId);
+                        const unitName = getUnitName(assessment.communeId);
                         return (
                             <TableRow key={assessment.id}>
                                 <TableCell>
-                                <div className="font-medium">{unitInfo.communeName}</div>
-                                <div className="text-sm text-muted-foreground">
-                                    {unitInfo.districtName}, {unitInfo.provinceName}
-                                </div>
+                                <div className="font-medium">{unitName}</div>
                                 </TableCell>
                                 <TableCell className="hidden md:table-cell">
                                 {assessment.submissionDate}
@@ -289,3 +270,5 @@ export default function ReviewAssessmentsPage() {
         </>
     );
 }
+
+    
