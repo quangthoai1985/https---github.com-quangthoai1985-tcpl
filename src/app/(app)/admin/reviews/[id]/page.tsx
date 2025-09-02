@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock, Award, Undo2, CornerDownRight, Edit } from "lucide-react";
+import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock, Award, Undo2, CornerDownRight, Edit, CircleSlash } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -165,6 +165,18 @@ function FileUploadComponent({ indicatorId, files, onFileChange }: { indicatorId
         </div>
     );
 }
+
+const StatusIcon = ({ status }: { status: IndicatorResult['status'] }) => {
+    switch (status) {
+        case 'achieved':
+            return <CheckCircle className="h-5 w-5 text-green-500" />;
+        case 'not-achieved':
+            return <XCircle className="h-5 w-5 text-red-500" />;
+        case 'pending':
+        default:
+            return <CircleSlash className="h-5 w-5 text-muted-foreground" />;
+    }
+};
 
 export default function AssessmentDetailPage() {
   const router = useRouter();
@@ -360,10 +372,20 @@ export default function AssessmentDetailPage() {
                         const result = getIndicatorResult(ind.id);
                         const adminNote = adminNotes[ind.id] || '';
                         
+                        const blockClasses = cn(
+                          "grid gap-4 p-4 rounded-lg bg-card border shadow-sm",
+                          result.status === 'achieved' && 'bg-green-50 border-green-200',
+                          result.status === 'not-achieved' && 'bg-red-50 border-red-200',
+                          isSub && "relative pl-6 pt-4 mt-2"
+                        );
+
                         return (
-                          <div key={ind.id} className={cn("grid gap-4 p-4 rounded-lg bg-card border shadow-sm", isSub && "relative pl-6 pt-4 mt-2")}>
+                          <div key={ind.id} className={blockClasses}>
                               {isSub && <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>}
-                              <h4 className="font-semibold">{ind.name}</h4>
+                              <div className="flex items-start gap-3">
+                                  <StatusIcon status={result.status} />
+                                  <h4 className="font-semibold flex-1">{ind.name}</h4>
+                              </div>
                                <>
                                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div className="md:col-span-1 font-medium text-muted-foreground">Kết quả tự chấm:</div>
@@ -426,7 +448,7 @@ export default function AssessmentDetailPage() {
                       
                       if (!indicator.subIndicators || indicator.subIndicators.length === 0) { return renderIndicatorContent(indicator, false); }
                       return (
-                         <div key={indicator.id} className="grid gap-4 p-4 rounded-lg bg-card border shadow-sm">
+                         <div key={indicator.id} className="grid gap-4">
                              <h4 className="font-semibold">{indicator.name}</h4>
                              <div className="pl-6 border-l-2 border-dashed space-y-4">
                                 {indicator.subIndicators.map(sub => renderIndicatorContent(sub, true))}
