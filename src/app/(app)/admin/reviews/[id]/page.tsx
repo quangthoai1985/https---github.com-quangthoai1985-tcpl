@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock, Award, Undo2, CornerDownRight } from "lucide-react";
+import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock, Award, Undo2, CornerDownRight, Edit } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -17,22 +17,135 @@ import Image from "next/image";
 import { useData } from "@/context/DataContext";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/layout/page-header";
-import type { Assessment, IndicatorResult } from '@/lib/data';
+import type { Assessment, IndicatorResult, Indicator, SubIndicator, Criterion } from '@/lib/data';
 import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-function FileUploadComponent() {
-    const [files, setFiles] = React.useState<File[]>([]);
+// Re-using the input rendering logic from the assessment page
+const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
+    if (!criteria || criteria.length < 3) return [];
+    const firstCriterionIndicatorIds = (criteria[0]?.indicators || []).flatMap(i => i.subIndicators && i.subIndicators.length > 0 ? i.subIndicators.map(si => si.id) : [i.id]);
+    const secondCriterion = criteria[1];
+    let specialIdsFromSecondCriterion: string[] = [];
+    if (secondCriterion.indicators?.length >= 2) { specialIdsFromSecondCriterion.push(secondCriterion.indicators[1].id); }
+    if (secondCriterion.indicators?.length >= 3) { specialIdsFromSecondCriterion.push(secondCriterion.indicators[2].id); }
+    if (secondCriterion.indicators?.length > 3 && secondCriterion.indicators[3].subIndicators?.length > 2) { specialIdsFromSecondCriterion.push(secondCriterion.indicators[3].subIndicators[2].id); }
+    const thirdCriterion = criteria[2];
+    let specialIdsFromThirdCriterion: string[] = [];
+    if (thirdCriterion.indicators?.length > 0 && thirdCriterion.indicators[0].subIndicators?.length > 0) { specialIdsFromThirdCriterion.push(thirdCriterion.indicators[0].subIndicators[0].id); }
+    if (thirdCriterion.indicators?.length > 0 && thirdCriterion.indicators[0].subIndicators?.length > 1) { specialIdsFromThirdCriterion.push(thirdCriterion.indicators[0].subIndicators[1].id); }
+    if (thirdCriterion.indicators?.length > 1 && thirdCriterion.indicators[1].subIndicators?.length > 0) { specialIdsFromThirdCriterion.push(thirdCriterion.indicators[1].subIndicators[0].id); }
+    return [...firstCriterionIndicatorIds, ...specialIdsFromSecondCriterion, ...specialIdsFromThirdCriterion];
+}
+const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) => {
+    if (!criteria || criteria.length < 3) return { no: 'Không được giao nhiệm vụ', yes: 'Được giao nhiệm vụ' };
+    const indicator3_tc2_id = criteria[1].indicators?.length >= 3 ? criteria[1].indicators[2].id : null;
+    const subIndicator3_tc2_i4_id = criteria[1].indicators?.length > 3 && criteria[1].indicators[3].subIndicators?.length > 2 ? criteria[1].indicators[3].subIndicators[2].id : null;
+    const subIndicator1_tc3_i1_id = criteria[2].indicators?.length > 0 && criteria[2].indicators[0].subIndicators?.length > 0 ? criteria[2].indicators[0].subIndicators[0].id : null;
+    const subIndicator2_tc3_i1_id = criteria[2].indicators?.length > 0 && criteria[2].indicators[0].subIndicators?.length > 1 ? criteria[2].indicators[0].subIndicators[1].id : null;
+    const subIndicator1_tc3_i2_id = criteria[2].indicators?.length > 1 && criteria[2].indicators[1].subIndicators?.length > 0 ? criteria[2].indicators[1].subIndicators[0].id : null;
+    if (indicatorId === indicator3_tc2_id) { return { no: "Không yêu cầu cung cấp", yes: "Có yêu cầu cung cấp" }; }
+    if (indicatorId === subIndicator3_tc2_i4_id) { return { no: "Không phát sinh nhiệm vụ ngoài kế hoạch", yes: "Có phát sinh nhiệm vụ ngoài kế hoạch" }; }
+    if (indicatorId === subIndicator1_tc3_i1_id) { return { no: "Không phát sinh yêu cầu thành lập", yes: "Có phát sinh yêu cầu thành lập" }; }
+    if (indicatorId === subIndicator2_tc3_i1_id) { return { no: "Không phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên", yes: "Có phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên" }; }
+    if (indicatorId === subIndicator1_tc3_i2_id) { return { no: "Không phát sinh vụ, việc hòa giải", yes: "Có phát sinh vụ, việc hòa giải" }; }
+    return { no: 'Không được giao nhiệm vụ', yes: 'Được giao nhiệm vụ' };
+}
+const getCustomBooleanLabels = (indicatorId: string, criteria: Criterion[]) => {
+    if (!criteria || criteria.length < 2) return null;
+    const criterion2 = criteria[1];
+    if (criterion2.indicators?.length > 3 && criterion2.indicators[3].subIndicators?.length > 0) {
+        const subIndicator1_tc2_i4_id = criterion2.indicators[3].subIndicators[0].id;
+        if (indicatorId === subIndicator1_tc2_i4_id) { return { true: 'Ban hành đúng thời hạn', false: 'Ban hành không đúng thời hạn' }; }
+    }
+    return null;
+}
+const getCheckboxOptions = (indicatorId: string, criteria: Criterion[]) => {
+    if (!criteria || criteria.length < 3) return null;
+    const criterion2 = criteria[1]; const criterion3 = criteria[2];
+    if (criterion2.indicators?.length > 4 && indicatorId === criterion2.indicators[4].id) { return ["Tổ chức cuộc thi tìm hiểu pháp luật trực tuyến", "Tổ chức tập huấn phổ biến kiến thức pháp luật và kỹ năng phổ biến, giáo dục pháp luật cho đội ngũ nhân lực làm công tác phổ biến, giáo dục pháp luật bằng hình thức trực tuyến", "Phổ biến, giáo dục pháp luật trên Cổng Thông tin điện tử/Trang Thông tin điện tử của Hội đồng nhân dân, Uỷ ban nhân dân cấp xã và có sự kết nối với Cổng Pháp luật Quốc gia (đối với cấp xã đã có Cổng/Trang thông tin điện tử)", "Sử dụng mạng xã hội và các nền tảng cộng đồng trực tuyến khác để thực hiện phổ biến, giáo dục pháp luật", "Xây dựng, số hoá các tài liệu, sản phẩm truyền thông, phổ biến, giáo dục pháp luật như video clip, podcast, audio...", "Xây dựng chatbox giải đáp pháp luật", "Phổ biến, giáo dục pháp luật thông qua tin nhắn điện thoại", "Hoạt động khác về chuyển đổi số, ứng dụng công nghệ số bảo đảm phù hợp"]; }
+    if(criterion3.indicators?.length > 2 && indicatorId === criterion3.indicators[2].id) { return ["Huy động đội ngũ luật sư, luật gia, Hội thẩm nhân dân, lực lượng Công an nhân dân, Bộ đội Biên phòng, báo cáo viên pháp luật, tuyên truyền viên pháp luật, lực lượng tham gia bảo vệ an ninh, trật tự ở cơ sở, người đã từng là Thẩm phán, Kiểm sát viên, Điều tra viên, người đã hoặc đang công tác trong lĩnh vực pháp luật tham gia làm hòa giải viên ở cơ sở.", "Huy động đội ngũ nêu trên hỗ trợ pháp lý, tư vấn cho tổ hoà giải để giải quyết vụ, việc thuộc phạm vi hoà giải ở cơ sở.", "Huy động đội ngũ nêu trên tham gia tập huấn, bồi dưỡng cho hoà giải viên.", "Các hoạt động phối hợp, hỗ trợ hiệu quả của cá nhân, tổ chức khác trong triển khai công tác hòa giải ở cơ sở."]; }
+    return null;
+}
+
+// Dialog for commune staff to revise an indicator
+function RevisionDialog({ indicator, data, onSave, onCancel, criteria }: { indicator: Indicator | SubIndicator, data: IndicatorResult, onSave: (id: string, newData: IndicatorResult) => void, onCancel: () => void, criteria: Criterion[] }) {
+    const [value, setValue] = useState(data.value);
+    const [isTasked, setIsTasked] = useState(data.isTasked);
+    const [note, setNote] = useState(data.communeNote || ''); // Use the new communeNote field
+    const [files, setFiles] = useState<(File | { name: string, url: string })[]>(data.files || []);
+
+    const specialLogicIndicatorIds = getSpecialLogicIndicatorIds(criteria);
+    
+    const handleSave = () => {
+        onSave(indicator.id, { ...data, value, isTasked, communeNote: note, files });
+        onCancel();
+    };
 
     return (
+        <DialogContent className="max-w-2xl">
+            <DialogHeader>
+                <DialogTitle>Bổ sung &amp; Giải trình: {indicator.name}</DialogTitle>
+                <DialogDescription>Cập nhật lại kết quả tự đánh giá, tệp minh chứng và giải trình lý do.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-6">
+                {/* Re-render the input component from self-assessment */}
+                <div className="grid gap-2">
+                    <Label>Kết quả tự đánh giá mới</Label>
+                    {renderInput(indicator, specialLogicIndicatorIds, getSpecialIndicatorLabels(indicator.id, criteria), getCustomBooleanLabels(indicator.id, criteria), getCheckboxOptions(indicator.id, criteria), { ...data, value, isTasked }, (id, val) => setValue(val), (id, tasked) => setIsTasked(tasked))}
+                </div>
+                {/* File Upload */}
+                <div className="grid gap-2">
+                    <Label>Hồ sơ minh chứng mới (nếu có)</Label>
+                    <FileUploadComponent indicatorId={indicator.id} files={files} onFileChange={(id, newFiles) => setFiles(newFiles)} />
+                </div>
+                {/* Commune's Explanation */}
+                <div className="grid gap-2">
+                    <Label htmlFor={`commune-note-${indicator.id}`}>Nội dung giải trình của bạn</Label>
+                    <Textarea id={`commune-note-${indicator.id}`} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Giải trình về sự thay đổi, bổ sung..." />
+                </div>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={onCancel}>Hủy</Button>
+                <Button onClick={handleSave}>Lưu thay đổi</Button>
+            </DialogFooter>
+        </DialogContent>
+    );
+}
+
+// Input rendering logic copied from self-assessment page
+function renderInput(indicator: Indicator | SubIndicator, specialIndicatorIds: string[], specialLabels: { no: string; yes: string }, customBooleanLabels: { true: string, false: string } | null, checkboxOptions: string[] | null, data: any, onValueChange: (id: string, value: any) => void, onIsTaskedChange: (id: string, isTasked: boolean) => void ) {
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => onValueChange(indicator.id, e.target.value);
+    const handleRadioChange = (val: string) => onValueChange(indicator.id, val === 'true');
+    const handleCheckboxChange = (option: string, checked: boolean) => { const newValue = { ...((data.value as object) || {}), [option]: checked }; onValueChange(indicator.id, newValue); };
+    if (checkboxOptions) { return ( <div className="grid gap-3"> {checkboxOptions.map((option, index) => ( <div key={index} className="flex items-center space-x-2"> <Checkbox id={`${indicator.id}-check-${index}`} checked={data.value?.[option] || false} onCheckedChange={(checked) => handleCheckboxChange(option, !!checked)} /> <Label htmlFor={`${indicator.id}-check-${index}`} className="font-normal">{option}</Label> </div> ))} </div> ) }
+    if (specialIndicatorIds.includes(indicator.id)) { return ( <RadioGroup onValueChange={(val) => onIsTaskedChange(indicator.id, val === 'true')} value={data.isTasked === true ? 'true' : data.isTasked === false ? 'false' : ''} className="grid gap-2"> <div className="flex items-center space-x-2"> <RadioGroupItem value="false" id={`${indicator.id}-notask`} /> <Label htmlFor={`${indicator.id}-notask`}>{specialLabels.no}</Label> </div> <div className="flex items-center space-x-2"> <RadioGroupItem value="true" id={`${indicator.id}-hastask`} /> <Label htmlFor={`${indicator.id}-hastask`}>{specialLabels.yes}</Label> </div> {data.isTasked === true && ( <div className="grid gap-2 pl-6 pt-2"> <Label htmlFor={`${indicator.id}-input`}>Tỷ lệ hoàn thành nhiệm vụ (%)</Label> <Input id={`${indicator.id}-input`} type="number" placeholder="Nhập tỷ lệ %" value={data.value || ''} onChange={handleChange} /> </div> )} </RadioGroup> ) }
+    switch (indicator.inputType) {
+        case 'boolean': { const trueLabel = customBooleanLabels ? customBooleanLabels.true : 'Đạt'; const falseLabel = customBooleanLabels ? customBooleanLabels.false : 'Không đạt'; return ( <RadioGroup onValueChange={handleRadioChange} value={data.value === true ? 'true' : data.value === false ? 'false' : ''} className="grid gap-2"> <div className="flex items-center space-x-2"> <RadioGroupItem value="true" id={`${indicator.id}-true`} /> <Label htmlFor={`${indicator.id}-true`}>{trueLabel}</Label> </div> <div className="flex items-center space-x-2"> <RadioGroupItem value="false" id={`${indicator.id}-false`} /> <Label htmlFor={`${indicator.id}-false`}>{falseLabel}</Label> </div> </RadioGroup> ); }
+        case 'number': return ( <div className="grid gap-2"> <Label htmlFor={`${indicator.id}-input`}>Tỷ lệ (%) hoặc số lượng</Label> <Input id={`${indicator.id}-input`} type="number" placeholder="Nhập giá trị" value={data.value || ''} onChange={handleChange} /> </div> );
+        case 'select': return ( <div className="grid gap-2"> <div className="flex items-center space-x-2"> <Checkbox id={`${indicator.id}-check1`} /> <Label htmlFor={`${indicator.id}-check1`}>Có giao diện thân thiện</Label> </div> <div className="flex items-center space-x-2"> <Checkbox id={`${indicator.id}-check2`} /> <Label htmlFor={`${indicator.id}-check2`}>Cập nhật thông tin thường xuyên</Label> </div> </div> );
+        case 'text': default: return ( <div className="grid gap-2"> <Label htmlFor={`${indicator.id}-input`}>Kết quả</Label> <Input id={`${indicator.id}-input`} type="text" placeholder="Nhập kết quả" value={data.value || ''} onChange={handleChange} /> </div> );
+    }
+}
+
+function FileUploadComponent({ indicatorId, files, onFileChange }: { indicatorId: string, files: (File | { name: string, url: string })[], onFileChange: (id: string, files: (File | { name: string, url: string })[]) => void }) {
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const newFiles = Array.from(e.target.files || []);
+        onFileChange(indicatorId, [...files, ...newFiles]);
+    };
+    const handleFileRemove = (fileToRemove: File | { name: string, url: string }) => {
+        onFileChange(indicatorId, files.filter(f => f.name !== fileToRemove.name));
+    };
+    return (
         <div className="grid gap-2">
-            <Label>Hồ sơ minh chứng bổ sung</Label>
             <div className="w-full relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-4 text-center hover:border-primary transition-colors">
                 <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground" />
                 <p className="mt-2 text-xs text-muted-foreground">
                     Kéo và thả tệp, hoặc <span className="font-semibold text-primary">nhấn để chọn</span>
                 </p>
-                <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={(e) => setFiles(Array.from(e.target.files || []))} />
+                <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={handleFileSelect} />
             </div>
             {files.length > 0 && (
                  <div className="space-y-2 mt-2">
@@ -42,7 +155,7 @@ function FileUploadComponent() {
                                 <FileIcon className="h-4 w-4 flex-shrink-0" />
                                 <span className="truncate">{file.name}</span>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setFiles(files.filter(f => f.name !== file.name))}>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleFileRemove(file)}>
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>
@@ -62,10 +175,10 @@ export default function AssessmentDetailPage() {
   const { toast } = useToast();
   
   const [assessment, setAssessment] = useState<Assessment | undefined>(() => assessments.find((a) => a.id === id));
-  const [communeExplanation, setCommuneExplanation] = useState(assessment?.communeExplanation || "");
   const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [revisingIndicator, setRevisingIndicator] = useState<(Indicator | SubIndicator) | null>(null);
 
   // State to hold admin notes for each indicator
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>(() => {
@@ -78,6 +191,9 @@ export default function AssessmentDetailPage() {
     return initialNotes;
   });
 
+  // State for commune to manage their revisions
+  const [revisionData, setRevisionData] = useState<Record<string, IndicatorResult>>({});
+  
   useEffect(() => {
     const currentAssessment = assessments.find((a) => a.id === id);
     setAssessment(currentAssessment);
@@ -87,6 +203,8 @@ export default function AssessmentDetailPage() {
             initialNotes[indicatorId] = currentAssessment.assessmentData[indicatorId].adminNote || '';
         }
         setAdminNotes(initialNotes);
+        // Initialize revision data when component loads
+        setRevisionData(JSON.parse(JSON.stringify(currentAssessment.assessmentData))); // Deep copy
     }
   }, [assessments, id]);
   
@@ -140,7 +258,8 @@ export default function AssessmentDetailPage() {
   };
   
   const handleResubmit = async () => {
-      const updatedAssessment = { ...assessment, status: 'pending_review' as const, communeExplanation };
+      // Logic to upload new files needs to be added here if needed
+      const updatedAssessment = { ...assessment, status: 'pending_review' as const, assessmentData: revisionData };
       await updateAssessments(assessments.map(a => a.id === id ? updatedAssessment : a));
       toast({
         title: "Gửi lại thành công",
@@ -150,87 +269,51 @@ export default function AssessmentDetailPage() {
   }
 
   const getIndicatorResult = (indicatorId: string): IndicatorResult => {
+    const revisedData = revisionData[indicatorId];
+    if (revisedData) return revisedData;
+
     if (!assessment?.assessmentData || !assessment.assessmentData[indicatorId]) {
-      // Return a default/empty state if no data is found for this indicator
       return { value: 'Chưa chấm', note: 'Chưa có giải trình.', files: [], status: 'pending' };
     }
     return assessment.assessmentData[indicatorId];
   };
+
+  const handleSaveRevision = (indicatorId: string, newData: IndicatorResult) => {
+      setRevisionData(prev => ({...prev, [indicatorId]: newData}));
+      toast({ title: "Đã lưu", description: `Đã cập nhật thay đổi cho chỉ tiêu.` });
+  }
+
   
    const handleReturnForRevision = async () => {
-        // Add admin notes to the assessment data before saving
         const assessmentDataWithNotes = { ...assessment.assessmentData };
         for (const indicatorId in adminNotes) {
             if (assessmentDataWithNotes[indicatorId]) {
                 assessmentDataWithNotes[indicatorId].adminNote = adminNotes[indicatorId];
             } else {
-                 assessmentDataWithNotes[indicatorId] = { 
-                    value: null, 
-                    note: '', 
-                    files: [], 
-                    status: 'pending', 
-                    adminNote: adminNotes[indicatorId]
-                };
+                 assessmentDataWithNotes[indicatorId] = { value: null, note: '', files: [], status: 'pending', adminNote: adminNotes[indicatorId] };
             }
         }
         
-        const updatedAssessment = { 
-            ...assessment, 
-            status: 'rejected' as const, // The status for a returned file is 'rejected'
-            rejectionReason: '', // General reason is removed. Specific notes are in assessmentData.
-            communeExplanation: '',
-            assessmentData: assessmentDataWithNotes,
-        };
-        
+        const updatedAssessment = { ...assessment, status: 'rejected' as const, communeExplanation: '', assessmentData: assessmentDataWithNotes, };
         await updateAssessments(assessments.map((a) => (a.id === id ? updatedAssessment : a)));
-
-        toast({
-            title: 'Đã trả lại hồ sơ',
-            description: `Đã gửi yêu cầu bổ sung cho ${assessmentUnitName}.`,
-        });
-        
+        toast({ title: 'Đã trả lại hồ sơ', description: `Đã gửi yêu cầu bổ sung cho ${assessmentUnitName}.`, });
         setIsReturnDialogOpen(false);
         router.push('/admin/reviews');
     };
 
   const renderResultValue = (result: IndicatorResult) => {
-    if (result.isTasked === false) {
-      return <Badge variant="secondary">Không được giao nhiệm vụ</Badge>;
-    }
-
+    if (result.isTasked === false) { return <Badge variant="secondary">Không được giao nhiệm vụ</Badge>; }
     const { value } = result;
-
-    if (typeof value === 'boolean') {
-      return <Badge variant={value ? 'default' : 'destructive'} className={value ? 'bg-green-600' : ''}>{value ? 'Đạt' : 'Không đạt'}</Badge>;
-    }
-    
-    if (typeof value === 'number') {
-      return <Badge variant="outline">{`${value}%`}</Badge>;
-    }
-    
+    if (typeof value === 'boolean') { return <Badge variant={value ? 'default' : 'destructive'} className={value ? 'bg-green-600' : ''}>{value ? 'Đạt' : 'Không đạt'}</Badge>; }
+    if (typeof value === 'number') { return <Badge variant="outline">{`${value}%`}</Badge>; }
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-        const selectedOptions = Object.entries(value)
-            .filter(([, isChecked]) => isChecked)
-            .map(([option]) => option);
-
-        if (selectedOptions.length === 0) {
-            return <p className="text-sm text-muted-foreground">Không có lựa chọn nào.</p>;
-        }
-
-        return (
-            <ul className="list-disc pl-5 space-y-1">
-                {selectedOptions.map((opt, i) => <li key={i} className="text-sm">{opt}</li>)}
-            </ul>
-        )
+        const selectedOptions = Object.entries(value).filter(([, isChecked]) => isChecked).map(([option]) => option);
+        if (selectedOptions.length === 0) { return <p className="text-sm text-muted-foreground">Không có lựa chọn nào.</p>; }
+        return ( <ul className="list-disc pl-5 space-y-1"> {selectedOptions.map((opt, i) => <li key={i} className="text-sm">{opt}</li>)} </ul> )
     }
-
-    if (value) {
-      return <Badge variant="outline">{String(value)}</Badge>;
-    }
-    
+    if (value) { return <Badge variant="outline">{String(value)}</Badge>; }
     return <Badge variant="secondary">Chưa có dữ liệu</Badge>;
   };
-
 
   const isActionDisabled = assessment.status === 'achieved_standard' || (role === 'admin' && assessment.status === 'rejected' && !assessment.communeExplanation);
   const isRejectedByAdmin = assessment.status === 'rejected';
@@ -243,47 +326,26 @@ export default function AssessmentDetailPage() {
         <CardHeader>
           <div className="flex justify-between items-start">
             <div className="flex-1"></div>
-            <Badge
-              variant={
-                assessment.status === 'achieved_standard'
-                  ? 'default'
-                  : assessment.status === 'rejected'
-                  ? 'destructive'
-                  : 'secondary'
-              }
-              className={assessment.status === 'achieved_standard' ? 'bg-blue-600' : ''}
-            >
+            <Badge variant={ assessment.status === 'achieved_standard' ? 'default' : assessment.status === 'rejected' ? 'destructive' : 'secondary' } className={assessment.status === 'achieved_standard' ? 'bg-blue-600' : ''} >
               {assessment.status === 'achieved_standard' && <Award className="mr-2 h-4 w-4" />}
               {assessment.status === 'rejected' && <XCircle className="mr-2 h-4 w-4" />}
               {assessment.status === 'pending_review' && <Clock className="mr-2 h-4 w-4" />}
-              {assessment.status === 'achieved_standard' ? 'Đạt chuẩn' :
-               assessment.status === 'rejected' ? 'Không đạt chuẩn / Bị trả lại' :
-               assessment.status === 'pending_review' ? 'Chờ duyệt' :
-               'Bản nháp'
-              }
+              {assessment.status === 'achieved_standard' ? 'Đạt chuẩn' : assessment.status === 'rejected' ? 'Không đạt chuẩn / Bị trả lại' : assessment.status === 'pending_review' ? 'Chờ duyệt' : 'Bản nháp' }
             </Badge>
           </div>
         </CardHeader>
         <CardContent>
-          {(assessment.status === 'rejected' || (assessment.status === 'pending_review' && assessment.rejectionReason)) && (
+          {(assessment.status === 'rejected' && assessment.rejectionReason) && (
             <Card className="mb-6 bg-destructive/10 border-destructive">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle /> Lý do từ chối / Trả lại</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-sm whitespace-pre-wrap">{assessment.rejectionReason}</p>
-                </CardContent>
+                <CardHeader> <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle /> Lý do từ chối / Trả lại</CardTitle> </CardHeader>
+                <CardContent> <p className="text-sm whitespace-pre-wrap">{assessment.rejectionReason}</p> </CardContent>
             </Card>
           )}
 
           {role === 'admin' && assessment.communeExplanation && (
               <Card className="mb-6 bg-blue-50 border-blue-200">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-blue-800"><MessageSquareQuote /> Giải trình từ xã</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <p className="text-sm text-blue-900">{assessment.communeExplanation}</p>
-                </CardContent>
+                <CardHeader> <CardTitle className="flex items-center gap-2 text-blue-800"><MessageSquareQuote /> Giải trình từ xã</CardTitle> </CardHeader>
+                <CardContent> <p className="text-sm text-blue-900">{assessment.communeExplanation}</p> </CardContent>
               </Card>
           )}
 
@@ -308,16 +370,12 @@ export default function AssessmentDetailPage() {
                                <>
                                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div className="md:col-span-1 font-medium text-muted-foreground">Kết quả tự chấm:</div>
-                                    <div className="md:col-span-2 font-semibold">
-                                        {renderResultValue(result)}
-                                    </div>
+                                    <div className="md:col-span-2 font-semibold"> {renderResultValue(result)} </div>
                                   </div>
-        
                                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div className="md:col-span-1 font-medium text-muted-foreground">Giải trình ban đầu:</div>
                                     <p className="md:col-span-2 text-sm">{result.note || "Không có giải trình."}</p>
                                   </div>
-        
                                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div className="md:col-span-1 font-medium text-muted-foreground">Minh chứng ban đầu:</div>
                                     <div className="md:col-span-2">
@@ -325,41 +383,42 @@ export default function AssessmentDetailPage() {
                                         <div className="space-y-2">
                                           {result.files.map((file: {name: string, url: string}, i: number) => (
                                             <div key={i} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
-                                              <div className="flex items-center gap-2 truncate">
-                                                <FileIcon className="h-4 w-4 flex-shrink-0" />
-                                                <span className="truncate">{file.name}</span>
-                                              </div>
+                                              <div className="flex items-center gap-2 truncate"> <FileIcon className="h-4 w-4 flex-shrink-0" /> <span className="truncate">{file.name}</span> </div>
                                               <div className="flex items-center">
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewFile(file)}>
-                                                  <Eye className="h-4 w-4" />
-                                                </Button>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewFile(file)}> <Eye className="h-4 w-4" /> </Button>
                                                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.open(file.url, '_blank')}><Download className="h-4 w-4" /></Button>
                                               </div>
                                             </div>
                                           ))}
                                         </div>
-                                      ) : (
-                                        <p className="text-sm text-muted-foreground">Không có tệp đính kèm.</p>
-                                      )}
+                                      ) : ( <p className="text-sm text-muted-foreground">Không có tệp đính kèm.</p> )}
                                     </div>
                                   </div>
                                 </>
 
-                                { (role === 'admin' || (role === 'commune_staff' && isRejectedByAdmin)) &&
+                                {result.communeNote && (
+                                     <div className="mt-4 p-4 border-t border-dashed border-blue-500 bg-blue-50/50 rounded-b-lg grid gap-2">
+                                        <Label className="font-semibold text-blue-800">Giải trình bổ sung của xã:</Label>
+                                        <p className="text-sm text-blue-900 whitespace-pre-wrap">{result.communeNote}</p>
+                                    </div>
+                                )}
+
+                                { (role === 'admin' || (role === 'commune_staff' && result.adminNote)) &&
                                   <div className="mt-4 p-4 border-t border-dashed border-amber-500 bg-amber-50/50 rounded-b-lg grid gap-4">
                                      {role === 'admin' ? (
                                         <>
                                             <Label htmlFor={`admin-note-${ind.id}`} className="font-semibold text-amber-800">Ghi chú của Admin cho chỉ tiêu này</Label>
-                                            <Textarea id={`admin-note-${ind.id}`} 
-                                                placeholder="Nhập ghi chú, yêu cầu chỉnh sửa..."
-                                                value={adminNote}
-                                                onChange={(e) => handleAdminNoteChange(ind.id, e.target.value)}
-                                            />
+                                            <Textarea id={`admin-note-${ind.id}`} placeholder="Nhập ghi chú, yêu cầu chỉnh sửa..." value={adminNote} onChange={(e) => handleAdminNoteChange(ind.id, e.target.value)} />
                                         </>
                                      ) : (
                                         <>
                                             <Label className="font-semibold text-amber-800">Ghi chú của Admin:</Label>
                                             {result.adminNote ? <p className="text-sm text-amber-900 whitespace-pre-wrap">{result.adminNote}</p> : <p className="text-sm text-muted-foreground">Không có ghi chú.</p>}
+                                            {isRejectedByAdmin && (
+                                                <Button variant="outline" size="sm" className="mt-2 w-fit" onClick={() => setRevisingIndicator(ind)}>
+                                                    <Edit className="mr-2 h-4 w-4" /> Bổ sung &amp; Giải trình
+                                                </Button>
+                                            )}
                                         </>
                                      )}
                                   </div>
@@ -368,9 +427,7 @@ export default function AssessmentDetailPage() {
                         )
                       }
                       
-                      if (!indicator.subIndicators || indicator.subIndicators.length === 0) {
-                          return renderIndicatorContent(indicator, false);
-                      }
+                      if (!indicator.subIndicators || indicator.subIndicators.length === 0) { return renderIndicatorContent(indicator, false); }
                       return (
                          <div key={indicator.id} className="grid gap-4 p-4 rounded-lg bg-card border shadow-sm">
                              <h4 className="font-semibold">{indicator.name}</h4>
@@ -379,7 +436,6 @@ export default function AssessmentDetailPage() {
                              </div>
                          </div>
                       );
-
                     })}
                   </div>
                 </AccordionContent>
@@ -388,23 +444,7 @@ export default function AssessmentDetailPage() {
           </Accordion>
           
           {role === 'admin' && (assessment.status === 'pending_review' || (assessment.status === 'rejected' && !!assessment.communeExplanation)) && (
-            <>
-                <Separator className="my-6" />
-                <div className="grid gap-4">
-                    <h3 className="text-lg font-headline">Thẩm định và Ra quyết định</h3>
-                </div>
-            </>
-          )}
-
-          {role === 'commune_staff' && isRejectedByAdmin && (
-              <div className="mt-6 p-4 border-t grid gap-4">
-                  <h3 className="text-lg font-headline">Giải trình chung và Bổ sung hồ sơ</h3>
-                  <div className="grid gap-2">
-                      <Label htmlFor="communeExplanation" className="text-sm font-medium">Nội dung giải trình chung</Label>
-                      <Textarea id="communeExplanation" placeholder="Giải trình chung về các nội dung đã khắc phục và bổ sung theo yêu cầu của Admin..." value={communeExplanation} onChange={(e) => setCommuneExplanation(e.target.value)} />
-                  </div>
-                  <FileUploadComponent />
-              </div>
+            <> <Separator className="my-6" /> <div className="grid gap-4"> <h3 className="text-lg font-headline">Thẩm định và Ra quyết định</h3> </div> </>
           )}
 
         </CardContent>
@@ -414,19 +454,14 @@ export default function AssessmentDetailPage() {
             {role === 'admin' && assessment.status === 'pending_review' &&(
               <>
                 <Button variant="destructive" onClick={() => setIsRejectDialogOpen(true)} disabled={isActionDisabled}><ThumbsDown className="mr-2 h-4 w-4" />Từ chối (Không đạt)</Button>
-                <Button 
-                    variant="outline" 
-                    className="text-amber-600 border-amber-500 hover:bg-amber-50 hover:text-amber-700"
-                    onClick={() => setIsReturnDialogOpen(true)}
-                    disabled={isActionDisabled}
-                >
+                <Button variant="outline" className="text-amber-600 border-amber-500 hover:bg-amber-50 hover:text-amber-700" onClick={() => setIsReturnDialogOpen(true)} disabled={isActionDisabled} >
                     <Undo2 className="mr-2 h-4 w-4" /> Trả lại
                 </Button>
                 <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleApprove} disabled={isActionDisabled}><Award className="mr-2 h-4 w-4" />Phê duyệt (Đạt chuẩn)</Button>
               </>
             )}
 
-             {role === 'admin' && assessment.status === 'rejected' && assessment.communeExplanation && (
+             {role === 'admin' && assessment.status === 'rejected' && assessment.assessmentData && (
                  <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleApprove}><Award className="mr-2 h-4 w-4" />Phê duyệt lại (Đạt chuẩn)</Button>
             )}
             
@@ -450,12 +485,7 @@ export default function AssessmentDetailPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>Hủy</AlertDialogCancel>
-                <AlertDialogAction 
-                    onClick={handleReturnForRevision}
-                    className="bg-amber-600 hover:bg-amber-700 focus:ring-amber-500"
-                >
-                    Xác nhận Trả lại
-                </AlertDialogAction>
+                <AlertDialogAction onClick={handleReturnForRevision} className="bg-amber-600 hover:bg-amber-700 focus:ring-amber-500" > Xác nhận Trả lại </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
@@ -470,29 +500,28 @@ export default function AssessmentDetailPage() {
             </AlertDialogHeader>
             <AlertDialogFooter>
                 <AlertDialogCancel>Hủy</AlertDialogCancel>
-                <AlertDialogAction 
-                    onClick={handleReject}
-                    className="bg-destructive hover:bg-destructive/90"
-                >
-                    Xác nhận Không Đạt
-                </AlertDialogAction>
+                <AlertDialogAction onClick={handleReject} className="bg-destructive hover:bg-destructive/90" > Xác nhận Không Đạt </AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>
 
+    <Dialog open={!!revisingIndicator} onOpenChange={(open) => !open && setRevisingIndicator(null)}>
+        {revisingIndicator && (
+            <RevisionDialog 
+                indicator={revisingIndicator} 
+                data={getIndicatorResult(revisingIndicator.id)}
+                onSave={handleSaveRevision}
+                onCancel={() => setRevisingIndicator(null)}
+                criteria={criteria}
+            />
+        )}
+    </Dialog>
+
     <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
-            <DialogHeader className="p-6 pb-0">
-                <DialogTitle>Xem trước: {previewFile?.name}</DialogTitle>
-            </DialogHeader>
+            <DialogHeader className="p-6 pb-0"> <DialogTitle>Xem trước: {previewFile?.name}</DialogTitle> </DialogHeader>
             <div className="flex-1 px-6 pb-6 h-full">
-                {previewFile && (
-                   <iframe 
-                        src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`} 
-                        className="w-full h-full border rounded-md" 
-                        title={previewFile.name}
-                    ></iframe>
-                )}
+                {previewFile && ( <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`} className="w-full h-full border rounded-md" title={previewFile.name} ></iframe> )}
             </div>
             <DialogFooter className="p-6 pt-0 border-t">
                 <Button variant="secondary" onClick={() => window.open(previewFile?.url, '_blank')}><Download className="mr-2 h-4 w-4"/> Tải xuống</Button>
