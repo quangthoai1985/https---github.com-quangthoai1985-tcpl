@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/layout/page-header";
 import type { Assessment, IndicatorResult } from '@/lib/data';
 import { cn } from "@/lib/utils";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 function FileUploadComponent() {
     const [files, setFiles] = React.useState<File[]>([]);
