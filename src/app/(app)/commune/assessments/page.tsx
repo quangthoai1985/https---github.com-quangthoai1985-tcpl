@@ -17,6 +17,7 @@ import type { Indicator, SubIndicator, Criterion, Assessment, IndicatorResult } 
 import { Textarea } from "@/components/ui/textarea";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
 
 type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
 // Updated value structure to handle the new logic
@@ -435,6 +436,7 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
 
 
 export default function SelfAssessmentPage() {
+  const router = useRouter();
   const { toast } = useToast();
   const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -659,6 +661,8 @@ export default function SelfAssessmentPage() {
             title: "Gửi đánh giá thành công!",
             description: "Hồ sơ của bạn đã được gửi đến Admin để xem xét.",
         });
+        
+        router.push('/dashboard');
 
     } catch (error) {
         console.error("Submission error:", error);
@@ -777,4 +781,3 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
-
