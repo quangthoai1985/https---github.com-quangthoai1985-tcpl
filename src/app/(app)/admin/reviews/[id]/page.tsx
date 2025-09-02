@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock, Award } from "lucide-react";
+import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock, Award, Undo2 } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -18,6 +18,7 @@ import { useData } from "@/context/DataContext";
 import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/layout/page-header";
 import type { Assessment, IndicatorResult } from '@/lib/data';
+import { cn } from "@/lib/utils";
 
 function FileUploadComponent() {
     const [files, setFiles] = React.useState<File[]>([]);
@@ -63,11 +64,35 @@ export default function AssessmentDetailPage() {
   const [rejectionReason, setRejectionReason] = useState(assessment?.rejectionReason || "");
   const [communeExplanation, setCommuneExplanation] = useState(assessment?.communeExplanation || "");
   const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
+  const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
+
+  // State to hold admin notes for each indicator
+  const [adminNotes, setAdminNotes] = useState<Record<string, string>>(() => {
+    const initialNotes: Record<string, string> = {};
+    if (assessment?.assessmentData) {
+        for (const indicatorId in assessment.assessmentData) {
+            initialNotes[indicatorId] = assessment.assessmentData[indicatorId].adminNote || '';
+        }
+    }
+    return initialNotes;
+  });
 
   useEffect(() => {
-    setAssessment(assessments.find((a) => a.id === id));
+    const currentAssessment = assessments.find((a) => a.id === id);
+    setAssessment(currentAssessment);
+    if (currentAssessment?.assessmentData) {
+        const initialNotes: Record<string, string> = {};
+        for (const indicatorId in currentAssessment.assessmentData) {
+            initialNotes[indicatorId] = currentAssessment.assessmentData[indicatorId].adminNote || '';
+        }
+        setAdminNotes(initialNotes);
+    }
   }, [assessments, id]);
   
+  const handleAdminNoteChange = (indicatorId: string, text: string) => {
+    setAdminNotes(prev => ({ ...prev, [indicatorId]: text }));
+  }
+
   const getUnitName = (unitId: string | undefined) => {
     if (!unitId) return "Không xác định";
     return units.find(u => u.id === unitId)?.name || "Không xác định";
@@ -138,6 +163,40 @@ export default function AssessmentDetailPage() {
     return assessment.assessmentData[indicatorId];
   };
   
+   const handleReturnForRevision = async () => {
+        if (!rejectionReason.trim()) {
+            toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng nhập lý do chung để trả lại hồ sơ.' });
+            return;
+        }
+
+        // Add admin notes to the assessment data before saving
+        const assessmentDataWithNotes = { ...assessment.assessmentData };
+        for (const indicatorId in adminNotes) {
+            if (assessmentDataWithNotes[indicatorId]) {
+                assessmentDataWithNotes[indicatorId].adminNote = adminNotes[indicatorId];
+            }
+        }
+        
+        const updatedAssessment = { 
+            ...assessment, 
+            status: 'rejected' as const,
+            rejectionReason: rejectionReason,
+            communeExplanation: '',
+            assessmentData: assessmentDataWithNotes,
+        };
+        
+        await updateAssessments(assessments.map((a) => (a.id === id ? updatedAssessment : a)));
+
+        toast({
+            title: 'Đã trả lại hồ sơ',
+            description: `Đã gửi yêu cầu bổ sung cho ${assessmentUnitName}.`,
+        });
+        
+        setIsReturnDialogOpen(false);
+        setRejectionReason(''); // Clear for next use
+        router.push('/admin/reviews');
+    };
+
   const renderResultValue = (result: IndicatorResult) => {
     if (result.isTasked === false) {
       return <Badge variant="secondary">Không được giao nhiệm vụ</Badge>;
@@ -178,6 +237,7 @@ export default function AssessmentDetailPage() {
 
 
   const isActionDisabled = assessment.status === 'achieved_standard' || (role === 'admin' && assessment.status === 'rejected' && !assessment.communeExplanation);
+  const isRejectedByAdmin = assessment.status === 'rejected';
 
   return (
     <>
@@ -241,123 +301,89 @@ export default function AssessmentDetailPage() {
                 <AccordionContent>
                   <div className="space-y-6 pl-8 pr-4">
                     {criterion.indicators.map(indicator => {
-                      const isRejected = assessment.status === 'rejected';
-
-                      return (
-                        <div key={indicator.id} className="grid gap-4 p-4 rounded-lg bg-card border shadow-sm">
-                          <h4 className="font-semibold">{indicator.name}</h4>
-                          
-                          {(!indicator.subIndicators || indicator.subIndicators.length === 0) ? (
-                            <>
-                                {(() => {
-                                  const result = getIndicatorResult(indicator.id);
-                                  return (
-                                    <>
-                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="md:col-span-1 font-medium text-muted-foreground">Kết quả tự chấm:</div>
-                                        <div className="md:col-span-2 font-semibold">
-                                            {renderResultValue(result)}
-                                        </div>
-                                      </div>
-            
-                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="md:col-span-1 font-medium text-muted-foreground">Giải trình ban đầu:</div>
-                                        <p className="md:col-span-2 text-sm">{result.note || "Không có giải trình."}</p>
-                                      </div>
-            
-                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <div className="md:col-span-1 font-medium text-muted-foreground">Minh chứng ban đầu:</div>
-                                        <div className="md:col-span-2">
-                                          {result.files.length > 0 ? (
-                                            <div className="space-y-2">
-                                              {result.files.map((file: {name: string, url: string}, i: number) => (
-                                                <div key={i} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
-                                                  <div className="flex items-center gap-2 truncate">
-                                                    <FileIcon className="h-4 w-4 flex-shrink-0" />
-                                                    <span className="truncate">{file.name}</span>
-                                                  </div>
-                                                  <div className="flex items-center">
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewFile(file)}>
-                                                      <Eye className="h-4 w-4" />
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.open(file.url, '_blank')}><Download className="h-4 w-4" /></Button>
-                                                  </div>
-                                                </div>
-                                              ))}
-                                            </div>
-                                          ) : (
-                                            <p className="text-sm text-muted-foreground">Không có tệp đính kèm.</p>
-                                          )}
-                                        </div>
-                                      </div>
-                                    </>
-                                  )
-                                })()}
-                            </>
-                          ) : (
-                            <div className="pl-6 border-l-2 border-dashed space-y-4">
-                               {indicator.subIndicators.map(sub => {
-                                  const result = getIndicatorResult(sub.id);
-                                   return (
-                                       <div key={sub.id} className="pt-2">
-                                            <p className="font-medium text-base">{sub.name}</p>
-                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                                                <div className="md:col-span-1 font-medium text-muted-foreground">Kết quả tự chấm:</div>
-                                                <div className="md:col-span-2 font-semibold">
-                                                    {renderResultValue(result)}
-                                                </div>
-                                              </div>
-                    
-                                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                                                <div className="md:col-span-1 font-medium text-muted-foreground">Giải trình ban đầu:</div>
-                                                <p className="md:col-span-2 text-sm">{result.note || "Không có giải trình."}</p>
-                                              </div>
-                    
-                                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                                                <div className="md:col-span-1 font-medium text-muted-foreground">Minh chứng ban đầu:</div>
-                                                <div className="md:col-span-2">
-                                                  {result.files.length > 0 ? (
-                                                    <div className="space-y-2">
-                                                      {result.files.map((file: {name: string, url: string}, i: number) => (
-                                                        <div key={i} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
-                                                          <div className="flex items-center gap-2 truncate">
-                                                            <FileIcon className="h-4 w-4 flex-shrink-0" />
-                                                            <span className="truncate">{file.name}</span>
-                                                          </div>
-                                                          <div className="flex items-center">
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewFile(file)}>
-                                                              <Eye className="h-4 w-4" />
-                                                            </Button>
-                                                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.open(file.url, '_blank')}><Download className="h-4 w-4" /></Button>
-                                                          </div>
-                                                        </div>
-                                                      ))}
-                                                    </div>
-                                                  ) : (
-                                                    <p className="text-sm text-muted-foreground">Không có tệp đính kèm.</p>
-                                                  )}
-                                                </div>
-                                              </div>
-                                       </div>
-                                   )
-                               })}
-                            </div>
-                          )}
-
-                          
-                          {role === 'commune_staff' && isRejected && (
-                              <div className="mt-4 p-4 border-t border-dashed border-amber-500 bg-amber-50/50 rounded-b-lg grid gap-4">
-                                  <h5 className="font-semibold text-amber-800">Giải trình và Bổ sung cho chỉ tiêu này</h5>
-                                  <div className="grid gap-2">
-                                      <Label htmlFor={`explanation-${indicator.id}`} className="text-sm">Nội dung giải trình chung</Label>
-                                      <Textarea id="communeExplanation" placeholder="Giải trình chung về các nội dung đã khắc phục và bổ sung..." value={communeExplanation} onChange={(e) => setCommuneExplanation(e.target.value)} />
+                      const renderIndicatorContent = (ind: typeof indicator | (typeof indicator.subIndicators)[0], isSub: boolean) => {
+                        const result = getIndicatorResult(ind.id);
+                        const adminNote = adminNotes[ind.id] || '';
+                        
+                        return (
+                          <div key={ind.id} className={cn("grid gap-4 p-4 rounded-lg bg-card border shadow-sm", isSub && "relative pl-6 pt-4 mt-2")}>
+                              {isSub && <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>}
+                              <h4 className="font-semibold">{ind.name}</h4>
+                               <>
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="md:col-span-1 font-medium text-muted-foreground">Kết quả tự chấm:</div>
+                                    <div className="md:col-span-2 font-semibold">
+                                        {renderResultValue(result)}
+                                    </div>
                                   </div>
-                                  <FileUploadComponent />
-                              </div>
-                          )}
+        
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="md:col-span-1 font-medium text-muted-foreground">Giải trình ban đầu:</div>
+                                    <p className="md:col-span-2 text-sm">{result.note || "Không có giải trình."}</p>
+                                  </div>
+        
+                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="md:col-span-1 font-medium text-muted-foreground">Minh chứng ban đầu:</div>
+                                    <div className="md:col-span-2">
+                                      {result.files.length > 0 ? (
+                                        <div className="space-y-2">
+                                          {result.files.map((file: {name: string, url: string}, i: number) => (
+                                            <div key={i} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
+                                              <div className="flex items-center gap-2 truncate">
+                                                <FileIcon className="h-4 w-4 flex-shrink-0" />
+                                                <span className="truncate">{file.name}</span>
+                                              </div>
+                                              <div className="flex items-center">
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewFile(file)}>
+                                                  <Eye className="h-4 w-4" />
+                                                </Button>
+                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.open(file.url, '_blank')}><Download className="h-4 w-4" /></Button>
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <p className="text-sm text-muted-foreground">Không có tệp đính kèm.</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                </>
 
-                        </div>
-                      )
+                                { (role === 'admin' || (role === 'commune_staff' && isRejectedByAdmin)) &&
+                                  <div className="mt-4 p-4 border-t border-dashed border-amber-500 bg-amber-50/50 rounded-b-lg grid gap-4">
+                                     {role === 'admin' ? (
+                                        <>
+                                            <Label htmlFor={`admin-note-${ind.id}`} className="font-semibold text-amber-800">Ghi chú của Admin cho chỉ tiêu này</Label>
+                                            <Textarea id={`admin-note-${ind.id}`} 
+                                                placeholder="Nhập ghi chú, yêu cầu chỉnh sửa..."
+                                                value={adminNote}
+                                                onChange={(e) => handleAdminNoteChange(ind.id, e.target.value)}
+                                            />
+                                        </>
+                                     ) : (
+                                        <>
+                                            <Label className="font-semibold text-amber-800">Ghi chú của Admin:</Label>
+                                            {result.adminNote ? <p className="text-sm text-amber-900 whitespace-pre-wrap">{result.adminNote}</p> : <p className="text-sm text-muted-foreground">Không có ghi chú.</p>}
+                                        </>
+                                     )}
+                                  </div>
+                                }
+                          </div>
+                        )
+                      }
+                      
+                      if (!indicator.subIndicators || indicator.subIndicators.length === 0) {
+                          return renderIndicatorContent(indicator, false);
+                      }
+                      return (
+                         <div key={indicator.id} className="grid gap-4 p-4 rounded-lg bg-card border shadow-sm">
+                             <h4 className="font-semibold">{indicator.name}</h4>
+                             <div className="pl-6 border-l-2 border-dashed space-y-4">
+                                {indicator.subIndicators.map(sub => renderIndicatorContent(sub, true))}
+                             </div>
+                         </div>
+                      );
+
                     })}
                   </div>
                 </AccordionContent>
@@ -371,25 +397,47 @@ export default function AssessmentDetailPage() {
                 <div className="grid gap-4">
                     <h3 className="text-lg font-headline">Thẩm định và Ra quyết định</h3>
                     <div className="grid gap-2">
-                         <Label htmlFor="review-notes" className="font-medium">Ghi chú/Lý do (Nếu Từ chối)</Label>
-                        <Textarea id="review-notes" placeholder="Nếu 'Từ chối', vui lòng nhập lý do để xã biết và khắc phục..." onChange={(e) => setRejectionReason(e.target.value)} defaultValue={rejectionReason} />
+                         <Label htmlFor="review-notes" className="font-medium">Lý do chung (Nếu Từ chối hoặc Trả lại)</Label>
+                        <Textarea id="review-notes" placeholder="Nhập lý do chung..." onChange={(e) => setRejectionReason(e.target.value)} defaultValue={rejectionReason} />
                     </div>
                 </div>
             </>
           )}
 
+          {role === 'commune_staff' && isRejectedByAdmin && (
+              <div className="mt-6 p-4 border-t grid gap-4">
+                  <h3 className="text-lg font-headline">Giải trình chung và Bổ sung hồ sơ</h3>
+                  <div className="grid gap-2">
+                      <Label htmlFor="communeExplanation" className="text-sm font-medium">Nội dung giải trình chung</Label>
+                      <Textarea id="communeExplanation" placeholder="Giải trình chung về các nội dung đã khắc phục và bổ sung theo yêu cầu của Admin..." value={communeExplanation} onChange={(e) => setCommuneExplanation(e.target.value)} />
+                  </div>
+                  <FileUploadComponent />
+              </div>
+          )}
+
         </CardContent>
         <CardFooter className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => router.back()}>Quay lại</Button>
+            
             {role === 'admin' && assessment.status === 'pending_review' &&(
               <>
                 <Button variant="destructive" onClick={handleReject} disabled={isActionDisabled}><ThumbsDown className="mr-2 h-4 w-4" />Từ chối (Không đạt)</Button>
+                <Button 
+                    variant="outline" 
+                    className="text-amber-600 border-amber-500 hover:bg-amber-50 hover:text-amber-700"
+                    onClick={() => setIsReturnDialogOpen(true)}
+                    disabled={isActionDisabled}
+                >
+                    <Undo2 className="mr-2 h-4 w-4" /> Trả lại
+                </Button>
                 <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleApprove} disabled={isActionDisabled}><Award className="mr-2 h-4 w-4" />Phê duyệt (Đạt chuẩn)</Button>
               </>
             )}
+
              {role === 'admin' && assessment.status === 'rejected' && assessment.communeExplanation && (
                  <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleApprove}><Award className="mr-2 h-4 w-4" />Phê duyệt lại (Đạt chuẩn)</Button>
             )}
+            
             {role === 'commune_staff' && assessment.status === 'rejected' && (
                 <>
                     <Button variant="outline">Lưu nháp giải trình</Button>
@@ -399,6 +447,37 @@ export default function AssessmentDetailPage() {
         </CardFooter>
       </Card>
     </div>
+
+    <Dialog open={isReturnDialogOpen} onOpenChange={setIsReturnDialogOpen}>
+        <DialogContent>
+            <DialogHeader>
+                <DialogTitle>Xác nhận trả lại hồ sơ</DialogTitle>
+                <DialogDescription>
+                    Hành động này sẽ trả lại hồ sơ cho <strong>{assessmentUnitName}</strong> để chỉnh sửa.
+                    Vui lòng nhập lý do chung. Các ghi chú chi tiết bạn đã nhập ở trên cũng sẽ được lưu lại.
+                </DialogDescription>
+            </DialogHeader>
+             <div className="grid gap-4 py-4">
+                <Label htmlFor="returnReason">Lý do chung</Label>
+                <Textarea 
+                id="returnReason"
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder={"Ví dụ: Hồ sơ cần bổ sung minh chứng ở một số chỉ tiêu, vui lòng xem ghi chú chi tiết và hoàn thiện."}
+                />
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={() => setIsReturnDialogOpen(false)}>Hủy</Button>
+                <Button 
+                    variant="destructive" 
+                    disabled={!rejectionReason.trim()}
+                    onClick={handleReturnForRevision}
+                >
+                    Xác nhận Trả lại
+                </Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
 
     <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">

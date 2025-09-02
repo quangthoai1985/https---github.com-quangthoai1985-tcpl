@@ -7,6 +7,8 @@ export type IndicatorResult = {
     files: { name: string, url: string }[];
     note: string;
     status: 'achieved' | 'not-achieved' | 'pending';
+    adminNote?: string; // Ghi chú của admin cho từng chỉ tiêu
+    statusByAdmin?: 'approved' | 'rejected' | 'pending'; // Trạng thái admin duyệt cho từng chỉ tiêu
 };
 
 
