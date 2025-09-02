@@ -79,11 +79,11 @@ export type Assessment = {
   id: string;
   communeId: string;
   assessmentPeriodId: string;
-  status: 'draft' | 'pending_review' | 'rejected' | 'pending_registration' | 'registration_approved' | 'registration_rejected' | 'achieved_standard';
+  status: 'draft' | 'pending_review' | 'returned_for_revision' | 'rejected' | 'pending_registration' | 'registration_approved' | 'registration_rejected' | 'achieved_standard';
   submissionDate?: string; // Should be a timestamp, optional until submitted
   approvalDate?: string;   // Optional
   approverId?: string;     // Optional
-  rejectionReason?: string; // Optional
+  rejectionReason?: string; // Optional - General reason from admin
   communeExplanation?: string; // Optional for resubmission
   submittedBy?: string; // User ID
   registrationFormUrl?: string; // URL to the uploaded registration form
@@ -92,6 +92,7 @@ export type Assessment = {
   achievementDate?: string; // Date when standard was achieved
   recognizerId?: string; // User ID of who recognized the achievement
 };
+
 
 export type Document = {
   id: string;

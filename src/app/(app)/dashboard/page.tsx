@@ -18,6 +18,7 @@ import {
   Undo2,
   Award,
   FileX,
+  Send,
 } from 'lucide-react';
 import {
   Card,
@@ -87,11 +88,14 @@ const AdminDashboard = () => {
         const notRegisteredCount = notRegisteredAssessments.length;
 
         const pendingReviewCount = periodAssessments.filter(a => a.status === 'pending_review').length;
+        const returnedForRevisionCount = periodAssessments.filter(a => a.status === 'returned_for_revision').length;
+
 
         const chartData = [
             { name: 'Đạt chuẩn', value: achievedCount, fill: 'hsl(var(--chart-2))' },
             { name: 'Chờ duyệt', value: pendingReviewCount, fill: 'hsl(var(--chart-3))' },
             { name: 'Không đạt chuẩn', value: notAchievedCount, fill: 'hsl(var(--chart-4))' },
+            { name: 'Yêu cầu Bổ sung', value: returnedForRevisionCount, fill: 'hsl(var(--chart-5))' },
             { name: 'Chưa đăng ký', value: notRegisteredCount, fill: 'hsl(var(--muted))' },
         ];
         
@@ -151,7 +155,7 @@ const AdminDashboard = () => {
         link: "/admin/reviews?tab=rejected"
       },
       { 
-        title: "Không đăng ký", 
+        title: "Chưa đăng ký", 
         value: notRegisteredCount.toString(), 
         icon: FileX, 
         color: "bg-gray-500",
@@ -160,21 +164,8 @@ const AdminDashboard = () => {
     ];
 
     const getUnitName = (communeId?: string) => {
-        if (!communeId) return { communeName: 'Không xác định', districtName: '', provinceName: '' };
-        
-        const unit = units.find(u => u.id === communeId);
-        if (!unit) return { communeName: 'Không xác định', districtName: '', provinceName: '' };
-        
-        const district = units.find(u => u.id === unit.parentId);
-        if (!district) return { communeName: unit.name, districtName: 'Không xác định', provinceName: '' };
-        
-        const province = units.find(u => u.id === district.parentId);
-
-        return {
-            communeName: unit.name,
-            districtName: district?.name || '',
-            provinceName: province?.name || '',
-        }
+        if (!communeId) return 'Không xác định';
+        return units.find(u => u.id === communeId)?.name || 'Không xác định';
     }
 
 
@@ -299,29 +290,23 @@ const AdminDashboard = () => {
               </TableHeader>
               <TableBody>
                 {assessments.filter(a => a.status === 'pending_review' && a.assessmentPeriodId === selectedPeriod).length > 0 ? 
-                  assessments.filter(a => a.status === 'pending_review' && a.assessmentPeriodId === selectedPeriod).map((assessment) => {
-                      const unitInfo = getUnitName(assessment.communeId);
-                      return (
-                          <TableRow key={assessment.id} className="hover:bg-muted/50">
-                              <TableCell>
-                              <div className="font-medium">{unitInfo.communeName}</div>
-                              <div className="text-sm text-muted-foreground">
-                                  {unitInfo.districtName}, {unitInfo.provinceName}
-                              </div>
-                              </TableCell>
-                              <TableCell className="hidden md:table-cell">{assessment.submissionDate}</TableCell>
-                              <TableCell className="hidden lg:table-cell">{assessment.submittedBy}</TableCell>
-                              <TableCell>
-                              <Badge className="bg-amber-500 text-white hover:bg-amber-500/90">Chờ duyệt</Badge>
-                              </TableCell>
-                              <TableCell>
-                                  <Button variant="outline" size="sm" asChild>
-                                      <Link href={`/admin/reviews/${assessment.id}`}>Xem chi tiết</Link>
-                                  </Button>
-                              </TableCell>
-                          </TableRow>
-                      )
-                  }) : (
+                  assessments.filter(a => a.status === 'pending_review' && a.assessmentPeriodId === selectedPeriod).map((assessment) => (
+                      <TableRow key={assessment.id} className="hover:bg-muted/50">
+                          <TableCell>
+                          <div className="font-medium">{getUnitName(assessment.communeId)}</div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">{assessment.submissionDate}</TableCell>
+                          <TableCell className="hidden lg:table-cell">{assessment.submittedBy}</TableCell>
+                          <TableCell>
+                          <Badge className="bg-amber-500 text-white hover:bg-amber-500/90">Chờ duyệt</Badge>
+                          </TableCell>
+                          <TableCell>
+                              <Button variant="outline" size="sm" asChild>
+                                  <Link href={`/admin/reviews/${assessment.id}`}>Xem chi tiết</Link>
+                              </Button>
+                          </TableCell>
+                      </TableRow>
+                  )) : (
                     <TableRow>
                       <TableCell colSpan={5} className="h-24 text-center">
                         Không có hồ sơ nào đang chờ duyệt.
@@ -444,10 +429,10 @@ const CommuneDashboard = () => {
     };
 
     const deadlinePassed = isRegistrationDeadlinePassed();
-    const canStartAssessment = myAssessment?.status === 'registration_approved' || myAssessment?.status === 'draft' || myAssessment?.status === 'rejected';
+    const canStartAssessment = myAssessment?.status === 'registration_approved' || myAssessment?.status === 'draft' || myAssessment?.status === 'returned_for_revision';
     const isRegistrationRejected = myAssessment?.status === 'registration_rejected';
     const isPendingRegistration = myAssessment?.status === 'pending_registration';
-    const isAssessmentReturned = myAssessment?.status === 'rejected';
+    const isAssessmentReturned = myAssessment?.status === 'returned_for_revision';
 
     const renderRegistrationStatus = () => {
         if (!myAssessment) {
@@ -469,7 +454,7 @@ const CommuneDashboard = () => {
                                 <Input id="registration-file" type="file" onChange={(e) => setRegistrationFile(e.target.files ? e.target.files[0] : null)} disabled={isSubmitting} />
                             </div>
                             <Button onClick={handleRegister} disabled={!registrationFile || isSubmitting}>
-                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FilePenLine className="mr-2 h-4 w-4" />}
+                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                 {isSubmitting ? 'Đang gửi...' : 'Gửi đăng ký'}
                             </Button>
                         </>
@@ -545,7 +530,7 @@ const CommuneDashboard = () => {
                                         <Input id="registration-file-resubmit" type="file" onChange={(e) => setRegistrationFile(e.target.files ? e.target.files[0] : null)} disabled={isSubmitting} />
                                     </div>
                                     <Button onClick={handleResubmit} disabled={!registrationFile || isSubmitting} className='mt-2'>
-                                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FilePenLine className="mr-2 h-4 w-4" />}
+                                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                                         {isSubmitting ? 'Đang gửi lại...' : 'Gửi lại'}
                                     </Button>
                                 </div>
@@ -622,7 +607,7 @@ const CommuneDashboard = () => {
                                 </AlertDescription>
                             </Alert>
                              <Button className='mt-4' asChild>
-                                <Link href="/commune/assessments">
+                                <Link href="/admin/reviews/[id]" as={`/admin/reviews/${myAssessment?.id}`}>
                                     <Edit className="mr-2 h-4 w-4" />
                                     Chỉnh sửa & Gửi lại hồ sơ
                                 </Link>
@@ -668,7 +653,8 @@ const CommuneDashboard = () => {
                                const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
                                     'achieved_standard': { text: 'Đạt chuẩn', icon: Award, badge: 'default', className: 'bg-blue-600' },
                                     'pending_review': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary', className: 'bg-amber-500' },
-                                    'rejected': { text: 'Yêu cầu Bổ sung', icon: Undo2, badge: 'destructive' },
+                                    'returned_for_revision': { text: 'Yêu cầu Bổ sung', icon: Undo2, badge: 'destructive', className: 'bg-amber-600' },
+                                    'rejected': { text: 'Không đạt', icon: XCircle, badge: 'destructive' },
                                     'draft': { text: 'Bản nháp', icon: Edit, badge: 'secondary' },
                                     'pending_registration': { text: 'Chờ duyệt ĐK', icon: FileClock, badge: 'secondary', className: 'bg-blue-500' },
                                     'registration_approved': { text: 'ĐK đã duyệt', icon: UserCheck, badge: 'default', className: 'bg-green-500' },
@@ -688,8 +674,8 @@ const CommuneDashboard = () => {
                                         </TableCell>
                                         <TableCell className="text-right">
                                              <Button variant="outline" size="sm" asChild>
-                                                <Link href={['draft', 'registration_approved', 'rejected'].includes(assessment.status) ? '/commune/assessments' : `/admin/reviews/${assessment.id}`}>
-                                                  {assessment.status === 'rejected' ? 
+                                                <Link href={['draft', 'registration_approved', 'returned_for_revision'].includes(assessment.status) ? '/commune/assessments' : `/admin/reviews/${assessment.id}`}>
+                                                  {assessment.status === 'returned_for_revision' ? 
                                                     <><Edit className="mr-2 h-4 w-4" />Giải trình & Gửi lại</> : 
                                                     (assessment.status === 'draft' || assessment.status === 'registration_approved') ?
                                                     <><Edit className="mr-2 h-4 w-4" />Tiếp tục chấm điểm</> :

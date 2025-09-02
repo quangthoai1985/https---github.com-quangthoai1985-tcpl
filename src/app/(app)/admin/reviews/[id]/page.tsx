@@ -176,7 +176,6 @@ export default function AssessmentDetailPage() {
   
   const [assessment, setAssessment] = useState<Assessment | undefined>(() => assessments.find((a) => a.id === id));
   const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
-  const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
   const [revisingIndicator, setRevisingIndicator] = useState<(Indicator | SubIndicator) | null>(null);
 
@@ -245,7 +244,7 @@ export default function AssessmentDetailPage() {
   };
 
   const handleReject = async () => {
-    const updatedAssessment = { ...assessment, status: 'rejected' as const, rejectionReason: "", communeExplanation: "" };
+    const updatedAssessment = { ...assessment, status: 'rejected' as const, rejectionReason: "" };
     await updateAssessments(assessments.map(a => a.id === id ? updatedAssessment : a));
     
     toast({
@@ -294,10 +293,9 @@ export default function AssessmentDetailPage() {
             }
         }
         
-        const updatedAssessment = { ...assessment, status: 'rejected' as const, communeExplanation: '', assessmentData: assessmentDataWithNotes, };
+        const updatedAssessment = { ...assessment, status: 'returned_for_revision' as const, assessmentData: assessmentDataWithNotes, };
         await updateAssessments(assessments.map((a) => (a.id === id ? updatedAssessment : a)));
         toast({ title: 'Đã trả lại hồ sơ', description: `Đã gửi yêu cầu bổ sung cho ${assessmentUnitName}.`, });
-        setIsReturnDialogOpen(false);
         router.push('/admin/reviews');
     };
 
@@ -315,8 +313,8 @@ export default function AssessmentDetailPage() {
     return <Badge variant="secondary">Chưa có dữ liệu</Badge>;
   };
 
-  const isActionDisabled = assessment.status === 'achieved_standard' || (role === 'admin' && assessment.status === 'rejected' && !assessment.communeExplanation);
-  const isRejectedByAdmin = assessment.status === 'rejected';
+  const isActionDisabled = assessment.status === 'achieved_standard' || (role === 'admin' && assessment.status === 'rejected');
+  const isReturnedForRevision = assessment.status === 'returned_for_revision';
 
   return (
     <>
@@ -330,25 +328,14 @@ export default function AssessmentDetailPage() {
               {assessment.status === 'achieved_standard' && <Award className="mr-2 h-4 w-4" />}
               {assessment.status === 'rejected' && <XCircle className="mr-2 h-4 w-4" />}
               {assessment.status === 'pending_review' && <Clock className="mr-2 h-4 w-4" />}
-              {assessment.status === 'achieved_standard' ? 'Đạt chuẩn' : assessment.status === 'rejected' ? 'Không đạt chuẩn / Bị trả lại' : assessment.status === 'pending_review' ? 'Chờ duyệt' : 'Bản nháp' }
+              {assessment.status === 'returned_for_revision' && <Undo2 className="mr-2 h-4 w-4" />}
+              {
+                {'achieved_standard': 'Đạt chuẩn', 'rejected': 'Không đạt chuẩn', 'pending_review': 'Chờ duyệt', 'returned_for_revision': 'Đã trả lại'}[assessment.status] || 'Bản nháp'
+              }
             </Badge>
           </div>
         </CardHeader>
         <CardContent>
-          {(assessment.status === 'rejected' && assessment.rejectionReason) && (
-            <Card className="mb-6 bg-destructive/10 border-destructive">
-                <CardHeader> <CardTitle className="flex items-center gap-2 text-destructive"><AlertTriangle /> Lý do từ chối / Trả lại</CardTitle> </CardHeader>
-                <CardContent> <p className="text-sm whitespace-pre-wrap">{assessment.rejectionReason}</p> </CardContent>
-            </Card>
-          )}
-
-          {role === 'admin' && assessment.communeExplanation && (
-              <Card className="mb-6 bg-blue-50 border-blue-200">
-                <CardHeader> <CardTitle className="flex items-center gap-2 text-blue-800"><MessageSquareQuote /> Giải trình từ xã</CardTitle> </CardHeader>
-                <CardContent> <p className="text-sm text-blue-900">{assessment.communeExplanation}</p> </CardContent>
-              </Card>
-          )}
-
           <Separator className="mb-6" />
           <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
             {criteria.map((criterion, index) => (
@@ -414,7 +401,7 @@ export default function AssessmentDetailPage() {
                                         <>
                                             <Label className="font-semibold text-amber-800">Ghi chú của Admin:</Label>
                                             {result.adminNote ? <p className="text-sm text-amber-900 whitespace-pre-wrap">{result.adminNote}</p> : <p className="text-sm text-muted-foreground">Không có ghi chú.</p>}
-                                            {isRejectedByAdmin && (
+                                            {isReturnedForRevision && (
                                                 <Button variant="outline" size="sm" className="mt-2 w-fit" onClick={() => setRevisingIndicator(ind)}>
                                                     <Edit className="mr-2 h-4 w-4" /> Bổ sung &amp; Giải trình
                                                 </Button>
@@ -443,7 +430,7 @@ export default function AssessmentDetailPage() {
             ))}
           </Accordion>
           
-          {role === 'admin' && (assessment.status === 'pending_review' || (assessment.status === 'rejected' && !!assessment.communeExplanation)) && (
+          {role === 'admin' && (assessment.status === 'pending_review' || assessment.status === 'returned_for_revision') && (
             <> <Separator className="my-6" /> <div className="grid gap-4"> <h3 className="text-lg font-headline">Thẩm định và Ra quyết định</h3> </div> </>
           )}
 
@@ -451,21 +438,17 @@ export default function AssessmentDetailPage() {
         <CardFooter className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => router.back()}>Quay lại</Button>
             
-            {role === 'admin' && assessment.status === 'pending_review' &&(
+            {role === 'admin' && (assessment.status === 'pending_review' || assessment.status === 'returned_for_revision') &&(
               <>
                 <Button variant="destructive" onClick={() => setIsRejectDialogOpen(true)} disabled={isActionDisabled}><ThumbsDown className="mr-2 h-4 w-4" />Từ chối (Không đạt)</Button>
-                <Button variant="outline" className="text-amber-600 border-amber-500 hover:bg-amber-50 hover:text-amber-700" onClick={() => setIsReturnDialogOpen(true)} disabled={isActionDisabled} >
+                <Button variant="outline" className="text-amber-600 border-amber-500 hover:bg-amber-50 hover:text-amber-700" onClick={handleReturnForRevision} disabled={isActionDisabled} >
                     <Undo2 className="mr-2 h-4 w-4" /> Trả lại
                 </Button>
                 <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleApprove} disabled={isActionDisabled}><Award className="mr-2 h-4 w-4" />Phê duyệt (Đạt chuẩn)</Button>
               </>
             )}
-
-             {role === 'admin' && assessment.status === 'rejected' && assessment.assessmentData && (
-                 <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleApprove}><Award className="mr-2 h-4 w-4" />Phê duyệt lại (Đạt chuẩn)</Button>
-            )}
             
-            {role === 'commune_staff' && assessment.status === 'rejected' && (
+            {role === 'commune_staff' && assessment.status === 'returned_for_revision' && (
                 <>
                     <Button variant="outline">Lưu nháp giải trình</Button>
                     <Button onClick={handleResubmit}>Gửi lại đánh giá</Button>
@@ -474,21 +457,6 @@ export default function AssessmentDetailPage() {
         </CardFooter>
       </Card>
     </div>
-
-    <AlertDialog open={isReturnDialogOpen} onOpenChange={setIsReturnDialogOpen}>
-        <AlertDialogContent>
-            <AlertDialogHeader>
-                <AlertDialogTitle>Xác nhận trả lại hồ sơ?</AlertDialogTitle>
-                <AlertDialogDescription>
-                    Hành động này sẽ trả lại hồ sơ cho <strong>{assessmentUnitName}</strong> để chỉnh sửa và bổ sung. Các ghi chú chi tiết bạn đã nhập sẽ được lưu lại và gửi cho họ.
-                </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-                <AlertDialogCancel>Hủy</AlertDialogCancel>
-                <AlertDialogAction onClick={handleReturnForRevision} className="bg-amber-600 hover:bg-amber-700 focus:ring-amber-500" > Xác nhận Trả lại </AlertDialogAction>
-            </AlertDialogFooter>
-        </AlertDialogContent>
-    </AlertDialog>
     
     <AlertDialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
         <AlertDialogContent>

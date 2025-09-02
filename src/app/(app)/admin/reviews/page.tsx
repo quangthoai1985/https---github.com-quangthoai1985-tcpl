@@ -16,7 +16,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Eye, CheckCircle, XCircle, Clock, FileX, ShieldQuestion, Award, Undo2 } from 'lucide-react';
+import { Eye, CheckCircle, XCircle, Clock, FileX, ShieldQuestion, Award, Undo2, Send } from 'lucide-react';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -49,7 +49,7 @@ export default function ReviewAssessmentsPage() {
     const [selectedPeriod, setSelectedPeriod] = React.useState<string | undefined>(
         assessmentPeriods.find(p => p.isActive)?.id
     );
-    const [actionTarget, setActionTarget] = useState<{assessment: Assessment, type: 'return'} | null>(null);
+    const [actionTarget, setActionTarget] = useState<Assessment | null>(null);
 
     const { filteredAssessments } = useMemo(() => {
         if (!selectedPeriod) return { filteredAssessments: [] };
@@ -61,23 +61,19 @@ export default function ReviewAssessmentsPage() {
         if (!actionTarget) {
             return;
         }
-
-        const { assessment } = actionTarget;
         
         const updatedAssessment = { 
-            ...assessment, 
-            status: 'rejected' as const, // Use 'rejected' status to indicate it's returned to commune
-            rejectionReason: '', // Clear old general reason if any
-            communeExplanation: '', // Clear previous explanation
+            ...actionTarget, 
+            status: 'returned_for_revision' as const, 
         };
         
         await updateAssessments(
-            assessments.map((a) => (a.id === assessment.id ? updatedAssessment : a))
+            assessments.map((a) => (a.id === actionTarget.id ? updatedAssessment : a))
         );
 
         toast({
             title: 'Đã trả lại hồ sơ',
-            description: `Đã gửi yêu cầu bổ sung cho ${getUnitName(assessment.communeId)}.`,
+            description: `Đã gửi yêu cầu bổ sung cho ${getUnitName(actionTarget.communeId)}.`,
         });
         
         setActionTarget(null);
@@ -85,6 +81,7 @@ export default function ReviewAssessmentsPage() {
 
     const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
         'pending_review': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary' },
+        'returned_for_revision': { text: 'Yêu cầu Bổ sung', icon: Undo2, badge: 'destructive', className: 'bg-amber-600 hover:bg-amber-700' },
         'rejected': { text: 'Không đạt chuẩn', icon: XCircle, badge: 'destructive' },
         'draft': { text: 'Bản nháp', icon: ShieldQuestion, badge: 'secondary' },
         'not_sent': { text: 'Chưa gửi HS', icon: FileX, badge: 'secondary', className: 'bg-muted text-muted-foreground' },
@@ -207,7 +204,7 @@ export default function ReviewAssessmentsPage() {
                                             size="sm" 
                                             variant="outline" 
                                             className="text-amber-600 border-amber-500 hover:bg-amber-50 hover:text-amber-700"
-                                            onClick={() => setActionTarget({assessment, type: 'return'})}
+                                            onClick={() => setActionTarget(assessment)}
                                         >
                                             <Undo2 className="mr-2 h-4 w-4"/> Trả lại
                                         </Button>
@@ -241,6 +238,7 @@ export default function ReviewAssessmentsPage() {
     const tabs = [
         { value: "pending_review", label: "Chờ duyệt", data: filteredAssessments.filter(a => a.status === 'pending_review') },
         { value: "achieved_standard", label: "Đạt chuẩn", data: filteredAssessments.filter(a => a.status === 'achieved_standard') },
+        { value: "returned_for_revision", label: "Yêu cầu Bổ sung", data: filteredAssessments.filter(a => a.status === 'returned_for_revision') },
         { value: "rejected", label: "Không đạt chuẩn", data: filteredAssessments.filter(a => a.status === 'rejected') },
         { value: "not_sent", label: "Chưa gửi HS", data: notSentCommunes },
     ];
@@ -265,7 +263,7 @@ export default function ReviewAssessmentsPage() {
         </CardHeader>
         <CardContent>
             <Tabs defaultValue="pending_review">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-5">
                 {tabs.map(tab => (
                     <TabsTrigger key={tab.value} value={tab.value}>
                         {tab.label} ({tab.data.length})
@@ -273,7 +271,7 @@ export default function ReviewAssessmentsPage() {
                 ))}
             </TabsList>
             {tabs.map(tab => (
-                 <TabsContent key={tab.value} value={tab.value}>
+                 <TabsContent key={tab.value} value={tab.value} className="mt-4">
                     <AssessmentTable assessmentsToShow={tab.data} status={tab.value} />
                 </TabsContent>
             ))}
@@ -286,7 +284,7 @@ export default function ReviewAssessmentsPage() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Xác nhận trả lại hồ sơ?</AlertDialogTitle>
                     <AlertDialogDescription>
-                    Hành động này sẽ trả lại hồ sơ cho đơn vị <strong>{getUnitName(actionTarget?.assessment.communeId)}</strong> để họ chỉnh sửa và bổ sung.
+                    Hành động này sẽ trả lại hồ sơ cho đơn vị <strong>{getUnitName(actionTarget?.communeId)}</strong> để họ chỉnh sửa và bổ sung.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
