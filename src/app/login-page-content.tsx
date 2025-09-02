@@ -45,7 +45,7 @@ export default function LoginPageContent() {
     }
   };
 
-  const bgImageUrl = loginConfig?.backgroundImageUrl || "https://picsum.photos/1200/800";
+  const bgImageUrl = loginConfig?.backgroundImageUrl;
   const logoUrl = loginConfig?.logoUrl || "/logo.png";
   const logoWidth = loginConfig?.logoWidth || 100;
   const logoHeight = loginConfig?.logoHeight || 100;
@@ -56,14 +56,16 @@ export default function LoginPageContent() {
   return (
     <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
       <div className="hidden bg-muted lg:flex items-center justify-center p-8" style={backgroundColor ? { backgroundColor } : {}}>
-        <Image
-          src={bgImageUrl}
-          alt="Image"
-          width={bgImageWidth}
-          height={bgImageHeight}
-          className="object-contain dark:brightness-[0.8]"
-          data-ai-hint="login background"
-        />
+        {bgImageUrl && (
+            <Image
+            src={bgImageUrl}
+            alt="Image"
+            width={bgImageWidth}
+            height={bgImageHeight}
+            className="object-contain dark:brightness-[0.8]"
+            data-ai-hint="login background"
+            />
+        )}
       </div>
       <div className="flex items-center justify-center py-12">
         <div className="mx-auto grid w-[350px] gap-6">
