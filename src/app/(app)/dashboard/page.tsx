@@ -221,7 +221,7 @@ const AdminDashboard = () => {
             <Link href={card.link} key={index} className="flex">
               <Card className={`${card.color} text-white shadow-lg transition-transform transform hover:scale-102 flex flex-col w-full`}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
+                  <CardTitle className="text-sm font-bold">
                     {card.title}
                   </CardTitle>
                   <Icon className="h-5 w-5" />
