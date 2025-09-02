@@ -26,16 +26,17 @@ export default function LoginPageContent() {
   const [password, setPassword] = React.useState('');
   
   React.useEffect(() => {
-    if (currentUser) {
+    // Only redirect if not loading and user is found
+    if (!loading && currentUser) {
         router.push('/dashboard');
     }
-  }, [currentUser, router]);
+  }, [currentUser, loading, router]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     const success = await setLoginInfo(email, password);
     if (success) {
-      // router.push('/dashboard') is handled by the useEffect now
+      // The useEffect above will handle the redirect
     } else {
       toast({
         variant: 'destructive',
@@ -44,6 +45,15 @@ export default function LoginPageContent() {
       });
     }
   };
+
+  // While data is loading, show a spinner to prevent rendering with incomplete config
+  if (loading) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
 
   const bgImageUrl = loginConfig?.backgroundImageUrl;
   const logoUrl = loginConfig?.logoUrl || "/logo.png";
@@ -58,12 +68,12 @@ export default function LoginPageContent() {
       <div className="hidden bg-muted lg:flex items-center justify-center p-8" style={backgroundColor ? { backgroundColor } : {}}>
         {bgImageUrl && (
             <Image
-            src={bgImageUrl}
-            alt="Image"
-            width={bgImageWidth}
-            height={bgImageHeight}
-            className="object-contain dark:brightness-[0.8]"
-            data-ai-hint="login background"
+                src={bgImageUrl}
+                alt="Image"
+                width={bgImageWidth}
+                height={bgImageHeight}
+                className="object-contain dark:brightness-[0.8]"
+                data-ai-hint="login background"
             />
         )}
       </div>
