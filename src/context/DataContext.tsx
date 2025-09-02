@@ -193,43 +193,59 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchPrivateData = useCallback(async (loggedInUser: User) => {
     if (!db) return;
-    console.log("Fetching private data for logged in user...");
+    console.log("Fetching private data for logged in user:", loggedInUser.role);
     try {
-        // LƯU Ý: Việc get toàn bộ collection có thể bị chặn bởi Rules 
-        // nếu người dùng không phải admin. Cần xem xét việc query dữ liệu
-        // dựa trên vai trò của người dùng trong tương lai.
+        // Tạo một mảng các promise để lấy dữ liệu chung
+        const commonPromises = [
+            getDocs(collection(db, 'units')),
+            getDocs(collection(db, 'assessmentPeriods')),
+            getDocs(collection(db, 'assessments')),
+            getDocs(collection(db, 'criteria')),
+            getDocs(collection(db, 'guidanceDocuments')),
+        ];
+
+        // Chạy các promise chung trước
         const [
             unitsSnapshot,
             periodsSnapshot,
             assessmentsSnapshot,
             criteriaSnapshot,
             documentsSnapshot,
-            usersSnapshot, // Tạm thời vẫn lấy hết users cho các chức năng của admin
-        ] = await Promise.all([
-            getDocs(collection(db, 'units')),
-            getDocs(collection(db, 'assessmentPeriods')),
-            getDocs(collection(db, 'assessments')),
-            getDocs(collection(db, 'criteria')),
-            getDocs(collection(db, 'guidanceDocuments')),
-            getDocs(collection(db, 'users')),
-        ]);
+        ] = await Promise.all(commonPromises);
 
         const fetchedUnits = unitsSnapshot.docs.map(d => d.data() as Unit);
         const fetchedAssessments = assessmentsSnapshot.docs.map(d => d.data() as Assessment);
 
+        // Cập nhật state cho dữ liệu chung
         setUnits(fetchedUnits);
         setAssessmentPeriods(periodsSnapshot.docs.map(d => d.data() as AssessmentPeriod));
         setAssessments(fetchedAssessments);
         setCriteria(criteriaSnapshot.docs.map(d => d.data() as Criterion));
         setGuidanceDocuments(documentsSnapshot.docs.map(d => d.data() as AppDocument));
-        setUsers(usersSnapshot.docs.map(d => d.data() as User));
+
+        // ✅ LOGIC QUAN TRỌNG: Chỉ lấy danh sách users nếu là admin
+        if (loggedInUser.role === 'admin') {
+            console.log("User is admin, fetching all users...");
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            setUsers(usersSnapshot.docs.map(d => d.data() as User));
+        } else {
+            // Nếu không phải admin, đặt danh sách users là một mảng rỗng
+            setUsers([]);
+        }
         
+        // Tạo thông báo sau khi đã có đủ dữ liệu cần thiết
         setNotifications(generateNotifications(loggedInUser, fetchedAssessments, fetchedUnits));
         console.log("Private data fetched successfully.");
+
     } catch (error) {
         console.error("Error fetching private data:", error);
+        // Có lỗi xảy ra, đảm bảo các state đều rỗng để tránh hiển thị dữ liệu cũ
+        setUsers([]);
+        setUnits([]);
+        setAssessments([]);
+        // ... reset các state khác nếu cần
     }
-  }, [db]);
+}, [db]); // Bỏ generateNotifications khỏi dependencies nếu nó không thay đổi
 
   // ✅ BƯỚC 1: Tải dữ liệu CÔNG KHAI ngay khi có 'db'.
   // Chạy độc lập và không phụ thuộc vào trạng thái đăng nhập.

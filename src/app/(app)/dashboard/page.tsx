@@ -16,6 +16,8 @@ import {
   AlertTriangle,
   Loader2,
   Undo2,
+  Award,
+  FileX,
 } from 'lucide-react';
 import {
   Card,
@@ -62,13 +64,13 @@ const AdminDashboard = () => {
     const {
         periodAssessments,
         totalCommunes,
-        pendingReviewCount,
-        approvedCount,
-        rejectedCount,
-        pendingRegistrationCount,
+        achievedCount,
+        notAchievedCount,
+        notRegisteredCount,
         assessmentStatusChartData,
         chartConfig,
         progressData,
+        pendingReviewCount
     } = React.useMemo(() => {
         const allCommuneUnits = units.filter(u => u.type === 'commune');
         const totalCommunes = allCommuneUnits.length;
@@ -77,21 +79,18 @@ const AdminDashboard = () => {
             ? assessments.filter(a => a.assessmentPeriodId === selectedPeriod)
             : [];
         
-        const sentCommuneIds = new Set(periodAssessments.map(a => a.communeId));
+        const registeredCommuneIds = new Set(periodAssessments.map(a => a.communeId));
         
+        const achievedCount = periodAssessments.filter(a => a.status === 'achieved_standard').length;
+        const notAchievedCount = periodAssessments.filter(a => a.status === 'approved').length; // Approved but not yet 'achieved'
+        const notRegisteredCount = totalCommunes - registeredCommuneIds.size;
         const pendingReviewCount = periodAssessments.filter(a => a.status === 'pending_review').length;
-        const approvedCount = periodAssessments.filter(a => a.status === 'approved').length;
-        const rejectedCount = periodAssessments.filter(a => a.status === 'rejected').length;
-        const pendingRegistrationCount = periodAssessments.filter(a => a.status === 'pending_registration').length;
-
-        const notYetRegisteredCount = totalCommunes - sentCommuneIds.size;
 
         const chartData = [
-            { name: 'Đã duyệt', value: approvedCount, fill: 'hsl(var(--chart-2))' },
+            { name: 'Đạt chuẩn', value: achievedCount, fill: 'hsl(var(--chart-2))' },
             { name: 'Chờ duyệt', value: pendingReviewCount, fill: 'hsl(var(--chart-3))' },
-            { name: 'Bị từ chối', value: rejectedCount, fill: 'hsl(var(--chart-4))' },
-            { name: 'Chưa đăng ký', value: notYetRegisteredCount, fill: 'hsl(var(--muted))' },
-            { name: 'Chờ duyệt ĐK', value: pendingRegistrationCount, fill: 'hsl(var(--chart-1))' },
+            { name: 'Đã duyệt (chưa đạt)', value: notAchievedCount, fill: 'hsl(var(--chart-4))' },
+            { name: 'Chưa đăng ký', value: notRegisteredCount, fill: 'hsl(var(--muted))' },
         ];
         
         const assessmentStatusChartData = chartData.filter(d => d.value > 0);
@@ -106,23 +105,23 @@ const AdminDashboard = () => {
 
         // Mock progress data for now, as we don't have time-series data
         const progressData = [
-          { name: 'Tuần 1', 'Số lượng': Math.max(0, Math.floor(sentCommuneIds.size * 0.1) - 1) },
-          { name: 'Tuần 2', 'Số lượng': Math.max(0, Math.floor(sentCommuneIds.size * 0.3) - 2) },
-          { name: 'Tuần 3', 'Số lượng': Math.max(0, Math.floor(sentCommuneIds.size * 0.6) - 5) },
-          { name: 'Tuần 4', 'Số lượng': sentCommuneIds.size },
+          { name: 'Tuần 1', 'Số lượng': Math.max(0, Math.floor(registeredCommuneIds.size * 0.1) - 1) },
+          { name: 'Tuần 2', 'Số lượng': Math.max(0, Math.floor(registeredCommuneIds.size * 0.3) - 2) },
+          { name: 'Tuần 3', 'Số lượng': Math.max(0, Math.floor(registeredCommuneIds.size * 0.6) - 5) },
+          { name: 'Tuần 4', 'Số lượng': registeredCommuneIds.size },
         ];
 
 
         return {
             periodAssessments,
             totalCommunes,
-            pendingReviewCount,
-            approvedCount,
-            rejectedCount,
-            pendingRegistrationCount,
+            achievedCount,
+            notAchievedCount,
+            notRegisteredCount,
             assessmentStatusChartData,
             chartConfig,
             progressData,
+            pendingReviewCount
         };
 
     }, [selectedPeriod, assessments, units]);
@@ -133,29 +132,29 @@ const AdminDashboard = () => {
         title: "Tổng số xã", 
         value: totalCommunes.toString(), 
         icon: Users, 
-        color: "bg-gray-500",
+        color: "bg-blue-500",
         link: "/admin/units"
       },
       { 
-        title: "Chờ duyệt ĐK", 
-        value: pendingRegistrationCount.toString(), 
-        icon: UserCheck, 
-        color: "bg-blue-500",
-        link: "/admin/registrations?tab=pending"
-      },
-      { 
-        title: "Chờ duyệt HS", 
-        value: pendingReviewCount.toString(), 
-        icon: FileClock, 
-        color: "bg-amber-500",
+        title: "Đạt chuẩn TCDPL", 
+        value: achievedCount.toString(), 
+        icon: Award, 
+        color: "bg-green-500",
         link: "/admin/reviews"
       },
       { 
-        title: "Đã duyệt", 
-        value: approvedCount.toString(), 
-        icon: ThumbsUp, 
-        color: "bg-emerald-500",
+        title: "Chưa đạt chuẩn TCDPL", 
+        value: notAchievedCount.toString(), 
+        icon: AlertTriangle, 
+        color: "bg-red-500",
         link: "/admin/reviews"
+      },
+      { 
+        title: "Không đăng ký", 
+        value: notRegisteredCount.toString(), 
+        icon: FileX, 
+        color: "bg-gray-500",
+        link: "/admin/registrations?tab=unregistered"
       },
     ];
 
@@ -302,29 +301,37 @@ const AdminDashboard = () => {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {periodAssessments.filter(a => a.status === 'pending_review').map((assessment) => {
-                    const unitInfo = getUnitName(assessment.communeId);
-                    return (
-                        <TableRow key={assessment.id} className="hover:bg-muted/50">
-                            <TableCell>
-                            <div className="font-medium">{unitInfo.communeName}</div>
-                            <div className="text-sm text-muted-foreground">
-                                {unitInfo.districtName}, {unitInfo.provinceName}
-                            </div>
-                            </TableCell>
-                            <TableCell className="hidden md:table-cell">{assessment.submissionDate}</TableCell>
-                            <TableCell className="hidden lg:table-cell">{assessment.submittedBy}</TableCell>
-                            <TableCell>
-                            <Badge className="bg-amber-500 text-white hover:bg-amber-500/90">Chờ duyệt</Badge>
-                            </TableCell>
-                            <TableCell>
-                                <Button variant="outline" size="sm" asChild>
-                                    <Link href={`/admin/reviews/${assessment.id}`}>Xem chi tiết</Link>
-                                </Button>
-                            </TableCell>
-                        </TableRow>
-                    )
-                })}
+                {periodAssessments.filter(a => a.status === 'pending_review').length > 0 ? 
+                  periodAssessments.filter(a => a.status === 'pending_review').map((assessment) => {
+                      const unitInfo = getUnitName(assessment.communeId);
+                      return (
+                          <TableRow key={assessment.id} className="hover:bg-muted/50">
+                              <TableCell>
+                              <div className="font-medium">{unitInfo.communeName}</div>
+                              <div className="text-sm text-muted-foreground">
+                                  {unitInfo.districtName}, {unitInfo.provinceName}
+                              </div>
+                              </TableCell>
+                              <TableCell className="hidden md:table-cell">{assessment.submissionDate}</TableCell>
+                              <TableCell className="hidden lg:table-cell">{assessment.submittedBy}</TableCell>
+                              <TableCell>
+                              <Badge className="bg-amber-500 text-white hover:bg-amber-500/90">Chờ duyệt</Badge>
+                              </TableCell>
+                              <TableCell>
+                                  <Button variant="outline" size="sm" asChild>
+                                      <Link href={`/admin/reviews/${assessment.id}`}>Xem chi tiết</Link>
+                                  </Button>
+                              </TableCell>
+                          </TableRow>
+                      )
+                  }) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-24 text-center">
+                        Không có hồ sơ nào đang chờ duyệt.
+                      </TableCell>
+                    </TableRow>
+                  )
+                }
               </TableBody>
             </Table>
           </CardContent>
