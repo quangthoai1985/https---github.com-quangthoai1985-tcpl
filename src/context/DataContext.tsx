@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useCallback } from 'react';
@@ -13,7 +12,7 @@ import {
     type LoginConfig
 } from '@/lib/data';
 import { initializeApp, getApp, getApps, FirebaseOptions, type FirebaseApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, type Firestore, deleteDoc } from 'firebase/firestore';
+import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, type Firestore, deleteDoc, getDoc } from 'firebase/firestore'; // Import 'getDoc'
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser, type Auth } from 'firebase/auth';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
@@ -27,19 +26,15 @@ const firebaseConfig: FirebaseOptions = {
   appId: "1:851876581009:web:60bfbcc40055f76f607930"
 };
 
-// Helper function to initialize Firebase services safely on the client-side (for Next.js SSR)
+// Helper function to initialize Firebase services safely on the client-side
 const getFirebaseServices = () => {
-    // If we're on the server, return nulls to avoid errors
     if (typeof window === 'undefined') {
         return { app: null, db: null, auth: null, storage: null };
     }
-
-    // If we're on the client, initialize Firebase
     const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
     const db = getFirestore(app);
     const auth = getAuth(app);
     const storage = getStorage(app);
-    
     return { app, db, auth, storage };
 };
 
@@ -110,6 +105,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       return allUnits.find(u => u.id === unitId)?.name || 'Không xác định';
   }
 
+  // ... (Hàm generateNotifications của bạn không thay đổi, giữ nguyên)
   const generateNotifications = (user: User | null, allAssessments: Assessment[], allUnits: Unit[]) => {
       if (!user) return [];
       
@@ -195,17 +191,20 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       return generated.slice(0, 10);
   };
 
-const fetchPrivateData = useCallback(async (loggedInUser: User) => {
+  const fetchPrivateData = useCallback(async (loggedInUser: User) => {
     if (!db) return;
     console.log("Fetching private data for logged in user...");
     try {
+        // LƯU Ý: Việc get toàn bộ collection có thể bị chặn bởi Rules 
+        // nếu người dùng không phải admin. Cần xem xét việc query dữ liệu
+        // dựa trên vai trò của người dùng trong tương lai.
         const [
             unitsSnapshot,
             periodsSnapshot,
             assessmentsSnapshot,
             criteriaSnapshot,
             documentsSnapshot,
-            usersSnapshot,
+            usersSnapshot, // Tạm thời vẫn lấy hết users cho các chức năng của admin
         ] = await Promise.all([
             getDocs(collection(db, 'units')),
             getDocs(collection(db, 'assessmentPeriods')),
@@ -230,59 +229,68 @@ const fetchPrivateData = useCallback(async (loggedInUser: User) => {
     } catch (error) {
         console.error("Error fetching private data:", error);
     }
-}, [db]);
+  }, [db]);
+
+  // ✅ BƯỚC 1: Tải dữ liệu CÔNG KHAI ngay khi có 'db'.
+  // Chạy độc lập và không phụ thuộc vào trạng thái đăng nhập.
+  useEffect(() => {
+    const fetchPublicData = async () => {
+        if (!db) return;
+        console.log("Fetching public data (login config)...");
+        try {
+            // Tối ưu: Đọc trực tiếp document thay vì cả collection
+            const configDocRef = doc(db, 'configurations', 'loginPage');
+            const configDocSnap = await getDoc(configDocRef);
+            
+            if (configDocSnap.exists()) {
+                setLoginConfig(configDocSnap.data() as LoginConfig);
+                console.log("Public data fetched successfully.");
+            } else {
+                console.log("No login config found.");
+                setLoginConfig(null);
+            }
+        } catch (error) {
+            console.error("Error fetching public data:", error);
+        }
+    };
+    fetchPublicData();
+  }, [db]);
 
 
-const fetchPublicData = useCallback(async () => {
-    if (!db) return;
-    console.log("Fetching public data (login config)...");
-    try {
-        const configSnapshot = await getDocs(collection(db, 'configurations'));
-        const loginConfigDoc = configSnapshot.docs.find(doc => doc.id === 'loginPage');
-        setLoginConfig(loginConfigDoc ? loginConfigDoc.data() as LoginConfig : null);
-        console.log("Public data fetched successfully.");
-    } catch (error) {
-        console.error("Error fetching public data:", error);
-    }
-}, [db]);
-
-
+  // ✅ BƯỚC 2: Lắng nghe trạng thái đăng nhập và chỉ tải dữ liệu RIÊNG TƯ KHI CẦN.
   useEffect(() => {
     if (!auth || !db) return;
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       setLoading(true);
-      if (firebaseUser && firebaseUser.email) {
-        const idTokenResult = await firebaseUser.getIdTokenResult(true);
-        console.log("%c USER TOKEN CLAIMS:", "color: blue; font-size: 16px;", idTokenResult.claims);
+      if (firebaseUser) {
+        // Người dùng đã đăng nhập
         try {
-            const usersSnapshot = await getDocs(collection(db, 'users'));
-            const allUsers = usersSnapshot.docs.map(doc => ({ ...doc.data()} as User));
-            
-            const loggedInUser = allUsers.find(u => u.username.toLowerCase() === firebaseUser.email!.toLowerCase());
+            // ✅ SỬA LỖI: Đọc trực tiếp document của người dùng bằng UID, không quét cả collection.
+            const userDocRef = doc(db, 'users', firebaseUser.uid);
+            const userDocSnap = await getDoc(userDocRef);
 
-            if (loggedInUser) {
+            if (userDocSnap.exists()) {
+              const loggedInUser = userDocSnap.data() as User;
               setCurrentUser(loggedInUser);
               setRole(loggedInUser.role);
-              await fetchPublicData();
+              
+              // Chỉ tải dữ liệu riêng tư sau khi đã xác nhận được người dùng
               await fetchPrivateData(loggedInUser);
             } else {
-              console.error("User profile not found in Firestore for email:", firebaseUser.email);
-              await signOut(auth);
-              setCurrentUser(null);
-              setRole(null);
+              // Trường hợp hiếm: có auth user nhưng không có profile trong Firestore
+              console.error("User profile not found in Firestore for uid:", firebaseUser.uid);
+              await signOut(auth); // Đăng xuất người dùng
             }
         } catch(e) {
              console.error("Error fetching user profile:", e);
              await signOut(auth);
-             setCurrentUser(null);
-             setRole(null);
         }
 
       } else {
-        await fetchPublicData(); // Fetch only public data when logged out
+        // Người dùng đã đăng xuất hoặc chưa đăng nhập
         setCurrentUser(null);
         setRole(null);
-        // Clear sensitive data on logout
+        // Dọn dẹp state chứa dữ liệu nhạy cảm
         setUsers([]);
         setUnits([]);
         setAssessments([]);
@@ -295,13 +303,14 @@ const fetchPublicData = useCallback(async () => {
     });
 
     return () => unsubscribe();
-  }, [auth, db, fetchPublicData, fetchPrivateData]);
+  }, [auth, db, fetchPrivateData]); // Bỏ fetchPublicData khỏi dependencies
 
   const setLoginInfo = async (email: string, password: string): Promise<boolean> => {
     if (!auth) return false;
     setLoading(true);
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        // Listener onAuthStateChanged sẽ tự động xử lý việc tải dữ liệu sau khi đăng nhập thành công
         return !!userCredential.user;
     } catch(e) {
         console.error("Login Error: ", e);
@@ -312,13 +321,11 @@ const fetchPublicData = useCallback(async () => {
 
   const logout = async () => {
     if (!auth) return;
-    setLoading(true);
     try {
       await signOut(auth);
+      // Listener onAuthStateChanged sẽ tự động dọn dẹp state
     } catch (error) {
       console.error("Error signing out: ", error);
-    } finally {
-        setLoading(false);
     }
   };
 
@@ -359,7 +366,8 @@ const fetchPublicData = useCallback(async () => {
       setLoading(true);
       const docRef = doc(db, 'configurations', 'loginPage');
       await setDoc(docRef, newConfig, { merge: true });
-      setLoginConfig(newConfig);
+      // Cập nhật lại state cục bộ để UI thay đổi ngay lập tức
+      setLoginConfig(prevConfig => ({...prevConfig, ...newConfig}));
       setLoading(false);
   }
 
@@ -377,27 +385,22 @@ const fetchPublicData = useCallback(async () => {
       }
   };
 
+  // refreshData được đơn giản hóa, vì onAuthStateChanged đã xử lý logic chính
   const refreshData = useCallback(async () => {
-      if (!auth || !db) {
-        console.log("Auth or DB not initialized, skipping refresh.");
+      if (!auth?.currentUser || !db) {
+        console.log("User not logged in or DB not ready, skipping refresh.");
         return;
       }
       setLoading(true);
-      if (auth.currentUser) {
-          const usersSnapshot = await getDocs(collection(db, 'users'));
-          const allUsers = usersSnapshot.docs.map(d => d.data() as User);
-          const loggedInUser = allUsers.find(u => u.username.toLowerCase() === auth.currentUser?.email?.toLowerCase());
-          if (loggedInUser) {
-              await fetchPrivateData(loggedInUser);
-          } else {
-              // User might have been deleted, log them out
-              await logout();
-          }
+      const userDocRef = doc(db, 'users', auth.currentUser.uid);
+      const userDocSnap = await getDoc(userDocRef);
+      if (userDocSnap.exists()) {
+          await fetchPrivateData(userDocSnap.data() as User);
       } else {
-          await fetchPublicData();
+          await logout();
       }
       setLoading(false);
-  }, [auth, db, fetchPrivateData, fetchPublicData]);
+  }, [auth, db, fetchPrivateData]);
   
   const markNotificationAsRead = (notificationId: string) => {
     setNotifications(prevNotifications => 
@@ -413,7 +416,6 @@ const fetchPublicData = useCallback(async () => {
   const updateAssessments = createFirestoreUpdater('assessments', setAssessments);
   const updateCriteria = createFirestoreUpdater('criteria', setCriteria);
   const updateGuidanceDocuments = createFirestoreUpdater('guidanceDocuments', setGuidanceDocuments);
-
 
   return (
     <DataContext.Provider value={{ 
@@ -447,5 +449,3 @@ export const useData = () => {
   }
   return context;
 };
-
-    
