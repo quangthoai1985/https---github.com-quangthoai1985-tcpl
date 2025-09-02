@@ -79,18 +79,26 @@ export type Assessment = {
   id: string;
   communeId: string;
   assessmentPeriodId: string;
-  status: 'draft' | 'pending_review' | 'returned_for_revision' | 'rejected' | 'pending_registration' | 'registration_approved' | 'registration_rejected' | 'achieved_standard';
-  submissionDate?: string; // Should be a timestamp, optional until submitted
-  approvalDate?: string;   // Optional
-  approverId?: string;     // Optional
-  rejectionReason?: string; // Optional - General reason from admin
-  communeExplanation?: string; // Optional for resubmission
+  
+  // NEW: Separated statuses
+  registrationStatus: 'pending' | 'approved' | 'rejected';
+  assessmentStatus: 'not_started' | 'draft' | 'pending_review' | 'returned_for_revision' | 'achieved_standard' | 'rejected';
+
+  // Timestamps and user info
+  registrationSubmissionDate?: string;
+  assessmentSubmissionDate?: string;
+  approvalDate?: string;   // Date of final "achieved_standard"
+  
   submittedBy?: string; // User ID
-  registrationFormUrl?: string; // URL to the uploaded registration form
+  approverId?: string;     // Optional
+  
+  // Registration-related fields
+  registrationFormUrl?: string;
   registrationRejectionReason?: string;
+  
+  // Assessment-related fields
+  assessmentRejectionReason?: string; // Final rejection reason
   assessmentData?: Record<string, IndicatorResult>; // Holds all self-assessment data
-  achievementDate?: string; // Date when standard was achieved
-  recognizerId?: string; // User ID of who recognized the achievement
 };
 
 
@@ -139,5 +147,3 @@ export const progressData = [
   { name: 'Tuần 5', 'Số lượng': 13 },
   { name: 'Tuần 6', 'Số lượng': 20 },
 ];
-
-    

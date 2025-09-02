@@ -35,7 +35,7 @@ import {
   ThumbsDown,
   ThumbsUp,
   XCircle,
-  Undo2, // Import Return icon
+  Undo2,
 } from 'lucide-react';
 import PageHeader from '@/components/layout/page-header';
 import { useData } from '@/context/DataContext';
@@ -92,26 +92,34 @@ export default function RegistrationManagementPage() {
   };
 
   const handleUpdateStatus = async (
-    assessment: Assessment,
-    newStatus: 'registration_approved' | 'registration_rejected',
+    assessmentId: string,
+    newStatus: 'approved' | 'rejected' | 'pending',
     reason?: string
   ) => {
+    const assessmentToUpdate = assessments.find(a => a.id === assessmentId);
+    if (!assessmentToUpdate) return;
     
-    const updatedAssessment = { 
-      ...assessment, 
-      status: newStatus,
-      registrationRejectionReason: newStatus === 'registration_rejected' ? reason : ''
+    const updatedAssessment: Assessment = { 
+      ...assessmentToUpdate, 
+      registrationStatus: newStatus,
+      registrationRejectionReason: newStatus === 'rejected' ? reason : '',
+      // When admin approves registration, set the assessment status to 'not_started'
+      assessmentStatus: newStatus === 'approved' ? 'not_started' : assessmentToUpdate.assessmentStatus,
     };
     
     await updateAssessments(
-      assessments.map((a) => (a.id === assessment.id ? updatedAssessment : a))
+      assessments.map((a) => (a.id === assessmentId ? updatedAssessment : a))
     );
 
-    const actionText = actionTarget?.type === 'return' ? 'trả lại' : 'từ chối';
+    let actionText = '';
+    if (newStatus === 'approved') actionText = 'phê duyệt';
+    else if (newStatus === 'rejected') actionText = 'từ chối';
+    else if (newStatus === 'pending') actionText = 'hoàn tác về chờ duyệt';
+    
 
     toast({
       title: 'Cập nhật thành công',
-      description: `Đã ${newStatus === 'registration_approved' ? 'phê duyệt' : actionText} đăng ký của ${getUnitInfo(assessment.communeId).name}.`,
+      description: `Đã ${actionText} đăng ký của ${getUnitInfo(updatedAssessment.communeId).name}.`,
     });
     
     if(actionTarget) {
@@ -147,13 +155,13 @@ export default function RegistrationManagementPage() {
     );
 
     const pendingRegistrations = periodAssessments.filter(
-      (a) => a.status === 'pending_registration'
+      (a) => a.registrationStatus === 'pending'
     );
     const approvedRegistrations = periodAssessments.filter(
-      (a) => a.status === 'registration_approved'
+      (a) => a.registrationStatus === 'approved'
     );
     const rejectedRegistrations = periodAssessments.filter(
-      (a) => a.status === 'registration_rejected'
+      (a) => a.registrationStatus === 'rejected'
     );
 
     return {
@@ -179,7 +187,8 @@ export default function RegistrationManagementPage() {
         <TableBody>
           {data.length > 0 ? (
             data.map((item) => {
-              const communeId = (item as Assessment).communeId || item.id;
+              const isAssessment = 'communeId' in item;
+              const communeId = isAssessment ? item.communeId : item.id;
               const unitInfo = getUnitInfo(communeId);
               const responsibleUser = users.find(u => u.communeId === communeId);
 
@@ -189,11 +198,11 @@ export default function RegistrationManagementPage() {
               } else {
                   const assessment = item as Assessment;
                    const statusMap = {
-                    pending_registration: { text: 'Chờ duyệt', icon: Clock, className: 'bg-amber-500' },
-                    registration_approved: { text: 'Đã duyệt', icon: CheckCircle, className: 'bg-green-500' },
-                    registration_rejected: { text: 'Bị từ chối', icon: XCircle, className: 'bg-red-500' },
+                    pending: { text: 'Chờ duyệt', icon: Clock, className: 'bg-amber-500' },
+                    approved: { text: 'Đã duyệt', icon: CheckCircle, className: 'bg-green-500' },
+                    rejected: { text: 'Bị từ chối', icon: XCircle, className: 'bg-red-500' },
                   };
-                  statusInfo = statusMap[assessment.status as keyof typeof statusMap];
+                  statusInfo = statusMap[assessment.registrationStatus as keyof typeof statusMap];
               }
 
               return (
@@ -210,7 +219,7 @@ export default function RegistrationManagementPage() {
                     )}
                   </TableCell>
                   <TableCell className="text-right space-x-2">
-                     {type !== 'unregistered' && (item as Assessment).registrationFormUrl && (
+                     {isAssessment && (item as Assessment).registrationFormUrl && (
                        <Button
                           variant="outline"
                           size="sm"
@@ -219,7 +228,7 @@ export default function RegistrationManagementPage() {
                           <Eye className="mr-2 h-4 w-4" /> Xem đơn
                         </Button>
                     )}
-                    {type === 'pending' && (
+                    {type === 'pending' && isAssessment && (
                       <>
                         <Button
                           size="sm"
@@ -231,19 +240,19 @@ export default function RegistrationManagementPage() {
                         <Button
                           size="sm"
                           className="bg-green-600 hover:bg-green-700"
-                           onClick={() => handleUpdateStatus(item as Assessment, 'registration_approved')}
+                           onClick={() => handleUpdateStatus(item.id, 'approved')}
                         >
                           <ThumbsUp className="mr-2 h-4 w-4" /> Phê duyệt
                         </Button>
                       </>
                     )}
-                    {type === 'approved' && (
+                    {type === 'approved' && isAssessment && (
                        <Button
                           size="sm"
                           variant="destructive"
-                          onClick={() => setActionTarget({ assessment: item as Assessment, type: 'return'})}
+                          onClick={() => handleUpdateStatus(item.id, 'pending')}
                         >
-                          <Undo2 className="mr-2 h-4 w-4" /> Trả lại
+                          <Undo2 className="mr-2 h-4 w-4" /> Hoàn tác
                         </Button>
                     )}
                   </TableCell>
@@ -314,9 +323,7 @@ export default function RegistrationManagementPage() {
       <Dialog open={!!actionTarget} onOpenChange={(open) => !open && setActionTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-                {actionTarget?.type === 'reject' ? 'Lý do từ chối đăng ký' : 'Lý do trả lại hồ sơ'}
-            </DialogTitle>
+            <DialogTitle>Lý do từ chối đăng ký</DialogTitle>
             <DialogDescription>
               Vui lòng nhập lý do. Đơn vị <strong>{getUnitInfo(actionTarget?.assessment.communeId || '').name}</strong> sẽ thấy lý do này.
             </DialogDescription>
@@ -327,7 +334,7 @@ export default function RegistrationManagementPage() {
               id="rejectionReason"
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
-              placeholder={actionTarget?.type === 'reject' ? "Ví dụ: Đơn đăng ký thiếu chữ ký của lãnh đạo..." : "Ví dụ: Cần bổ sung thêm thông tin trong đơn..."}
+              placeholder="Ví dụ: Đơn đăng ký thiếu chữ ký của lãnh đạo..."
             />
           </div>
           <DialogFooter>
@@ -335,7 +342,7 @@ export default function RegistrationManagementPage() {
             <Button 
               variant="destructive" 
               disabled={!rejectionReason.trim()}
-              onClick={() => handleUpdateStatus(actionTarget!.assessment, 'registration_rejected', rejectionReason)}
+              onClick={() => handleUpdateStatus(actionTarget!.assessment.id, 'rejected', rejectionReason)}
             >
               Xác nhận
             </Button>

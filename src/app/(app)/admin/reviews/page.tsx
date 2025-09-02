@@ -49,43 +49,23 @@ export default function ReviewAssessmentsPage() {
     const [selectedPeriod, setSelectedPeriod] = React.useState<string | undefined>(
         assessmentPeriods.find(p => p.isActive)?.id
     );
-    const [actionTarget, setActionTarget] = useState<Assessment | null>(null);
 
     const { filteredAssessments } = useMemo(() => {
         if (!selectedPeriod) return { filteredAssessments: [] };
-        const currentPeriodAssessments = assessments.filter(a => a.assessmentPeriodId === selectedPeriod);
+        // We only care about assessments that have passed the registration phase
+        const currentPeriodAssessments = assessments.filter(a => 
+            a.assessmentPeriodId === selectedPeriod && a.registrationStatus === 'approved'
+        );
         return { filteredAssessments: currentPeriodAssessments };
     }, [selectedPeriod, assessments]);
-    
-    const handleReturnForRevision = async () => {
-        if (!actionTarget) {
-            return;
-        }
-        
-        const updatedAssessment = { 
-            ...actionTarget, 
-            status: 'returned_for_revision' as const, 
-        };
-        
-        await updateAssessments(
-            assessments.map((a) => (a.id === actionTarget.id ? updatedAssessment : a))
-        );
-
-        toast({
-            title: 'Đã trả lại hồ sơ',
-            description: `Đã gửi yêu cầu bổ sung cho ${getUnitName(actionTarget.communeId)}.`,
-        });
-        
-        setActionTarget(null);
-    };
 
     const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
         'pending_review': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary' },
         'returned_for_revision': { text: 'Yêu cầu Bổ sung', icon: Undo2, badge: 'destructive', className: 'bg-amber-600 hover:bg-amber-700' },
         'rejected': { text: 'Không đạt chuẩn', icon: XCircle, badge: 'destructive' },
-        'draft': { text: 'Bản nháp', icon: ShieldQuestion, badge: 'secondary' },
-        'not_sent': { text: 'Chưa gửi HS', icon: FileX, badge: 'secondary', className: 'bg-muted text-muted-foreground' },
         'achieved_standard': { text: 'Đạt chuẩn', icon: Award, badge: 'default', className: 'bg-blue-600' },
+        'draft': { text: 'Bản nháp', icon: ShieldQuestion, badge: 'secondary' },
+        'not_started': { text: 'Chưa gửi HS', icon: FileX, badge: 'secondary', className: 'bg-muted text-muted-foreground' },
     };
     
     const getUnitName = (communeId?: string) => {
@@ -106,55 +86,7 @@ export default function ReviewAssessmentsPage() {
     };
 
 
-    const AssessmentTable = ({ assessmentsToShow, status }: { assessmentsToShow: Assessment[], status: string }) => {
-        if (status === 'not_sent') {
-            return (
-                 <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Tên đơn vị</TableHead>
-                            <TableHead>Tên cán bộ</TableHead>
-                            <TableHead>Số điện thoại</TableHead>
-                            <TableHead className="text-right">Tiến độ</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                    {assessmentsToShow.length > 0 ? (
-                        assessmentsToShow.map((assessment) => {
-                            const unit = units.find(u => u.id === assessment.communeId);
-                            if (!unit) return null;
-
-                            const progress = calculateProgress(assessment);
-                            const responsibleUser = users.find(u => u.communeId === unit.id);
-                            const progressColor = progress < 30 ? 'bg-red-500' : progress < 70 ? 'bg-amber-500' : 'bg-green-500';
-                            return (
-                                <TableRow key={unit.id}>
-                                    <TableCell>
-                                        <div className="font-medium">{unit.name}</div>
-                                    </TableCell>
-                                    <TableCell>{responsibleUser?.displayName || 'Chưa có'}</TableCell>
-                                    <TableCell>{responsibleUser?.phoneNumber || 'N/A'}</TableCell>
-                                    <TableCell className="text-right">
-                                        <div className="flex items-center justify-end gap-2">
-                                            <Progress value={progress} className="w-32 h-2" indicatorClassName={progressColor} />
-                                            <span className="text-xs font-medium text-muted-foreground">{progress}%</span>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            )
-                        })
-                    ) : (
-                        <TableRow>
-                        <TableCell colSpan={4} className="h-24 text-center">
-                            Không có đơn vị nào đã được duyệt ĐK nhưng chưa gửi hồ sơ.
-                        </TableCell>
-                        </TableRow>
-                    )}
-                    </TableBody>
-                </Table>
-            )
-        }
-
+    const AssessmentTable = ({ assessmentsToShow }: { assessmentsToShow: Assessment[] }) => {
         return (
             <Table>
                 <TableHeader>
@@ -168,7 +100,7 @@ export default function ReviewAssessmentsPage() {
                 <TableBody>
                 {assessmentsToShow.length > 0 ? (
                     assessmentsToShow.map((assessment) => {
-                        const statusInfo = statusMap[assessment.status];
+                        const statusInfo = statusMap[assessment.assessmentStatus];
                         const unitName = getUnitName(assessment.communeId);
                         return (
                             <TableRow key={assessment.id}>
@@ -176,7 +108,7 @@ export default function ReviewAssessmentsPage() {
                                     <div className="font-medium">{unitName}</div>
                                 </TableCell>
                                 <TableCell className="hidden md:table-cell">
-                                {assessment.submissionDate}
+                                {assessment.assessmentSubmissionDate || 'Chưa nộp'}
                                 </TableCell>
                                 <TableCell className="hidden lg:table-cell">
                                     {statusInfo && (
@@ -193,16 +125,6 @@ export default function ReviewAssessmentsPage() {
                                         Xem chi tiết
                                         </Link>
                                     </Button>
-                                    {assessment.status === 'pending_review' && (
-                                        <Button 
-                                            size="sm" 
-                                            variant="outline" 
-                                            className="text-amber-600 border-amber-500 hover:bg-amber-50 hover:text-amber-700"
-                                            onClick={() => setActionTarget(assessment)}
-                                        >
-                                            <Undo2 className="mr-2 h-4 w-4"/> Trả lại
-                                        </Button>
-                                    )}
                                 </TableCell>
                             </TableRow>
                         );
@@ -220,15 +142,15 @@ export default function ReviewAssessmentsPage() {
     };
 
     const notSentAssessments = useMemo(() => {
-        return filteredAssessments.filter(a => a.status === 'registration_approved' || a.status === 'draft');
+        return filteredAssessments.filter(a => a.assessmentStatus === 'not_started' || a.assessmentStatus === 'draft');
     }, [filteredAssessments]);
 
 
     const tabs = [
-        { value: "pending_review", label: "Chờ duyệt", data: filteredAssessments.filter(a => a.status === 'pending_review') },
-        { value: "achieved_standard", label: "Đạt chuẩn", data: filteredAssessments.filter(a => a.status === 'achieved_standard') },
-        { value: "returned_for_revision", label: "Yêu cầu Bổ sung", data: filteredAssessments.filter(a => a.status === 'returned_for_revision') },
-        { value: "rejected", label: "Không đạt chuẩn", data: filteredAssessments.filter(a => a.status === 'rejected') },
+        { value: "pending_review", label: "Chờ duyệt", data: filteredAssessments.filter(a => a.assessmentStatus === 'pending_review') },
+        { value: "achieved_standard", label: "Đạt chuẩn", data: filteredAssessments.filter(a => a.assessmentStatus === 'achieved_standard') },
+        { value: "returned_for_revision", label: "Yêu cầu Bổ sung", data: filteredAssessments.filter(a => a.assessmentStatus === 'returned_for_revision') },
+        { value: "rejected", label: "Không đạt chuẩn", data: filteredAssessments.filter(a => a.assessmentStatus === 'rejected') },
         { value: "not_sent", label: "Chưa gửi HS", data: notSentAssessments },
     ];
 
@@ -261,32 +183,12 @@ export default function ReviewAssessmentsPage() {
             </TabsList>
             {tabs.map(tab => (
                  <TabsContent key={tab.value} value={tab.value} className="mt-4">
-                    <AssessmentTable assessmentsToShow={tab.data} status={tab.value} />
+                    <AssessmentTable assessmentsToShow={tab.data} />
                 </TabsContent>
             ))}
             </Tabs>
         </CardContent>
         </Card>
-
-        <AlertDialog open={!!actionTarget} onOpenChange={(open) => !open && setActionTarget(null)}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Xác nhận trả lại hồ sơ?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                    Hành động này sẽ trả lại hồ sơ cho đơn vị <strong>{getUnitName(actionTarget?.communeId)}</strong> để họ chỉnh sửa và bổ sung.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setActionTarget(null)}>Hủy</AlertDialogCancel>
-                    <AlertDialogAction 
-                        onClick={handleReturnForRevision}
-                        className="bg-amber-600 hover:bg-amber-700"
-                    >
-                    Xác nhận Trả lại
-                    </AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
         </>
     );
 }

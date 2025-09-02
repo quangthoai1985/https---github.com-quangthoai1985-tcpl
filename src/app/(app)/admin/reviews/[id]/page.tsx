@@ -177,6 +177,7 @@ export default function AssessmentDetailPage() {
   const [assessment, setAssessment] = useState<Assessment | undefined>(() => assessments.find((a) => a.id === id));
   const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
   const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
   const [revisingIndicator, setRevisingIndicator] = useState<(Indicator | SubIndicator) | null>(null);
 
   // State to hold admin notes for each indicator
@@ -232,7 +233,7 @@ export default function AssessmentDetailPage() {
   const assessmentUnitName = getUnitName(assessment.communeId);
 
   const handleApprove = async () => {
-    const updatedAssessment = { ...assessment, status: 'achieved_standard' as const, approvalDate: new Date().toLocaleDateString('vi-VN'), approverId: currentUser?.id };
+    const updatedAssessment = { ...assessment, assessmentStatus: 'achieved_standard' as const, approvalDate: new Date().toLocaleDateString('vi-VN'), approverId: currentUser?.id };
     await updateAssessments(assessments.map(a => a.id === id ? updatedAssessment : a));
     
     toast({
@@ -244,7 +245,7 @@ export default function AssessmentDetailPage() {
   };
 
   const handleReject = async () => {
-    const updatedAssessment = { ...assessment, status: 'rejected' as const, rejectionReason: "" };
+    const updatedAssessment = { ...assessment, assessmentStatus: 'rejected' as const, assessmentRejectionReason: "" };
     await updateAssessments(assessments.map(a => a.id === id ? updatedAssessment : a));
     
     toast({
@@ -258,7 +259,7 @@ export default function AssessmentDetailPage() {
   
   const handleResubmit = async () => {
       // Logic to upload new files needs to be added here if needed
-      const updatedAssessment = { ...assessment, status: 'pending_review' as const, assessmentData: revisionData };
+      const updatedAssessment = { ...assessment, assessmentStatus: 'pending_review' as const, assessmentData: revisionData, assessmentSubmissionDate: new Date().toLocaleDateString('vi-VN') };
       await updateAssessments(assessments.map(a => a.id === id ? updatedAssessment : a));
       toast({
         title: "Gửi lại thành công",
@@ -293,9 +294,10 @@ export default function AssessmentDetailPage() {
             }
         }
         
-        const updatedAssessment = { ...assessment, status: 'returned_for_revision' as const, assessmentData: assessmentDataWithNotes, };
+        const updatedAssessment = { ...assessment, assessmentStatus: 'returned_for_revision' as const, assessmentData: assessmentDataWithNotes, };
         await updateAssessments(assessments.map((a) => (a.id === id ? updatedAssessment : a)));
         toast({ title: 'Đã trả lại hồ sơ', description: `Đã gửi yêu cầu bổ sung cho ${assessmentUnitName}.`, });
+        setIsReturnDialogOpen(false);
         router.push('/admin/reviews');
     };
 
@@ -313,26 +315,34 @@ export default function AssessmentDetailPage() {
     return <Badge variant="secondary">Chưa có dữ liệu</Badge>;
   };
 
-  const isActionDisabled = assessment.status === 'achieved_standard' || (role === 'admin' && assessment.status === 'rejected');
-  const isReturnedForRevision = assessment.status === 'returned_for_revision';
+  const isActionDisabled = assessment.assessmentStatus === 'achieved_standard' || (role === 'admin' && assessment.assessmentStatus === 'rejected');
+  const isReturnedForRevision = assessment.assessmentStatus === 'returned_for_revision';
+
+  const badgeMap = {
+      pending_review: { text: 'Chờ duyệt', icon: Clock, className: 'bg-amber-500' },
+      returned_for_revision: { text: 'Đã trả lại', icon: Undo2, className: 'bg-amber-600' },
+      rejected: { text: 'Không đạt chuẩn', icon: XCircle, className: 'bg-red-500' },
+      achieved_standard: { text: 'Đạt chuẩn', icon: Award, className: 'bg-blue-600' },
+      draft: { text: 'Bản nháp', icon: Edit, className: 'bg-gray-500' },
+      not_started: { text: 'Chưa bắt đầu', icon: FileIcon, className: 'bg-gray-400' },
+  };
+  const currentStatusInfo = badgeMap[assessment.assessmentStatus as keyof typeof badgeMap];
+
 
   return (
     <>
-    <PageHeader title="Chi tiết Hồ sơ Đánh giá" description={`Đơn vị: ${assessmentUnitName} | Ngày nộp: ${assessment.submissionDate}`}/>
+    <PageHeader title="Chi tiết Hồ sơ Đánh giá" description={`Đơn vị: ${assessmentUnitName} | Ngày nộp: ${assessment.assessmentSubmissionDate}`}/>
     <div className="grid gap-6">
       <Card>
         <CardHeader>
           <div className="flex justify-between items-start">
             <div className="flex-1"></div>
-            <Badge variant={ assessment.status === 'achieved_standard' ? 'default' : assessment.status === 'rejected' ? 'destructive' : 'secondary' } className={assessment.status === 'achieved_standard' ? 'bg-blue-600' : ''} >
-              {assessment.status === 'achieved_standard' && <Award className="mr-2 h-4 w-4" />}
-              {assessment.status === 'rejected' && <XCircle className="mr-2 h-4 w-4" />}
-              {assessment.status === 'pending_review' && <Clock className="mr-2 h-4 w-4" />}
-              {assessment.status === 'returned_for_revision' && <Undo2 className="mr-2 h-4 w-4" />}
-              {
-                {'achieved_standard': 'Đạt chuẩn', 'rejected': 'Không đạt chuẩn', 'pending_review': 'Chờ duyệt', 'returned_for_revision': 'Đã trả lại'}[assessment.status] || 'Bản nháp'
-              }
-            </Badge>
+            {currentStatusInfo && (
+              <Badge variant='default' className={cn(currentStatusInfo.className, 'text-white')}>
+                <currentStatusInfo.icon className="mr-2 h-4 w-4" />
+                {currentStatusInfo.text}
+              </Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -430,7 +440,7 @@ export default function AssessmentDetailPage() {
             ))}
           </Accordion>
           
-          {role === 'admin' && (assessment.status === 'pending_review' || assessment.status === 'returned_for_revision') && (
+          {role === 'admin' && (assessment.assessmentStatus === 'pending_review' || assessment.assessmentStatus === 'returned_for_revision') && (
             <> <Separator className="my-6" /> <div className="grid gap-4"> <h3 className="text-lg font-headline">Thẩm định và Ra quyết định</h3> </div> </>
           )}
 
@@ -438,17 +448,17 @@ export default function AssessmentDetailPage() {
         <CardFooter className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => router.back()}>Quay lại</Button>
             
-            {role === 'admin' && (assessment.status === 'pending_review' || assessment.status === 'returned_for_revision') &&(
+            {role === 'admin' && (assessment.assessmentStatus === 'pending_review' || assessment.assessmentStatus === 'returned_for_revision') &&(
               <>
                 <Button variant="destructive" onClick={() => setIsRejectDialogOpen(true)} disabled={isActionDisabled}><ThumbsDown className="mr-2 h-4 w-4" />Từ chối (Không đạt)</Button>
-                <Button variant="outline" className="text-amber-600 border-amber-500 hover:bg-amber-50 hover:text-amber-700" onClick={handleReturnForRevision} disabled={isActionDisabled} >
+                <Button variant="outline" className="text-amber-600 border-amber-500 hover:bg-amber-50 hover:text-amber-700" onClick={() => setIsReturnDialogOpen(true)} disabled={isActionDisabled} >
                     <Undo2 className="mr-2 h-4 w-4" /> Trả lại
                 </Button>
                 <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleApprove} disabled={isActionDisabled}><Award className="mr-2 h-4 w-4" />Phê duyệt (Đạt chuẩn)</Button>
               </>
             )}
             
-            {role === 'commune_staff' && assessment.status === 'returned_for_revision' && (
+            {role === 'commune_staff' && assessment.assessmentStatus === 'returned_for_revision' && (
                 <>
                     <Button variant="outline">Lưu nháp giải trình</Button>
                     <Button onClick={handleResubmit}>Gửi lại đánh giá</Button>
@@ -469,6 +479,21 @@ export default function AssessmentDetailPage() {
             <AlertDialogFooter>
                 <AlertDialogCancel>Hủy</AlertDialogCancel>
                 <AlertDialogAction onClick={handleReject} className="bg-destructive hover:bg-destructive/90" > Xác nhận Không Đạt </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    
+    <AlertDialog open={isReturnDialogOpen} onOpenChange={setIsReturnDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Xác nhận Trả lại hồ sơ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                   Bạn có chắc chắn muốn trả lại hồ sơ này để <strong>{assessmentUnitName}</strong> chỉnh sửa và bổ sung không? Các ghi chú bạn đã nhập sẽ được gửi kèm.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                <AlertDialogAction onClick={handleReturnForRevision} className="bg-amber-600 hover:bg-amber-700">Xác nhận Trả lại</AlertDialogAction>
             </AlertDialogFooter>
         </AlertDialogContent>
     </AlertDialog>

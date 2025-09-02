@@ -599,7 +599,7 @@ export default function SelfAssessmentPage() {
 
         const updatedAssessment: Assessment = {
             ...currentAssessment,
-            status: 'draft',
+            assessmentStatus: 'draft',
             assessmentData: dataToSave,
         };
         
@@ -649,8 +649,8 @@ export default function SelfAssessmentPage() {
 
         const updatedAssessment: Assessment = {
             ...myAssessment,
-            status: 'pending_review',
-            submissionDate: new Date().toLocaleDateString('vi-VN'),
+            assessmentStatus: 'pending_review',
+            assessmentSubmissionDate: new Date().toLocaleDateString('vi-VN'),
             submittedBy: currentUser.id,
             assessmentData: assessmentDataForFirestore,
         };

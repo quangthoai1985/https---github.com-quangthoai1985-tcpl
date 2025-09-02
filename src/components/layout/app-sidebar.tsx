@@ -34,7 +34,7 @@ const adminNavItems = [
 ];
 
 const communeNavItems = [
-    { href: '/dashboard', icon: LayoutDashboard, label: 'Đăng ký đánh giá' },
+    { href: '/dashboard', icon: LayoutDashboard, label: 'Đăng ký & Tổng quan' },
     { href: '/commune/assessments', icon: FileCheck2, label: 'Tự Chấm điểm' },
     { href: '/documents', icon: Book, label: 'Văn bản Hướng dẫn' },
     { href: '/user-guide', icon: HelpCircle, label: 'Hướng dẫn sử dụng' },
@@ -42,16 +42,13 @@ const communeNavItems = [
 
 export default function AppSidebar() {
   const pathname = usePathname();
-  const { role, notifications, assessments, currentUser, assessmentPeriods } = useData();
+  const { role, assessments, currentUser } = useData();
 
-  const activePeriod = assessmentPeriods.find(p => p.isActive);
-  const myAssessment = activePeriod && currentUser 
-      ? assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId) 
-      : null;
-  const canStartAssessment = myAssessment?.status === 'registration_approved';
+  const myAssessment = assessments.find(a => a.communeId === currentUser?.communeId);
+  const canStartAssessment = myAssessment?.registrationStatus === 'approved';
 
   const navItems = role === 'admin' ? adminNavItems : communeNavItems;
-  const pendingCount = role === 'admin' ? notifications.filter(n => n.link.startsWith('/admin/reviews')).length : 0;
+  const pendingCount = role === 'admin' ? assessments.filter(a => a.assessmentStatus === 'pending_review').length : 0;
 
   return (
     <aside className="border-r bg-background w-full md:w-[250px] lg:w-[250px]">
