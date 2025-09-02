@@ -81,6 +81,11 @@ async function main() {
 
         for (const doc of snapshot.docs) {
             const user = doc.data() as User;
+            
+            // Bỏ qua admin
+            if (user.role === 'admin') {
+                continue;
+            }
 
             // Bỏ qua nếu đã có số điện thoại
             if (user.phoneNumber && user.phoneNumber.trim() !== '') {
@@ -100,7 +105,7 @@ async function main() {
 
             // Chuẩn bị cập nhật cho Firebase Auth
             const authUpdatePromise = auth.updateUser(user.id, {
-                phoneNumber: convertToE1ika4(newPhoneNumber) // Auth yêu cầu định dạng E.164
+                phoneNumber: convertToE164(newPhoneNumber) // Auth yêu cầu định dạng E.164
             }).catch(err => {
                 // Ghi lại lỗi nhưng không dừng script nếu chỉ một user auth bị lỗi
                 console.error(`  Lỗi khi cập nhật SĐT trong Auth cho user ${user.id}:`, err.message);
