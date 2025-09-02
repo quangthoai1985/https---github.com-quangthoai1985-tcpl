@@ -21,6 +21,8 @@ import {
   Send,
   Megaphone,
   Newspaper,
+  Trophy,
+  Download,
 } from 'lucide-react';
 import {
   Card,
@@ -265,6 +267,15 @@ const CommuneDashboard = () => {
         : undefined;
 
     const totalIndicators = useMemo(() => countTotalIndicators(criteria), [criteria]);
+    
+    // Find the latest assessment that has been officially announced
+    const latestAnnouncedAssessment = useMemo(() => {
+      return assessments
+        .filter(a => a.communeId === currentUser?.communeId && a.announcementDecisionUrl)
+        .sort((a, b) => (assessmentPeriods.find(p => p.id === b.assessmentPeriodId)?.endDate || '').localeCompare(assessmentPeriods.find(p => p.id === a.assessmentPeriodId)?.endDate || ''))
+        [0];
+    }, [assessments, currentUser, assessmentPeriods]);
+
 
     const uploadFileAndGetURL = async (periodId: string, communeId: string, file: File): Promise<string> => {
         if (!storage) throw new Error("Firebase Storage is not initialized.");
@@ -360,6 +371,40 @@ const CommuneDashboard = () => {
         deadline.setHours(23, 59, 59, 999); // Set to end of day
         return new Date() > deadline;
     };
+    
+    // --- Conditional Rendering Logic ---
+    if (latestAnnouncedAssessment) {
+        return (
+            <div className="flex flex-1 items-center justify-center">
+                <Card className="w-full max-w-2xl text-center shadow-2xl border-2 border-amber-300 bg-gradient-to-br from-yellow-50 to-amber-100">
+                    <CardHeader className="items-center">
+                        <Trophy className="h-20 w-20 text-amber-500 animate-pulse"/>
+                        <CardTitle className="text-3xl font-headline text-amber-800 mt-4">
+                            CHÚC MỪNG!
+                        </CardTitle>
+                        <CardDescription className="text-lg text-amber-700">
+                           {currentUser?.displayName.split(' ').slice(-1).join(' ')} đã được công nhận<br/>
+                           <strong className="font-semibold">"Xã đạt chuẩn Tiếp cận Pháp luật"</strong>
+                           <br/> trong kỳ đánh giá "{getPeriodName(latestAnnouncedAssessment.assessmentPeriodId)}"
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                         <p className="text-muted-foreground mb-4">Ngày công nhận: {latestAnnouncedAssessment.announcementDate}</p>
+                         <Button size="lg" asChild className="bg-amber-600 hover:bg-amber-700 shadow-lg">
+                            <a href={latestAnnouncedAssessment.announcementDecisionUrl} target="_blank" rel="noopener noreferrer">
+                                <Download className="mr-2 h-5 w-5"/> Xem Quyết định công nhận
+                            </a>
+                        </Button>
+                    </CardContent>
+                     <CardFooter className="flex-col gap-4 pt-6 border-t">
+                        <p className="text-xs text-muted-foreground">Bạn có thể xem lại lịch sử đánh giá chi tiết bên dưới.</p>
+                        {/* We'll render the history table outside this card */}
+                    </CardFooter>
+                </Card>
+            </div>
+        );
+    }
+
 
     const deadlinePassed = isRegistrationDeadlinePassed();
     const canStartAssessment = myAssessment?.registrationStatus === 'approved';
