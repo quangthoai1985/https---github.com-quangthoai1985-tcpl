@@ -8,12 +8,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2 } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/context/DataContext";
 import PageHeader from "@/components/layout/page-header";
-import type { Indicator, SubIndicator, Criterion, Assessment } from "@/lib/data";
+import type { Indicator, SubIndicator, Criterion, Assessment, IndicatorResult } from "@/lib/data";
 import { Textarea } from "@/components/ui/textarea";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 
@@ -419,25 +419,44 @@ export default function SelfAssessmentPage() {
   const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const initializeState = (criteria: Criterion[]): AssessmentValues => {
+  const initializeState = useCallback((criteria: Criterion[], existingData?: Record<string, IndicatorResult>): AssessmentValues => {
       const initialState: AssessmentValues = {};
       criteria.forEach(criterion => {
           (criterion.indicators || []).forEach(indicator => {
+              const processIndicator = (sub: Indicator | SubIndicator) => {
+                  const saved = existingData?.[sub.id];
+                  initialState[sub.id] = { 
+                      isTasked: saved?.isTasked, 
+                      value: saved?.value ?? '', 
+                      files: saved?.files ?? [], 
+                      note: saved?.note ?? '', 
+                      status: saved?.status ?? 'pending' 
+                  };
+              };
               if (indicator.subIndicators && indicator.subIndicators.length > 0) {
-                  indicator.subIndicators.forEach(sub => {
-                      initialState[sub.id] = { isTasked: undefined, value: '', files: [], note: '', status: 'pending' };
-                  });
+                  indicator.subIndicators.forEach(processIndicator);
               } else {
-                  initialState[indicator.id] = { isTasked: undefined, value: '', files: [], note: '', status: 'pending' };
+                  processIndicator(indicator);
               }
           });
       });
       return initialState;
-  };
+  }, []);
 
   const activePeriod = assessmentPeriods.find(p => p.isActive);
-  const [assessmentData, setAssessmentData] = useState<AssessmentValues>(() => initializeState(criteria));
+  const myAssessment = activePeriod && currentUser 
+      ? assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId) 
+      : undefined;
+
+  const [assessmentData, setAssessmentData] = useState<AssessmentValues>(() => initializeState(criteria, myAssessment?.assessmentData));
   
+  useEffect(() => {
+    // This effect runs when the user's assessment data becomes available from the context
+    if (myAssessment?.assessmentData) {
+        setAssessmentData(initializeState(criteria, myAssessment.assessmentData));
+    }
+  }, [myAssessment, criteria, initializeState]);
+
   const specialLogicIndicatorIds = React.useMemo(() => getSpecialLogicIndicatorIds(criteria), [criteria]);
 
   const findIndicator = (indicatorId: string) => {
@@ -539,12 +558,39 @@ export default function SelfAssessmentPage() {
 
 
   const handleSaveDraft = async () => {
-    // This function can be expanded to save to localStorage or a 'drafts' collection in Firestore
-    console.log("Saving Draft: ", assessmentData);
-    toast({
-      title: "Lưu nháp thành công!",
-      description: "Bạn có thể tiếp tục chỉnh sửa sau. Trạng thái hồ sơ: draft.",
-    });
+    if (!activePeriod || !currentUser) {
+        toast({ variant: 'destructive', title: 'Lỗi', description: 'Không tìm thấy kỳ đánh giá hoặc người dùng.' });
+        return;
+    }
+
+    const currentAssessment = assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId);
+    if (!currentAssessment) {
+        toast({ variant: 'destructive', title: 'Lỗi', description: 'Không tìm thấy hồ sơ đăng ký hợp lệ để lưu nháp.' });
+        return;
+    }
+
+    setIsSubmitting(true);
+    toast({ title: 'Đang lưu nháp...' });
+    
+    try {
+        const updatedAssessment: Assessment = {
+            ...currentAssessment,
+            status: 'draft',
+            assessmentData: assessmentData as Record<string, IndicatorResult>,
+        };
+        
+        await updateAssessments(assessments.map(a => a.id === updatedAssessment.id ? updatedAssessment : a));
+
+        toast({
+          title: "Lưu nháp thành công!",
+          description: "Bạn có thể tiếp tục chỉnh sửa sau.",
+        });
+    } catch (error) {
+        console.error("Draft saving error:", error);
+        toast({ variant: 'destructive', title: 'Lỗi khi lưu nháp', description: 'Đã xảy ra lỗi khi lưu dữ liệu.' });
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   const handleSubmit = async () => {
@@ -581,7 +627,7 @@ export default function SelfAssessmentPage() {
             status: 'pending_review',
             submissionDate: new Date().toLocaleDateString('vi-VN'),
             submittedBy: currentUser.id,
-            assessmentData: assessmentDataForFirestore, // Save the detailed assessment data
+            assessmentData: assessmentDataForFirestore as Record<string, IndicatorResult>,
         };
 
         await updateAssessments(assessments.map(a => a.id === myAssessment.id ? updatedAssessment : a));

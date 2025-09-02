@@ -83,7 +83,10 @@ const AdminDashboard = () => {
         
         const achievedCount = periodAssessments.filter(a => a.status === 'achieved_standard').length;
         const notAchievedCount = periodAssessments.filter(a => a.status === 'approved').length; // Approved but not yet 'achieved'
-        const notRegisteredCount = totalCommunes - registeredCommuneIds.size;
+        
+        const notRegisteredAssessments = allCommuneUnits.filter(u => !registeredCommuneIds.has(u.id));
+        const notRegisteredCount = notRegisteredAssessments.length;
+
         const pendingReviewCount = periodAssessments.filter(a => a.status === 'pending_review').length;
 
         const chartData = [
@@ -143,7 +146,7 @@ const AdminDashboard = () => {
         link: "/admin/reviews"
       },
       { 
-        title: "Chưa đạt chuẩn TCDPL", 
+        title: "Không đạt chuẩn TCDPL", 
         value: notAchievedCount.toString(), 
         icon: AlertTriangle, 
         color: "bg-red-500",
@@ -447,7 +450,7 @@ const CommuneDashboard = () => {
     };
 
     const deadlinePassed = isRegistrationDeadlinePassed();
-    const canStartAssessment = myAssessment?.status === 'registration_approved';
+    const canStartAssessment = myAssessment?.status === 'registration_approved' || myAssessment?.status === 'draft';
     const isRegistrationRejected = myAssessment?.status === 'registration_rejected';
     const isPendingRegistration = myAssessment?.status === 'pending_registration';
 
@@ -671,7 +674,7 @@ const CommuneDashboard = () => {
                                         </TableCell>
                                         <TableCell className="text-right">
                                              <Button variant="outline" size="sm" asChild>
-                                                <Link href={assessment.status === 'registration_approved' ? '/commune/assessments' : `/admin/reviews/${assessment.id}`}>
+                                                <Link href={['draft', 'registration_approved'].includes(assessment.status) ? '/commune/assessments' : `/admin/reviews/${assessment.id}`}>
                                                   {assessment.status === 'rejected' ? 
                                                     <><Edit className="mr-2 h-4 w-4" />Giải trình & Gửi lại</> : 
                                                     (assessment.status === 'draft' || assessment.status === 'registration_approved') ?
