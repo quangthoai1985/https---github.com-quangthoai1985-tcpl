@@ -47,16 +47,40 @@ import {
 import Link from 'next/link';
 import { useData } from '@/context/DataContext';
 import { Pie, PieChart, Cell, ResponsiveContainer, LineChart, CartesianGrid, XAxis, YAxis, Tooltip, Line } from 'recharts';
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import PageHeader from '@/components/layout/page-header';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Assessment, Unit } from '@/lib/data';
+import type { Assessment, Unit, Criterion, IndicatorResult } from '@/lib/data';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { Progress } from '@/components/ui/progress';
 
+const countTotalIndicators = (criteria: Criterion[]): number => {
+    return criteria.reduce((total, criterion) => {
+        return total + criterion.indicators.reduce((indicatorTotal, indicator) => {
+            if (indicator.subIndicators && indicator.subIndicators.length > 0) {
+                return indicatorTotal + indicator.subIndicators.length;
+            }
+            return indicatorTotal + 1;
+        }, 0);
+    }, 0);
+};
+
+const calculateProgress = (assessmentData: Record<string, IndicatorResult> | undefined, totalIndicators: number): number => {
+    if (!assessmentData || totalIndicators === 0) {
+        return 0;
+    }
+    
+    // Đếm số chỉ tiêu đã có giá trị hoặc được đánh dấu là không thực hiện
+    const assessedCount = Object.values(assessmentData).filter(result => 
+        result.isTasked === false || (result.value !== null && result.value !== undefined && result.value !== '')
+    ).length;
+    
+    return Math.round((assessedCount / totalIndicators) * 100);
+};
 
 const AdminDashboard = () => {
     const { units, assessments, assessmentPeriods } = useData();
@@ -323,7 +347,7 @@ const AdminDashboard = () => {
 )};
 
 const CommuneDashboard = () => {
-    const { storage, assessments, currentUser, assessmentPeriods, updateAssessments, deleteAssessment } = useData();
+    const { storage, assessments, currentUser, assessmentPeriods, updateAssessments, deleteAssessment, criteria } = useData();
     const { toast } = useToast();
     const [registrationFile, setRegistrationFile] = useState<File | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -333,6 +357,8 @@ const CommuneDashboard = () => {
     const myAssessment = activePeriod && currentUser 
         ? assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId) 
         : undefined;
+
+    const totalIndicators = useMemo(() => countTotalIndicators(criteria), [criteria]);
 
     const uploadFileAndGetURL = async (periodId: string, communeId: string, file: File): Promise<string> => {
         if (!storage) throw new Error("Firebase Storage is not initialized.");
@@ -623,7 +649,7 @@ const CommuneDashboard = () => {
                             <TableRow>
                                 <TableHead>Kỳ đánh giá</TableHead>
                                 <TableHead>Ngày nộp ĐK</TableHead>
-                                <TableHead>Trạng thái</TableHead>
+                                <TableHead>Tiến độ</TableHead>
                                 <TableHead className="text-right">Hành động</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -631,25 +657,18 @@ const CommuneDashboard = () => {
                            {(assessments.filter(a => a.communeId === currentUser?.communeId) || []).length > 0 ? (assessments.filter(a => a.communeId === currentUser?.communeId) || []).map(assessment => {
                                if (!assessment) return null;
                                
-                               const combinedStatus = `${assessment.registrationStatus}-${assessment.assessmentStatus}`;
                                const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
-                                    'approved-achieved_standard': { text: 'Đạt chuẩn', icon: Award, badge: 'default', className: 'bg-blue-600' },
-                                    'approved-pending_review': { text: 'Chờ duyệt đánh giá', icon: Clock, badge: 'secondary', className: 'bg-amber-500' },
-                                    'approved-returned_for_revision': { text: 'Yêu cầu Bổ sung', icon: Undo2, badge: 'destructive', className: 'bg-amber-600' },
-                                    'approved-rejected': { text: 'Không đạt', icon: XCircle, badge: 'destructive' },
-                                    'approved-draft': { text: 'Đang tự đánh giá', icon: Edit, badge: 'secondary' },
-                                    'approved-not_started': { text: 'ĐK đã duyệt', icon: UserCheck, badge: 'default', className: 'bg-green-500' },
-                                    'pending-not_started': { text: 'Chờ duyệt ĐK', icon: FileClock, badge: 'secondary', className: 'bg-blue-500' },
-                                    'rejected-not_started': { text: 'ĐK bị từ chối', icon: XCircle, badge: 'destructive', className: 'bg-red-500' },
-                                };
-                               const statusInfo = statusMap[combinedStatus] || { text: 'Không rõ', icon: Eye, badge: 'secondary' };
+                                    'achieved_standard': { text: 'Đạt chuẩn', icon: Award, badge: 'default', className: 'bg-blue-600' },
+                                    'pending_review': { text: 'Chờ duyệt', icon: Clock, badge: 'secondary', className: 'bg-amber-500' },
+                                    'returned_for_revision': { text: 'Yêu cầu Bổ sung', icon: Undo2, badge: 'destructive', className: 'bg-amber-600' },
+                                    'rejected': { text: 'Không đạt', icon: XCircle, badge: 'destructive' },
+                                    'draft': { text: 'Đang tự đánh giá', icon: Edit, badge: 'secondary' },
+                                    'not_started': { text: 'ĐK đã duyệt', icon: UserCheck, badge: 'default', className: 'bg-green-500' },
+                               };
 
                                const getLink = () => {
                                    if (assessment.assessmentStatus === 'draft' || assessment.assessmentStatus === 'not_started' || assessment.assessmentStatus === 'returned_for_revision') {
                                        return '/commune/assessments';
-                                   }
-                                   if (assessment.registrationStatus !== 'approved') {
-                                       return '/dashboard';
                                    }
                                    return `/admin/reviews/${assessment.id}`;
                                }
@@ -657,20 +676,29 @@ const CommuneDashboard = () => {
                                const getButtonText = () => {
                                    if (assessment.assessmentStatus === 'returned_for_revision') return 'Giải trình & Gửi lại';
                                    if (assessment.assessmentStatus === 'draft' || assessment.assessmentStatus === 'not_started') return 'Tiếp tục chấm điểm';
-                                   if (assessment.registrationStatus !== 'approved') return 'Xem trạng thái ĐK';
                                    return 'Xem chi tiết kết quả';
                                }
-
+                               
+                               const progress = calculateProgress(assessment.assessmentData, totalIndicators);
+                               const showProgress = assessment.assessmentStatus === 'draft' || assessment.assessmentStatus === 'not_started';
+                               const statusInfo = statusMap[assessment.assessmentStatus] || { text: 'Không rõ', icon: Eye, badge: 'secondary' };
 
                                return (
                                     <TableRow key={assessment.id}>
                                         <TableCell className="font-medium">{getPeriodName(assessment.assessmentPeriodId)}</TableCell>
                                         <TableCell>{assessment.registrationSubmissionDate || 'Chưa nộp'}</TableCell>
                                         <TableCell>
-                                            <Badge variant={statusInfo.badge} className={`${statusInfo.className} text-white`}>
-                                                <statusInfo.icon className="mr-2 h-4 w-4" />
-                                                {statusInfo.text}
-                                            </Badge>
+                                            {showProgress ? (
+                                                <div className="flex items-center gap-2">
+                                                    <Progress value={progress} className="w-[80px] h-2" />
+                                                    <span className="text-xs text-muted-foreground">{progress}%</span>
+                                                </div>
+                                            ) : (
+                                                <Badge variant={statusInfo.badge} className={`${statusInfo.className} text-white`}>
+                                                    <statusInfo.icon className="mr-2 h-4 w-4" />
+                                                    {statusInfo.text}
+                                                </Badge>
+                                            )}
                                         </TableCell>
                                         <TableCell className="text-right">
                                              <Button variant="outline" size="sm" asChild>

@@ -23,7 +23,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import React, { useMemo, useState } from 'react';
 import { useData } from '@/context/DataContext';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import type { Assessment, Unit, Criterion, User } from '@/lib/data';
+import type { Assessment, Unit, Criterion, User, IndicatorResult } from '@/lib/data';
 import PageHeader from '@/components/layout/page-header';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
@@ -40,6 +40,19 @@ const countTotalIndicators = (criteria: Criterion[]): number => {
             return indicatorTotal + 1;
         }, 0);
     }, 0);
+};
+
+const calculateProgress = (assessmentData: Record<string, IndicatorResult> | undefined, totalIndicators: number): number => {
+    if (!assessmentData || totalIndicators === 0) {
+        return 0;
+    }
+    
+    // Đếm số chỉ tiêu đã có giá trị hoặc được đánh dấu là không thực hiện
+    const assessedCount = Object.values(assessmentData).filter(result => 
+        result.isTasked === false || (result.value !== null && result.value !== undefined && result.value !== '')
+    ).length;
+    
+    return Math.round((assessedCount / totalIndicators) * 100);
 };
 
 export default function ReviewAssessmentsPage() {
@@ -81,16 +94,6 @@ export default function ReviewAssessmentsPage() {
     
     const totalIndicators = useMemo(() => countTotalIndicators(criteria), [criteria]);
 
-    const calculateProgress = (assessment: Assessment | undefined): number => {
-        if (!assessment?.assessmentData || totalIndicators === 0) {
-            return 0;
-        }
-        const assessedCount = Object.keys(assessment.assessmentData).length;
-        
-        return Math.round((assessedCount / totalIndicators) * 100);
-    };
-
-
     const AssessmentTable = ({ assessmentsToShow, type }: { assessmentsToShow: Assessment[], type: string }) => {
         return (
             <Table>
@@ -120,7 +123,7 @@ export default function ReviewAssessmentsPage() {
                         const statusInfo = statusMap[assessment.assessmentStatus];
                         const unitName = getUnitName(assessment.communeId);
                         const communeUser = getUserForCommune(assessment.communeId);
-                        const progress = calculateProgress(assessment);
+                        const progress = calculateProgress(assessment.assessmentData, totalIndicators);
 
                         return (
                             <TableRow key={assessment.id}>
