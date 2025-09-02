@@ -92,9 +92,6 @@ const AdminDashboard = () => {
         achievedCount,
         notAchievedCount,
         notRegisteredCount,
-        assessmentStatusChartData,
-        chartConfig,
-        progressData,
     } = React.useMemo(() => {
         const allCommuneUnits = units.filter(u => u.type === 'commune');
         const totalCommunes = allCommuneUnits.length;
@@ -108,38 +105,8 @@ const AdminDashboard = () => {
         
         const achievedCount = periodAssessments.filter(a => a.assessmentStatus === 'achieved_standard').length;
         const notAchievedCount = periodAssessments.filter(a => a.assessmentStatus === 'rejected').length;
-        const pendingReviewCount = periodAssessments.filter(a => a.assessmentStatus === 'pending_review').length;
-        const returnedForRevisionCount = periodAssessments.filter(a => a.assessmentStatus === 'returned_for_revision').length;
 
         const notRegisteredCount = allCommuneUnits.length - totalRegisteredCommunes;
-
-
-        const chartData = [
-            { name: 'Đạt chuẩn', value: achievedCount, fill: 'hsl(var(--chart-2))' },
-            { name: 'Chờ duyệt', value: pendingReviewCount, fill: 'hsl(var(--chart-3))' },
-            { name: 'Không đạt chuẩn', value: notAchievedCount, fill: 'hsl(var(--chart-4))' },
-            { name: 'Yêu cầu Bổ sung', value: returnedForRevisionCount, fill: 'hsl(var(--chart-5))' },
-            { name: 'Chưa đăng ký', value: notRegisteredCount, fill: 'hsl(var(--muted))' },
-        ];
-        
-        const assessmentStatusChartData = chartData.filter(d => d.value > 0);
-        
-        const chartConfig: any = {};
-        assessmentStatusChartData.forEach(item => {
-            chartConfig[item.name] = {
-                label: item.name,
-                color: item.fill,
-            };
-        });
-
-        // Mock progress data for now, as we don't have time-series data
-        const progressData = [
-          { name: 'Tuần 1', 'Số lượng': Math.max(0, Math.floor(totalRegisteredCommunes * 0.1) - 1) },
-          { name: 'Tuần 2', 'Số lượng': Math.max(0, Math.floor(totalRegisteredCommunes * 0.3) - 2) },
-          { name: 'Tuần 3', 'Số lượng': Math.max(0, Math.floor(totalRegisteredCommunes * 0.6) - 5) },
-          { name: 'Tuần 4', 'Số lượng': totalRegisteredCommunes },
-        ];
-
 
         return {
             totalCommunes,
@@ -147,9 +114,6 @@ const AdminDashboard = () => {
             achievedCount,
             notAchievedCount,
             notRegisteredCount,
-            assessmentStatusChartData,
-            chartConfig,
-            progressData,
         };
 
     }, [selectedPeriod, assessments, units]);
@@ -186,12 +150,6 @@ const AdminDashboard = () => {
         link: "/admin/registrations?tab=unregistered"
       },
     ];
-
-    const getUnitName = (communeId?: string) => {
-        if (!communeId) return 'Không xác định';
-        return units.find(u => u.id === communeId)?.name || 'Không xác định';
-    }
-
 
     return (
     <>
@@ -244,117 +202,6 @@ const AdminDashboard = () => {
           );
         })}
       </div>
-      
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle>Đánh giá các xã ({assessmentPeriods.find(p=>p.id===selectedPeriod)?.name || 'Tất cả'})</CardTitle>
-            <CardDescription>Phân bố trạng thái của các hồ sơ trong đợt được chọn.</CardDescription>
-          </CardHeader>
-           <CardContent className="flex items-center justify-center">
-            <ChartContainer
-                config={chartConfig}
-                className="mx-auto aspect-square h-[300px]"
-            >
-                <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                    <ChartTooltip
-                        cursor={false}
-                        content={<ChartTooltipContent hideLabel />}
-                    />
-                    <Pie
-                        data={assessmentStatusChartData}
-                        dataKey="value"
-                        nameKey="name"
-                        innerRadius={60}
-                        strokeWidth={5}
-                    >
-                        {assessmentStatusChartData.map((entry) => (
-                            <Cell key={entry.name} fill={entry.fill} className="stroke-background hover:opacity-80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"/>
-                        ))}
-                    </Pie>
-                     <ChartLegend
-                        content={<ChartLegendContent nameKey="name" />}
-                        className="-translate-y-2 flex-wrap gap-2 [&>*]:basis-1/4 [&>*]:justify-center"
-                    />
-                    </PieChart>
-                </ResponsiveContainer>
-             </ChartContainer>
-          </CardContent>
-        </Card>
-
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle>Tiến độ nộp hồ sơ</CardTitle>
-             <CardDescription>Số lượng hồ sơ nộp theo thời gian (dữ liệu giả định).</CardDescription>
-          </CardHeader>
-          <CardContent>
-             <div className="h-[300px] w-full">
-               <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={progressData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="name" tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }}/>
-                        <YAxis tickLine={false} axisLine={{ stroke: 'hsl(var(--border))' }} />
-                        <Tooltip
-                            contentStyle={{
-                                borderRadius: '8px',
-                                boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
-                                border: '1px solid hsl(var(--border))'
-                            }}
-                        />
-                        <Line type="monotone" dataKey="Số lượng" stroke="hsl(var(--primary))" strokeWidth={3} dot={{ r: 5 }} activeDot={{ r: 8 }} />
-                    </LineChart>
-                </ResponsiveContainer>
-             </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle>Đánh giá chờ duyệt gần đây</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader className="bg-muted/50">
-                <TableRow>
-                  <TableHead className="font-semibold">Xã</TableHead>
-                  <TableHead className="hidden font-semibold md:table-cell">Ngày gửi</TableHead>
-                  <TableHead className="hidden font-semibold lg:table-cell">Người gửi</TableHead>
-                  <TableHead className="font-semibold">Trạng thái</TableHead>
-                  <TableHead><span className="sr-only">Hành động</span></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {assessments.filter(a => a.assessmentStatus === 'pending_review' && a.assessmentPeriodId === selectedPeriod).length > 0 ? 
-                  assessments.filter(a => a.assessmentStatus === 'pending_review' && a.assessmentPeriodId === selectedPeriod).map((assessment) => (
-                      <TableRow key={assessment.id} className="hover:bg-muted/50">
-                          <TableCell>
-                          <div className="font-medium">{getUnitName(assessment.communeId)}</div>
-                          </TableCell>
-                          <TableCell className="hidden md:table-cell">{assessment.assessmentSubmissionDate}</TableCell>
-                          <TableCell className="hidden lg:table-cell">{assessment.submittedBy}</TableCell>
-                          <TableCell>
-                          <Badge className="bg-amber-500 text-white hover:bg-amber-500/90">Chờ duyệt</Badge>
-                          </TableCell>
-                          <TableCell>
-                              <Button variant="outline" size="sm" asChild>
-                                  <Link href={`/admin/reviews/${assessment.id}`}>Xem chi tiết</Link>
-                              </Button>
-                          </TableCell>
-                      </TableRow>
-                  )) : (
-                    <TableRow>
-                      <TableCell colSpan={5} className="h-24 text-center">
-                        Không có hồ sơ nào đang chờ duyệt.
-                      </TableCell>
-                    </TableRow>
-                  )
-                }
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
     </div>
     </>
 )};
