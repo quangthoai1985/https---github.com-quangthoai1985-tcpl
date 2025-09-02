@@ -144,33 +144,27 @@ export default function ReviewAssessmentsPage() {
                         <TableRow>
                             <TableHead>Tên đơn vị</TableHead>
                             <TableHead>Tên cán bộ</TableHead>
+                            <TableHead>Số điện thoại</TableHead>
                             <TableHead>Tiến độ</TableHead>
-                            <TableHead>Trạng thái</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                     {communesWithDrafts.length > 0 ? (
                         communesWithDrafts.map(({ unit, progress }) => {
-                            const statusInfo = statusMap['not_sent'];
                             const responsibleUser = users.find(u => u.communeId === unit.id);
-                             const progressColor = progress < 30 ? 'bg-red-500' : progress < 70 ? 'bg-amber-500' : 'bg-green-500';
+                            const progressColor = progress < 30 ? 'bg-red-500' : progress < 70 ? 'bg-amber-500' : 'bg-green-500';
                             return (
                                 <TableRow key={unit.id}>
                                     <TableCell>
                                         <div className="font-medium">{unit.name}</div>
                                     </TableCell>
                                     <TableCell>{responsibleUser?.displayName || 'Chưa có'}</TableCell>
+                                    <TableCell>{responsibleUser?.phoneNumber || 'N/A'}</TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-2">
                                             <Progress value={progress} className="w-32 h-2" indicatorClassName={progressColor} />
                                             <span className="text-xs font-medium text-muted-foreground">{progress}%</span>
                                         </div>
-                                    </TableCell>
-                                    <TableCell>
-                                        <Badge variant={statusInfo.badge} className={statusInfo.className}>
-                                            <statusInfo.icon className="mr-2 h-4 w-4" />
-                                            {statusInfo.text}
-                                        </Badge>
                                     </TableCell>
                                 </TableRow>
                             )
