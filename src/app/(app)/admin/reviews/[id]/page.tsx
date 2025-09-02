@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import PageHeader from "@/components/layout/page-header";
 import type { Assessment, IndicatorResult } from '@/lib/data';
 import { cn } from "@/lib/utils";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 function FileUploadComponent() {
     const [files, setFiles] = React.useState<File[]>([]);
@@ -61,10 +62,10 @@ export default function AssessmentDetailPage() {
   const { toast } = useToast();
   
   const [assessment, setAssessment] = useState<Assessment | undefined>(() => assessments.find((a) => a.id === id));
-  const [rejectionReason, setRejectionReason] = useState(assessment?.rejectionReason || "");
   const [communeExplanation, setCommuneExplanation] = useState(assessment?.communeExplanation || "");
   const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
   const [isReturnDialogOpen, setIsReturnDialogOpen] = useState(false);
+  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
 
   // State to hold admin notes for each indicator
   const [adminNotes, setAdminNotes] = useState<Record<string, string>>(() => {
@@ -126,15 +127,7 @@ export default function AssessmentDetailPage() {
   };
 
   const handleReject = async () => {
-     if (!rejectionReason.trim()) {
-        toast({
-            title: "Lỗi",
-            description: "Vui lòng nhập lý do từ chối/không đạt chuẩn.",
-            variant: "destructive"
-        });
-        return;
-    }
-    const updatedAssessment = { ...assessment, status: 'rejected' as const, rejectionReason: rejectionReason, communeExplanation: "" };
+    const updatedAssessment = { ...assessment, status: 'rejected' as const, rejectionReason: "", communeExplanation: "" };
     await updateAssessments(assessments.map(a => a.id === id ? updatedAssessment : a));
     
     toast({
@@ -142,7 +135,8 @@ export default function AssessmentDetailPage() {
       description: `Hồ sơ của ${assessmentUnitName} đã được ghi nhận là "Không đạt chuẩn".`,
       variant: "destructive",
     });
-     router.push('/admin/reviews');
+    setIsRejectDialogOpen(false);
+    router.push('/admin/reviews');
   };
   
   const handleResubmit = async () => {
@@ -164,23 +158,26 @@ export default function AssessmentDetailPage() {
   };
   
    const handleReturnForRevision = async () => {
-        if (!rejectionReason.trim()) {
-            toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng nhập lý do chung để trả lại hồ sơ.' });
-            return;
-        }
-
         // Add admin notes to the assessment data before saving
         const assessmentDataWithNotes = { ...assessment.assessmentData };
         for (const indicatorId in adminNotes) {
             if (assessmentDataWithNotes[indicatorId]) {
                 assessmentDataWithNotes[indicatorId].adminNote = adminNotes[indicatorId];
+            } else {
+                 assessmentDataWithNotes[indicatorId] = { 
+                    value: null, 
+                    note: '', 
+                    files: [], 
+                    status: 'pending', 
+                    adminNote: adminNotes[indicatorId]
+                };
             }
         }
         
         const updatedAssessment = { 
             ...assessment, 
-            status: 'rejected' as const,
-            rejectionReason: rejectionReason,
+            status: 'rejected' as const, // The status for a returned file is 'rejected'
+            rejectionReason: '', // General reason is removed. Specific notes are in assessmentData.
             communeExplanation: '',
             assessmentData: assessmentDataWithNotes,
         };
@@ -193,7 +190,6 @@ export default function AssessmentDetailPage() {
         });
         
         setIsReturnDialogOpen(false);
-        setRejectionReason(''); // Clear for next use
         router.push('/admin/reviews');
     };
 
@@ -396,10 +392,6 @@ export default function AssessmentDetailPage() {
                 <Separator className="my-6" />
                 <div className="grid gap-4">
                     <h3 className="text-lg font-headline">Thẩm định và Ra quyết định</h3>
-                    <div className="grid gap-2">
-                         <Label htmlFor="review-notes" className="font-medium">Lý do chung (Nếu Từ chối hoặc Trả lại)</Label>
-                        <Textarea id="review-notes" placeholder="Nhập lý do chung..." onChange={(e) => setRejectionReason(e.target.value)} defaultValue={rejectionReason} />
-                    </div>
                 </div>
             </>
           )}
@@ -421,7 +413,7 @@ export default function AssessmentDetailPage() {
             
             {role === 'admin' && assessment.status === 'pending_review' &&(
               <>
-                <Button variant="destructive" onClick={handleReject} disabled={isActionDisabled}><ThumbsDown className="mr-2 h-4 w-4" />Từ chối (Không đạt)</Button>
+                <Button variant="destructive" onClick={() => setIsRejectDialogOpen(true)} disabled={isActionDisabled}><ThumbsDown className="mr-2 h-4 w-4" />Từ chối (Không đạt)</Button>
                 <Button 
                     variant="outline" 
                     className="text-amber-600 border-amber-500 hover:bg-amber-50 hover:text-amber-700"
@@ -448,36 +440,45 @@ export default function AssessmentDetailPage() {
       </Card>
     </div>
 
-    <Dialog open={isReturnDialogOpen} onOpenChange={setIsReturnDialogOpen}>
-        <DialogContent>
-            <DialogHeader>
-                <DialogTitle>Xác nhận trả lại hồ sơ</DialogTitle>
-                <DialogDescription>
-                    Hành động này sẽ trả lại hồ sơ cho <strong>{assessmentUnitName}</strong> để chỉnh sửa.
-                    Vui lòng nhập lý do chung. Các ghi chú chi tiết bạn đã nhập ở trên cũng sẽ được lưu lại.
-                </DialogDescription>
-            </DialogHeader>
-             <div className="grid gap-4 py-4">
-                <Label htmlFor="returnReason">Lý do chung</Label>
-                <Textarea 
-                id="returnReason"
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder={"Ví dụ: Hồ sơ cần bổ sung minh chứng ở một số chỉ tiêu, vui lòng xem ghi chú chi tiết và hoàn thiện."}
-                />
-            </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={() => setIsReturnDialogOpen(false)}>Hủy</Button>
-                <Button 
-                    variant="destructive" 
-                    disabled={!rejectionReason.trim()}
+    <AlertDialog open={isReturnDialogOpen} onOpenChange={setIsReturnDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Xác nhận trả lại hồ sơ?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Hành động này sẽ trả lại hồ sơ cho <strong>{assessmentUnitName}</strong> để chỉnh sửa và bổ sung. Các ghi chú chi tiết bạn đã nhập sẽ được lưu lại và gửi cho họ.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                <AlertDialogAction 
                     onClick={handleReturnForRevision}
+                    className="bg-amber-600 hover:bg-amber-700 focus:ring-amber-500"
                 >
                     Xác nhận Trả lại
-                </Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
+    
+    <AlertDialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Xác nhận Từ chối (Không Đạt)?</AlertDialogTitle>
+                <AlertDialogDescription>
+                    Hành động này sẽ đánh dấu hồ sơ của <strong>{assessmentUnitName}</strong> là "Không đạt chuẩn" trong kỳ đánh giá này. Đây là quyết định cuối cùng và không thể yêu cầu xã gửi lại.
+                </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogCancel>Hủy</AlertDialogCancel>
+                <AlertDialogAction 
+                    onClick={handleReject}
+                    className="bg-destructive hover:bg-destructive/90"
+                >
+                    Xác nhận Không Đạt
+                </AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
 
     <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
@@ -502,4 +503,3 @@ export default function AssessmentDetailPage() {
     </>
   );
 }
-

@@ -444,10 +444,10 @@ const CommuneDashboard = () => {
     };
 
     const deadlinePassed = isRegistrationDeadlinePassed();
-    const canStartAssessment = myAssessment?.status === 'registration_approved' || myAssessment?.status === 'draft';
+    const canStartAssessment = myAssessment?.status === 'registration_approved' || myAssessment?.status === 'draft' || myAssessment?.status === 'rejected';
     const isRegistrationRejected = myAssessment?.status === 'registration_rejected';
     const isPendingRegistration = myAssessment?.status === 'pending_registration';
-    const isAssessmentRejected = myAssessment?.status === 'rejected';
+    const isAssessmentReturned = myAssessment?.status === 'rejected';
 
     const renderRegistrationStatus = () => {
         if (!myAssessment) {
@@ -611,14 +611,14 @@ const CommuneDashboard = () => {
                          <AssessmentButton />
                     </div>
 
-                    {isAssessmentRejected && myAssessment?.rejectionReason && (
+                    {isAssessmentReturned && (
                          <div className={`p-4 border rounded-lg bg-amber-50 border-amber-300`}>
                             <h3 className='font-semibold text-lg text-amber-800'>Thông báo: Yêu cầu bổ sung/chỉnh sửa</h3>
                              <Alert variant="destructive" className="mt-2 border-amber-400 text-amber-900 [&>svg]:text-amber-600">
                                 <AlertTriangle className="h-4 w-4" />
-                                <AlertTitle className="text-amber-800">Lý do từ Admin:</AlertTitle>
+                                <AlertTitle className="text-amber-800">Ghi chú từ Admin:</AlertTitle>
                                 <AlertDescription>
-                                    {myAssessment.rejectionReason}
+                                    Hồ sơ của bạn đã được trả lại. Vui lòng xem chi tiết các ghi chú của Admin trong trang Tự đánh giá và gửi lại.
                                 </AlertDescription>
                             </Alert>
                              <Button className='mt-4' asChild>

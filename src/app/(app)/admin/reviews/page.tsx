@@ -27,7 +27,7 @@ import type { Assessment, Unit, Criterion } from '@/lib/data';
 import PageHeader from '@/components/layout/page-header';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
@@ -50,7 +50,6 @@ export default function ReviewAssessmentsPage() {
         assessmentPeriods.find(p => p.isActive)?.id
     );
     const [actionTarget, setActionTarget] = useState<{assessment: Assessment, type: 'return'} | null>(null);
-    const [returnReason, setReturnReason] = useState('');
 
     const { filteredAssessments } = useMemo(() => {
         if (!selectedPeriod) return { filteredAssessments: [] };
@@ -59,8 +58,7 @@ export default function ReviewAssessmentsPage() {
     }, [selectedPeriod, assessments]);
     
     const handleReturnForRevision = async () => {
-        if (!actionTarget || !returnReason.trim()) {
-            toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng nhập lý do trả lại.' });
+        if (!actionTarget) {
             return;
         }
 
@@ -69,7 +67,7 @@ export default function ReviewAssessmentsPage() {
         const updatedAssessment = { 
             ...assessment, 
             status: 'rejected' as const, // Use 'rejected' status to indicate it's returned to commune
-            rejectionReason: returnReason,
+            rejectionReason: '', // Clear old general reason if any
             communeExplanation: '', // Clear previous explanation
         };
         
@@ -83,7 +81,6 @@ export default function ReviewAssessmentsPage() {
         });
         
         setActionTarget(null);
-        setReturnReason('');
     };
 
     const statusMap: { [key: string]: { text: string; icon: React.ComponentType<any>; badge: "default" | "secondary" | "destructive", className?: string } } = {
@@ -244,8 +241,7 @@ export default function ReviewAssessmentsPage() {
     const tabs = [
         { value: "pending_review", label: "Chờ duyệt", data: filteredAssessments.filter(a => a.status === 'pending_review') },
         { value: "achieved_standard", label: "Đạt chuẩn", data: filteredAssessments.filter(a => a.status === 'achieved_standard') },
-        { value: "revision_required", label: "Yêu cầu Bổ sung", data: filteredAssessments.filter(a => a.status === 'rejected' && a.rejectionReason?.toLowerCase().includes('bổ sung')) }, // A simple check, can be improved
-        { value: "not_achieved", label: "Không đạt chuẩn", data: filteredAssessments.filter(a => a.status === 'rejected' && !a.rejectionReason?.toLowerCase().includes('bổ sung')) },
+        { value: "revision_required", label: "Yêu cầu Bổ sung", data: filteredAssessments.filter(a => a.status === 'rejected') }, 
         { value: "not_sent", label: "Chưa gửi HS", data: notSentCommunes },
     ];
 
@@ -269,7 +265,7 @@ export default function ReviewAssessmentsPage() {
         </CardHeader>
         <CardContent>
             <Tabs defaultValue="pending_review">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-4">
                 {tabs.map(tab => (
                     <TabsTrigger key={tab.value} value={tab.value}>
                         {tab.label} ({tab.data.length})
@@ -285,35 +281,25 @@ export default function ReviewAssessmentsPage() {
         </CardContent>
         </Card>
 
-        <Dialog open={!!actionTarget} onOpenChange={(open) => !open && setActionTarget(null)}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Lý do trả lại hồ sơ</DialogTitle>
-                    <DialogDescription>
-                    Vui lòng nhập lý do trả lại. Đơn vị <strong>{getUnitName(actionTarget?.assessment.communeId)}</strong> sẽ thấy thông báo này và cần phải nộp lại hồ sơ sau khi chỉnh sửa.
-                    </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                    <Label htmlFor="returnReason">Lý do</Label>
-                    <Textarea 
-                    id="returnReason"
-                    value={returnReason}
-                    onChange={(e) => setReturnReason(e.target.value)}
-                    placeholder={"Ví dụ: Cần bổ sung thêm minh chứng cho chỉ tiêu 1.2..."}
-                    />
-                </div>
-                <DialogFooter>
-                    <Button variant="outline" onClick={() => setActionTarget(null)}>Hủy</Button>
-                    <Button 
-                    variant="destructive" 
-                    disabled={!returnReason.trim()}
-                    onClick={handleReturnForRevision}
+        <AlertDialog open={!!actionTarget} onOpenChange={(open) => !open && setActionTarget(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Xác nhận trả lại hồ sơ?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                    Hành động này sẽ trả lại hồ sơ cho đơn vị <strong>{getUnitName(actionTarget?.assessment.communeId)}</strong> để họ chỉnh sửa và bổ sung.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setActionTarget(null)}>Hủy</AlertDialogCancel>
+                    <AlertDialogAction 
+                        onClick={handleReturnForRevision}
+                        className="bg-amber-600 hover:bg-amber-700"
                     >
                     Xác nhận Trả lại
-                    </Button>
-                </DialogFooter>
-            </DialogContent>
-        </Dialog>
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
         </>
     );
 }
