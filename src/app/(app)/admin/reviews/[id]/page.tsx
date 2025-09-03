@@ -193,15 +193,15 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange }: 
     );
 }
 
-const StatusIcon = ({ status }: { status: IndicatorResult['status'] }) => {
+const StatusBadge = ({ status }: { status: IndicatorResult['status'] }) => {
     switch (status) {
         case 'achieved':
-            return <CheckCircle className="h-5 w-5 text-green-500" />;
+            return <Badge variant="default" className="bg-green-600 text-white">Đạt</Badge>;
         case 'not-achieved':
-            return <XCircle className="h-5 w-5 text-red-500" />;
+            return <Badge variant="destructive">Không đạt</Badge>;
         case 'pending':
         default:
-            return <CircleSlash className="h-5 w-5 text-muted-foreground" />;
+            return <Badge variant="secondary">Chưa chấm</Badge>;
     }
 };
 
@@ -412,7 +412,7 @@ export default function AssessmentDetailPage() {
                           <div key={ind.id} className={blockClasses}>
                               {isSub && <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>}
                               <div className="flex items-start gap-3">
-                                  <StatusIcon status={result.status} />
+                                  <StatusBadge status={result.status} />
                                   <h4 className="font-semibold flex-1">{ind.name}</h4>
                               </div>
                                <>

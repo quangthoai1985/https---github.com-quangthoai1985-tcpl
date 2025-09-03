@@ -18,6 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
 
 type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
 // Updated value structure to handle the new logic
@@ -393,15 +394,15 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean): 
     return 'pending';
 }
 
-const StatusIcon = ({ status }: { status: AssessmentStatus }) => {
+const StatusBadge = ({ status }: { status: AssessmentStatus }) => {
     switch (status) {
         case 'achieved':
-            return <CheckCircle className="h-5 w-5 text-green-500" />;
+            return <Badge variant="default" className="bg-green-600 text-white">Đạt</Badge>;
         case 'not-achieved':
-            return <XCircle className="h-5 w-5 text-red-500" />;
+            return <Badge variant="destructive">Không đạt</Badge>;
         case 'pending':
         default:
-            return <CircleSlash className="h-5 w-5 text-muted-foreground" />;
+            return <Badge variant="secondary">Chưa chấm</Badge>;
     }
 };
 
@@ -421,7 +422,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
     <div className="grid gap-6">
         <div>
             <div className="flex items-center gap-2">
-                <StatusIcon status={data.status} />
+                <StatusBadge status={data.status} />
                 <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
             </div>
             <p className="text-sm text-muted-foreground mt-1 pl-7">{indicator.description}</p>
