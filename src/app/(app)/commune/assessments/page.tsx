@@ -740,7 +740,8 @@ export default function SelfAssessmentPage() {
                                             const blockClasses = cn(
                                                 "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
                                                 status === 'achieved' && 'bg-green-50 border-green-200',
-                                                status === 'not-achieved' && 'bg-red-50 border-red-200'
+                                                status === 'not-achieved' && 'bg-red-50 border-red-200',
+                                                status === 'pending' && 'bg-amber-50 border-amber-200'
                                             );
 
                                             return (
@@ -770,7 +771,8 @@ export default function SelfAssessmentPage() {
                                                                     const subBlockClasses = cn(
                                                                         "relative pl-6 transition-colors rounded-r-lg py-4",
                                                                          subStatus === 'achieved' && 'bg-green-50',
-                                                                         subStatus === 'not-achieved' && 'bg-red-50'
+                                                                         subStatus === 'not-achieved' && 'bg-red-50',
+                                                                         subStatus === 'pending' && 'bg-amber-50 border-l-amber-200'
                                                                     );
                                                                     return (
                                                                       <div key={sub.id} className={subBlockClasses}>

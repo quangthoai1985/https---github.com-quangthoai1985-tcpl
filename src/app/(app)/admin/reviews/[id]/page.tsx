@@ -313,7 +313,7 @@ export default function AssessmentDetailPage() {
     if (revisedData) return revisedData;
 
     if (!assessment?.assessmentData || !assessment.assessmentData[indicatorId]) {
-      return { value: 'Chưa chấm', note: 'Chưa có giải trình.', files: [], status: 'pending' };
+      return { value: null, note: '', files: [], status: 'pending' };
     }
     return assessment.assessmentData[indicatorId];
   };
@@ -406,6 +406,7 @@ export default function AssessmentDetailPage() {
                           "grid gap-4 p-4 rounded-lg bg-card border shadow-sm",
                           result.status === 'achieved' && 'bg-green-50 border-green-200',
                           result.status === 'not-achieved' && 'bg-red-50 border-red-200',
+                          result.status === 'pending' && 'bg-amber-50 border-amber-200',
                           isSub && "relative pl-6 pt-4 mt-2"
                         );
 
