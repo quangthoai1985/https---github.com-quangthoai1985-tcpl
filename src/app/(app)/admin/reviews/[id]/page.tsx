@@ -194,14 +194,15 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange }: 
 }
 
 const StatusBadge = ({ status }: { status: IndicatorResult['status'] }) => {
+    const badgeClasses = "text-sm px-3 py-1";
     switch (status) {
         case 'achieved':
-            return <Badge variant="default" className="bg-green-600 text-white">Đạt</Badge>;
+            return <Badge className={cn(badgeClasses, "bg-green-600 hover:bg-green-700 text-white")}>Đạt</Badge>;
         case 'not-achieved':
-            return <Badge variant="destructive">Không đạt</Badge>;
+            return <Badge variant="destructive" className={badgeClasses}>Không đạt</Badge>;
         case 'pending':
         default:
-            return <Badge variant="secondary">Chưa chấm</Badge>;
+            return <Badge variant="outline" className={cn(badgeClasses, "border-amber-500 bg-amber-50 text-amber-800")}>Chưa chấm</Badge>;
     }
 };
 
