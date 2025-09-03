@@ -50,6 +50,7 @@ function FileUploadComponent({ indicatorId, files, onFileChange }: { indicatorId
                 <p className="mt-2 text-sm text-muted-foreground">
                     Kéo và thả tệp vào đây, hoặc <span className="font-semibold text-primary">nhấn để chọn tệp</span>
                 </p>
+                <p className="text-xs text-muted-foreground mt-1">Dung lượng tối đa: 5MB.</p>
                 <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={handleFileSelect} />
             </div>
             {files.length > 0 && (

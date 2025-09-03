@@ -77,7 +77,10 @@ function DocumentForm({ document, onSave, onCancel, isSubmitting }: { document: 
         </div>
         <div className="grid grid-cols-4 items-center gap-4">
             <Label htmlFor="file" className="text-right">Tệp đính kèm</Label>
-            <Input id="file" type="file" onChange={handleFileChange} className="col-span-3"/>
+            <div className="col-span-3">
+              <Input id="file" type="file" onChange={handleFileChange} />
+              <p className="text-xs text-muted-foreground mt-1">Dung lượng tối đa: 5MB.</p>
+            </div>
         </div>
         {file && <p className="text-sm text-muted-foreground text-right col-span-4">Tệp mới: {file.name}</p>}
         {formData.fileUrl && !file && <p className="text-sm text-muted-foreground text-right col-span-4">Tệp hiện tại: {decodeURIComponent(formData.fileUrl.split('%2F').pop()?.split('?')[0] || '')}</p>}

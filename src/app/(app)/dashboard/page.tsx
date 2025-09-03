@@ -430,6 +430,7 @@ const CommuneDashboard = () => {
                             <p className='text-sm text-muted-foreground'>Bạn cần tải lên đơn đăng ký (file văn bản hoặc PDF) để Admin phê duyệt trước khi có thể bắt đầu tự đánh giá.</p>
                             <div className="grid w-full max-w-sm items-center gap-1.5">
                                 <Input id="registration-file" type="file" onChange={(e) => setRegistrationFile(e.target.files ? e.target.files[0] : null)} disabled={isSubmitting} />
+                                <p className="text-xs text-muted-foreground mt-1">Dung lượng tối đa: 5MB.</p>
                             </div>
                             <Button onClick={handleRegister} disabled={!registrationFile || isSubmitting}>
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
@@ -501,6 +502,7 @@ const CommuneDashboard = () => {
                                     <p className='text-sm text-muted-foreground'>Vui lòng tải lên đơn đăng ký đã được chỉnh sửa/bổ sung.</p>
                                     <div className="grid w-full max-w-sm items-center gap-1.5 mt-2">
                                         <Input id="registration-file-resubmit" type="file" onChange={(e) => setRegistrationFile(e.target.files ? e.target.files[0] : null)} disabled={isSubmitting} />
+                                        <p className="text-xs text-muted-foreground mt-1">Dung lượng tối đa: 5MB.</p>
                                     </div>
                                     <Button onClick={handleResubmit} disabled={!registrationFile || isSubmitting} className='mt-2'>
                                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
