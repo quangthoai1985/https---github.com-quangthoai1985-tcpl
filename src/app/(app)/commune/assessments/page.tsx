@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2 } from "lucide-react";
+import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2, LinkIcon } from "lucide-react";
 import React, { useState, useEffect, useCallback } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
@@ -32,37 +32,71 @@ type AssessmentValues = Record<string, IndicatorValue>;
 type AssessmentFileUrls = Record<string, { name: string, url: string }[]>;
 
 
-function FileUploadComponent({ indicatorId, files, onFileChange }: { indicatorId: string; files: (File | { name: string, url: string })[]; onFileChange: (id: string, files: (File | { name: string, url: string })[]) => void; }) {
+function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange }: { indicatorId: string; evidence: (File | { name: string, url: string })[]; onEvidenceChange: (id: string, evidence: (File | { name: string, url: string })[]) => void; }) {
+    const [linkInput, setLinkInput] = useState('');
+    const { toast } = useToast();
+
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newFiles = Array.from(e.target.files || []);
-        onFileChange(indicatorId, [...files, ...newFiles]);
+        onEvidenceChange(indicatorId, [...evidence, ...newFiles]);
     };
     
-    const handleFileRemove = (fileToRemove: File | { name: string, url: string }) => {
-        onFileChange(indicatorId, files.filter(f => f.name !== fileToRemove.name));
+    const handleEvidenceRemove = (itemToRemove: File | { name: string, url: string }) => {
+        onEvidenceChange(indicatorId, evidence.filter(item => item.name !== itemToRemove.name));
     };
 
+    const handleAddLink = () => {
+        if (!linkInput.trim() || !linkInput.startsWith('http')) {
+            toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng nhập một đường dẫn hợp lệ (bắt đầu bằng http hoặc https).' });
+            return;
+        }
+        const newLink = { name: linkInput.trim(), url: linkInput.trim() };
+        onEvidenceChange(indicatorId, [...evidence, newLink]);
+        setLinkInput('');
+    };
+
+    const isLink = (item: any): item is { name: string, url: string } => {
+        return typeof item.url === 'string' && (item.url.startsWith('http://') || item.url.startsWith('https://'));
+    }
+
     return (
-        <div className="grid gap-2">
-            <Label>Hồ sơ minh chứng</Label>
+        <div className="grid gap-4">
+            <Label>Hồ sơ minh chứng (Tệp tin hoặc Liên kết)</Label>
+            
+            {/* File Upload Area */}
             <div className="w-full relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-6 text-center hover:border-primary transition-colors">
                 <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
                 <p className="mt-2 text-sm text-muted-foreground">
                     Kéo và thả tệp vào đây, hoặc <span className="font-semibold text-primary">nhấn để chọn tệp</span>
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">Dung lượng tối đa: 5MB.</p>
+                <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
                 <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={handleFileSelect} />
             </div>
-            {files.length > 0 && (
+
+            {/* Link Input Area */}
+            <div className="grid gap-2">
+                 <Label htmlFor={`link-${indicatorId}`}>Thêm liên kết minh chứng</Label>
+                 <div className="flex gap-2">
+                    <Input 
+                        id={`link-${indicatorId}`}
+                        value={linkInput}
+                        onChange={(e) => setLinkInput(e.target.value)}
+                        placeholder="Dán đường dẫn trang web, bài viết... vào đây"
+                    />
+                    <Button type="button" variant="outline" onClick={handleAddLink}>Thêm</Button>
+                 </div>
+            </div>
+
+            {evidence.length > 0 && (
                  <div className="space-y-2 mt-4">
-                    <p className="text-sm font-medium">Tệp đã tải lên:</p>
-                    {files.map((file, index) => (
+                    <p className="text-sm font-medium">Minh chứng đã thêm:</p>
+                    {evidence.map((item, index) => (
                         <div key={index} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
                             <div className="flex items-center gap-2 truncate">
-                                <FileIcon className="h-4 w-4 flex-shrink-0" />
-                                <span className="truncate">{file.name}</span>
+                                {isLink(item) ? <LinkIcon className="h-4 w-4 flex-shrink-0 text-blue-500" /> : <FileIcon className="h-4 w-4 flex-shrink-0" />}
+                                <span className="truncate">{item.name}</span>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleFileRemove(file)}>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEvidenceRemove(item)}>
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>
@@ -372,7 +406,7 @@ const StatusIcon = ({ status }: { status: AssessmentStatus }) => {
 };
 
 
-const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, indicator, data, onValueChange, onNoteChange, onFileChange, onIsTaskedChange }: { 
+const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, indicator, data, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange }: { 
     specialIndicatorIds: string[],
     specialLabels: { no: string; yes: string },
     customBooleanLabels: { true: string, false: string} | null,
@@ -381,7 +415,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
     data: AssessmentValues[string],
     onValueChange: (id: string, value: any) => void,
     onNoteChange: (id: string, note: string) => void,
-    onFileChange: (id: string, files: (File | { name: string; url: string; })[]) => void,
+    onEvidenceChange: (id: string, files: (File | { name: string; url: string; })[]) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void,
 }) => (
     <div className="grid gap-6">
@@ -412,7 +446,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
 
         <div className="grid gap-2">
             <p className="text-sm"><strong>Yêu cầu hồ sơ minh chứng:</strong> {indicator.evidenceRequirement || 'Không yêu cầu'}</p>
-            <FileUploadComponent indicatorId={indicator.id} files={data.files} onFileChange={onFileChange} />
+            <EvidenceUploaderComponent indicatorId={indicator.id} evidence={data.files} onEvidenceChange={onEvidenceChange} />
         </div>
     </div>
 );
@@ -540,12 +574,12 @@ export default function SelfAssessmentPage() {
   };
 
 
-  const handleFileChange = (indicatorId: string, files: (File | { name: string, url: string })[]) => {
+  const handleEvidenceChange = (indicatorId: string, evidence: (File | { name: string, url: string })[]) => {
       setAssessmentData(prev => ({
           ...prev,
           [indicatorId]: {
               ...prev[indicatorId],
-              files: files
+              files: evidence
           }
       }))
   }
@@ -558,10 +592,12 @@ export default function SelfAssessmentPage() {
 
     for (const indicatorId in assessmentData) {
         const indicatorData = assessmentData[indicatorId];
-        const localFilesToUpload = indicatorData.files.filter((f): f is File => f instanceof File);
         
-        // Initialize the array for the current indicator
-        uploadedFileUrls[indicatorId] = indicatorData.files.filter((f): f is {name: string, url: string} => !(f instanceof File));
+        // Separate local files from existing links/files
+        const localFilesToUpload = indicatorData.files.filter((f): f is File => f instanceof File);
+        const existingEvidence = indicatorData.files.filter((f): f is {name: string, url: string} => !(f instanceof File));
+        
+        uploadedFileUrls[indicatorId] = existingEvidence;
 
         if (localFilesToUpload.length > 0) {
             const indicatorPromises = localFilesToUpload.map(async file => {
@@ -717,7 +753,7 @@ export default function SelfAssessmentPage() {
                                                             data={assessmentData[indicator.id]} 
                                                             onValueChange={handleValueChange}
                                                             onNoteChange={handleNoteChange}
-                                                            onFileChange={handleFileChange}
+                                                            onEvidenceChange={handleEvidenceChange}
                                                             onIsTaskedChange={handleIsTaskedChange}
                                                         />
                                                     ) : (
@@ -746,7 +782,7 @@ export default function SelfAssessmentPage() {
                                                                               data={assessmentData[sub.id]}
                                                                               onValueChange={handleValueChange}
                                                                               onNoteChange={handleNoteChange}
-                                                                              onFileChange={handleFileChange}
+                                                                              onEvidenceChange={handleEvidenceChange}
                                                                               onIsTaskedChange={handleIsTaskedChange}
                                                                           />
                                                                       </div>

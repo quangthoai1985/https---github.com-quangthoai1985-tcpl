@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock, Award, Undo2, CornerDownRight, Edit, CircleSlash } from "lucide-react";
+import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock, Award, Undo2, CornerDownRight, Edit, CircleSlash, LinkIcon } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -99,7 +99,7 @@ function RevisionDialog({ indicator, data, onSave, onCancel, criteria }: { indic
                 {/* File Upload */}
                 <div className="grid gap-2">
                     <Label>Hồ sơ minh chứng mới (nếu có)</Label>
-                    <FileUploadComponent indicatorId={indicator.id} files={files} onFileChange={(id, newFiles) => setFiles(newFiles)} />
+                    <EvidenceUploaderComponent indicatorId={indicator.id} evidence={files} onEvidenceChange={(id, newFiles) => setFiles(newFiles)} />
                 </div>
                 {/* Commune's Explanation */}
                 <div className="grid gap-2">
@@ -130,17 +130,31 @@ function renderInput(indicator: Indicator | SubIndicator, specialIndicatorIds: s
     }
 }
 
-function FileUploadComponent({ indicatorId, files, onFileChange }: { indicatorId: string, files: (File | { name: string, url: string })[], onFileChange: (id: string, files: (File | { name: string, url: string })[]) => void }) {
+function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange }: { indicatorId: string; evidence: (File | { name: string, url: string })[]; onEvidenceChange: (id: string, evidence: (File | { name: string, url: string })[]) => void; }) {
+    const {toast} = useToast();
+    const [linkInput, setLinkInput] = useState('');
+
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newFiles = Array.from(e.target.files || []);
-        onFileChange(indicatorId, [...files, ...newFiles]);
+        onEvidenceChange(indicatorId, [...evidence, ...newFiles]);
     };
-    const handleFileRemove = (fileToRemove: File | { name: string, url: string }) => {
-        onFileChange(indicatorId, files.filter(f => f.name !== fileToRemove.name));
+    const handleEvidenceRemove = (itemToRemove: File | { name: string, url: string }) => {
+        onEvidenceChange(indicatorId, evidence.filter(item => item.name !== itemToRemove.name));
     };
+    const handleAddLink = () => {
+        if (!linkInput.trim() || !linkInput.startsWith('http')) {
+            toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng nhập một đường dẫn hợp lệ.' });
+            return;
+        }
+        onEvidenceChange(indicatorId, [...evidence, { name: linkInput.trim(), url: linkInput.trim() }]);
+        setLinkInput('');
+    };
+
+    const isLink = (item: any): item is { name: string, url: string } => typeof item.url === 'string' && item.url.startsWith('http');
+    
     return (
-        <div className="grid gap-2">
-            <div className="w-full relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-4 text-center hover:border-primary transition-colors">
+        <div className="grid gap-4">
+             <div className="w-full relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-4 text-center hover:border-primary transition-colors">
                 <UploadCloud className="mx-auto h-10 w-10 text-muted-foreground" />
                 <p className="mt-2 text-xs text-muted-foreground">
                     Kéo và thả tệp, hoặc <span className="font-semibold text-primary">nhấn để chọn</span>
@@ -148,15 +162,27 @@ function FileUploadComponent({ indicatorId, files, onFileChange }: { indicatorId
                 <p className="text-xs text-muted-foreground mt-1">Dung lượng tối đa: 5MB.</p>
                 <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={handleFileSelect} />
             </div>
-            {files.length > 0 && (
+             <div className="grid gap-2">
+                 <Label htmlFor={`link-${indicatorId}`} className="text-sm">Hoặc thêm liên kết minh chứng</Label>
+                 <div className="flex gap-2">
+                    <Input 
+                        id={`link-${indicatorId}`}
+                        value={linkInput}
+                        onChange={(e) => setLinkInput(e.target.value)}
+                        placeholder="Dán đường dẫn vào đây"
+                    />
+                    <Button type="button" variant="outline" onClick={handleAddLink}>Thêm</Button>
+                 </div>
+            </div>
+            {evidence.length > 0 && (
                  <div className="space-y-2 mt-2">
-                    {files.map((file, index) => (
+                    {evidence.map((item, index) => (
                         <div key={index} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
                             <div className="flex items-center gap-2 truncate">
-                                <FileIcon className="h-4 w-4 flex-shrink-0" />
-                                <span className="truncate">{file.name}</span>
+                                {isLink(item) ? <LinkIcon className="h-4 w-4 flex-shrink-0 text-blue-500" /> : <FileIcon className="h-4 w-4 flex-shrink-0" />}
+                                <span className="truncate">{item.name}</span>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleFileRemove(file)}>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEvidenceRemove(item)}>
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>
@@ -328,8 +354,10 @@ export default function AssessmentDetailPage() {
     return <Badge variant="secondary">Chưa có dữ liệu</Badge>;
   };
 
-  const isActionDisabled = assessment.assessmentStatus === 'achieved_standard' || (role === 'admin' && assessment.assessmentStatus === 'rejected');
-  const isReturnedForRevision = assessment.assessmentStatus === 'returned_for_revision';
+    const isActionDisabled = assessment.assessmentStatus === 'achieved_standard' || (role === 'admin' && assessment.assessmentStatus === 'rejected');
+    const isReturnedForRevision = assessment.assessmentStatus === 'returned_for_revision';
+
+    const isLink = (item: any): item is { name: string, url: string } => typeof item.url === 'string' && (item.url.startsWith('http://') || item.url.startsWith('https://'));
 
   const badgeMap = {
       pending_review: { text: 'Chờ duyệt', icon: Clock, className: 'bg-amber-500' },
@@ -403,10 +431,21 @@ export default function AssessmentDetailPage() {
                                         <div className="space-y-2">
                                           {result.files.map((file: {name: string, url: string}, i: number) => (
                                             <div key={i} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
-                                              <div className="flex items-center gap-2 truncate"> <FileIcon className="h-4 w-4 flex-shrink-0" /> <span className="truncate">{file.name}</span> </div>
+                                              <div className="flex items-center gap-2 truncate">
+                                                {isLink(file) ? <LinkIcon className="h-4 w-4 flex-shrink-0 text-blue-500"/> : <FileIcon className="h-4 w-4 flex-shrink-0" />}
+                                                <span className="truncate">{file.name}</span>
+                                              </div>
                                               <div className="flex items-center">
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewFile(file)}> <Eye className="h-4 w-4" /> </Button>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.open(file.url, '_blank')}><Download className="h-4 w-4" /></Button>
+                                                {isLink(file) ? (
+                                                  <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                                                    <a href={file.url} target="_blank" rel="noopener noreferrer"><Eye className="h-4 w-4" /></a>
+                                                  </Button>
+                                                ) : (
+                                                  <>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewFile(file)}> <Eye className="h-4 w-4" /> </Button>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.open(file.url, '_blank')}><Download className="h-4 w-4" /></Button>
+                                                  </>
+                                                )}
                                               </div>
                                             </div>
                                           ))}
