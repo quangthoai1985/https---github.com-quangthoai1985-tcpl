@@ -264,13 +264,14 @@ const renderInput = (
         return (
             <div className="grid gap-3">
                 {checkboxOptions.map((option, index) => (
-                     <div key={index} className="flex items-center space-x-2">
+                     <div key={index} className="flex items-start space-x-2">
                         <Checkbox 
                             id={`${indicator.id}-check-${index}`}
                             checked={data.value?.[option] || false}
                             onCheckedChange={(checked) => handleCheckboxChange(option, !!checked)}
+                            className="mt-1"
                         />
-                        <Label htmlFor={`${indicator.id}-check-${index}`} className="font-normal">{option}</Label>
+                        <Label htmlFor={`${indicator.id}-check-${index}`} className="font-normal leading-snug">{option}</Label>
                     </div>
                 ))}
             </div>
@@ -772,7 +773,7 @@ export default function SelfAssessmentPage() {
                                                                         "relative pl-6 transition-colors rounded-r-lg py-4",
                                                                          subStatus === 'achieved' && 'bg-green-50',
                                                                          subStatus === 'not-achieved' && 'bg-red-50',
-                                                                         subStatus === 'pending' && 'bg-amber-50 border-l-amber-200'
+                                                                         subStatus === 'pending' && 'bg-amber-50'
                                                                     );
                                                                     return (
                                                                       <div key={sub.id} className={subBlockClasses}>
