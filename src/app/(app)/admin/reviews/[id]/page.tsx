@@ -576,7 +576,9 @@ export default function AssessmentDetailPage() {
 
     <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
-            <DialogHeader className="p-6 pb-0"> <DialogTitle>Xem trước: {previewFile?.name}</DialogTitle> </DialogHeader>
+            <DialogHeader className="p-6 pb-0">
+                 <DialogTitle>Xem trước: {previewFile?.name}</DialogTitle>
+            </DialogHeader>
             <div className="flex-1 px-6 pb-6 h-full">
                 {previewFile && ( <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`} className="w-full h-full border rounded-md" title={previewFile.name} ></iframe> )}
             </div>

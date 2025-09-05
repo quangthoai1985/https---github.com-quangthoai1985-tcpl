@@ -110,79 +110,41 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       if (!user) return [];
       
       const generated: Notification[] = [];
-      const sortedAssessments = [...allAssessments].sort((a,b) => (b.submissionDate || '').localeCompare(a.submissionDate || ''));
+      const sortedAssessments = [...allAssessments].sort((a,b) => (b.submittedAt || '').localeCompare(a.submittedAt || ''));
 
       if (user.role === 'admin') {
           sortedAssessments.forEach(assessment => {
-              if (assessment.status === 'pending_registration') {
-                  const communeName = getUnitName(assessment.communeId, allUnits);
-                  generated.push({
-                      id: `admin-notif-reg-${assessment.id}`,
-                      title: `${communeName} vừa gửi yêu cầu đăng ký.`,
-                      time: `Ngày ${assessment.submissionDate}`,
-                      read: false,
-                      link: `/admin/registrations?tab=pending`
-                  });
-              }
-              if (assessment.status === 'pending_review') {
+              if (assessment.status === 'submitted') {
                   const communeName = getUnitName(assessment.communeId, allUnits);
                   generated.push({
                       id: `admin-notif-${assessment.id}`,
                       title: `${communeName} vừa gửi hồ sơ đánh giá.`,
-                      time: `Ngày ${assessment.submissionDate}`,
-                      read: false,
-                      link: `/admin/reviews/${assessment.id}`
-                  });
-              }
-              if (assessment.status === 'rejected' && assessment.communeExplanation) {
-                   const communeName = getUnitName(assessment.communeId, allUnits);
-                   generated.push({
-                      id: `admin-resubmit-notif-${assessment.id}`,
-                      title: `${communeName} vừa gửi lại hồ sơ sau khi bị từ chối.`,
-                      time: `Ngày ${assessment.submissionDate}`,
+                      time: `Ngày ${new Date(assessment.submittedAt!).toLocaleDateString('vi-VN')}`,
                       read: false,
                       link: `/admin/reviews/${assessment.id}`
                   });
               }
           });
 
-      } else { // commune_staff
+      } else { // commune
           const userAssessments = sortedAssessments.filter(a => a.communeId === user.communeId);
           userAssessments.forEach(assessment => {
-              if (assessment.status === 'registration_approved') {
-                  generated.push({
-                      id: `commune-reg-approved-${assessment.id}`,
-                      title: `Đăng ký của bạn đã được duyệt.`,
-                      time: `Bây giờ bạn có thể bắt đầu tự đánh giá.`,
-                      read: false,
-                      link: `/commune/assessments`
-                  });
-              }
-               if (assessment.status === 'registration_rejected') {
-                  generated.push({
-                      id: `commune-reg-rejected-${assessment.id}`,
-                      title: `Đăng ký của bạn đã bị từ chối/bị trả lại.`,
-                      time: `Vui lòng xem chi tiết và gửi lại.`,
-                      read: false,
-                      link: `/dashboard`
-                  });
-              }
               if (assessment.status === 'approved') {
                   generated.push({
                       id: `commune-approved-${assessment.id}`,
                       title: `Hồ sơ của bạn đã được duyệt.`,
-                      time: `Ngày ${assessment.approvalDate}`,
+                      time: `Ngày ${new Date(assessment.submittedAt!).toLocaleDateString('vi-VN')}`,
                       read: false,
-                      link: `/admin/reviews/${assessment.id}`
+                      link: `/admin/reviews/${assessment.id}` // Link to view the approved version
                   });
               }
                if (assessment.status === 'rejected') {
                   generated.push({
                       id: `commune-rejected-${assessment.id}`,
                       title: `Hồ sơ của bạn đã bị từ chối.`,
-                      time: `Ngày ${assessment.submissionDate}`,
+                      time: `Ngày ${new Date(assessment.submittedAt!).toLocaleDateString('vi-VN')}`,
                       read: false,
-                      link: `/admin/reviews/${assessment.id}`
+                      link: `/admin/reviews/${assessment.id}` // Link to view the feedback
                   });
               }
           });
@@ -193,9 +155,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   const fetchPrivateData = useCallback(async (loggedInUser: User) => {
     if (!db) return;
-    console.log("Fetching private data for logged in user:", loggedInUser.role);
     try {
-        // Tạo một mảng các promise để lấy dữ liệu chung
         const commonPromises = [
             getDocs(collection(db, 'units')),
             getDocs(collection(db, 'assessmentPeriods')),
@@ -204,7 +164,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             getDocs(collection(db, 'guidanceDocuments')),
         ];
 
-        // Chạy các promise chung trước
         const [
             unitsSnapshot,
             periodsSnapshot,
@@ -215,54 +174,35 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
         const fetchedUnits = unitsSnapshot.docs.map(d => d.data() as Unit);
         const fetchedAssessments = assessmentsSnapshot.docs.map(d => d.data() as Assessment);
-
-        // Cập nhật state cho dữ liệu chung
+        
         setUnits(fetchedUnits);
         setAssessmentPeriods(periodsSnapshot.docs.map(d => d.data() as AssessmentPeriod));
         setAssessments(fetchedAssessments);
-        setCriteria(criteriaSnapshot.docs.map(d => d.data() as Criterion));
+        setCriteria(criteriaSnapshot.docs.map(d => d.data() as Criterion).sort((a, b) => a.order - b.order));
         setGuidanceDocuments(documentsSnapshot.docs.map(d => d.data() as AppDocument));
 
-        // ✅ LOGIC QUAN TRỌNG: Chỉ lấy danh sách users nếu là admin
         if (loggedInUser.role === 'admin') {
-            console.log("User is admin, fetching all users...");
             const usersSnapshot = await getDocs(collection(db, 'users'));
             setUsers(usersSnapshot.docs.map(d => d.data() as User));
         } else {
-            // Nếu không phải admin, đặt danh sách users là một mảng rỗng
             setUsers([]);
         }
         
-        // Tạo thông báo sau khi đã có đủ dữ liệu cần thiết
         setNotifications(generateNotifications(loggedInUser, fetchedAssessments, fetchedUnits));
-        console.log("Private data fetched successfully.");
-
     } catch (error) {
         console.error("Error fetching private data:", error);
-        // Có lỗi xảy ra, đảm bảo các state đều rỗng để tránh hiển thị dữ liệu cũ
-        setUsers([]);
-        setUnits([]);
-        setAssessments([]);
-        // ... reset các state khác nếu cần
     }
-}, [db]); // Bỏ generateNotifications khỏi dependencies nếu nó không thay đổi
+}, [db]);
 
-  // ✅ BƯỚC 1: Tải dữ liệu CÔNG KHAI ngay khi có 'db'.
-  // Chạy độc lập và không phụ thuộc vào trạng thái đăng nhập.
   useEffect(() => {
     const fetchPublicData = async () => {
         if (!db) return;
-        console.log("Fetching public data (login config)...");
         try {
-            // Tối ưu: Đọc trực tiếp document thay vì cả collection
             const configDocRef = doc(db, 'configurations', 'loginPage');
             const configDocSnap = await getDoc(configDocRef);
-            
             if (configDocSnap.exists()) {
                 setLoginConfig(configDocSnap.data() as LoginConfig);
-                console.log("Public data fetched successfully.");
             } else {
-                console.log("No login config found.");
                 setLoginConfig(null);
             }
         } catch (error) {
@@ -272,64 +212,42 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     fetchPublicData();
   }, [db]);
 
-
-  // ✅ BƯỚC 2: Lắng nghe trạng thái đăng nhập và chỉ tải dữ liệu RIÊNG TƯ KHI CẦN.
   useEffect(() => {
     if (!auth || !db) return;
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
       setLoading(true);
       if (firebaseUser) {
-        // Người dùng đã đăng nhập
         try {
-            // ✅ SỬA LỖI: Đọc trực tiếp document của người dùng bằng UID, không quét cả collection.
             const userDocRef = doc(db, 'users', firebaseUser.uid);
             const userDocSnap = await getDoc(userDocRef);
-
             if (userDocSnap.exists()) {
               const loggedInUser = userDocSnap.data() as User;
               setCurrentUser(loggedInUser);
               setRole(loggedInUser.role);
-              
-              // Chỉ tải dữ liệu riêng tư sau khi đã xác nhận được người dùng
               await fetchPrivateData(loggedInUser);
             } else {
-              // Trường hợp hiếm: có auth user nhưng không có profile trong Firestore
-              console.error("User profile not found in Firestore for uid:", firebaseUser.uid);
-              await signOut(auth); // Đăng xuất người dùng
+              await signOut(auth);
             }
         } catch(e) {
-             console.error("Error fetching user profile:", e);
              await signOut(auth);
         }
-
       } else {
-        // Người dùng đã đăng xuất hoặc chưa đăng nhập
         setCurrentUser(null);
         setRole(null);
-        // Dọn dẹp state chứa dữ liệu nhạy cảm
-        setUsers([]);
-        setUnits([]);
-        setAssessments([]);
-        setAssessmentPeriods([]);
-        setCriteria([]);
-        setGuidanceDocuments([]);
-        setNotifications([]);
+        setUsers([]); setUnits([]); setAssessments([]); setAssessmentPeriods([]); setCriteria([]); setGuidanceDocuments([]); setNotifications([]);
       }
       setLoading(false);
     });
-
     return () => unsubscribe();
-  }, [auth, db, fetchPrivateData]); // Bỏ fetchPublicData khỏi dependencies
+  }, [auth, db, fetchPrivateData]);
 
   const setLoginInfo = async (email: string, password: string): Promise<boolean> => {
     if (!auth) return false;
     setLoading(true);
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        // Listener onAuthStateChanged sẽ tự động xử lý việc tải dữ liệu sau khi đăng nhập thành công
         return !!userCredential.user;
     } catch(e) {
-        console.error("Login Error: ", e);
         setLoading(false);
         return false;
     } 
@@ -337,41 +255,29 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = async () => {
     if (!auth) return;
-    try {
-      await signOut(auth);
-      // Listener onAuthStateChanged sẽ tự động dọn dẹp state
-    } catch (error) {
-      console.error("Error signing out: ", error);
-    }
+    await signOut(auth);
   };
 
+  // ====================================================================
+  // FIXED UPDATER FUNCTION
+  // ====================================================================
   const createFirestoreUpdater = <T extends {id: string}>(
     collectionName: string,
     stateUpdater: React.Dispatch<React.SetStateAction<T[]>>
   ) => {
-    return async (newData: T[]) => {
+    return async (dataToUpdate: T[]) => {
       if (!db) return;
       setLoading(true);
       const batch = writeBatch(db);
       
-      const currentStateSnapshot = await getDocs(collection(db, collectionName));
-      const currentStateIds = new Set(currentStateSnapshot.docs.map(d => d.id));
-      const newStateIds = new Set(newData.map(item => item.id));
-
-      newData.forEach(item => {
+      // Only add set/update operations to the batch. No more deletions.
+      dataToUpdate.forEach(item => {
         const docRef = doc(db, collectionName, item.id);
-        batch.set(docRef, item);
-      });
-
-      currentStateIds.forEach(id => {
-        if (!newStateIds.has(id)) {
-          const docRef = doc(db, collectionName, id);
-          batch.delete(docRef);
-        }
+        batch.set(docRef, item, { merge: true }); // Use merge: true to avoid overwriting fields unintentionally
       });
       
       await batch.commit();
-      stateUpdater(newData);
+      // Manually refresh all data from server to ensure consistency
       await refreshData();
       setLoading(false);
     };
@@ -382,7 +288,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       const docRef = doc(db, 'configurations', 'loginPage');
       await setDoc(docRef, newConfig, { merge: true });
-      // Cập nhật lại state cục bộ để UI thay đổi ngay lập tức
       setLoginConfig(prevConfig => ({...prevConfig, ...newConfig}));
       setLoading(false);
   }
@@ -390,23 +295,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const deleteAssessment = async (assessmentId: string) => {
       if (!db) return;
       setLoading(true);
-      try {
-          await deleteDoc(doc(db, 'assessments', assessmentId));
-          setAssessments(prev => prev.filter(a => a.id !== assessmentId));
-      } catch (error) {
-          console.error("Error deleting assessment:", error);
-          throw error;
-      } finally {
-          setLoading(false);
-      }
+      await deleteDoc(doc(db, 'assessments', assessmentId));
+      await refreshData(); // Refresh to get the latest state
+      setLoading(false);
   };
 
-  // refreshData được đơn giản hóa, vì onAuthStateChanged đã xử lý logic chính
   const refreshData = useCallback(async () => {
-      if (!auth?.currentUser || !db) {
-        console.log("User not logged in or DB not ready, skipping refresh.");
-        return;
-      }
+      if (!auth?.currentUser || !db) return;
       setLoading(true);
       const userDocRef = doc(db, 'users', auth.currentUser.uid);
       const userDocSnap = await getDoc(userDocRef);
@@ -420,9 +315,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   
   const markNotificationAsRead = (notificationId: string) => {
     setNotifications(prevNotifications => 
-        prevNotifications.map(n => 
-            n.id === notificationId ? { ...n, read: true } : n
-        )
+        prevNotifications.map(n => n.id === notificationId ? { ...n, read: true } : n)
     );
   };
 
