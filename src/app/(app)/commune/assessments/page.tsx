@@ -7,8 +7,8 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2, LinkIcon, Info } from "lucide-react";
-import React, { useState, useEffect, useCallback } from "react";
+import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2, LinkIcon, Info, AlertTriangle } from "lucide-react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/context/DataContext";
@@ -19,6 +19,8 @@ import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+
 
 type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
 // Updated value structure to handle the new logic
@@ -33,7 +35,12 @@ type AssessmentValues = Record<string, IndicatorValue>;
 type AssessmentFileUrls = Record<string, { name: string, url: string }[]>;
 
 
-function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange }: { indicatorId: string; evidence: (File | { name: string, url: string })[]; onEvidenceChange: (id: string, evidence: (File | { name: string, url: string })[]) => void; }) {
+function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, hasError }: { 
+    indicatorId: string; 
+    evidence: (File | { name: string, url: string })[]; 
+    onEvidenceChange: (id: string, evidence: (File | { name: string, url: string })[]) => void;
+    hasError: boolean;
+}) {
     const [linkInput, setLinkInput] = useState('');
     const { toast } = useToast();
 
@@ -61,7 +68,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange }: 
     }
 
     return (
-        <div className="grid gap-4">
+        <div className={cn("grid gap-4 border-2 border-dashed rounded-lg p-4", hasError ? "border-destructive" : "border-transparent")}>
             <Label>Hồ sơ minh chứng (Tệp tin hoặc Liên kết)</Label>
             
             {/* File Upload Area */}
@@ -103,6 +110,12 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange }: 
                         </div>
                     ))}
                  </div>
+            )}
+
+            {hasError && (
+                <p className="text-sm text-destructive font-medium">
+                    Vui lòng cung cấp ít nhất một hồ sơ minh chứng (tệp tin hoặc liên kết).
+                </p>
             )}
         </div>
     );
@@ -419,47 +432,57 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
     onNoteChange: (id: string, note: string) => void,
     onEvidenceChange: (id: string, files: (File | { name: string; url: string; })[]) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void,
-}) => (
-    <div className="grid gap-6">
-        <div>
-            <div className="flex items-center gap-2">
-                <StatusBadge status={data.status} />
-                <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
-            </div>
-             <div className="mt-2 flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
-                <Info className="h-5 w-5 flex-shrink-0 text-blue-600 mt-0.5" />
-                <div className="flex-1">
-                    <p className="text-muted-foreground">{indicator.description}</p>
-                    <p className="mt-2">
-                        <strong className="font-semibold text-blue-800">Yêu cầu đạt chuẩn:</strong>{' '}
-                        <span className="font-semibold">{indicator.standardLevel}</span>
-                    </p>
+}) => {
+    // Determine if evidence is missing for this indicator
+    const isEvidenceMissing = data.status !== 'pending' && data.isTasked !== false && data.files.length === 0;
+
+    return (
+        <div className="grid gap-6">
+            <div>
+                <div className="flex items-center gap-2">
+                    <StatusBadge status={data.status} />
+                    <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
+                </div>
+                 <div className="mt-2 flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                    <Info className="h-5 w-5 flex-shrink-0 text-blue-600 mt-0.5" />
+                    <div className="flex-1">
+                        <p className="text-muted-foreground">{indicator.description}</p>
+                        <p className="mt-2">
+                            <strong className="font-semibold text-blue-800">Yêu cầu đạt chuẩn:</strong>{' '}
+                            <span className="font-semibold">{indicator.standardLevel}</span>
+                        </p>
+                    </div>
                 </div>
             </div>
-        </div>
-        
-        <div className="grid gap-4">
-            <div className="grid gap-2">
-              <Label>Kết quả tự đánh giá</Label>
-              {renderInput(indicator, specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, data, onValueChange, onIsTaskedChange)}
+            
+            <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label>Kết quả tự đánh giá</Label>
+                  {renderInput(indicator, specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, data, onValueChange, onIsTaskedChange)}
+                </div>
+                <div className="grid gap-2">
+                    <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
+                    <Textarea 
+                        id={`note-${indicator.id}`} 
+                        placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
+                        value={data.note}
+                        onChange={(e) => onNoteChange(indicator.id, e.target.value)}
+                    />
+                </div>
             </div>
+
             <div className="grid gap-2">
-                <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
-                <Textarea 
-                    id={`note-${indicator.id}`} 
-                    placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
-                    value={data.note}
-                    onChange={(e) => onNoteChange(indicator.id, e.target.value)}
+                <p className="text-sm"><strong>Yêu cầu hồ sơ minh chứng:</strong> {indicator.evidenceRequirement || 'Không yêu cầu'}</p>
+                <EvidenceUploaderComponent 
+                    indicatorId={indicator.id} 
+                    evidence={data.files} 
+                    onEvidenceChange={onEvidenceChange} 
+                    hasError={isEvidenceMissing}
                 />
             </div>
         </div>
-
-        <div className="grid gap-2">
-            <p className="text-sm"><strong>Yêu cầu hồ sơ minh chứng:</strong> {indicator.evidenceRequirement || 'Không yêu cầu'}</p>
-            <EvidenceUploaderComponent indicatorId={indicator.id} evidence={data.files} onEvidenceChange={onEvidenceChange} />
-        </div>
-    </div>
-);
+    );
+};
 
 // Function to clean the data object for Firestore
 const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, IndicatorResult> => {
@@ -664,9 +687,37 @@ export default function SelfAssessmentPage() {
     }
   };
 
+  const validationState = useMemo(() => {
+    let allAssessed = true;
+    let allEvidenceProvided = true;
+    for (const id in assessmentData) {
+        const item = assessmentData[id];
+        if (item.status === 'pending') {
+            allAssessed = false;
+        }
+        // Evidence is required only if the item is assessed and not marked as "not tasked"
+        if (item.status !== 'pending' && item.isTasked !== false && item.files.length === 0) {
+            allEvidenceProvided = false;
+        }
+    }
+    return { allAssessed, allEvidenceProvided };
+  }, [assessmentData]);
+
+
   const handleSubmit = async () => {
     if (!activePeriod || !currentUser || !storage) {
         toast({ variant: 'destructive', title: 'Lỗi', description: 'Không tìm thấy kỳ đánh giá, người dùng hoặc dịch vụ lưu trữ.' });
+        return;
+    }
+    
+    if (!validationState.allAssessed || !validationState.allEvidenceProvided) {
+        toast({
+            variant: 'destructive',
+            title: 'Chưa hoàn thành',
+            description: 'Vui lòng chấm tất cả các chỉ tiêu và cung cấp đủ hồ sơ minh chứng trước khi gửi.',
+        });
+        // Force a re-render to show all validation errors
+        setAssessmentData({...assessmentData});
         return;
     }
 
@@ -817,12 +868,26 @@ export default function SelfAssessmentPage() {
                         ))}
                     </Accordion>
                 </CardContent>
-                <CardFooter className="flex justify-end gap-2">
-                    <Button variant="outline" onClick={handleSaveDraft} disabled={isSubmitting}>Lưu nháp</Button>
-                    <Button onClick={handleSubmit} disabled={isSubmitting}>
-                        {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        {isSubmitting ? 'Đang gửi...' : 'Gửi đánh giá'}
-                    </Button>
+                <CardFooter className="flex flex-col items-end gap-4">
+                    {!validationState.allAssessed || !validationState.allEvidenceProvided ? (
+                        <Alert variant="destructive" className="w-full">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>Hồ sơ chưa hoàn thành</AlertTitle>
+                            <AlertDescription>
+                                <ul>
+                                    {!validationState.allAssessed && <li>- Bạn phải chấm điểm cho tất cả các chỉ tiêu.</li>}
+                                    {!validationState.allEvidenceProvided && <li>- Bạn phải cung cấp ít nhất một minh chứng cho mỗi chỉ tiêu đã chấm.</li>}
+                                </ul>
+                            </AlertDescription>
+                        </Alert>
+                    ) : null}
+                    <div className="flex justify-end gap-2">
+                        <Button variant="outline" onClick={handleSaveDraft} disabled={isSubmitting}>Lưu nháp</Button>
+                        <Button onClick={handleSubmit} disabled={isSubmitting || !validationState.allAssessed || !validationState.allEvidenceProvided}>
+                            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            {isSubmitting ? 'Đang gửi...' : 'Gửi đánh giá'}
+                        </Button>
+                    </div>
                 </CardFooter>
                 </>
             ) : (
