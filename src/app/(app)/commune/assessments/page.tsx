@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2, LinkIcon, Info } from "lucide-react";
+import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2, LinkIcon, Info, AlertTriangle } from "lucide-react";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
@@ -18,7 +18,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
 // Updated value structure to handle the new logic
@@ -64,7 +64,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
         <div className="grid gap-4">
             
             {/* File Upload Area */}
-            <div className={cn("w-full relative border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition-colors", isRequired && "border-red-400")}>
+            <div className={cn("w-full relative border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition-colors", isRequired && "border-destructive")}>
                 <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
                 <p className="mt-2 text-sm text-muted-foreground">
                     Kéo và thả tệp vào đây, hoặc <span className="font-semibold text-primary">nhấn để chọn tệp</span>
@@ -426,7 +426,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
                     <StatusBadge status={data.status} />
                     <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
                 </div>
-                 <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-2">
+                 <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
                     <div className="flex items-start gap-2 text-blue-800">
                         <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
                         <div>
@@ -684,7 +684,7 @@ export default function SelfAssessmentPage() {
             errors.push("Bạn phải hoàn thành việc chấm điểm cho tất cả các chỉ tiêu.");
         }
         if (!allEvidenceProvided) {
-            errors.push("Bạn phải cung cấp minh chứng cho tất cả các chỉ tiêu đã chấm.");
+            errors.push("Bạn phải cung cấp minh chứng cho tất cả các chỉ tiêu đã chấm (trừ các chỉ tiêu được đánh dấu 'Không được giao nhiệm vụ').");
         }
 
         return { canSubmit: errors.length === 0, submissionErrors: errors };
@@ -797,7 +797,7 @@ export default function SelfAssessmentPage() {
                                                         <>
                                                             <div>
                                                               <h4 className="font-semibold text-base">{indicator.name}</h4>
-                                                              <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-2">
+                                                              <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
                                                                   <div className="flex items-start gap-2 text-blue-800">
                                                                       <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
                                                                       <p className="text-sm">{indicator.description}</p>
@@ -843,11 +843,17 @@ export default function SelfAssessmentPage() {
                         ))}
                     </Accordion>
                 </CardContent>
-                <CardFooter className="flex flex-col items-end gap-2">
+                <CardFooter className="flex flex-col items-end gap-4 border-t pt-6">
                     {!canSubmit && (
-                        <div className="w-full text-right text-sm text-destructive">
-                            {submissionErrors.map((error, index) => <p key={index}>{error}</p>)}
-                        </div>
+                        <Alert variant="destructive" className="w-full">
+                            <AlertTriangle className="h-4 w-4" />
+                            <AlertTitle>Chưa thể gửi hồ sơ</AlertTitle>
+                            <AlertDescription>
+                                <ul className="list-disc pl-5">
+                                    {submissionErrors.map((error, index) => <li key={index}>{error}</li>)}
+                                </ul>
+                            </AlertDescription>
+                        </Alert>
                     )}
                     <div className="flex gap-2">
                         <Button variant="outline" onClick={handleSaveDraft} disabled={isSubmitting}>Lưu nháp</Button>
