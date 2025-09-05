@@ -117,10 +117,6 @@ function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: 
             </SelectContent>
           </Select>
         </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="calculationFormula" className="text-right">Công thức tính (nếu có)</Label>
-          <Input id="calculationFormula" value={(formData as Indicator).calculationFormula || ''} onChange={handleChange} className="col-span-3" />
-        </div>
         <div className="grid grid-cols-4 items-start gap-4">
           <Label htmlFor="evidenceRequirement" className="text-right pt-2">Yêu cầu hồ sơ minh chứng</Label>
           <Textarea id="evidenceRequirement" value={(formData as Indicator).evidenceRequirement || ''} onChange={handleChange} className="col-span-3" />
@@ -197,7 +193,6 @@ export default function CriteriaManagementPage() {
         description: indicatorToSave.description || "",
         standardLevel: indicatorToSave.standardLevel || "",
         inputType: indicatorToSave.inputType || "text",
-        calculationFormula: indicatorToSave.calculationFormula || null,
         evidenceRequirement: indicatorToSave.evidenceRequirement || "",
         subIndicators: []
       };
@@ -254,7 +249,6 @@ export default function CriteriaManagementPage() {
             description: subIndicatorToSave.description || "",
             standardLevel: subIndicatorToSave.standardLevel || "",
             inputType: (subIndicatorToSave as Indicator).inputType || "text",
-            calculationFormula: (subIndicatorToSave as Indicator).calculationFormula || null,
             evidenceRequirement: (subIndicatorToSave as Indicator).evidenceRequirement || "",
         };
 
@@ -380,7 +374,6 @@ export default function CriteriaManagementPage() {
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm">
                                         <div><strong>Mức độ đạt chuẩn:</strong> <Badge variant="outline">{sub.standardLevel}</Badge></div>
                                         <div><strong>Loại dữ liệu:</strong> <Badge variant="outline">{sub.inputType}</Badge></div>
-                                        {sub.calculationFormula && <div><strong>Công thức tính:</strong> <code className="text-xs bg-muted p-1 rounded">{sub.calculationFormula}</code></div>}
                                     </div>
                                     <div>
                                         <p className="font-medium text-sm">Yêu cầu hồ sơ minh chứng:</p>

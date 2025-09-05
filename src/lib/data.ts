@@ -40,7 +40,6 @@ export type SubIndicator = {
   description: string;
   standardLevel: string;
   inputType: 'number' | 'text' | 'boolean' | 'select';
-  calculationFormula: string | null;
   evidenceRequirement: string;
 };
 
@@ -52,7 +51,6 @@ export type Indicator = {
   // For simplicity, we keep them but they can be optional or ignored in the UI if subIndicators exist.
   standardLevel: string;
   inputType: 'number' | 'text' | 'boolean' | 'select';
-  calculationFormula: string | null;
   evidenceRequirement: string;
   subIndicators: SubIndicator[];
 };
