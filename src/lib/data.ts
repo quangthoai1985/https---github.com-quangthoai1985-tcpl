@@ -10,6 +10,8 @@ export type IndicatorResult = {
     adminNote?: string; // Ghi chú của admin cho từng chỉ tiêu
     communeNote?: string; // Nội dung giải trình của xã cho từng chỉ tiêu
     statusByAdmin?: 'approved' | 'rejected' | 'pending'; // Trạng thái admin duyệt cho từng chỉ tiêu
+    // New field for Criterion 1, to store evidence for each document
+    filesPerDocument?: { name: string, url: string }[][];
 };
 
 
@@ -61,6 +63,10 @@ export type Criterion = {
   name: string;
   description: string;
   indicators: Indicator[];
+  // New fields for shared configuration of Criterion 1
+  assignedDocumentsCount?: number;
+  issuanceDeadlineDays?: number;
+  effectiveDate?: string;
 };
 
 export type AssessmentPeriod = {

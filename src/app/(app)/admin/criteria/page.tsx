@@ -15,7 +15,7 @@ import {
   CardContent,
   CardHeader,
 } from '@/components/ui/card';
-import { MoreHorizontal, PlusCircle, CornerDownRight } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, CornerDownRight, Info } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,7 +33,121 @@ import { Textarea } from '@/components/ui/textarea';
 import PageHeader from '@/components/layout/page-header';
 import { useData } from '@/context/DataContext';
 import type { Criterion, Indicator, SubIndicator } from '@/lib/data';
+import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
+
+// ====================================================================
+// SPECIAL FORM FOR CRITERION 1
+// ====================================================================
+function Criterion1Form({ criterion, onSave, onCancel }: { criterion: Criterion, onSave: (c: Criterion) => void, onCancel: () => void }) {
+  const [formData, setFormData] = React.useState<Criterion>(criterion);
+
+  const handleSharedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    const numericValue = value === '' ? undefined : Number(value);
+    setFormData(prev => ({ ...prev, [id]: numericValue }));
+  };
+  
+  const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+     setFormData(prev => ({ ...prev, effectiveDate: e.target.value }));
+  }
+
+  const handleIndicatorChange = (indicatorId: string, field: 'description' | 'standardLevel', value: string) => {
+      setFormData(prev => ({
+          ...prev,
+          indicators: prev.indicators.map(ind => 
+              ind.id === indicatorId ? { ...ind, [field]: value } : ind
+          )
+      }));
+  }
+  
+  const getIndicator = (id: string) => formData.indicators.find(i => i.id === id);
+
+  return (
+    <>
+      <DialogHeader>
+        <DialogTitle>Cấu hình chi tiết cho: {criterion.name}</DialogTitle>
+        <DialogDescription>
+          Thiết lập các thông số chung cho Tiêu chí 1 và các yêu cầu cụ thể cho từng chỉ tiêu con.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="grid gap-6 py-4 max-h-[70vh] overflow-y-auto pr-6">
+        <Alert variant="default" className="bg-blue-50 border-blue-200">
+            <Info className="h-4 w-4 text-blue-600"/>
+            <AlertTitle className="text-blue-800">Cấu hình chung</AlertTitle>
+            <AlertDescription className="text-blue-900">
+                Các thông số này sẽ được áp dụng chung cho tất cả các chỉ tiêu 1.1, 1.2, và 1.3.
+            </AlertDescription>
+        </Alert>
+
+        <div className="grid grid-cols-4 items-center gap-4">
+          <Label htmlFor="assignedDocumentsCount" className="text-right">Số lượng VBQPPL được giao</Label>
+          <Input id="assignedDocumentsCount" type="number" value={formData.assignedDocumentsCount || ''} onChange={handleSharedChange} className="col-span-3" placeholder="Ví dụ: 5"/>
+        </div>
+        <div className="grid grid-cols-4 items-center gap-4">
+          <Label htmlFor="issuanceDeadlineDays" className="text-right">Thời hạn ban hành (ngày)</Label>
+          <Input id="issuanceDeadlineDays" type="number" value={formData.issuanceDeadlineDays || ''} onChange={handleSharedChange} className="col-span-3" placeholder="Ví dụ: 30"/>
+        </div>
+        <div className="grid grid-cols-4 items-center gap-4">
+          <Label htmlFor="effectiveDate" className="text-right">Ngày bắt đầu áp dụng</Label>
+          <Input id="effectiveDate" type="text" value={formData.effectiveDate || ''} onChange={handleDateChange} className="col-span-3" placeholder="DD/MM/YYYY"/>
+        </div>
+
+        <Separator className="my-4"/>
+
+        {/* --- Indicator 1.1 --- */}
+        <div className="grid gap-4 p-4 rounded-md border">
+            <h4 className="font-semibold">Chỉ tiêu 1.1: {getIndicator('TC1_CT1')?.name}</h4>
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="desc-1.1" className="text-right pt-2">Mô tả yêu cầu</Label>
+              <Textarea id="desc-1.1" value={getIndicator('TC1_CT1')?.description || ''} onChange={(e) => handleIndicatorChange('TC1_CT1', 'description', e.target.value)} className="col-span-3" />
+            </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="std-1.1" className="text-right">Yêu cầu tỷ lệ đạt (%)</Label>
+              <Input id="std-1.1" type="number" value={getIndicator('TC1_CT1')?.standardLevel || ''} onChange={(e) => handleIndicatorChange('TC1_CT1', 'standardLevel', e.target.value)} className="col-span-3" placeholder="Mặc định: 100"/>
+            </div>
+        </div>
+        
+         {/* --- Indicator 1.2 --- */}
+        <div className="grid gap-4 p-4 rounded-md border">
+            <h4 className="font-semibold">Chỉ tiêu 1.2: {getIndicator('TC1_CT2')?.name}</h4>
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="desc-1.2" className="text-right pt-2">Mô tả yêu cầu</Label>
+              <Textarea id="desc-1.2" value={getIndicator('TC1_CT2')?.description || ''} onChange={(e) => handleIndicatorChange('TC1_CT2', 'description', e.target.value)} className="col-span-3" />
+            </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="std-1.2" className="text-right">Yêu cầu tỷ lệ minh chứng (%)</Label>
+              <Input id="std-1.2" type="number" value={getIndicator('TC1_CT2')?.standardLevel || ''} onChange={(e) => handleIndicatorChange('TC1_CT2', 'standardLevel', e.target.value)} className="col-span-3" placeholder="Mặc định: 100"/>
+            </div>
+        </div>
+        
+        {/* --- Indicator 1.3 --- */}
+        <div className="grid gap-4 p-4 rounded-md border">
+            <h4 className="font-semibold">Chỉ tiêu 1.3: {getIndicator('TC1_CT3')?.name}</h4>
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label htmlFor="desc-1.3" className="text-right pt-2">Mô tả yêu cầu</Label>
+              <Textarea id="desc-1.3" value={getIndicator('TC1_CT3')?.description || ''} onChange={(e) => handleIndicatorChange('TC1_CT3', 'description', e.target.value)} className="col-span-3" />
+            </div>
+             <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="std-1.3" className="text-right">Yêu cầu tỷ lệ minh chứng (%)</Label>
+              <Input id="std-1.3" type="number" value={getIndicator('TC1_CT3')?.standardLevel || ''} onChange={(e) => handleIndicatorChange('TC1_CT3', 'standardLevel', e.target.value)} className="col-span-3" placeholder="Mặc định: 100"/>
+            </div>
+        </div>
+
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onCancel}>Hủy</Button>
+        <Button type="submit" onClick={() => onSave(formData)}>Lưu thay đổi</Button>
+      </DialogFooter>
+    </>
+  );
+}
+
+
+// ====================================================================
+// REGULAR FORMS
+// ====================================================================
 
 function CriterionForm({ criterion, onSave, onCancel }: { criterion: Partial<Criterion>, onSave: (criterion: Partial<Criterion>) => void, onCancel: () => void }) {
   const [formData, setFormData] = React.useState(criterion);
@@ -392,9 +506,9 @@ export default function CriteriaManagementPage() {
       </CardContent>
     </Card>
 
-    <Dialog open={addingCriterion || !!editingCriterion} onOpenChange={(open) => !open && handleCancelEditCriterion()}>
+    <Dialog open={addingCriterion || (!!editingCriterion && editingCriterion.id !== 'TC1')} onOpenChange={(open) => !open && handleCancelEditCriterion()}>
       <DialogContent>
-        {(addingCriterion || editingCriterion) && (
+        {(addingCriterion || (editingCriterion && editingCriterion.id !== 'TC1')) && (
           <CriterionForm
             criterion={editingCriterion || {}}
             onSave={handleSaveCriterion}
@@ -402,6 +516,18 @@ export default function CriteriaManagementPage() {
           />
         )}
       </DialogContent>
+    </Dialog>
+
+    <Dialog open={!!editingCriterion && editingCriterion.id === 'TC1'} onOpenChange={(open) => !open && handleCancelEditCriterion()}>
+        <DialogContent className="max-w-3xl">
+            {editingCriterion && editingCriterion.id === 'TC1' && (
+                <Criterion1Form
+                    criterion={editingCriterion as Criterion}
+                    onSave={handleSaveCriterion as (c: Criterion) => void}
+                    onCancel={handleCancelEditCriterion}
+                />
+            )}
+        </DialogContent>
     </Dialog>
 
     <Dialog open={!!editingIndicator || !!addingIndicatorTo} onOpenChange={(open) => !open && handleCancelEditIndicator()}>
