@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2, LinkIcon } from "lucide-react";
+import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2, LinkIcon, Info } from "lucide-react";
 import React, { useState, useEffect, useCallback } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
@@ -426,8 +426,16 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
                 <StatusBadge status={data.status} />
                 <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
             </div>
-            <p className="text-sm text-muted-foreground mt-1 pl-7">{indicator.description}</p>
-            <p className="text-sm mt-2 pl-7"><strong>Yêu cầu đạt chuẩn:</strong> <span className="font-semibold text-primary">{indicator.standardLevel}</span></p>
+             <div className="mt-2 flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                <Info className="h-5 w-5 flex-shrink-0 text-blue-600 mt-0.5" />
+                <div className="flex-1">
+                    <p className="text-muted-foreground">{indicator.description}</p>
+                    <p className="mt-2">
+                        <strong className="font-semibold text-blue-800">Yêu cầu đạt chuẩn:</strong>{' '}
+                        <span className="font-semibold">{indicator.standardLevel}</span>
+                    </p>
+                </div>
+            </div>
         </div>
         
         <div className="grid gap-4">
@@ -763,7 +771,12 @@ export default function SelfAssessmentPage() {
                                                         <>
                                                             <div>
                                                               <h4 className="font-semibold text-base">{indicator.name}</h4>
-                                                              <p className="text-sm text-muted-foreground mt-1">{indicator.description}</p>
+                                                              <div className="mt-2 flex items-start gap-3 rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                                                                  <Info className="h-5 w-5 flex-shrink-0 text-blue-600 mt-0.5" />
+                                                                  <div className="flex-1">
+                                                                      <p className="text-muted-foreground">{indicator.description}</p>
+                                                                  </div>
+                                                              </div>
                                                             </div>
                                                             <div className="mt-4 pl-6 space-y-6 border-l-2 border-dashed">
                                                               {(indicator.subIndicators || []).map(sub => {
