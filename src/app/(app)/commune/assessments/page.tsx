@@ -30,6 +30,8 @@ type IndicatorValue = {
     files: (File | { name: string, url: string })[]; // Can hold local files or uploaded file info
     note: string;
     status: AssessmentStatus;
+    // New field for Criterion 1, to store evidence for each document
+    filesPerDocument?: { name: string, url: string }[][];
 };
 type AssessmentValues = Record<string, IndicatorValue>;
 type AssessmentFileUrls = Record<string, { name: string, url: string }[]>;
@@ -125,10 +127,10 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, ha
 const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
     if (!criteria || criteria.length < 3) return [];
     
-    // All indicators from the first criterion
-    const firstCriterionIndicatorIds = (criteria[0]?.indicators || []).flatMap(i => 
-        i.subIndicators && i.subIndicators.length > 0 ? i.subIndicators.map(si => si.id) : [i.id]
-    );
+    // All indicators from the first criterion are now handled by a special component, so we remove them from this list.
+    // const firstCriterionIndicatorIds = (criteria[0]?.indicators || []).flatMap(i => 
+    //     i.subIndicators && i.subIndicators.length > 0 ? i.subIndicators.map(si => si.id) : [i.id]
+    // );
 
     const secondCriterion = criteria[1];
     let specialIdsFromSecondCriterion: string[] = [];
@@ -166,7 +168,7 @@ const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
     }
 
 
-    return [...firstCriterionIndicatorIds, ...specialIdsFromSecondCriterion, ...specialIdsFromThirdCriterion];
+    return [...specialIdsFromSecondCriterion, ...specialIdsFromThirdCriterion];
 }
 
 const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) => {
@@ -900,3 +902,5 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
+
+    
