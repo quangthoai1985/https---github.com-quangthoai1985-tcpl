@@ -70,7 +70,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange }: 
                 <p className="mt-2 text-sm text-muted-foreground">
                     Kéo và thả tệp vào đây, hoặc <span className="font-semibold text-primary">nhấn để chọn tệp</span>
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
+                <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Bạn cũng có thể dán các đường dẫn trang web làm minh chứng. Dung lượng tối đa: 5MB.</p>
                 <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={handleFileSelect} />
             </div>
 
@@ -337,7 +337,6 @@ const renderInput = (
                     </div>
                 </div>
             );
-        case 'text':
         default:
              return (
                 <div className="grid gap-2">

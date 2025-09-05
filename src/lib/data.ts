@@ -39,7 +39,7 @@ export type SubIndicator = {
   name: string;
   description: string;
   standardLevel: string;
-  inputType: 'number' | 'text' | 'boolean' | 'select';
+  inputType: 'number' | 'boolean' | 'select';
   evidenceRequirement: string;
 };
 
@@ -50,7 +50,7 @@ export type Indicator = {
   // An indicator might not have its own evaluation fields if it's just a container for sub-indicators.
   // For simplicity, we keep them but they can be optional or ignored in the UI if subIndicators exist.
   standardLevel: string;
-  inputType: 'number' | 'text' | 'boolean' | 'select';
+  inputType: 'number' | 'boolean' | 'select';
   evidenceRequirement: string;
   subIndicators: SubIndicator[];
 };

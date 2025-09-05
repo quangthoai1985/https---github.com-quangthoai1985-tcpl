@@ -110,10 +110,9 @@ function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: 
               <SelectValue placeholder="Chọn loại dữ liệu" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="text">Văn bản</SelectItem>
-              <SelectItem value="number">Số</SelectItem>
-              <SelectItem value="boolean">Đúng/Sai</SelectItem>
-              <SelectItem value="select">Lựa chọn</SelectItem>
+              <SelectItem value="boolean">Lựa chọn Đạt/Không đạt</SelectItem>
+              <SelectItem value="number">Nhập liệu Số</SelectItem>
+              <SelectItem value="select">Lựa chọn Nhiều đáp án</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -192,7 +191,7 @@ export default function CriteriaManagementPage() {
         name: indicatorToSave.name || "Chỉ tiêu mới",
         description: indicatorToSave.description || "",
         standardLevel: indicatorToSave.standardLevel || "",
-        inputType: indicatorToSave.inputType || "text",
+        inputType: indicatorToSave.inputType || "boolean",
         evidenceRequirement: indicatorToSave.evidenceRequirement || "",
         subIndicators: []
       };
@@ -248,7 +247,7 @@ export default function CriteriaManagementPage() {
             name: subIndicatorToSave.name || "Chỉ tiêu con mới",
             description: subIndicatorToSave.description || "",
             standardLevel: subIndicatorToSave.standardLevel || "",
-            inputType: (subIndicatorToSave as Indicator).inputType || "text",
+            inputType: (subIndicatorToSave as Indicator).inputType || "boolean",
             evidenceRequirement: (subIndicatorToSave as Indicator).evidenceRequirement || "",
         };
 
