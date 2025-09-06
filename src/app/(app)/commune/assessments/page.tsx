@@ -514,6 +514,10 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     const isNotTasked = data1_1.isTasked === false;
     const isTasked = data1_1.isTasked === true;
     
+    const handleIndicator1_1ValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        onValueChange(indicator1_1.id, e.target.value);
+    }
+
     return (
         <div className="grid gap-6">
             {/* Is Tasked Checkbox */}
@@ -551,10 +555,58 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                         </CardContent>
                     </Card>
                     
-                    {[indicator1_1, indicator1_2, indicator1_3].map(indicator => (
+                    {/* Indicator 1.1 */}
+                    <div className="grid gap-4">
+                        <h4 className="font-semibold">{indicator1_1.name}</h4>
+                        <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md">
+                            <div className="flex items-start gap-2 text-blue-800">
+                                <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                                <div>
+                                    <p className="text-sm">{indicator1_1.description}</p>
+                                    <p className="text-sm mt-2"><strong>Yêu cầu: </strong><span className="font-semibold">{indicator1_1.standardLevel}</span></p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-4">
+                            <Label htmlFor={`${indicator1_1.id}-input`} className="shrink-0">Tổng số văn bản đã ban hành:</Label>
+                            <Input 
+                                id={`${indicator1_1.id}-input`} 
+                                type="number" 
+                                placeholder="Nhập số lượng" 
+                                value={data1_1.value || ''} 
+                                onChange={handleIndicator1_1ValueChange}
+                                className="w-24"
+                            />
+                        </div>
+
+                         <div className="grid gap-2">
+                             <Label className="font-medium">Hồ sơ minh chứng</Label>
+                             <p className="text-sm text-muted-foreground">{indicator1_1.evidenceRequirement || 'Không yêu cầu cụ thể.'}</p>
+                             <EvidenceUploaderComponent
+                                 indicatorId={indicator1_1.id}
+                                 evidence={data1_1.files || []}
+                                 onEvidenceChange={onEvidenceChange}
+                                 isRequired={data1_1.status !== 'pending' && data1_1.isTasked !== false && (data1_1.files || []).length === 0}
+                             />
+                         </div>
+
+                        <div className="grid gap-2">
+                            <Label htmlFor={`note-${indicator1_1.id}`}>Ghi chú/Giải trình chung</Label>
+                            <Textarea 
+                                id={`note-${indicator1_1.id}`} 
+                                placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
+                                value={data1_1.note || ''}
+                                onChange={(e) => onNoteChange(indicator1_1.id, e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    
+                    {/* Indicator 1.2 & 1.3 */}
+                    {[indicator1_2, indicator1_3].map(indicator => (
                         <div key={indicator.id} className="grid gap-4">
                             <h4 className="font-semibold">{indicator.name}</h4>
-                             <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
+                             <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md">
                                 <div className="flex items-start gap-2 text-blue-800">
                                     <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
                                     <div>
@@ -572,7 +624,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                             docIndex={i}
                                             evidence={assessmentData[indicator.id]?.filesPerDocument?.[i] || []}
                                             onEvidenceChange={onEvidenceChange}
-                                            isRequired={false} // Validation handled at the indicator level
+                                            isRequired={false}
                                         />
                                     </div>
                                 ))}
@@ -593,6 +645,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
         </div>
     );
 };
+
 
 
 export default function SelfAssessmentPage() {
