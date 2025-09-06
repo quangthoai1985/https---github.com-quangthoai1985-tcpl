@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
 // Updated value structure to handle the new logic
@@ -124,7 +125,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
 const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
     if (!criteria || criteria.length < 3) return [];
     
-    // All indicators from the first criterion
+    // All indicators from the first criterion are handled by a special component now
     const firstCriterionIndicatorIds = (criteria[0]?.indicators || []).flatMap(i => 
         i.subIndicators && i.subIndicators.length > 0 ? i.subIndicators.map(si => si.id) : [i.id]
     );
@@ -164,8 +165,7 @@ const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
         specialIdsFromThirdCriterion.push(thirdCriterion.indicators[1].subIndicators[0].id);
     }
 
-
-    return [...firstCriterionIndicatorIds, ...specialIdsFromSecondCriterion, ...specialIdsFromThirdCriterion];
+    return [...specialIdsFromSecondCriterion, ...specialIdsFromThirdCriterion];
 }
 
 const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) => {
@@ -351,10 +351,17 @@ const renderInput = (
     }
 }
 
-const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean): AssessmentStatus => {
+const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean, assignedCount?: number): AssessmentStatus => {
     // If not tasked/required, it's automatically achieved.
     if (isTasked === false) {
         return 'achieved';
+    }
+
+    // Special evaluation for Criterion 1 indicators
+    if (assignedCount && assignedCount > 0) {
+        const enteredValue = Number(value);
+        if (isNaN(enteredValue)) return 'pending';
+        return enteredValue >= assignedCount ? 'achieved' : 'not-achieved';
     }
     
     // Handle checkbox logic
@@ -488,6 +495,95 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
     return sanitizedData;
 };
 
+const Criterion1Indicator = ({ indicator, assignedCount, data, onValueChange, onNoteChange, onEvidenceChange }: {
+    indicator: Indicator;
+    assignedCount: number;
+    data: IndicatorValue;
+    onValueChange: (id: string, value: any) => void;
+    onNoteChange: (id: string, note: string) => void;
+    onEvidenceChange: (id: string, files: (File | { name: string; url: string; })[], docIndex?: number) => void;
+}) => {
+    const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
+    const isAchieved = progress >= 100;
+    const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
+
+    return (
+        <div className="grid gap-6">
+            {/* Title and Info */}
+            <div>
+                <div className="flex items-center gap-2">
+                    <StatusBadge status={data.status} />
+                    <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
+                </div>
+                 <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
+                    <div className="flex items-start gap-2 text-blue-800">
+                        <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                        <div>
+                            <p className="text-sm">{indicator.description}</p>
+                            <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {/* Input and Progress */}
+            <div className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor={`${indicator.id}-input`}>Kết quả thực hiện</Label>
+                   <div className="flex items-center gap-4">
+                        <Input 
+                            id={`${indicator.id}-input`} 
+                            type="number" 
+                            placeholder="Số lượng"
+                            className="w-28"
+                            value={data.value || ''} 
+                            onChange={(e) => onValueChange(indicator.id, e.target.value)}
+                        />
+                        <div className="flex-1">
+                            <div className="flex justify-between items-center mb-1">
+                                <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn</Label>
+                                <span className="text-xs font-semibold">{progress.toFixed(1)}%</span>
+                            </div>
+                            <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
+                        </div>
+                   </div>
+                </div>
+            </div>
+
+            {/* Dynamic Evidence Uploaders */}
+            <div className="grid gap-2">
+                <Label className="font-medium">Hồ sơ minh chứng (tương ứng với {assignedCount} VB được giao)</Label>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                    {Array.from({ length: assignedCount }, (_, i) => (
+                        <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
+                            <Label className="font-medium text-center text-sm">Minh chứng cho VB {i + 1}</Label>
+                                <EvidenceUploaderComponent
+                                indicatorId={indicator.id}
+                                docIndex={i}
+                                evidence={data.filesPerDocument?.[i] || []}
+                                onEvidenceChange={onEvidenceChange}
+                                isRequired={false} // Individual evidence is not strictly required, but overall is
+                            />
+                        </div>
+                    ))}
+                </div>
+            </div>
+
+            {/* Notes */}
+            <div className="grid gap-2">
+                <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
+                <Textarea 
+                    id={`note-${indicator.id}`} 
+                    placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
+                    value={data.note}
+                    onChange={(e) => onNoteChange(indicator.id, e.target.value)}
+                />
+            </div>
+        </div>
+    );
+};
+
+
 const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange }: {
     criterion: Criterion;
     assessmentData: AssessmentValues;
@@ -496,26 +592,19 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     onEvidenceChange: (id: string, files: (File | { name: string; url: string; })[], docIndex?: number) => void;
     onIsTaskedChange: (id: string, isTasked: boolean) => void;
 }) => {
-    const indicator1_1 = criterion.indicators[0];
-    const indicator1_2 = criterion.indicators[1];
-    const indicator1_3 = criterion.indicators[2];
-    
-    const data1_1 = assessmentData[indicator1_1.id];
-    
     const assignedCount = criterion.assignedDocumentsCount || 0;
     const deadlineDays = criterion.issuanceDeadlineDays || 'N/A';
-
-    const handleNoTaskChange = (isTasked: boolean) => {
-        onIsTaskedChange(indicator1_1.id, isTasked);
-        onIsTaskedChange(indicator1_2.id, isTasked);
-        onIsTaskedChange(indicator1_3.id, isTasked);
-    }
     
-    const isNotTasked = data1_1.isTasked === false;
-    const isTasked = data1_1.isTasked === true;
+    // Use the status of the first indicator as the master switch
+    const firstIndicatorId = criterion.indicators[0].id;
+    const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
+    const isTasked = assessmentData[firstIndicatorId]?.isTasked === true;
     
-    const handleIndicator1_1ValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        onValueChange(indicator1_1.id, e.target.value);
+    const handleNoTaskChange = (isTaskedValue: boolean) => {
+        const newIsTasked = isTaskedValue === false;
+         criterion.indicators.forEach(indicator => {
+             onIsTaskedChange(indicator.id, newIsTasked);
+         });
     }
 
     return (
@@ -525,7 +614,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                 <Checkbox 
                     id={`${criterion.id}-notask`} 
                     checked={isNotTasked} 
-                    onCheckedChange={(checked) => handleNoTaskChange(checked ? false : true)} 
+                    onCheckedChange={(checked) => handleNoTaskChange(checked === true ? false : true)} 
                 />
                 <Label htmlFor={`${criterion.id}-notask`} className="font-semibold">Xã không được giao nhiệm vụ ban hành VBQPPL trong năm</Label>
             </div>
@@ -555,91 +644,21 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                         </CardContent>
                     </Card>
                     
-                    {/* Indicator 1.1 */}
-                    <div className="grid gap-4">
-                        <h4 className="font-semibold">{indicator1_1.name}</h4>
-                        <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md">
-                            <div className="flex items-start gap-2 text-blue-800">
-                                <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                                <div>
-                                    <p className="text-sm">{indicator1_1.description}</p>
-                                    <p className="text-sm mt-2"><strong>Yêu cầu: </strong><span className="font-semibold">{indicator1_1.standardLevel}</span></p>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-4">
-                            <Label htmlFor={`${indicator1_1.id}-input`} className="shrink-0">Tổng số văn bản đã ban hành:</Label>
-                            <Input 
-                                id={`${indicator1_1.id}-input`} 
-                                type="number" 
-                                placeholder="Nhập số lượng" 
-                                value={data1_1.value || ''} 
-                                onChange={handleIndicator1_1ValueChange}
-                                className="w-24"
-                            />
-                        </div>
-
-                         <div className="grid gap-2">
-                             <Label className="font-medium">Hồ sơ minh chứng</Label>
-                             <p className="text-sm text-muted-foreground">{indicator1_1.evidenceRequirement || 'Không yêu cầu cụ thể.'}</p>
-                             <EvidenceUploaderComponent
-                                 indicatorId={indicator1_1.id}
-                                 evidence={data1_1.files || []}
+                    <div className="space-y-12">
+                        {criterion.indicators.map((indicator, index) => (
+                           <React.Fragment key={indicator.id}>
+                            {index > 0 && <Separator className="my-6"/>}
+                             <Criterion1Indicator
+                                 indicator={indicator}
+                                 assignedCount={assignedCount}
+                                 data={assessmentData[indicator.id]}
+                                 onValueChange={onValueChange}
+                                 onNoteChange={onNoteChange}
                                  onEvidenceChange={onEvidenceChange}
-                                 isRequired={data1_1.status !== 'pending' && data1_1.isTasked !== false && (data1_1.files || []).length === 0}
                              />
-                         </div>
-
-                        <div className="grid gap-2">
-                            <Label htmlFor={`note-${indicator1_1.id}`}>Ghi chú/Giải trình chung</Label>
-                            <Textarea 
-                                id={`note-${indicator1_1.id}`} 
-                                placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
-                                value={data1_1.note || ''}
-                                onChange={(e) => onNoteChange(indicator1_1.id, e.target.value)}
-                            />
-                        </div>
+                           </React.Fragment>
+                        ))}
                     </div>
-                    
-                    {/* Indicator 1.2 & 1.3 */}
-                    {[indicator1_2, indicator1_3].map(indicator => (
-                        <div key={indicator.id} className="grid gap-4">
-                            <h4 className="font-semibold">{indicator.name}</h4>
-                             <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md">
-                                <div className="flex items-start gap-2 text-blue-800">
-                                    <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                                    <div>
-                                        <p className="text-sm">{indicator.description}</p>
-                                        <p className="text-sm mt-2"><strong>Yêu cầu: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
-                                    </div>
-                                </div>
-                            </div>
-                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
-                                {Array.from({ length: assignedCount }, (_, i) => (
-                                    <div key={i} className="p-3 border rounded-lg grid gap-2">
-                                        <Label className="font-medium text-center">Minh chứng cho VB {i + 1}</Label>
-                                         <EvidenceUploaderComponent
-                                            indicatorId={indicator.id}
-                                            docIndex={i}
-                                            evidence={assessmentData[indicator.id]?.filesPerDocument?.[i] || []}
-                                            onEvidenceChange={onEvidenceChange}
-                                            isRequired={false}
-                                        />
-                                    </div>
-                                ))}
-                            </div>
-                             <div className="grid gap-2">
-                                <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình chung</Label>
-                                <Textarea 
-                                    id={`note-${indicator.id}`} 
-                                    placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
-                                    value={assessmentData[indicator.id]?.note || ''}
-                                    onChange={(e) => onNoteChange(indicator.id, e.target.value)}
-                                />
-                            </div>
-                        </div>
-                    ))}
                 </div>
             )}
         </div>
@@ -712,7 +731,11 @@ export default function SelfAssessmentPage() {
     const indicator = findIndicator(indicatorId);
     if (indicator) {
         const valueToEvaluate = isTasked ? assessmentData[indicatorId].value : null;
-        const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, isTasked);
+        // For criterion 1, assignedCount is on the parent criterion
+        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
+        const assignedCount = parentCriterion?.id === 'TC01' ? parentCriterion.assignedDocumentsCount : undefined;
+        
+        const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, isTasked, assignedCount);
         setAssessmentData(prev => ({
             ...prev,
             [indicatorId]: {
@@ -732,16 +755,12 @@ export default function SelfAssessmentPage() {
     const indicator = findIndicator(indicatorId);
     if (indicator) {
         const isTasked = assessmentData[indicatorId].isTasked;
-        let newStatus = evaluateStatus(value, indicator.standardLevel, isTasked);
         
-        // Criterion 1.1 specific logic
-        const criterion1 = criteria[0];
-        if(criterion1 && indicatorId === criterion1.indicators[0].id) {
-            const assignedCount = criterion1.assignedDocumentsCount || 0;
-            const enteredCount = value || 0;
-            newStatus = (enteredCount >= assignedCount) ? 'achieved' : 'not-achieved';
-        }
-
+        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
+        const assignedCount = parentCriterion?.id === 'TC01' ? parentCriterion.assignedDocumentsCount : undefined;
+        
+        let newStatus = evaluateStatus(value, indicator.standardLevel, isTasked, assignedCount);
+        
         setAssessmentData(prev => ({
             ...prev,
             [indicatorId]: {
@@ -946,12 +965,8 @@ export default function SelfAssessmentPage() {
                 <CardContent>
                     <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
                         {criteria.map((criterion, index) => {
-                             const status = 'pending'; // Placeholder
                              const blockClasses = cn(
-                                "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
-                                status === 'achieved' && 'bg-green-50 border-green-200',
-                                status === 'not-achieved' && 'bg-red-50 border-red-200',
-                                status === 'pending' && 'bg-amber-50 border-amber-200'
+                                "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors"
                              );
 
                              // Custom render for Criterion 1
