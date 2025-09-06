@@ -579,7 +579,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                              const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
                              const isAchieved = progress >= 100;
                              const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
-                             const isAnyEvidenceRequired = data.status !== 'pending' && Array.from({length: Number(data.value) || 0}).some((_, i) => (data.filesPerDocument?.[i] || []).length === 0);
+                             const isAnyEvidenceRequired = data.status !== 'pending' && (criterion.documents || []).some((_, i) => (data.filesPerDocument?.[i] || []).length === 0);
  
                              return (
                                  <React.Fragment key={indicator.id}>
@@ -632,11 +632,11 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
  
                                          {/* Dynamic Evidence Uploaders */}
                                          <div className="grid gap-2">
-                                             <Label className="font-medium">Hồ sơ minh chứng (tương ứng với {Number(data.value) || 0} mục đã thực hiện)</Label>
+                                            <Label className="font-medium">Hồ sơ minh chứng (tương ứng với { (criterion.documents || []).length} văn bản được giao)</Label>
                                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                                                 {Array.from({ length: Number(data.value) || 0 }, (_, i) => (
+                                                 {(criterion.documents || []).map((doc, i) => (
                                                      <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
-                                                         <Label className="font-medium text-center text-sm">Minh chứng cho VB {i + 1}</Label>
+                                                         <Label className="font-medium text-center text-sm">Minh chứng cho VB: {doc.name}</Label>
                                                          <EvidenceUploaderComponent
                                                              indicatorId={indicator.id}
                                                              docIndex={i}
@@ -649,7 +649,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                              </div>
                                              {isAnyEvidenceRequired && (
                                                  <p className="text-sm font-medium text-destructive mt-2">
-                                                     Yêu cầu ít nhất một minh chứng cho mỗi mục đã thực hiện.
+                                                     Yêu cầu ít nhất một minh chứng cho mỗi văn bản được giao.
                                                  </p>
                                              )}
                                          </div>
@@ -901,11 +901,11 @@ export default function SelfAssessmentPage() {
             const isCriterion1 = parentCriterion?.id === 'TC01';
 
             if (isCriterion1) {
-                 const numberOfDocs = Number(data.value) || 0;
-                 if (numberOfDocs > 0) {
-                     const allDocsHaveEvidence = Array.from({ length: numberOfDocs }).every((_, i) => (data.filesPerDocument?.[i] || []).length > 0);
+                 const assignedDocs = parentCriterion.documents || [];
+                 if (assignedDocs.length > 0) {
+                     const allDocsHaveEvidence = assignedDocs.every((_, i) => (data.filesPerDocument?.[i] || []).length > 0);
                      if (!allDocsHaveEvidence) {
-                         errors.push(`Chỉ tiêu "${indicator.name}" yêu cầu minh chứng cho mỗi văn bản.`);
+                         errors.push(`Chỉ tiêu "${indicator.name}" yêu cầu minh chứng cho mỗi văn bản được giao.`);
                      }
                  }
             } else {
@@ -1133,5 +1133,3 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
-
-    
