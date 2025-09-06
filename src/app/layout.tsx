@@ -1,12 +1,15 @@
-
 'use client';
 
-import type { Metadata } from 'next';
 import { Montserrat, Roboto_Flex, Oswald, Roboto_Condensed } from 'next/font/google';
 import './globals.css';
-import { Toaster } from "@/components/ui/toaster"
-import { DataProvider } from '@/context/DataContext';
 
+// ✅ SỬA LỖI TẠI ĐÂY: Đổi 'sonner' thành 'toaster'
+import { Toaster } from "@/components/ui/toaster"; 
+
+import { DataProvider } from '@/context/DataContext';
+import PageTransitionWrapper from '@/components/layout/PageTransitionWrapper';
+
+// Khai báo các font chữ bạn muốn sử dụng
 const roboto_flex = Roboto_Flex({
   subsets: ['latin', 'vietnamese'],
   weight: '400',
@@ -35,28 +38,20 @@ const roboto_condensed = Roboto_Condensed({
     display: 'swap',
 });
 
-
-// Metadata can't be in a client component, so we export it separately.
-// We will handle metadata in a separate file if needed or a parent server component.
-/*
-export const metadata: Metadata = {
-  title: 'Legal Access Tracker',
-  description: 'Ứng dụng quản lý đánh giá, công nhận cấp xã đạt chuẩn tiếp cận pháp luật',
-};
-*/
-
-
+// Component RootLayout DUY NHẤT VÀ HOÀN CHỈNH
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="vi" className={`${roboto_flex.variable} ${montserrat.variable} ${oswald.variable} ${roboto_condensed.variable}`}>
       <body className="font-body antialiased">
         <DataProvider>
+          <PageTransitionWrapper>
             {children}
-            <Toaster />
+          </PageTransitionWrapper>
+          <Toaster />
         </DataProvider>
       </body>
     </html>

@@ -1,59 +1,27 @@
-
 'use server';
 
 import type { UnitAndUserImport, User } from '@/lib/data';
-import * as admin from 'firebase-admin';
+// ✅ Bước 1: Import các đối tượng đã được khởi tạo an toàn từ file quản lý.
+// Chúng ta đổi tên 'adminDb' thành 'db' và 'adminAuth' thành 'auth' ngay tại đây để sử dụng tiện lợi.
+import { adminDb as db, adminAuth as auth } from '@/lib/firebase-admin';
+
+// ✅ Bước 2: XÓA TOÀN BỘ khối code khởi tạo Firebase Admin.
+// File này không còn trách nhiệm khởi tạo nữa.
 
 // ====================================================================
-// KHỐI CODE KHỞI TẠO FIREBASE ADMIN SDK ĐÃ ĐƯỢC SỬA LỖI
-// ====================================================================
-const initializeFirebaseAdmin = () => {
-  // The Firebase Admin SDK can automatically discover credentials when running
-  // in a Google Cloud environment like App Hosting.
-  // This avoids the complexity of handling service account files or env vars.
-  if (admin.apps.length === 0) {
-    admin.initializeApp();
-    console.log("Firebase Admin SDK initialized with default credentials.");
-  }
-};
-
-
-// Gọi hàm khởi tạo một lần khi file này được load trên server.
-initializeFirebaseAdmin();
-
-// Lấy các instance của db và auth để sử dụng trong các hàm bên dưới.
-const db = admin.firestore();
-const auth = admin.auth();
-// ====================================================================
-// KẾT THÚC KHỐI CODE SỬA LỖI
+// TOÀN BỘ CÁC HÀM LOGIC CỦA BẠN SẼ NẰM Ở ĐÂY VÀ KHÔNG CẦN THAY ĐỔI GÌ CẢ
+// vì chúng vẫn sử dụng các biến 'db' và 'auth' như cũ.
 // ====================================================================
 
 // Hàm tiện ích chuyển đổi số điện thoại sang định dạng E.164
 const convertToE164 = (phoneNumber?: string): string | undefined => {
     if (!phoneNumber) return undefined;
-    
-    // Loại bỏ khoảng trắng
     let cleanNumber = phoneNumber.replace(/\s+/g, '');
-
-    // Nếu đã đúng định dạng E.164, trả về
-    if (cleanNumber.startsWith('+')) {
-        return cleanNumber;
-    }
-    
-    // Nếu bắt đầu bằng số 0, thay thế bằng +84
-    if (cleanNumber.startsWith('0')) {
-        return `+84${cleanNumber.substring(1)}`;
-    }
-
-    // Nếu bắt đầu bằng 84, thêm dấu +
-    if (cleanNumber.startsWith('84')) {
-        return `+${cleanNumber}`;
-    }
-
-    // Mặc định trả về số đã làm sạch, trường hợp không xác định được
+    if (cleanNumber.startsWith('+')) return cleanNumber;
+    if (cleanNumber.startsWith('0')) return `+84${cleanNumber.substring(1)}`;
+    if (cleanNumber.startsWith('84')) return `+${cleanNumber}`;
     return cleanNumber;
 };
-
 
 type ServerActionResult = {
     success: boolean;
@@ -70,26 +38,22 @@ export async function createUser(userData: Omit<User, 'id'>, password: string): 
             emailVerified: true,
             password: password,
             displayName: userData.displayName,
-            phoneNumber: convertToE164(userData.phoneNumber), // Chuyển đổi SĐT
+            phoneNumber: convertToE164(userData.phoneNumber),
             disabled: false,
         });
 
         console.log(`User created in Auth with UID: ${userRecord.uid}. Now creating in Firestore.`);
         const newUser: User = {
-            id: userRecord.uid, // Use the UID from Auth as the document ID
+            id: userRecord.uid,
             ...userData,
         };
 
         await db.collection('users').doc(userRecord.uid).set(newUser);
         console.log(`User document created in Firestore with ID: ${userRecord.uid}`);
         
-        // The Cloud Function will automatically sync claims from Firestore,
-        // so we don't need to explicitly set them here.
-
         return { success: true, message: "Người dùng đã được tạo thành công.", userId: userRecord.uid };
     } catch (error: any) {
         console.error("Error creating user:", error);
-        // Trả về thông báo lỗi thân thiện hơn
         if (error.code === 'auth/invalid-phone-number') {
             return { success: false, error: 'Số điện thoại không hợp lệ. Vui lòng kiểm tra lại.' };
         }
@@ -97,28 +61,24 @@ export async function createUser(userData: Omit<User, 'id'>, password: string): 
     }
 }
 
-
 export async function updateUser(userData: User): Promise<ServerActionResult> {
     try {
         const { id, ...dataToUpdate } = userData;
         if (!id) throw new Error("User ID is required for update.");
 
         console.log(`Updating user with UID: ${id}`);
-        // Update Firebase Auth
         await auth.updateUser(id, {
             email: dataToUpdate.username,
             displayName: dataToUpdate.displayName,
-            phoneNumber: convertToE164(dataToUpdate.phoneNumber), // Chuyển đổi SĐT
+            phoneNumber: convertToE164(dataToUpdate.phoneNumber),
         });
         
-        // Update Firestore. The Cloud Function will handle syncing claims.
         await db.collection('users').doc(id).update(dataToUpdate);
         
         console.log(`Successfully updated user: ${id}`);
         return { success: true, message: "Thông tin người dùng đã được cập nhật." };
     } catch (error: any) {
         console.error("Error updating user:", error);
-        // Trả về thông báo lỗi thân thiện hơn
         if (error.code === 'auth/invalid-phone-number') {
             return { success: false, error: 'Số điện thoại không hợp lệ. Vui lòng kiểm tra lại.' };
         }
@@ -131,10 +91,7 @@ export async function deleteUser(userId: string): Promise<ServerActionResult> {
         if (!userId) throw new Error("User ID is required for deletion.");
         
         console.log(`Deleting user with UID: ${userId}`);
-        // Delete from Firebase Auth
         await auth.deleteUser(userId);
-
-        // Delete from Firestore
         await db.collection('users').doc(userId).delete();
         
         console.log(`Successfully deleted user: ${userId}`);
@@ -169,50 +126,39 @@ const generateRandomPhoneNumber = (): string => {
     return `${prefix}${suffix}`;
 };
 
-
 export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{successCount: number, errorCount: number, errors: string[]}> {
     const results = { successCount: 0, errorCount: 0, errors: [] as string[] };
     const unitsCollection = db.collection('units');
     const usersCollection = db.collection('users');
 
     for (const [index, row] of data.entries()) {
-        const rowIndex = index + 2; // Excel rows are 1-based, and we have a header
+        const rowIndex = index + 2;
         try {
-            // Step 1: Check for existing unit by ID
             let unitId = row.unitId;
             const unitDocRef = unitsCollection.doc(unitId);
             const unitDoc = await unitDocRef.get();
-            if (unitDoc.exists) {
-                // Unit already exists, skip creation
-            } else {
-                 // Create Unit in Firestore if it doesn't exist
+            if (!unitDoc.exists) {
                 await unitDocRef.set({
                     id: unitId,
                     name: row.unitName,
-                    type: 'commune', // All imports are communes
+                    type: 'commune',
                     parentId: row.unitParentId || null,
                     address: row.unitAddress || '',
                     headquarters: row.unitHeadquarters || ''
                 });
             }
 
-            // Step 2: Check if user already exists in Auth
             try {
                 await auth.getUserByEmail(row.userEmail);
-                // If it doesn't throw, user exists.
                 throw new Error(`Người dùng với email '${row.userEmail}' đã tồn tại trong Authentication.`);
             } catch (error: any) {
                  if (error.code !== 'auth/user-not-found') {
-                    // This will catch our custom error from above and other potential issues
                     throw error;
                 }
-                // If code is 'auth/user-not-found', we can proceed.
             }
             
-            // Generate a random phone number if it's missing from the import
             const userPhoneNumber = row.userPhoneNumber || generateRandomPhoneNumber();
 
-            // Step 3: Create User in Authentication
             const userRecord = await auth.createUser({
                 email: row.userEmail,
                 password: row.userPassword,
@@ -221,9 +167,7 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
                 emailVerified: true,
                 disabled: false,
             });
-            // Let the cloud function handle claims
             
-            // Step 4: Create User in Firestore, linking to the unit
             const firestoreUser: User = {
                 id: userRecord.uid,
                 username: row.userEmail,
@@ -239,7 +183,6 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
             results.errorCount++;
             let errorMessage = "Lỗi không xác định.";
             if (error instanceof Error) {
-                // Check for Firebase-specific error codes for more user-friendly messages
                 if ('code' in error && typeof error.code === 'string') {
                     switch (error.code) {
                         case 'auth/invalid-email':
