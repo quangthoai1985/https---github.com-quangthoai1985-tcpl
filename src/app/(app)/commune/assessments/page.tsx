@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -515,8 +516,14 @@ const Criterion1Indicator = ({ indicator, assignedCount, data, onValueChange, on
       data.status === 'pending' && 'bg-amber-50 border-amber-200'
     );
 
-    // Calculate if evidence is required for each document uploader
-    const isAnyEvidenceRequired = data.status !== 'pending' && Array.from({length: assignedCount}).some((_, i) => (data.filesPerDocument?.[i] || []).length === 0);
+    const isAnyEvidenceRequired = data.status !== 'pending' && Array.from({length: Number(data.value) || 0}).some((_, i) => (data.filesPerDocument?.[i] || []).length === 0);
+
+    const getLabelText = () => {
+        if (indicator.name.includes("Chỉ tiêu 1.1")) return "Tổng số VBQPPL được ban hành:";
+        if (indicator.name.includes("Chỉ tiêu 1.2")) return "Tổng số dự thảo VBQPPL được ban hành:";
+        if (indicator.name.includes("Chỉ tiêu 1.3")) return "Tổng số Nghị quyết được thực hiện tự kiểm tra:";
+        return "Tổng số:";
+    }
 
     return (
         <div className={blockClasses}>
@@ -541,7 +548,7 @@ const Criterion1Indicator = ({ indicator, assignedCount, data, onValueChange, on
              <div className="grid gap-4">
                 <div className="grid gap-2">
                    <div className="flex items-center gap-4">
-                        <Label htmlFor={`${indicator.id}-input`} className="shrink-0">Tổng số VBQPPL được ban hành:</Label>
+                        <Label htmlFor={`${indicator.id}-input`} className="shrink-0">{getLabelText()}</Label>
                         <Input 
                             id={`${indicator.id}-input`} 
                             type="number" 
@@ -552,7 +559,7 @@ const Criterion1Indicator = ({ indicator, assignedCount, data, onValueChange, on
                         />
                         <div className="flex-1">
                             <div className="flex justify-between items-center mb-1">
-                                <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn</Label>
+                                <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
                                 <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
                             </div>
                             <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
@@ -563,9 +570,9 @@ const Criterion1Indicator = ({ indicator, assignedCount, data, onValueChange, on
 
             {/* Dynamic Evidence Uploaders */}
             <div className="grid gap-2">
-                <Label className="font-medium">Hồ sơ minh chứng (tương ứng với {assignedCount} VB được giao)</Label>
+                <Label className="font-medium">Hồ sơ minh chứng (tương ứng với {Number(data.value) || 0} VB đã ban hành)</Label>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                    {Array.from({ length: assignedCount }, (_, i) => (
+                    {Array.from({ length: Number(data.value) || 0 }, (_, i) => (
                         <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
                             <Label className="font-medium text-center text-sm">Minh chứng cho VB {i + 1}</Label>
                                 <EvidenceUploaderComponent
@@ -578,6 +585,11 @@ const Criterion1Indicator = ({ indicator, assignedCount, data, onValueChange, on
                         </div>
                     ))}
                 </div>
+                 {isAnyEvidenceRequired && (
+                    <p className="text-sm font-medium text-destructive mt-2">
+                        Yêu cầu ít nhất một minh chứng cho mỗi văn bản đã ban hành.
+                    </p>
+                )}
             </div>
 
             {/* Notes */}
@@ -610,7 +622,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     // Use the status of the first indicator as the master switch
     const firstIndicatorId = criterion.indicators[0].id;
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
-    const isTasked = assessmentData[firstIndicatorId]?.isTasked !== false; // Default to tasked if not explicitly false
     
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
         const notTasked = checked === true;
@@ -641,7 +652,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                 </Alert>
             )}
 
-            {isTasked && (
+            {!isNotTasked && (
                  <div className="grid gap-8">
                     {/* Admin Config Info */}
                     <Card className="bg-blue-50/50 border border-blue-200">
@@ -882,29 +893,47 @@ export default function SelfAssessmentPage() {
   };
 
   const { canSubmit, submissionErrors } = useMemo(() => {
-        const errors = [];
-        let allIndicatorsAssessed = true;
+    const errors: string[] = [];
+    let allIndicatorsAssessed = true;
 
-        for (const id in assessmentData) {
-            const data = assessmentData[id];
-            if (data.status === 'pending') {
-                allIndicatorsAssessed = false;
-                break;
-            }
-             // Check for evidence if required
-            const isEvidenceMissing = data.status !== 'pending' && data.isTasked !== false && data.files.length === 0;
-            if (isEvidenceMissing) {
-                 errors.push(`Chỉ tiêu "${findIndicator(id)?.name}" yêu cầu minh chứng.`);
-            }
-        }
-        
-        if (!allIndicatorsAssessed) {
-            errors.push("Bạn phải hoàn thành việc chấm điểm cho tất cả các chỉ tiêu.");
+    for (const id in assessmentData) {
+        const data = assessmentData[id];
+        const indicator = findIndicator(id);
+        if (!indicator) continue;
+
+        if (data.status === 'pending') {
+            allIndicatorsAssessed = false;
         }
 
+        // If the indicator is assessed and not marked as "not tasked"
+        if (data.status !== 'pending' && data.isTasked !== false) {
+            const isCriterion1 = criteria.length > 0 && criteria[0].indicators.some(i => i.id === id);
 
-        return { canSubmit: errors.length === 0, submissionErrors: errors };
-    }, [assessmentData, findIndicator]);
+            if (isCriterion1) {
+                // For criterion 1, check filesPerDocument
+                const numberOfDocs = Number(data.value) || 0;
+                if (numberOfDocs > 0) {
+                    const allDocsHaveEvidence = Array.from({ length: numberOfDocs }).every((_, i) => (data.filesPerDocument?.[i] || []).length > 0);
+                    if (!allDocsHaveEvidence) {
+                        errors.push(`Chỉ tiêu "${indicator.name}" yêu cầu minh chứng cho mỗi văn bản.`);
+                    }
+                }
+            } else {
+                // For other criteria, check the main files array
+                if (data.files.length === 0) {
+                    errors.push(`Chỉ tiêu "${indicator.name}" yêu cầu minh chứng.`);
+                }
+            }
+        }
+    }
+
+    if (!allIndicatorsAssessed) {
+        errors.push("Bạn phải hoàn thành việc chấm điểm cho tất cả các chỉ tiêu.");
+    }
+
+    // Use a Set to get unique error messages
+    return { canSubmit: errors.length === 0, submissionErrors: [...new Set(errors)] };
+}, [assessmentData, findIndicator, criteria]);
 
   const handleSubmit = async () => {
     if (!activePeriod || !currentUser || !storage) {
@@ -1113,3 +1142,5 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
+
+    
