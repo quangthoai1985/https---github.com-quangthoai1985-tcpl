@@ -42,36 +42,53 @@ export default function AppLayout({
 
   // Render the layout only if there is a user
   return currentUser ? (
-    <AnimatePresence mode="wait">
-        <motion.div key={pathname} className="flex min-h-screen w-full flex-col bg-muted/40">
-             <motion.div
-                initial={{ y: -100, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -100, opacity: 0 }}
-                transition={{ duration: 0.4, ease: 'easeInOut' }}
-            >
-                <AppHeader />
-            </motion.div>
-            <div className="flex flex-1">
-                <motion.div
-                    initial={{ x: -100, opacity: 0 }}
-                    animate={{ x: 0, opacity: 1 }}
-                    exit={{ x: -100, opacity: 0 }}
-                    transition={{ duration: 0.4, ease: 'easeInOut', delay: 0.1 }}
-                >
-                    <AppSidebar />
-                </motion.div>
-                <motion.main 
-                  initial={{ x: 100, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  exit={{ x: 100, opacity: 0 }}
-                  transition={{ duration: 0.4, ease: 'easeInOut', delay: 0.2 }}
-                  className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto"
-                >
-                    {children}
-                </motion.main>
-            </div>
+    <div className="flex min-h-screen w-full bg-muted/40">
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={pathname}
+          className="flex flex-1"
+          initial="initial"
+          animate="animate"
+          exit="exit"
+          transition={{ duration: 0.5, ease: 'easeInOut' }}
+        >
+          {/* Sidebar will be sticky and not part of the main scrolling area */}
+          <motion.div
+            variants={{
+              initial: { x: -100, opacity: 0 },
+              animate: { x: 0, opacity: 1 },
+              exit: { x: -100, opacity: 0 },
+            }}
+            className="sticky top-0 h-screen" // Make sidebar sticky
+          >
+            <AppSidebar />
+          </motion.div>
+
+          {/* This div will contain the header and main content, and will be scrollable */}
+          <div className="flex flex-1 flex-col overflow-y-auto">
+              <motion.div
+                  variants={{
+                  initial: { y: -100, opacity: 0 },
+                  animate: { y: 0, opacity: 1 },
+                  exit: { y: -100, opacity: 0 },
+                  }}
+              >
+                  <AppHeader />
+              </motion.div>
+
+              <motion.main
+                  variants={{
+                  initial: { x: 100, opacity: 0 },
+                  animate: { x: 0, opacity: 1 },
+                  exit: { x: 100, opacity: 0 },
+                  }}
+                  className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6"
+              >
+                  {children}
+              </motion.main>
+          </div>
         </motion.div>
-    </AnimatePresence>
+      </AnimatePresence>
+    </div>
   ) : null;
 }
