@@ -122,7 +122,7 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
                  <div className="space-y-4 pt-4 border-t">
                     <h5 className="font-medium">Chi tiết các văn bản được giao</h5>
                     {formData.documents?.map((doc, index) => (
-                        <div key={index} className="grid grid-cols-1 md:grid-cols-10 gap-4 items-center p-3 border rounded-md bg-background">
+                        <div key={index} className="grid grid-cols-1 md:grid-cols-10 gap-4 items-center p-3 border rounded-md bg-orange-50 border-orange-300">
                             <Label className="md:col-span-1 text-sm text-muted-foreground text-center">VB {index + 1}</Label>
                             <div className="md:col-span-5 grid gap-1.5">
                                 <Label htmlFor={`doc-name-${index}`} className="text-xs">Tên văn bản QPPL</Label>
