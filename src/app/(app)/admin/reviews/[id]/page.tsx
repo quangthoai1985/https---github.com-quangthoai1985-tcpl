@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock, Award, Undo2, CornerDownRight, Edit, CircleSlash, LinkIcon } from "lucide-react";
+import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock, Award, Undo2, CornerDownRight, Edit, CircleSlash, LinkIcon, Info } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Progress } from "@/components/ui/progress";
 
 // Re-using the input rendering logic from the assessment page
 const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
@@ -345,7 +346,7 @@ export default function AssessmentDetailPage() {
     if (result.isTasked === false) { return <Badge variant="secondary">Không được giao nhiệm vụ</Badge>; }
     const { value } = result;
     if (typeof value === 'boolean') { return <Badge variant={value ? 'default' : 'destructive'} className={value ? 'bg-green-600' : ''}>{value ? 'Đạt' : 'Không đạt'}</Badge>; }
-    if (typeof value === 'number') { return <Badge variant="outline">{`${value}%`}</Badge>; }
+    if (typeof value === 'number') { return <Badge variant="outline">{`${value}`}</Badge>; }
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         const selectedOptions = Object.entries(value).filter(([, isChecked]) => isChecked).map(([option]) => option);
         if (selectedOptions.length === 0) { return <p className="text-sm text-muted-foreground">Không có lựa chọn nào.</p>; }
@@ -396,108 +397,229 @@ export default function AssessmentDetailPage() {
                   Tiêu chí {index + 1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}
                 </AccordionTrigger>
                 <AccordionContent>
-                  <div className="space-y-6 pl-8 pr-4">
-                    {criterion.indicators.map(indicator => {
-                      const renderIndicatorContent = (ind: typeof indicator | (typeof indicator.subIndicators)[0], isSub: boolean) => {
-                        const result = getIndicatorResult(ind.id);
-                        const adminNote = adminNotes[ind.id] || '';
-                        
-                        const blockClasses = cn(
-                          "grid gap-4 p-4 rounded-lg bg-card border shadow-sm",
-                          result.status === 'achieved' && 'bg-green-50 border-green-200',
-                          result.status === 'not-achieved' && 'bg-red-50 border-red-200',
-                          result.status === 'pending' && 'bg-amber-50 border-amber-200',
-                          isSub && "relative pl-6 pt-4 mt-2"
-                        );
+                   <div className="space-y-6 pl-8 pr-4 py-4">
+                     {/* Special Rendering for Criterion 1 */}
+                    {index === 0 ? (() => {
+                        const assignedCount = criterion.assignedDocumentsCount || 0;
+                        const deadlineDays = criterion.issuanceDeadlineDays || 'N/A';
+                        const firstIndicatorResult = getIndicatorResult(criterion.indicators[0]?.id);
+                        const isNotTasked = firstIndicatorResult.isTasked === false;
 
                         return (
-                          <div key={ind.id} className={blockClasses}>
-                              {isSub && <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>}
-                              <div className="flex items-start gap-3">
-                                  <StatusBadge status={result.status} />
-                                  <h4 className="font-semibold flex-1">{ind.name}</h4>
-                              </div>
-                               <>
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="md:col-span-1 font-medium text-muted-foreground">Kết quả tự chấm:</div>
-                                    <div className="md:col-span-2 font-semibold"> {renderResultValue(result)} </div>
-                                  </div>
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="md:col-span-1 font-medium text-muted-foreground">Giải trình ban đầu:</div>
-                                    <p className="md:col-span-2 text-sm">{result.note || "Không có giải trình."}</p>
-                                  </div>
-                                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <div className="md:col-span-1 font-medium text-muted-foreground">Minh chứng ban đầu:</div>
-                                    <div className="md:col-span-2">
-                                      {result.files.length > 0 ? (
-                                        <div className="space-y-2">
-                                          {result.files.map((file: {name: string, url: string}, i: number) => (
-                                            <div key={i} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
-                                              <div className="flex items-center gap-2 truncate">
-                                                {isLink(file) ? <LinkIcon className="h-4 w-4 flex-shrink-0 text-blue-500"/> : <FileIcon className="h-4 w-4 flex-shrink-0" />}
-                                                <span className="truncate">{file.name}</span>
-                                              </div>
-                                              <div className="flex items-center">
-                                                {isLink(file) ? (
-                                                  <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                                                    <a href={file.url} target="_blank" rel="noopener noreferrer"><Eye className="h-4 w-4" /></a>
-                                                  </Button>
-                                                ) : (
-                                                  <>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewFile(file)}> <Eye className="h-4 w-4" /> </Button>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.open(file.url, '_blank')}><Download className="h-4 w-4" /></Button>
-                                                  </>
-                                                )}
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      ) : ( <p className="text-sm text-muted-foreground">Không có tệp đính kèm.</p> )}
-                                    </div>
-                                  </div>
-                                </>
+                            <div className="grid gap-6">
+                                {isNotTasked ? (
+                                    <Alert variant="default" className="bg-green-50 border-green-300">
+                                        <CheckCircle className="h-4 w-4 text-green-600"/>
+                                        <AlertTitle>Không được giao nhiệm vụ</AlertTitle>
+                                        <AlertDescription>
+                                            Xã đã xác nhận không được giao nhiệm vụ ban hành VBQPPL trong năm. Toàn bộ các chỉ tiêu của Tiêu chí 1 được đánh giá là <strong className="text-green-700">Đạt</strong>.
+                                        </AlertDescription>
+                                    </Alert>
+                                ) : (
+                                    <div className="grid gap-8">
+                                        {/* Admin Config Info */}
+                                        <Card className="bg-blue-50/50 border border-blue-200">
+                                            <CardHeader>
+                                                <CardTitle className="text-base text-primary">Thông tin nhiệm vụ được giao</CardTitle>
+                                            </CardHeader>
+                                            <CardContent className="grid grid-cols-2 gap-4 text-sm">
+                                                <div className="font-semibold">Số lượng VBQPPL được giao:</div>
+                                                <div>{assignedCount} văn bản</div>
+                                                <div className="font-semibold">Thời hạn ban hành:</div>
+                                                <div>{deadlineDays} ngày</div>
+                                            </CardContent>
+                                        </Card>
+                                        
+                                        <div className="space-y-12">
+                                            {criterion.indicators.map((indicator, idx) => {
+                                                const result = getIndicatorResult(indicator.id);
+                                                const adminNote = adminNotes[indicator.id] || '';
+                                                const progress = assignedCount > 0 ? Math.round(((Number(result.value) || 0) / assignedCount) * 100) : 0;
+                                                const progressColor = progress >= 100 ? "bg-green-500" : "bg-yellow-500";
+                                                
+                                                const blockClasses = cn(
+                                                    "grid gap-4 p-4 rounded-lg bg-card border shadow-sm",
+                                                    result.status === 'achieved' && 'bg-green-50 border-green-200',
+                                                    result.status === 'not-achieved' && 'bg-red-50 border-red-200',
+                                                    result.status === 'pending' && 'bg-amber-50 border-amber-200',
+                                                );
 
-                                {result.communeNote && (
-                                     <div className="mt-4 p-4 border-t border-dashed border-blue-500 bg-blue-50/50 rounded-b-lg grid gap-2">
-                                        <Label className="font-semibold text-blue-800">Giải trình bổ sung của xã:</Label>
-                                        <p className="text-sm text-blue-900 whitespace-pre-wrap">{result.communeNote}</p>
+                                                return (
+                                                     <div key={indicator.id} className={blockClasses}>
+                                                        <div className="flex items-center gap-3">
+                                                          <StatusBadge status={result.status} />
+                                                          <h4 className="font-semibold flex-1">{indicator.name}</h4>
+                                                        </div>
+
+                                                        {/* Progress and commune input */}
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <Label htmlFor={`${indicator.id}-input`} className="shrink-0 text-sm">Số lượng xã báo cáo:</Label>
+                                                                <Badge variant="outline" className="text-base">{result.value || 0}</Badge>
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <div className="flex justify-between items-center mb-1">
+                                                                    <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
+                                                                    <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
+                                                                </div>
+                                                                <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
+                                                            </div>
+                                                        </div>
+                                                        
+                                                         {/* Dynamic Evidence Display */}
+                                                        <div className="grid gap-2">
+                                                            <Label className="font-medium">Minh chứng của xã:</Label>
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                                                                 {Array.from({ length: Number(result.value) || 0 }).map((_, i) => (
+                                                                    <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
+                                                                        <Label className="font-medium text-center text-sm">Minh chứng cho mục {i + 1}</Label>
+                                                                        <div className="space-y-1">
+                                                                        {(result.filesPerDocument?.[i] || []).length > 0 ? (result.filesPerDocument?.[i] || []).map((file, fileIdx) => (
+                                                                            <div key={fileIdx} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm">
+                                                                                <div className="flex items-center gap-2 truncate">
+                                                                                    {isLink(file) ? <LinkIcon className="h-4 w-4 flex-shrink-0 text-blue-500"/> : <FileIcon className="h-4 w-4 flex-shrink-0" />}
+                                                                                    <span className="truncate text-xs">{file.name}</span>
+                                                                                </div>
+                                                                                <div className="flex items-center">
+                                                                                    {isLink(file) ? (
+                                                                                        <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                                                                                            <a href={file.url} target="_blank" rel="noopener noreferrer"><Eye className="h-4 w-4" /></a>
+                                                                                        </Button>
+                                                                                    ) : (
+                                                                                        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setPreviewFile(file)}><Eye className="h-4 w-4" /></Button>
+                                                                                    )}
+                                                                                </div>
+                                                                            </div>
+                                                                        )) : <p className="text-xs text-center text-muted-foreground">Không có minh chứng</p>}
+                                                                        </div>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Commune Note */}
+                                                        <div className="grid gap-1">
+                                                            <Label className="font-medium">Giải trình của xã:</Label>
+                                                            <p className="text-sm text-muted-foreground">{result.note || "Không có giải trình."}</p>
+                                                        </div>
+                                                        
+                                                         {/* Admin Note Section */}
+                                                        <div className="mt-4 p-4 border-t border-dashed border-amber-500 bg-amber-50/50 rounded-b-lg grid gap-4">
+                                                          <Label htmlFor={`admin-note-${indicator.id}`} className="font-semibold text-amber-800">Ghi chú của Admin</Label>
+                                                          <Textarea id={`admin-note-${indicator.id}`} placeholder="Nhập ghi chú, yêu cầu chỉnh sửa..." value={adminNote} onChange={(e) => handleAdminNoteChange(indicator.id, e.target.value)} />
+                                                        </div>
+                                                     </div>
+                                                )
+                                            })}
+                                        </div>
                                     </div>
                                 )}
-
-                                { (role === 'admin' || (role === 'commune_staff' && result.adminNote)) &&
-                                  <div className="mt-4 p-4 border-t border-dashed border-amber-500 bg-amber-50/50 rounded-b-lg grid gap-4">
-                                     {role === 'admin' ? (
-                                        <>
-                                            <Label htmlFor={`admin-note-${ind.id}`} className="font-semibold text-amber-800">Ghi chú của Admin cho chỉ tiêu này</Label>
-                                            <Textarea id={`admin-note-${ind.id}`} placeholder="Nhập ghi chú, yêu cầu chỉnh sửa..." value={adminNote} onChange={(e) => handleAdminNoteChange(ind.id, e.target.value)} />
-                                        </>
-                                     ) : (
-                                        <>
-                                            <Label className="font-semibold text-amber-800">Ghi chú của Admin:</Label>
-                                            {result.adminNote ? <p className="text-sm text-amber-900 whitespace-pre-wrap">{result.adminNote}</p> : <p className="text-sm text-muted-foreground">Không có ghi chú.</p>}
-                                            {isReturnedForRevision && (
-                                                <Button variant="outline" size="sm" className="mt-2 w-fit" onClick={() => setRevisingIndicator(ind)}>
-                                                    <Edit className="mr-2 h-4 w-4" /> Bổ sung &amp; Giải trình
-                                                </Button>
-                                            )}
-                                        </>
-                                     )}
-                                  </div>
-                                }
-                          </div>
+                            </div>
                         )
-                      }
-                      
-                      if (!indicator.subIndicators || indicator.subIndicators.length === 0) { return renderIndicatorContent(indicator, false); }
-                      return (
-                         <div key={indicator.id} className="grid gap-4">
-                             <h4 className="font-semibold">{indicator.name}</h4>
-                             <div className="pl-6 border-l-2 border-dashed space-y-4">
-                                {indicator.subIndicators.map(sub => renderIndicatorContent(sub, true))}
+                    })() : (
+                         /* Default Rendering for other criteria */
+                        criterion.indicators.map(indicator => {
+                          const renderIndicatorContent = (ind: typeof indicator | (typeof indicator.subIndicators)[0], isSub: boolean) => {
+                            const result = getIndicatorResult(ind.id);
+                            const adminNote = adminNotes[ind.id] || '';
+                            
+                            const blockClasses = cn(
+                              "grid gap-4 p-4 rounded-lg bg-card border shadow-sm",
+                              result.status === 'achieved' && 'bg-green-50 border-green-200',
+                              result.status === 'not-achieved' && 'bg-red-50 border-red-200',
+                              result.status === 'pending' && 'bg-amber-50 border-amber-200',
+                              isSub && "relative pl-6 pt-4 mt-2"
+                            );
+
+                            return (
+                              <div key={ind.id} className={blockClasses}>
+                                  {isSub && <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>}
+                                  <div className="flex items-start gap-3">
+                                      <StatusBadge status={result.status} />
+                                      <h4 className="font-semibold flex-1">{ind.name}</h4>
+                                  </div>
+                                   <>
+                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="md:col-span-1 font-medium text-muted-foreground">Kết quả tự chấm:</div>
+                                        <div className="md:col-span-2 font-semibold"> {renderResultValue(result)} </div>
+                                      </div>
+                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="md:col-span-1 font-medium text-muted-foreground">Giải trình ban đầu:</div>
+                                        <p className="md:col-span-2 text-sm">{result.note || "Không có giải trình."}</p>
+                                      </div>
+                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div className="md:col-span-1 font-medium text-muted-foreground">Minh chứng ban đầu:</div>
+                                        <div className="md:col-span-2">
+                                          {result.files.length > 0 ? (
+                                            <div className="space-y-2">
+                                              {result.files.map((file: {name: string, url: string}, i: number) => (
+                                                <div key={i} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
+                                                  <div className="flex items-center gap-2 truncate">
+                                                    {isLink(file) ? <LinkIcon className="h-4 w-4 flex-shrink-0 text-blue-500"/> : <FileIcon className="h-4 w-4 flex-shrink-0" />}
+                                                    <span className="truncate">{file.name}</span>
+                                                  </div>
+                                                  <div className="flex items-center">
+                                                    {isLink(file) ? (
+                                                      <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
+                                                        <a href={file.url} target="_blank" rel="noopener noreferrer"><Eye className="h-4 w-4" /></a>
+                                                      </Button>
+                                                    ) : (
+                                                      <>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewFile(file)}> <Eye className="h-4 w-4" /> </Button>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.open(file.url, '_blank')}><Download className="h-4 w-4" /></Button>
+                                                      </>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          ) : ( <p className="text-sm text-muted-foreground">Không có tệp đính kèm.</p> )}
+                                        </div>
+                                      </div>
+                                    </>
+
+                                    {result.communeNote && (
+                                         <div className="mt-4 p-4 border-t border-dashed border-blue-500 bg-blue-50/50 rounded-b-lg grid gap-2">
+                                            <Label className="font-semibold text-blue-800">Giải trình bổ sung của xã:</Label>
+                                            <p className="text-sm text-blue-900 whitespace-pre-wrap">{result.communeNote}</p>
+                                        </div>
+                                    )}
+
+                                    { (role === 'admin' || (role === 'commune_staff' && result.adminNote)) &&
+                                      <div className="mt-4 p-4 border-t border-dashed border-amber-500 bg-amber-50/50 rounded-b-lg grid gap-4">
+                                         {role === 'admin' ? (
+                                            <>
+                                                <Label htmlFor={`admin-note-${ind.id}`} className="font-semibold text-amber-800">Ghi chú của Admin cho chỉ tiêu này</Label>
+                                                <Textarea id={`admin-note-${ind.id}`} placeholder="Nhập ghi chú, yêu cầu chỉnh sửa..." value={adminNote} onChange={(e) => handleAdminNoteChange(ind.id, e.target.value)} />
+                                            </>
+                                         ) : (
+                                            <>
+                                                <Label className="font-semibold text-amber-800">Ghi chú của Admin:</Label>
+                                                {result.adminNote ? <p className="text-sm text-amber-900 whitespace-pre-wrap">{result.adminNote}</p> : <p className="text-sm text-muted-foreground">Không có ghi chú.</p>}
+                                                {isReturnedForRevision && (
+                                                    <Button variant="outline" size="sm" className="mt-2 w-fit" onClick={() => setRevisingIndicator(ind)}>
+                                                        <Edit className="mr-2 h-4 w-4" /> Bổ sung &amp; Giải trình
+                                                    </Button>
+                                                )}
+                                            </>
+                                         )}
+                                      </div>
+                                    }
+                              </div>
+                            )
+                          }
+                          
+                          if (!indicator.subIndicators || indicator.subIndicators.length === 0) { return renderIndicatorContent(indicator, false); }
+                          return (
+                             <div key={indicator.id} className="grid gap-4">
+                                 <h4 className="font-semibold">{indicator.name}</h4>
+                                 <div className="pl-6 border-l-2 border-dashed space-y-4">
+                                    {indicator.subIndicators.map(sub => renderIndicatorContent(sub, true))}
+                                 </div>
                              </div>
-                         </div>
-                      );
-                    })}
+                          );
+                        })
+                    )}
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -591,5 +713,3 @@ export default function AssessmentDetailPage() {
     </>
   );
 }
-
-    
