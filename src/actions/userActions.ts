@@ -1,5 +1,7 @@
 
 'use server';
+// Load environment variables at the very beginning
+require('dotenv').config();
 
 import type { UnitAndUserImport, User } from '@/lib/data';
 import * as admin from 'firebase-admin';
@@ -293,5 +295,3 @@ export async function importUnitsAndUsers(data: UnitAndUserImport[]): Promise<{s
 
     return results;
 }
-
-    
