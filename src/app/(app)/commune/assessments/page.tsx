@@ -554,14 +554,15 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                     {/* Indicator 1.1 */}
                     <div className="grid gap-4">
                         <h4 className="font-semibold">{indicator1_1.name}</h4>
-                         <div className="grid gap-2">
-                            <Label htmlFor={`value-${indicator1_1.id}`}>Tổng số Nghị quyết của HĐND, Quyết định của UBND cấp xã được ban hành</Label>
+                         <div className="flex items-center gap-4">
+                            <Label htmlFor={`value-${indicator1_1.id}`} className="flex-shrink-0">Tổng số Nghị quyết của HĐND, Quyết định của UBND cấp xã được ban hành:</Label>
                             <Input 
                                 id={`value-${indicator1_1.id}`} 
                                 type="number" 
+                                className="w-auto flex-grow-0"
                                 value={data1_1.value || ''}
                                 onChange={(e) => onValueChange(indicator1_1.id, e.target.value === '' ? null : Number(e.target.value))}
-                                placeholder="Nhập tổng số văn bản đã ban hành"
+                                placeholder="Nhập số lượng"
                             />
                         </div>
                     </div>
