@@ -65,8 +65,10 @@ export type Criterion = {
   indicators: Indicator[];
   // Special config fields for Criterion 1
   assignedDocumentsCount?: number;
-  issuanceDeadlineDays?: number;
-  effectiveDate?: string;
+  documents?: {
+    name: string;
+    issuanceDeadlineDays: number;
+  }[];
 };
 
 export type AssessmentPeriod = {

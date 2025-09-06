@@ -75,21 +75,34 @@ function CriterionForm({ criterion, onSave, onCancel }: { criterion: Partial<Cri
 
 function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave: (criterion: Criterion) => void }) {
     const [formData, setFormData] = React.useState<Criterion>(criterion);
-    const [effectiveDate, setEffectiveDate] = React.useState<Date | undefined>(
-        criterion.effectiveDate ? new Date(criterion.effectiveDate) : undefined
-    );
-     const { toast } = useToast();
+    const { toast } = useToast();
 
-    const handleNumericInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { id, value } = e.target;
-        setFormData(prev => ({...prev, [id]: value === '' ? undefined : Number(value) }));
+    const handleCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const count = e.target.value === '' ? 0 : Number(e.target.value);
+        const newCount = Math.max(0, count); // Ensure count is not negative
+
+        setFormData(prev => {
+            const currentDocuments = prev.documents || [];
+            const newDocuments = Array.from({ length: newCount }, (_, i) => {
+                return currentDocuments[i] || { name: '', issuanceDeadlineDays: 30 };
+            });
+            return {
+                ...prev,
+                assignedDocumentsCount: newCount,
+                documents: newDocuments
+            };
+        });
     };
-
-    React.useEffect(() => {
-      if (effectiveDate) {
-          setFormData(prev => ({ ...prev, effectiveDate: format(effectiveDate, 'yyyy-MM-dd')}));
-      }
-    }, [effectiveDate]);
+    
+    const handleDocumentChange = (index: number, field: 'name' | 'issuanceDeadlineDays', value: string | number) => {
+        setFormData(prev => {
+            const newDocuments = [...(prev.documents || [])];
+            if (newDocuments[index]) {
+                (newDocuments[index] as any)[field] = value;
+            }
+            return { ...prev, documents: newDocuments };
+        });
+    };
     
     const handleSave = () => {
         onSave(formData);
@@ -97,35 +110,43 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
     }
 
     return (
-        <div className="p-4 border rounded-lg bg-muted/50 mb-6">
-            <h4 className='font-semibold mb-4 text-primary'>Cấu hình đặc biệt: Số lượng & Thời hạn</h4>
-             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="grid gap-2">
-                    <Label htmlFor="assignedDocumentsCount">Số lượng VBQPPL được giao</Label>
-                    <Input id="assignedDocumentsCount" type="number" value={formData.assignedDocumentsCount || ''} onChange={handleNumericInputChange} placeholder="Ví dụ: 5"/>
-                </div>
-                <div className="grid gap-2">
-                    <Label htmlFor="issuanceDeadlineDays">Thời hạn ban hành (ngày)</Label>
-                    <Input id="issuanceDeadlineDays" type="number" value={formData.issuanceDeadlineDays || ''} onChange={handleNumericInputChange} placeholder="Ví dụ: 30"/>
-                </div>
-                <div className="grid gap-2">
-                     <Label htmlFor="effectiveDate">Ngày bắt đầu áp dụng</Label>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                            variant={"outline"}
-                            className={cn("w-full justify-start text-left font-normal bg-white", !effectiveDate && "text-muted-foreground" )}
-                            >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {effectiveDate ? format(effectiveDate, "dd/MM/yyyy") : <span>Chọn ngày</span>}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                            <Calendar mode="single" selected={effectiveDate} onSelect={setEffectiveDate} initialFocus />
-                        </PopoverContent>
-                    </Popover>
-                </div>
+        <div className="p-4 border rounded-lg bg-muted/50 mb-6 space-y-6">
+            <h4 className='font-semibold text-primary'>Cấu hình đặc biệt: Giao nhiệm vụ ban hành VBQPPL</h4>
+             <div className="grid gap-2">
+                <Label htmlFor="assignedDocumentsCount">Số lượng VBQPPL được giao</Label>
+                <Input id="assignedDocumentsCount" type="number" value={formData.assignedDocumentsCount || ''} onChange={handleCountChange} placeholder="Ví dụ: 5" className="w-48"/>
+                <p className="text-sm text-muted-foreground">Nhập số lượng văn bản để hệ thống tạo ra các trường tương ứng bên dưới.</p>
             </div>
+            
+            {(formData.documents || []).length > 0 && (
+                 <div className="space-y-4 pt-4 border-t">
+                    <h5 className="font-medium">Chi tiết các văn bản được giao</h5>
+                    {formData.documents?.map((doc, index) => (
+                        <div key={index} className="grid grid-cols-1 md:grid-cols-8 gap-4 items-center p-3 border rounded-md bg-background">
+                            <Label className="md:col-span-1 text-sm text-muted-foreground text-center">VB {index + 1}</Label>
+                            <div className="md:col-span-5 grid gap-1.5">
+                                <Label htmlFor={`doc-name-${index}`} className="text-xs">Tên văn bản QPPL</Label>
+                                <Input 
+                                    id={`doc-name-${index}`} 
+                                    value={doc.name} 
+                                    onChange={(e) => handleDocumentChange(index, 'name', e.target.value)} 
+                                    placeholder={`Ví dụ: Nghị quyết về việc...`}
+                                />
+                            </div>
+                             <div className="md:col-span-2 grid gap-1.5">
+                                <Label htmlFor={`doc-deadline-${index}`} className="text-xs">Thời hạn ban hành (ngày)</Label>
+                                <Input 
+                                    id={`doc-deadline-${index}`} 
+                                    type="number"
+                                    value={doc.issuanceDeadlineDays} 
+                                    onChange={(e) => handleDocumentChange(index, 'issuanceDeadlineDays', Number(e.target.value))} 
+                                />
+                            </div>
+                        </div>
+                    ))}
+                 </div>
+            )}
+
             <div className="flex justify-end mt-4">
                 <Button onClick={handleSave} size="sm">
                     <Save className="mr-2 h-4 w-4"/>
@@ -525,5 +546,3 @@ export default function CriteriaManagementPage() {
     </>
   );
 }
-
-    
