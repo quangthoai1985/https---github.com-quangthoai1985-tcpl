@@ -59,17 +59,8 @@ export default function AppLayout({
             <AppSidebar />
         </motion.div>
         <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={pathname}
-              initial={{ x: 100, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -100, opacity: 0 }}
-              transition={{ duration: 0.5, ease: "easeInOut" }}
-            >
-              {children}
-            </motion.div>
-          </AnimatePresence>
+           {/* Logic chuyển trang đã được chuyển ra PageTransitionWrapper ở layout gốc */}
+           {children}
         </main>
       </div>
     </div>

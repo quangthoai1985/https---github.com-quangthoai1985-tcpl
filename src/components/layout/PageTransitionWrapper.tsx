@@ -1,3 +1,4 @@
+
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -9,7 +10,7 @@ const variants = {
   // Trạng thái ban đầu của trang khi bắt đầu vào
   initialState: {
     opacity: 0,
-    x: -200, // Bắt đầu từ bên trái
+    x: 100, // Bắt đầu từ bên phải
   },
   // Trạng thái trang sẽ chuyển đến
   animateState: {
@@ -19,7 +20,7 @@ const variants = {
   // Trạng thái của trang khi thoát ra
   exitState: {
     opacity: 0,
-    x: 200, // Di chuyển sang bên phải
+    x: -100, // Di chuyển sang bên trái
   },
 };
 
