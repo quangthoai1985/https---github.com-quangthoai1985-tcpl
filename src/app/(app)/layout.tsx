@@ -43,25 +43,41 @@ export default function AppLayout({
   // Render the layout only if there is a user
   return currentUser ? (
      <div className="flex min-h-screen w-full flex-col bg-muted/40">
-      <motion.div
-        initial={{ y: -100, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5, ease: 'easeInOut' }}
-      >
-        <AppHeader />
-      </motion.div>
-      <div className="flex flex-1">
+      <AnimatePresence mode="wait">
         <motion.div
-            initial={{ x: -100, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            transition={{ duration: 0.5, ease: 'easeInOut', delay: 0.2 }}
+            key={pathname + '-header'}
+            initial={{ y: -100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -100, opacity: 0 }}
+            transition={{ duration: 0.5, ease: 'easeInOut' }}
         >
-            <AppSidebar />
+            <AppHeader />
         </motion.div>
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto">
-           {/* Logic chuyển trang đã được chuyển ra PageTransitionWrapper ở layout gốc */}
-           {children}
-        </main>
+      </AnimatePresence>
+      <div className="flex flex-1">
+        <AnimatePresence mode="wait">
+            <motion.div
+                key={pathname + '-sidebar'}
+                initial={{ x: -100, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: -100, opacity: 0 }}
+                transition={{ duration: 0.5, ease: 'easeInOut', delay: 0.2 }}
+            >
+                <AppSidebar />
+            </motion.div>
+        </AnimatePresence>
+        <AnimatePresence mode="wait">
+             <motion.main 
+                key={pathname + '-main'}
+                initial={{ x: 100, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                exit={{ x: 100, opacity: 0 }}
+                transition={{ duration: 0.5, ease: 'easeInOut', delay: 0.4 }}
+                className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto"
+            >
+               {children}
+            </motion.main>
+        </AnimatePresence>
       </div>
     </div>
   ) : null; // or a fallback component if you prefer
