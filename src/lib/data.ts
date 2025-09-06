@@ -1,5 +1,4 @@
 
-
 // Define a structure for how the self-assessment data for each indicator will be stored.
 export type IndicatorResult = {
     isTasked?: boolean | null;
@@ -10,7 +9,6 @@ export type IndicatorResult = {
     adminNote?: string; // Ghi chú của admin cho từng chỉ tiêu
     communeNote?: string; // Nội dung giải trình của xã cho từng chỉ tiêu
     statusByAdmin?: 'approved' | 'rejected' | 'pending'; // Trạng thái admin duyệt cho từng chỉ tiêu
-    filesPerDocument?: { [key: string]: { name: string, url: string }[] };
 };
 
 
