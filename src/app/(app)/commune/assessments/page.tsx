@@ -362,7 +362,7 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean, a
     // Special evaluation for Criterion 1 indicators
     if (assignedCount && assignedCount > 0) {
         const enteredValue = Number(value);
-        if (isNaN(enteredValue)) return 'pending';
+        if (isNaN(enteredValue) || value === '' || value === null) return 'pending';
         return enteredValue >= assignedCount ? 'achieved' : 'not-achieved';
     }
     
@@ -497,110 +497,6 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
     return sanitizedData;
 };
 
-const Criterion1Indicator = ({ indicator, assignedCount, data, onValueChange, onNoteChange, onEvidenceChange }: {
-    indicator: Indicator;
-    assignedCount: number;
-    data: IndicatorValue;
-    onValueChange: (id: string, value: any) => void;
-    onNoteChange: (id: string, note: string) => void;
-    onEvidenceChange: (id: string, files: (File | { name: string; url: string; })[], docIndex?: number) => void;
-}) => {
-    const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
-    const isAchieved = progress >= 100;
-    const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
-    
-    const blockClasses = cn(
-      "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
-      data.status === 'achieved' && 'bg-green-50 border-green-200',
-      data.status === 'not-achieved' && 'bg-red-50 border-red-200',
-      data.status === 'pending' && 'bg-amber-50 border-amber-200'
-    );
-
-    const isAnyEvidenceRequired = data.status !== 'pending' && Array.from({length: Number(data.value) || 0}).some((_, i) => (data.filesPerDocument?.[i] || []).length === 0);
-
-    return (
-        <div className={blockClasses}>
-            {/* Title and Info */}
-            <div>
-                <div className="flex items-center gap-2">
-                    <StatusBadge status={data.status} />
-                    <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
-                </div>
-                 <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
-                    <div className="flex items-start gap-2 text-blue-800">
-                        <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                        <div>
-                            <p className="text-sm">{indicator.description}</p>
-                            <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            {/* Input and Progress */}
-             <div className="grid gap-4">
-                <div className="grid gap-2">
-                   <div className="flex items-center gap-4">
-                        <Label htmlFor={`${indicator.id}-input`} className="shrink-0">Tổng số VBQPPL được ban hành:</Label>
-                        <Input 
-                            id={`${indicator.id}-input`} 
-                            type="number" 
-                            placeholder="Số lượng"
-                            className="w-28"
-                            value={data.value || ''} 
-                            onChange={(e) => onValueChange(indicator.id, e.target.value)}
-                        />
-                        <div className="flex-1">
-                            <div className="flex justify-between items-center mb-1">
-                                <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
-                                <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
-                            </div>
-                            <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
-                        </div>
-                   </div>
-                </div>
-            </div>
-
-            {/* Dynamic Evidence Uploaders */}
-            <div className="grid gap-2">
-                <Label className="font-medium">Hồ sơ minh chứng (tương ứng với {Number(data.value) || 0} VB đã ban hành)</Label>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                    {Array.from({ length: Number(data.value) || 0 }, (_, i) => (
-                        <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
-                            <Label className="font-medium text-center text-sm">Minh chứng cho VB {i + 1}</Label>
-                                <EvidenceUploaderComponent
-                                indicatorId={indicator.id}
-                                docIndex={i}
-                                evidence={data.filesPerDocument?.[i] || []}
-                                onEvidenceChange={onEvidenceChange}
-                                isRequired={data.status !== 'pending' && (data.filesPerDocument?.[i] || []).length === 0}
-                            />
-                        </div>
-                    ))}
-                </div>
-                 {isAnyEvidenceRequired && (
-                    <p className="text-sm font-medium text-destructive mt-2">
-                        Yêu cầu ít nhất một minh chứng cho mỗi văn bản đã ban hành.
-                    </p>
-                )}
-            </div>
-
-            {/* Notes */}
-            <div className="grid gap-2">
-                <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
-                <Textarea 
-                    id={`note-${indicator.id}`} 
-                    placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
-                    value={data.note}
-                    onChange={(e) => onNoteChange(indicator.id, e.target.value)}
-                />
-            </div>
-        </div>
-    );
-};
-
-
-
 const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange }: {
     criterion: Criterion;
     assessmentData: AssessmentValues;
@@ -621,6 +517,18 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
          criterion.indicators.forEach(indicator => {
              onIsTaskedChange(indicator.id, !notTasked);
          });
+    }
+    
+    const getIndicatorLabel = (indicatorId: string): string => {
+        if (!criterion.indicators) return "Tổng số VBQPPL được ban hành";
+
+        const indicatorIndex = criterion.indicators.findIndex(i => i.id === indicatorId);
+        switch(indicatorIndex) {
+            case 0: return "Tổng số VBQPPL được ban hành";
+            case 1: return "Tổng số dự thảo VBQPPL được ban hành";
+            case 2: return "Tổng số Nghị quyết được thực hiện tự kiểm tra";
+            default: return "Tổng số VBQPPL được ban hành";
+        }
     }
 
     return (
@@ -661,19 +569,102 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                     </Card>
                     
                     <div className="space-y-12">
-                        {criterion.indicators.map((indicator, index) => (
-                           <React.Fragment key={indicator.id}>
-                            {index > 0 && <Separator className="my-6"/>}
-                             <Criterion1Indicator
-                                 indicator={indicator}
-                                 assignedCount={assignedCount}
-                                 data={assessmentData[indicator.id]}
-                                 onValueChange={onValueChange}
-                                 onNoteChange={onNoteChange}
-                                 onEvidenceChange={onEvidenceChange}
-                             />
-                           </React.Fragment>
-                        ))}
+                        {criterion.indicators.map((indicator, index) => {
+                            const data = assessmentData[indicator.id];
+                            const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
+                            const isAchieved = progress >= 100;
+                            const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
+                            const blockClasses = cn(
+                                "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
+                                data.status === 'achieved' && 'bg-green-50 border-green-200',
+                                data.status === 'not-achieved' && 'bg-red-50 border-red-200',
+                                data.status === 'pending' && 'bg-amber-50 border-amber-200'
+                            );
+                            const isAnyEvidenceRequired = data.status !== 'pending' && Array.from({length: Number(data.value) || 0}).some((_, i) => (data.filesPerDocument?.[i] || []).length === 0);
+
+                            return (
+                                <React.Fragment key={indicator.id}>
+                                    {index > 0 && <Separator className="my-6"/>}
+                                    <div className={blockClasses}>
+                                        {/* Title and Info */}
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <StatusBadge status={data.status} />
+                                                <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
+                                            </div>
+                                            <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
+                                                <div className="flex items-start gap-2 text-blue-800">
+                                                    <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                                                    <div>
+                                                        <p className="text-sm">{indicator.description}</p>
+                                                        <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Input and Progress */}
+                                        <div className="grid gap-4">
+                                            <div className="grid gap-2">
+                                            <div className="flex items-center gap-4">
+                                                    <Label htmlFor={`${indicator.id}-input`} className="shrink-0">{getIndicatorLabel(indicator.id)}:</Label>
+                                                    <Input 
+                                                        id={`${indicator.id}-input`} 
+                                                        type="number" 
+                                                        placeholder="Số lượng"
+                                                        className="w-28"
+                                                        value={data.value || ''} 
+                                                        onChange={(e) => onValueChange(indicator.id, e.target.value)}
+                                                    />
+                                                    <div className="flex-1">
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
+                                                            <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
+                                                        </div>
+                                                        <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
+                                                    </div>
+                                            </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Dynamic Evidence Uploaders */}
+                                        <div className="grid gap-2">
+                                            <Label className="font-medium">Hồ sơ minh chứng (tương ứng với {Number(data.value) || 0} mục đã thực hiện)</Label>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                                                {Array.from({ length: Number(data.value) || 0 }, (_, i) => (
+                                                    <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
+                                                        <Label className="font-medium text-center text-sm">Minh chứng cho mục {i + 1}</Label>
+                                                            <EvidenceUploaderComponent
+                                                            indicatorId={indicator.id}
+                                                            docIndex={i}
+                                                            evidence={data.filesPerDocument?.[i] || []}
+                                                            onEvidenceChange={onEvidenceChange}
+                                                            isRequired={data.status !== 'pending' && (data.filesPerDocument?.[i] || []).length === 0}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            {isAnyEvidenceRequired && (
+                                                <p className="text-sm font-medium text-destructive mt-2">
+                                                    Yêu cầu ít nhất một minh chứng cho mỗi mục đã thực hiện.
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {/* Notes */}
+                                        <div className="grid gap-2">
+                                            <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
+                                            <Textarea 
+                                                id={`note-${indicator.id}`} 
+                                                placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
+                                                value={data.note}
+                                                onChange={(e) => onNoteChange(indicator.id, e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                </React.Fragment>
+                            )
+                        })}
                     </div>
                 </div>
             )}
