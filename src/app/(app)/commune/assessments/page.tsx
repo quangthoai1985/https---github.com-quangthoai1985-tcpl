@@ -81,7 +81,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
                 </p>
                 <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={handleFileSelect} />
             </div>
-            <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
+             <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
 
             {/* Link Input Area */}
             <div className="grid gap-1">
@@ -560,7 +560,9 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                         <div className="text-muted-foreground">Ngày ban hành (ấn định):</div>
                                         <div className="col-span-2 font-medium">{doc.issueDate}</div>
                                         <div className="text-muted-foreground">Thời hạn ban hành:</div>
-                                        <div className="col-span-2 font-medium">{doc.issuanceDeadlineDays} ngày</div>
+                                        <div className="col-span-2 font-medium">
+                                            <Badge variant="destructive">{doc.issuanceDeadlineDays} ngày</Badge>
+                                        </div>
                                     </div>
                                 ))
                             ) : (
@@ -609,9 +611,9 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                              <div className="grid gap-2">
                                                  <div className="flex items-center gap-4">
                                                     <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
-                                                        {index === 0 && "Tổng số VBQPPL được ban hành:"}
-                                                        {index === 1 && "Tổng số dự thảo VBQPPL được ban hành:"}
-                                                        {index === 2 && "Tổng số Nghị quyết được thực hiện tự kiểm tra:"}
+                                                       {index === 0 && "Tổng số VBQPPL được ban hành:"}
+                                                       {index === 1 && "Tổng số dự thảo VBQPPL được ban hành:"}
+                                                       {index === 2 && "Tổng số Nghị quyết được thực hiện tự kiểm tra:"}
                                                     </Label>
                                                      <Input 
                                                          id={`${indicator.id}-input`} 
