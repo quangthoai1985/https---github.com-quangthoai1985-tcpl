@@ -10,7 +10,7 @@ const variants = {
   // Trạng thái ban đầu của trang khi bắt đầu vào
   initialState: {
     opacity: 0,
-    x: 100, // Bắt đầu từ bên phải
+    x: 50, // Bắt đầu từ bên phải, giảm khoảng cách để hiệu ứng nhẹ nhàng hơn
   },
   // Trạng thái trang sẽ chuyển đến
   animateState: {
@@ -20,7 +20,7 @@ const variants = {
   // Trạng thái của trang khi thoát ra
   exitState: {
     opacity: 0,
-    x: -100, // Di chuyển sang bên trái
+    x: -50, // Di chuyển sang bên trái (ngược hướng với khi vào)
   },
 };
 
