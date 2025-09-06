@@ -407,17 +407,32 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean, a
     return 'pending';
 }
 
-const StatusBadge = ({ status }: { status: AssessmentStatus }) => {
+const StatusBadge = ({ status, isCriterion = false }: { status: AssessmentStatus, isCriterion?: boolean }) => {
     const badgeClasses = "text-sm px-3 py-1";
+    let text = "";
+    let style = "";
+
     switch (status) {
         case 'achieved':
-            return <Badge className={cn(badgeClasses, "bg-green-600 hover:bg-green-700 text-white")}>Đạt</Badge>;
+            text = isCriterion ? 'Tiêu chí Đạt' : 'Đạt';
+            style = "bg-green-600 hover:bg-green-700 text-white";
+            break;
         case 'not-achieved':
-            return <Badge variant="destructive" className={badgeClasses}>Không đạt</Badge>;
+            text = isCriterion ? 'Tiêu chí Không Đạt' : 'Không đạt';
+            style = "bg-red-500 text-white border-red-600";
+            break;
         case 'pending':
         default:
-            return <Badge variant="outline" className={cn(badgeClasses, "border-amber-500 bg-amber-50 text-amber-800")}>Chưa chấm</Badge>;
+            text = isCriterion ? 'Chưa hoàn thành' : 'Chưa chấm';
+            style = "border-amber-500 bg-amber-50 text-amber-800";
+            break;
     }
+    
+    return isCriterion ? (
+        <Badge variant={status === 'not-achieved' ? 'destructive' : 'default'} className={cn(badgeClasses, style)}>{text}</Badge>
+    ) : (
+        <Badge variant={status === 'not-achieved' ? 'destructive' : 'default'} className={cn(badgeClasses, style)}>{text}</Badge>
+    );
 };
 
 
@@ -641,7 +656,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                  {(criterion.documents || []).map((doc, i) => (
                                                      <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
                                                          <Label className="font-medium text-center text-sm">
-                                                            Minh chứng cho VB: <span className="text-primary font-bold">{doc.name}</span>
+                                                            Minh chứng cho VB: <span className="font-bold text-primary">{doc.name}</span>
                                                          </Label>
                                                          <EvidenceUploaderComponent
                                                              indicatorId={indicator.id}
@@ -986,6 +1001,24 @@ export default function SelfAssessmentPage() {
         setIsSubmitting(false);
     }
   };
+  
+  const calculateCriterionStatus = (criterion: Criterion): AssessmentStatus => {
+    let hasPending = false;
+    for (const indicator of criterion.indicators) {
+        if (indicator.subIndicators && indicator.subIndicators.length > 0) {
+            for (const sub of indicator.subIndicators) {
+                const status = assessmentData[sub.id]?.status;
+                if (status === 'not-achieved') return 'not-achieved';
+                if (status === 'pending') hasPending = true;
+            }
+        } else {
+            const status = assessmentData[indicator.id]?.status;
+            if (status === 'not-achieved') return 'not-achieved';
+            if (status === 'pending') hasPending = true;
+        }
+    }
+    return hasPending ? 'pending' : 'achieved';
+  };
 
 
   return (
@@ -1007,11 +1040,23 @@ export default function SelfAssessmentPage() {
                 <CardContent>
                     <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
                         {criteria.map((criterion, index) => {
-                             // Custom render for Criterion 1
+                             const criterionStatus = calculateCriterionStatus(criterion);
+                             const triggerClasses = cn(
+                                 "font-headline text-lg rounded-md px-4 transition-colors",
+                                 criterionStatus === 'achieved' && 'bg-green-100 hover:bg-green-200/80',
+                                 criterionStatus === 'not-achieved' && 'bg-red-100 hover:bg-red-200/80',
+                                 criterionStatus === 'pending' && 'bg-amber-100 hover:bg-amber-200/80',
+                             );
+                             
                              if (index === 0) {
                                  return (
                                      <AccordionItem value={criterion.id} key={criterion.id}>
-                                        <AccordionTrigger className="font-headline text-lg">Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</AccordionTrigger>
+                                        <AccordionTrigger className={triggerClasses}>
+                                            <div className="flex items-center gap-4 flex-1">
+                                                <StatusBadge status={criterionStatus} isCriterion={true} />
+                                                <span>Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</span>
+                                            </div>
+                                        </AccordionTrigger>
                                         <AccordionContent>
                                              <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
                                                 <Criterion1Assessment
@@ -1031,7 +1076,12 @@ export default function SelfAssessmentPage() {
                              // Default render for other criteria
                              return (
                                 <AccordionItem value={criterion.id} key={criterion.id}>
-                                    <AccordionTrigger className="font-headline text-lg">Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</AccordionTrigger>
+                                    <AccordionTrigger className={triggerClasses}>
+                                        <div className="flex items-center gap-4 flex-1">
+                                                <StatusBadge status={criterionStatus} isCriterion={true} />
+                                                <span>Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</span>
+                                            </div>
+                                    </AccordionTrigger>
                                     <AccordionContent>
                                         <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
                                             {(criterion.indicators || []).map(indicator => {
