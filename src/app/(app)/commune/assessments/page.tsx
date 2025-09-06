@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2, LinkIcon, Info, AlertTriangle, FileUp } from "lucide-react";
+import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2, LinkIcon, Info, AlertTriangle, FileUp, ListChecks } from "lucide-react";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
@@ -508,7 +508,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     onIsTaskedChange: (id: string, isTasked: boolean) => void;
 }) => {
     const assignedCount = criterion.assignedDocumentsCount || 0;
-    const deadlineDays = criterion.issuanceDeadlineDays || 'N/A';
     
     // Use the status of the first indicator as the master switch
     const firstIndicatorId = criterion.indicators[0].id;
@@ -548,13 +547,23 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                     {/* Admin Config Info */}
                     <Card className="bg-blue-50/50 border border-blue-200">
                         <CardHeader>
-                            <CardTitle className="text-base text-primary">Thông tin nhiệm vụ được giao</CardTitle>
+                            <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao từ Admin</CardTitle>
+                             <CardDescription>Đây là danh sách các văn bản cụ thể bạn cần ban hành trong kỳ đánh giá này.</CardDescription>
                         </CardHeader>
-                        <CardContent className="grid grid-cols-2 gap-4 text-sm">
-                            <div className="font-semibold">Số lượng VBQPPL được giao:</div>
-                            <div>{assignedCount} văn bản</div>
-                            <div className="font-semibold">Thời hạn ban hành:</div>
-                            <div>{deadlineDays} ngày</div>
+                        <CardContent className="space-y-4">
+                            {(criterion.documents || []).length > 0 ? (
+                                criterion.documents?.map((doc, index) => (
+                                    <div key={index} className="grid grid-cols-3 gap-x-4 gap-y-1 p-3 border-l-4 border-blue-300 rounded bg-background text-sm">
+                                        <div className="col-span-3 font-semibold text-primary">Văn bản {index + 1}: {doc.name}</div>
+                                        <div className="text-muted-foreground">Ngày ban hành (ấn định):</div>
+                                        <div className="col-span-2 font-medium">{doc.issueDate}</div>
+                                        <div className="text-muted-foreground">Thời hạn ban hành:</div>
+                                        <div className="col-span-2 font-medium">{doc.issuanceDeadlineDays} ngày</div>
+                                    </div>
+                                ))
+                            ) : (
+                                <p className="text-sm text-muted-foreground">Không có văn bản nào được Admin định danh cụ thể.</p>
+                            )}
                         </CardContent>
                     </Card>
                     
@@ -598,9 +607,9 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                              <div className="grid gap-2">
                                                  <div className="flex items-center gap-4">
                                                     <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
-                                                        {index === 0 && "Tổng số VBQPPL được ban hành:"}
-                                                        {index === 1 && "Tổng số dự thảo VBQPPL được ban hành:"}
-                                                        {index === 2 && "Tổng số Nghị quyết được thực hiện tự kiểm tra:"}
+                                                         {index === 0 && "Tổng số VBQPPL được ban hành:"}
+                                                         {index === 1 && "Tổng số dự thảo VBQPPL được ban hành:"}
+                                                         {index === 2 && "Tổng số Nghị quyết được thực hiện tự kiểm tra:"}
                                                     </Label>
                                                      <Input 
                                                          id={`${indicator.id}-input`} 
