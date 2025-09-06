@@ -125,7 +125,7 @@ function ImportDialog({ onImport, onCancel }: { onImport: (data: UnitAndUserImpo
                 <div className="grid gap-2">
                     <Label htmlFor="excel-file">Chọn file Excel</Label>
                     <Input id="excel-file" type="file" onChange={handleFileChange} accept=".xlsx, .xls" />
-                    <p className="text-xs text-muted-foreground mt-1">Dung lượng tối đa: 5MB.</p>
+                    <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
                 </div>
                  {file && <p className="text-sm text-muted-foreground">Đã chọn file: {file.name}</p>}
             </div>

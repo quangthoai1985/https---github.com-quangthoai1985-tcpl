@@ -80,7 +80,7 @@ function DocumentForm({ document, onSave, onCancel, isSubmitting }: { document: 
             <Label htmlFor="file" className="text-right">Tệp đính kèm</Label>
             <div className="col-span-3">
               <Input id="file" type="file" onChange={handleFileChange} />
-              <p className="text-xs text-muted-foreground mt-1">Dung lượng tối đa: 5MB.</p>
+              <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
             </div>
         </div>
         {file && <p className="text-sm text-muted-foreground text-right col-span-4">Tệp mới: {file.name}</p>}
@@ -386,5 +386,3 @@ export default function DocumentsPage() {
     </>
   );
 }
-
-    

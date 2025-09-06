@@ -24,6 +24,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Progress } from "@/components/ui/progress";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+
 
 // Re-using the input rendering logic from the assessment page
 const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
@@ -161,9 +163,9 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange }: 
                 <p className="mt-2 text-xs text-muted-foreground">
                     Kéo và thả tệp, hoặc <span className="font-semibold text-primary">nhấn để chọn</span>
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
                 <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={handleFileSelect} />
             </div>
+             <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
              <div className="grid gap-2">
                  <Label htmlFor={`link-${indicatorId}`} className="text-sm">Hoặc thêm liên kết minh chứng</Label>
                  <div className="flex gap-2">

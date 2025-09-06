@@ -69,7 +69,7 @@ function UploadDecision({ assessment, onUploadSuccess }: { assessment: Assessmen
         <div className="flex items-center gap-2">
             <div className='flex-grow'>
                 <Input id={`file-${assessment.id}`} type="file" className="h-9 text-xs" onChange={(e) => setFile(e.target.files ? e.target.files[0] : null)} disabled={isUploading} />
-                 <p className="text-xs text-muted-foreground mt-1">Dung lượng tối đa: 5MB.</p>
+                 <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
             </div>
             <Button size="sm" onClick={handleUpload} disabled={!file || isUploading}>
                 {isUploading ? <Loader2 className="h-4 w-4 animate-spin"/> : <UploadCloud className="h-4 w-4" />}
@@ -195,4 +195,3 @@ export default function AnnouncementPage() {
         </>
     );
 }
-
