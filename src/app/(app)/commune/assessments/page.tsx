@@ -1042,7 +1042,7 @@ export default function SelfAssessmentPage() {
                         {criteria.map((criterion, index) => {
                              const criterionStatus = calculateCriterionStatus(criterion);
                              const triggerClasses = cn(
-                                 "font-headline text-lg rounded-md px-4 transition-colors",
+                                 "font-headline text-lg rounded-md px-4 transition-colors hover:no-underline",
                                  criterionStatus === 'achieved' && 'bg-green-100 hover:bg-green-200/80',
                                  criterionStatus === 'not-achieved' && 'bg-red-100 hover:bg-red-200/80',
                                  criterionStatus === 'pending' && 'bg-amber-100 hover:bg-amber-200/80',
@@ -1054,7 +1054,7 @@ export default function SelfAssessmentPage() {
                                         <AccordionTrigger className={triggerClasses}>
                                             <div className="flex items-center gap-4 flex-1">
                                                 <StatusBadge status={criterionStatus} isCriterion={true} />
-                                                <span>Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</span>
+                                                <span className="text-xl font-semibold">Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</span>
                                             </div>
                                         </AccordionTrigger>
                                         <AccordionContent>
@@ -1079,7 +1079,7 @@ export default function SelfAssessmentPage() {
                                     <AccordionTrigger className={triggerClasses}>
                                         <div className="flex items-center gap-4 flex-1">
                                                 <StatusBadge status={criterionStatus} isCriterion={true} />
-                                                <span>Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</span>
+                                                <span className="text-xl font-semibold">Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</span>
                                             </div>
                                     </AccordionTrigger>
                                     <AccordionContent>
