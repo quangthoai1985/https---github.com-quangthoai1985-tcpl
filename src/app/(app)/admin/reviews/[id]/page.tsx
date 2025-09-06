@@ -474,7 +474,7 @@ export default function AssessmentDetailPage() {
                                             {/* Admin Config Info */}
                                             <Card className="bg-blue-50/50 border border-blue-200">
                                                 <CardHeader>
-                                                    <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao từ Admin</CardTitle>
+                                                    <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ đã giao từ Admin</CardTitle>
                                                 </CardHeader>
                                                 <CardContent className="space-y-4">
                                                     {(criterion.documents || []).length > 0 ? (
