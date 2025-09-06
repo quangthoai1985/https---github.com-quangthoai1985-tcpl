@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -82,6 +81,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
                 </p>
                 <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={handleFileSelect} />
             </div>
+             <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
 
             {/* Link Input Area */}
             <div className="grid gap-1">
@@ -474,7 +474,6 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
                 <p className="text-sm text-muted-foreground">{indicator.evidenceRequirement || 'Không yêu cầu cụ thể.'}</p>
                 <div className="mt-2">
                     <EvidenceUploaderComponent indicatorId={indicator.id} evidence={data.files} onEvidenceChange={onEvidenceChange} isRequired={isEvidenceRequired} />
-                     <p className="text-xs text-muted-foreground mt-2">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
                 </div>
             </div>
         </div>
@@ -598,11 +597,11 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                          <div className="grid gap-4">
                                              <div className="grid gap-2">
                                                  <div className="flex items-center gap-4">
-                                                     <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
-                                                         {indicator.id.includes("CT01") && "Tổng số VBQPPL được ban hành:"}
-                                                         {indicator.id.includes("CT02") && "Tổng số dự thảo VBQPPL được ban hành:"}
-                                                         {indicator.id.includes("CT03") && "Tổng số Nghị quyết được thực hiện tự kiểm tra:"}
-                                                     </Label>
+                                                    <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
+                                                        {index === 0 && "Tổng số VBQPPL được ban hành:"}
+                                                        {index === 1 && "Tổng số dự thảo VBQPPL được ban hành:"}
+                                                        {index === 2 && "Tổng số Nghị quyết được thực hiện tự kiểm tra:"}
+                                                    </Label>
                                                      <Input 
                                                          id={`${indicator.id}-input`} 
                                                          type="number" 
@@ -636,7 +635,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                              onEvidenceChange={onEvidenceChange}
                                                              isRequired={data.status !== 'pending' && (data.filesPerDocument?.[i] || []).length === 0}
                                                          />
-                                                          <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
                                                      </div>
                                                  ))}
                                              </div>
@@ -1126,3 +1124,5 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
+
+    
