@@ -1,7 +1,5 @@
 
 'use server';
-// Load environment variables at the very beginning
-require('dotenv').config();
 
 import type { UnitAndUserImport, User } from '@/lib/data';
 import * as admin from 'firebase-admin';
@@ -10,36 +8,12 @@ import * as admin from 'firebase-admin';
 // KHỐI CODE KHỞI TẠO FIREBASE ADMIN SDK ĐÃ ĐƯỢC SỬA LỖI
 // ====================================================================
 const initializeFirebaseAdmin = () => {
-  // Tránh khởi tạo lại nếu đã có instance
-  if (admin.apps.length > 0) {
-    return;
-  }
-
-  // Sử dụng biến môi trường được cung cấp bởi App Hosting
-  const credsBase64 = process.env.GOOGLE_APPLICATION_CREDENTIALS_BASE64;
-
-  if (!credsBase64) {
-    console.error("CRITICAL: GOOGLE_APPLICATION_CREDENTIALS_BASE64 env var is not set.");
-    throw new Error('Firebase credentials are not configured on the server.');
-  }
-
-  try {
-    console.log("Decoding Firebase credentials from base64...");
-    // Giải mã chuỗi base64 thành chuỗi JSON
-    const decodedCreds = Buffer.from(credsBase64, 'base64').toString('utf-8');
-    // Parse chuỗi JSON thành object
-    const serviceAccount = JSON.parse(decodedCreds);
-
-    console.log("Initializing Firebase Admin SDK for Server Actions...");
-    // Khởi tạo Admin SDK với credentials đã được parse
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
-    });
-    console.log("Firebase Admin SDK for Server Actions initialized successfully.");
-
-  } catch (error: any) {
-    console.error("CRITICAL: Failed to initialize Firebase Admin SDK from environment variable. Error:", error.message);
-    throw new Error(`Could not initialize Firebase Admin SDK. Error parsing credentials.`);
+  // The Firebase Admin SDK can automatically discover credentials when running
+  // in a Google Cloud environment like App Hosting.
+  // This avoids the complexity of handling service account files or env vars.
+  if (admin.apps.length === 0) {
+    admin.initializeApp();
+    console.log("Firebase Admin SDK initialized with default credentials.");
   }
 };
 
