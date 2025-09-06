@@ -42,40 +42,36 @@ export default function AppLayout({
 
   // Render the layout only if there is a user
   return currentUser ? (
-     <div className="flex min-h-screen w-full flex-col bg-muted/40">
-        <AnimatePresence mode="wait">
-            <motion.div
-                key="header"
+    <AnimatePresence mode="wait">
+        <motion.div key={pathname} className="flex min-h-screen w-full flex-col bg-muted/40">
+             <motion.div
                 initial={{ y: -100, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
-                exit="initial"
-                transition={{ duration: 0.5, ease: 'easeInOut' }}
+                exit={{ y: -100, opacity: 0 }}
+                transition={{ duration: 0.4, ease: 'easeInOut' }}
             >
                 <AppHeader />
             </motion.div>
             <div className="flex flex-1">
                 <motion.div
-                    key="sidebar"
                     initial={{ x: -100, opacity: 0 }}
                     animate={{ x: 0, opacity: 1 }}
-                    exit="initial"
-                    transition={{ duration: 0.5, ease: 'easeInOut', delay: 0.2 }}
+                    exit={{ x: -100, opacity: 0 }}
+                    transition={{ duration: 0.4, ease: 'easeInOut', delay: 0.1 }}
                 >
                     <AppSidebar />
                 </motion.div>
-                <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto">
-                    <motion.div
-                        key={pathname}
-                        initial={{ x: 100, opacity: 0 }}
-                        animate={{ x: 0, opacity: 1 }}
-                        exit={{ x: 100, opacity: 0 }}
-                        transition={{ duration: 0.4, ease: 'easeInOut' }}
-                    >
+                <motion.main 
+                  initial={{ x: 100, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  exit={{ x: 100, opacity: 0 }}
+                  transition={{ duration: 0.4, ease: 'easeInOut', delay: 0.2 }}
+                  className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto"
+                >
                     {children}
-                    </motion.div>
-                </main>
+                </motion.main>
             </div>
-        </AnimatePresence>
-    </div>
+        </motion.div>
+    </AnimatePresence>
   ) : null;
 }
