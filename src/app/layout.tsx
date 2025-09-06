@@ -4,11 +4,8 @@
 import { Montserrat, Roboto_Flex, Oswald, Roboto_Condensed } from 'next/font/google';
 import './globals.css';
 
-// ✅ SỬA LỖI TẠI ĐÂY: Đổi 'sonner' thành 'toaster'
 import { Toaster } from "@/components/ui/toaster"; 
-
 import { DataProvider } from '@/context/DataContext';
-import PageTransitionWrapper from '@/components/layout/PageTransitionWrapper';
 
 // Khai báo các font chữ bạn muốn sử dụng
 const roboto_flex = Roboto_Flex({
@@ -49,9 +46,7 @@ export default function RootLayout({
     <html lang="vi" className={`${roboto_flex.variable} ${montserrat.variable} ${oswald.variable} ${roboto_condensed.variable}`}>
       <body className="font-body antialiased">
         <DataProvider>
-          <PageTransitionWrapper>
-            {children}
-          </PageTransitionWrapper>
+          {children}
           <Toaster />
         </DataProvider>
       </body>
