@@ -43,7 +43,6 @@ export default function AppLayout({
   // Render the layout only if there is a user
   return currentUser ? (
      <div className="flex min-h-screen w-full flex-col bg-muted/40">
-      <AnimatePresence mode="wait">
         <motion.div
             key={pathname + '-header'}
             initial={{ y: -100, opacity: 0 }}
@@ -53,9 +52,7 @@ export default function AppLayout({
         >
             <AppHeader />
         </motion.div>
-      </AnimatePresence>
       <div className="flex flex-1">
-        <AnimatePresence mode="wait">
             <motion.div
                 key={pathname + '-sidebar'}
                 initial={{ x: -100, opacity: 0 }}
@@ -65,10 +62,9 @@ export default function AppLayout({
             >
                 <AppSidebar />
             </motion.div>
-        </AnimatePresence>
         <AnimatePresence mode="wait">
              <motion.main 
-                key={pathname + '-main'}
+                key={pathname}
                 initial={{ x: 100, opacity: 0 }}
                 animate={{ x: 0, opacity: 1 }}
                 exit={{ x: 100, opacity: 0 }}
