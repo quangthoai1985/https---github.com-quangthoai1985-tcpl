@@ -513,6 +513,8 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     
     const isNotTasked = data1_1.isTasked === false;
     const isTasked = data1_1.isTasked === true;
+    
+    const isEvidenceRequired1_1 = data1_1.status !== 'pending' && data1_1.isTasked !== false && data1_1.files.length === 0;
 
     return (
         <div className="grid gap-6">
@@ -554,7 +556,16 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                     {/* Indicator 1.1 */}
                     <div className="grid gap-4">
                         <h4 className="font-semibold">{indicator1_1.name}</h4>
-                         <div className="flex items-center gap-4">
+                        <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md">
+                            <div className="flex items-start gap-2 text-blue-800">
+                                <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                                <div>
+                                    <p className="text-sm">{indicator1_1.description}</p>
+                                    <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator1_1.standardLevel}</span></p>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-4">
                             <Label htmlFor={`value-${indicator1_1.id}`} className="flex-shrink-0">Tổng số Nghị quyết của HĐND, Quyết định của UBND cấp xã được ban hành:</Label>
                             <Input 
                                 id={`value-${indicator1_1.id}`} 
@@ -563,6 +574,25 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                 value={data1_1.value || ''}
                                 onChange={(e) => onValueChange(indicator1_1.id, e.target.value === '' ? null : Number(e.target.value))}
                                 placeholder="Nhập số lượng"
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                             <Label className="font-medium">Hồ sơ minh chứng</Label>
+                             <p className="text-sm text-muted-foreground">{indicator1_1.evidenceRequirement || 'Không yêu cầu cụ thể.'}</p>
+                            <EvidenceUploaderComponent
+                                indicatorId={indicator1_1.id}
+                                evidence={data1_1.files}
+                                onEvidenceChange={onEvidenceChange}
+                                isRequired={isEvidenceRequired1_1}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor={`note-${indicator1_1.id}`}>Ghi chú/Giải trình</Label>
+                            <Textarea 
+                                id={`note-${indicator1_1.id}`} 
+                                placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
+                                value={data1_1.note || ''}
+                                onChange={(e) => onNoteChange(indicator1_1.id, e.target.value)}
                             />
                         </div>
                     </div>
@@ -1052,3 +1082,5 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
+
+    
