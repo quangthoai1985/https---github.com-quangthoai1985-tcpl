@@ -644,7 +644,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
             {isTasked && (
                  <div className="grid gap-8">
                     {/* Admin Config Info */}
-                    <Card className="bg-muted/50">
+                    <Card className="bg-blue-50/50 border border-blue-200">
                         <CardHeader>
                             <CardTitle className="text-base text-primary">Thông tin nhiệm vụ được giao</CardTitle>
                         </CardHeader>
@@ -891,16 +891,20 @@ export default function SelfAssessmentPage() {
                 allIndicatorsAssessed = false;
                 break;
             }
+             // Check for evidence if required
+            const isEvidenceMissing = data.status !== 'pending' && data.isTasked !== false && data.files.length === 0;
+            if (isEvidenceMissing) {
+                 errors.push(`Chỉ tiêu "${findIndicator(id)?.name}" yêu cầu minh chứng.`);
+            }
         }
         
         if (!allIndicatorsAssessed) {
             errors.push("Bạn phải hoàn thành việc chấm điểm cho tất cả các chỉ tiêu.");
         }
 
-        // Add more specific evidence checks if needed in the future
 
         return { canSubmit: errors.length === 0, submissionErrors: errors };
-    }, [assessmentData]);
+    }, [assessmentData, findIndicator]);
 
   const handleSubmit = async () => {
     if (!activePeriod || !currentUser || !storage) {
