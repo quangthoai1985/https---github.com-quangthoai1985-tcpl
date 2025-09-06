@@ -518,13 +518,6 @@ const Criterion1Indicator = ({ indicator, assignedCount, data, onValueChange, on
 
     const isAnyEvidenceRequired = data.status !== 'pending' && Array.from({length: Number(data.value) || 0}).some((_, i) => (data.filesPerDocument?.[i] || []).length === 0);
 
-    const getLabelText = () => {
-        if (indicator.name.includes("Chỉ tiêu 1.1")) return "Tổng số VBQPPL được ban hành:";
-        if (indicator.name.includes("Chỉ tiêu 1.2")) return "Tổng số dự thảo VBQPPL được ban hành:";
-        if (indicator.name.includes("Chỉ tiêu 1.3")) return "Tổng số Nghị quyết được thực hiện tự kiểm tra:";
-        return "Tổng số:";
-    }
-
     return (
         <div className={blockClasses}>
             {/* Title and Info */}
@@ -548,7 +541,7 @@ const Criterion1Indicator = ({ indicator, assignedCount, data, onValueChange, on
              <div className="grid gap-4">
                 <div className="grid gap-2">
                    <div className="flex items-center gap-4">
-                        <Label htmlFor={`${indicator.id}-input`} className="shrink-0">{getLabelText()}</Label>
+                        <Label htmlFor={`${indicator.id}-input`} className="shrink-0">Tổng số VBQPPL được ban hành:</Label>
                         <Input 
                             id={`${indicator.id}-input`} 
                             type="number" 
@@ -1142,5 +1135,3 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
-
-    
