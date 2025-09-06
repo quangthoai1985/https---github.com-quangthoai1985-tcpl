@@ -84,7 +84,7 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
         setFormData(prev => {
             const currentDocuments = prev.documents || [];
             const newDocuments = Array.from({ length: newCount }, (_, i) => {
-                return currentDocuments[i] || { name: '', issueDate: '', issuanceDeadlineDays: 30 };
+                return currentDocuments[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
             });
             return {
                 ...prev,
@@ -94,7 +94,7 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
         });
     };
     
-    const handleDocumentChange = (index: number, field: 'name' | 'issueDate' | 'issuanceDeadlineDays', value: string | number) => {
+    const handleDocumentChange = (index: number, field: 'name' | 'issueDate' | 'excerpt' | 'issuanceDeadlineDays', value: string | number) => {
         setFormData(prev => {
             const newDocuments = [...(prev.documents || [])];
             if (newDocuments[index]) {
@@ -122,9 +122,10 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
                  <div className="space-y-4 pt-4 border-t">
                     <h5 className="font-medium">Chi tiết các văn bản được giao</h5>
                     {formData.documents?.map((doc, index) => (
-                        <div key={index} className="grid grid-cols-1 md:grid-cols-10 gap-4 items-center p-3 border rounded-md bg-orange-50 border-orange-300">
-                            <Label className="md:col-span-1 text-sm text-muted-foreground text-center">VB {index + 1}</Label>
-                            <div className="md:col-span-5 grid gap-1.5">
+                        <div key={index} className="grid grid-cols-1 md:grid-cols-10 gap-x-4 gap-y-3 items-start p-3 border rounded-md bg-orange-50 border-orange-300">
+                            <Label className="md:col-span-1 text-sm text-muted-foreground text-center pt-2">VB {index + 1}</Label>
+                            
+                            <div className="md:col-span-9 grid gap-1.5">
                                 <Label htmlFor={`doc-name-${index}`} className="text-xs font-semibold text-destructive">Tên văn bản QPPL</Label>
                                 <Input 
                                     id={`doc-name-${index}`} 
@@ -133,7 +134,20 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
                                     placeholder={`Ví dụ: Nghị quyết về việc...`}
                                 />
                             </div>
-                            <div className="md:col-span-2 grid gap-1.5">
+
+                             <div className="md:col-span-1"></div>
+                            <div className="md:col-span-9 grid gap-1.5">
+                                <Label htmlFor={`doc-excerpt-${index}`} className="text-xs font-semibold text-destructive">Trích yếu nội dung</Label>
+                                <Input 
+                                    id={`doc-excerpt-${index}`} 
+                                    value={doc.excerpt} 
+                                    onChange={(e) => handleDocumentChange(index, 'excerpt', e.target.value)} 
+                                    placeholder={`Tóm tắt ngắn gọn nội dung chính...`}
+                                />
+                            </div>
+                             <div className="md:col-span-1"></div>
+
+                            <div className="md:col-span-5 grid gap-1.5">
                                 <Label htmlFor={`doc-issuedate-${index}`} className="text-xs font-semibold text-destructive">Ngày ban hành</Label>
                                 <Input 
                                     id={`doc-issuedate-${index}`} 
@@ -142,7 +156,7 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
                                     placeholder={`DD/MM/YYYY`}
                                 />
                             </div>
-                             <div className="md:col-span-2 grid gap-1.5">
+                             <div className="md:col-span-4 grid gap-1.5">
                                 <Label htmlFor={`doc-deadline-${index}`} className="text-xs font-semibold text-destructive">Thời hạn ban hành (ngày)</Label>
                                 <Input 
                                     id={`doc-deadline-${index}`} 

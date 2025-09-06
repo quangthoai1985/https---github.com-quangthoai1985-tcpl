@@ -81,7 +81,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
                 </p>
                 <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={handleFileSelect} />
             </div>
-             <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
+            <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
 
             {/* Link Input Area */}
             <div className="grid gap-1">
@@ -553,8 +553,10 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                         <CardContent className="space-y-4">
                             {(criterion.documents || []).length > 0 ? (
                                 criterion.documents?.map((doc, index) => (
-                                    <div key={index} className="grid grid-cols-3 gap-x-4 gap-y-1 p-3 border-l-4 border-blue-300 rounded bg-background text-sm">
-                                        <div className="col-span-3 font-semibold text-primary">Văn bản {index + 1}: {doc.name}</div>
+                                    <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 p-3 border-l-4 border-blue-300 rounded bg-background text-sm">
+                                        <div className="col-span-full font-semibold text-primary">Văn bản {index + 1}: {doc.name}</div>
+                                        <div className="text-muted-foreground">Trích yếu:</div>
+                                        <div className="col-span-2 font-medium">{doc.excerpt}</div>
                                         <div className="text-muted-foreground">Ngày ban hành (ấn định):</div>
                                         <div className="col-span-2 font-medium">{doc.issueDate}</div>
                                         <div className="text-muted-foreground">Thời hạn ban hành:</div>
@@ -607,9 +609,9 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                              <div className="grid gap-2">
                                                  <div className="flex items-center gap-4">
                                                     <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
-                                                         {index === 0 && "Tổng số VBQPPL được ban hành:"}
-                                                         {index === 1 && "Tổng số dự thảo VBQPPL được ban hành:"}
-                                                         {index === 2 && "Tổng số Nghị quyết được thực hiện tự kiểm tra:"}
+                                                        {index === 0 && "Tổng số VBQPPL được ban hành:"}
+                                                        {index === 1 && "Tổng số dự thảo VBQPPL được ban hành:"}
+                                                        {index === 2 && "Tổng số Nghị quyết được thực hiện tự kiểm tra:"}
                                                     </Label>
                                                      <Input 
                                                          id={`${indicator.id}-input`} 
