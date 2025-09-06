@@ -84,7 +84,7 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
         setFormData(prev => {
             const currentDocuments = prev.documents || [];
             const newDocuments = Array.from({ length: newCount }, (_, i) => {
-                return currentDocuments[i] || { name: '', issuanceDeadlineDays: 30 };
+                return currentDocuments[i] || { name: '', issueDate: '', issuanceDeadlineDays: 30 };
             });
             return {
                 ...prev,
@@ -94,7 +94,7 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
         });
     };
     
-    const handleDocumentChange = (index: number, field: 'name' | 'issuanceDeadlineDays', value: string | number) => {
+    const handleDocumentChange = (index: number, field: 'name' | 'issueDate' | 'issuanceDeadlineDays', value: string | number) => {
         setFormData(prev => {
             const newDocuments = [...(prev.documents || [])];
             if (newDocuments[index]) {
@@ -122,7 +122,7 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
                  <div className="space-y-4 pt-4 border-t">
                     <h5 className="font-medium">Chi tiết các văn bản được giao</h5>
                     {formData.documents?.map((doc, index) => (
-                        <div key={index} className="grid grid-cols-1 md:grid-cols-8 gap-4 items-center p-3 border rounded-md bg-background">
+                        <div key={index} className="grid grid-cols-1 md:grid-cols-10 gap-4 items-center p-3 border rounded-md bg-background">
                             <Label className="md:col-span-1 text-sm text-muted-foreground text-center">VB {index + 1}</Label>
                             <div className="md:col-span-5 grid gap-1.5">
                                 <Label htmlFor={`doc-name-${index}`} className="text-xs">Tên văn bản QPPL</Label>
@@ -131,6 +131,15 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
                                     value={doc.name} 
                                     onChange={(e) => handleDocumentChange(index, 'name', e.target.value)} 
                                     placeholder={`Ví dụ: Nghị quyết về việc...`}
+                                />
+                            </div>
+                            <div className="md:col-span-2 grid gap-1.5">
+                                <Label htmlFor={`doc-issuedate-${index}`} className="text-xs">Ngày ban hành</Label>
+                                <Input 
+                                    id={`doc-issuedate-${index}`} 
+                                    value={doc.issueDate} 
+                                    onChange={(e) => handleDocumentChange(index, 'issueDate', e.target.value)} 
+                                    placeholder={`DD/MM/YYYY`}
                                 />
                             </div>
                              <div className="md:col-span-2 grid gap-1.5">

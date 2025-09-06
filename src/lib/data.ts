@@ -67,6 +67,7 @@ export type Criterion = {
   assignedDocumentsCount?: number;
   documents?: {
     name: string;
+    issueDate: string; // Added field
     issuanceDeadlineDays: number;
   }[];
 };
