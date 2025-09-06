@@ -640,7 +640,9 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
                                                  {(criterion.documents || []).map((doc, i) => (
                                                      <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
-                                                         <Label className="font-medium text-center text-sm">Minh chứng cho VB: {doc.name}</Label>
+                                                         <Label className="font-medium text-center text-sm">
+                                                            Minh chứng cho VB: <span className="text-primary font-bold">{doc.name}</span>
+                                                         </Label>
                                                          <EvidenceUploaderComponent
                                                              indicatorId={indicator.id}
                                                              docIndex={i}
