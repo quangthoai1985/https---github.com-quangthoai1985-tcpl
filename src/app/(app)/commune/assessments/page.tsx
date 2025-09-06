@@ -474,7 +474,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
                 <p className="text-sm text-muted-foreground">{indicator.evidenceRequirement || 'Không yêu cầu cụ thể.'}</p>
                 <div className="mt-2">
                     <EvidenceUploaderComponent indicatorId={indicator.id} evidence={data.files} onEvidenceChange={onEvidenceChange} isRequired={isEvidenceRequired} />
-                    <p className="text-xs text-muted-foreground mt-2">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
+                     <p className="text-xs text-muted-foreground mt-2">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
                 </div>
             </div>
         </div>
@@ -561,14 +561,13 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                     
                     <div className="space-y-8">
                         {criterion.indicators.map((indicator, index) => {
-                            const data = assessmentData[indicator.id];
+                             const data = assessmentData[indicator.id];
                              const blockClasses = cn(
-                                "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
-                                data.status === 'achieved' && 'bg-green-50 border-green-200',
-                                data.status === 'not-achieved' && 'bg-red-50 border-red-200',
-                                data.status === 'pending' && 'bg-amber-50 border-amber-200'
-                            );
-                            
+                                 "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
+                                 data.status === 'achieved' && 'bg-green-50 border-green-200',
+                                 data.status === 'not-achieved' && 'bg-red-50 border-red-200',
+                                 data.status === 'pending' && 'bg-amber-50 border-amber-200'
+                             );
                              const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
                              const isAchieved = progress >= 100;
                              const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
@@ -598,7 +597,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                          {/* Input and Progress */}
                                          <div className="grid gap-4">
                                              <div className="grid gap-2">
-                                             <div className="flex items-center gap-4">
+                                                 <div className="flex items-center gap-4">
                                                      <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
                                                          {indicator.id.includes("CT01") && "Tổng số VBQPPL được ban hành:"}
                                                          {indicator.id.includes("CT02") && "Tổng số dự thảo VBQPPL được ban hành:"}
@@ -619,7 +618,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                          </div>
                                                          <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
                                                      </div>
-                                             </div>
+                                                 </div>
                                              </div>
                                          </div>
  
@@ -630,14 +629,14 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                  {Array.from({ length: Number(data.value) || 0 }, (_, i) => (
                                                      <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
                                                          <Label className="font-medium text-center text-sm">Minh chứng cho VB {i + 1}</Label>
-                                                             <EvidenceUploaderComponent
+                                                         <EvidenceUploaderComponent
                                                              indicatorId={indicator.id}
                                                              docIndex={i}
                                                              evidence={data.filesPerDocument?.[i] || []}
                                                              onEvidenceChange={onEvidenceChange}
                                                              isRequired={data.status !== 'pending' && (data.filesPerDocument?.[i] || []).length === 0}
                                                          />
-                                                         <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
+                                                          <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
                                                      </div>
                                                  ))}
                                              </div>
