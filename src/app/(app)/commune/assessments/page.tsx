@@ -515,6 +515,9 @@ const Criterion1Indicator = ({ indicator, assignedCount, data, onValueChange, on
       data.status === 'pending' && 'bg-amber-50 border-amber-200'
     );
 
+    // Calculate if evidence is required for each document uploader
+    const isAnyEvidenceRequired = data.status !== 'pending' && Array.from({length: assignedCount}).some((_, i) => (data.filesPerDocument?.[i] || []).length === 0);
+
     return (
         <div className={blockClasses}>
             {/* Title and Info */}
@@ -535,7 +538,7 @@ const Criterion1Indicator = ({ indicator, assignedCount, data, onValueChange, on
             </div>
             
             {/* Input and Progress */}
-            <div className="grid gap-4">
+             <div className="grid gap-4">
                 <div className="grid gap-2">
                    <div className="flex items-center gap-4">
                         <Label htmlFor={`${indicator.id}-input`} className="shrink-0">Tổng số VBQPPL được ban hành:</Label>
@@ -570,7 +573,7 @@ const Criterion1Indicator = ({ indicator, assignedCount, data, onValueChange, on
                                 docIndex={i}
                                 evidence={data.filesPerDocument?.[i] || []}
                                 onEvidenceChange={onEvidenceChange}
-                                isRequired={false} // Individual evidence is not strictly required, but overall is
+                                isRequired={data.status !== 'pending' && (data.filesPerDocument?.[i] || []).length === 0}
                             />
                         </div>
                     ))}
@@ -590,6 +593,7 @@ const Criterion1Indicator = ({ indicator, assignedCount, data, onValueChange, on
         </div>
     );
 };
+
 
 
 const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange }: {
