@@ -1,9 +1,12 @@
 
+
 // Define a structure for how the self-assessment data for each indicator will be stored.
 export type IndicatorResult = {
     isTasked?: boolean | null;
     value: any;
     files: { name: string, url: string }[];
+    // NEW: Add a field to store files for each specific document required by Criterion 1
+    filesPerDocument?: { [documentIndex: number]: { name: string, url: string }[] };
     note: string;
     status: 'achieved' | 'not-achieved' | 'pending';
     adminNote?: string; // Ghi chú của admin cho từng chỉ tiêu

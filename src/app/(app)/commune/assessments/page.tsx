@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2, LinkIcon, Info, AlertTriangle } from "lucide-react";
+import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2, LinkIcon, Info, AlertTriangle, FileUp } from "lucide-react";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
@@ -27,6 +27,7 @@ type IndicatorValue = {
     isTasked?: boolean;
     value: any; // The actual value (percentage, boolean, text, object for checkboxes etc.)
     files: (File | { name: string, url: string })[]; // Can hold local files or uploaded file info
+    filesPerDocument?: { [documentIndex: number]: (File | { name: string, url: string })[] };
     note: string;
     status: AssessmentStatus;
 };
@@ -34,17 +35,23 @@ type AssessmentValues = Record<string, IndicatorValue>;
 type AssessmentFileUrls = Record<string, { name: string, url: string }[]>;
 
 
-function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, isRequired }: { indicatorId: string; evidence: (File | { name: string, url: string })[]; onEvidenceChange: (id: string, evidence: (File | { name: string, url: string })[]) => void; isRequired: boolean }) {
+function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, isRequired, docIndex }: { 
+    indicatorId: string; 
+    evidence: (File | { name: string, url: string })[]; 
+    onEvidenceChange: (id: string, evidence: (File | { name: string, url: string })[], docIndex?: number) => void; 
+    isRequired: boolean,
+    docIndex?: number,
+}) {
     const [linkInput, setLinkInput] = useState('');
     const { toast } = useToast();
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newFiles = Array.from(e.target.files || []);
-        onEvidenceChange(indicatorId, [...evidence, ...newFiles]);
+        onEvidenceChange(indicatorId, [...evidence, ...newFiles], docIndex);
     };
     
     const handleEvidenceRemove = (itemToRemove: File | { name: string, url: string }) => {
-        onEvidenceChange(indicatorId, evidence.filter(item => item.name !== itemToRemove.name));
+        onEvidenceChange(indicatorId, evidence.filter(item => item.name !== itemToRemove.name), docIndex);
     };
 
     const handleAddLink = () => {
@@ -53,7 +60,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
             return;
         }
         const newLink = { name: linkInput.trim(), url: linkInput.trim() };
-        onEvidenceChange(indicatorId, [...evidence, newLink]);
+        onEvidenceChange(indicatorId, [...evidence, newLink], docIndex);
         setLinkInput('');
     };
 
@@ -65,43 +72,42 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
         <div className="grid gap-4">
             
             {/* File Upload Area */}
-            <div className={cn("w-full relative border-2 border-dashed rounded-lg p-6 text-center hover:border-primary transition-colors", isRequired && "border-destructive")}>
-                <UploadCloud className="mx-auto h-12 w-12 text-muted-foreground" />
-                <p className="mt-2 text-sm text-muted-foreground">
-                    Kéo và thả tệp vào đây, hoặc <span className="font-semibold text-primary">nhấn để chọn tệp</span>
+            <div className={cn("w-full relative border-2 border-dashed rounded-lg p-4 text-center hover:border-primary transition-colors", isRequired && "border-destructive")}>
+                <FileUp className="mx-auto h-8 w-8 text-muted-foreground" />
+                <p className="mt-2 text-xs text-muted-foreground">
+                    Kéo thả hoặc <span className="font-semibold text-primary">nhấn để chọn tệp</span>
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
                 <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={handleFileSelect} />
             </div>
 
             {/* Link Input Area */}
-            <div className="grid gap-2">
-                 <Label htmlFor={`link-${indicatorId}`}>Hoặc thêm liên kết minh chứng</Label>
+            <div className="grid gap-1">
+                 <Label htmlFor={`link-${indicatorId}-${docIndex}`} className="text-xs">Hoặc thêm liên kết</Label>
                  <div className="flex gap-2">
                     <Input 
-                        id={`link-${indicatorId}`}
+                        id={`link-${indicatorId}-${docIndex}`}
                         value={linkInput}
                         onChange={(e) => setLinkInput(e.target.value)}
-                        placeholder="Dán đường dẫn trang web, bài viết... vào đây"
+                        placeholder="Dán đường dẫn vào đây"
+                        className="h-9 text-xs"
                     />
-                    <Button type="button" variant="outline" onClick={handleAddLink}>Thêm</Button>
+                    <Button type="button" variant="outline" size="sm" onClick={handleAddLink}>Thêm</Button>
                  </div>
             </div>
 
              {isRequired && (
                 <p className="text-sm font-medium text-destructive">
-                    Vui lòng cung cấp ít nhất một hồ sơ minh chứng (tệp tin hoặc liên kết).
+                    Yêu cầu ít nhất một minh chứng.
                 </p>
             )}
 
             {evidence.length > 0 && (
-                 <div className="space-y-2 mt-4">
-                    <p className="text-sm font-medium">Minh chứng đã thêm:</p>
+                 <div className="space-y-2 mt-2">
                     {evidence.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between p-2 bg-muted rounded-md text-sm">
+                        <div key={index} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm">
                             <div className="flex items-center gap-2 truncate">
                                 {isLink(item) ? <LinkIcon className="h-4 w-4 flex-shrink-0 text-blue-500" /> : <FileIcon className="h-4 w-4 flex-shrink-0" />}
-                                <span className="truncate">{item.name}</span>
+                                <span className="truncate text-xs">{item.name}</span>
                             </div>
                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEvidenceRemove(item)}>
                                 <X className="h-4 w-4" />
@@ -415,7 +421,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
     data: AssessmentValues[string],
     onValueChange: (id: string, value: any) => void,
     onNoteChange: (id: string, note: string) => void,
-    onEvidenceChange: (id: string, files: (File | { name: string; url: string; })[]) => void,
+    onEvidenceChange: (id: string, files: (File | { name: string; url: string; })[], docIndex?: number) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void,
 }) => {
     const isEvidenceRequired = data.status !== 'pending' && data.isTasked !== false && data.files.length === 0;
@@ -474,11 +480,134 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
                 isTasked: indicatorData.isTasked === undefined ? null : indicatorData.isTasked,
                 value: indicatorData.value === undefined ? null : indicatorData.value,
                  // Ensure files only contain URL and name for Firestore
-                files: indicatorData.files.map(f => !(f instanceof File) ? f : { name: f.name, url: '' }) // Placeholder for now
+                files: indicatorData.files.map(f => !(f instanceof File) ? f : { name: f.name, url: '' }), // Placeholder for now
+                filesPerDocument: indicatorData.filesPerDocument ? Object.fromEntries(Object.entries(indicatorData.filesPerDocument).map(([idx, fileList]) => [idx, fileList.map(f => !(f instanceof File) ? f : {name: f.name, url: ''})])) : {}
             };
         }
     }
     return sanitizedData;
+};
+
+const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange }: {
+    criterion: Criterion;
+    assessmentData: AssessmentValues;
+    onValueChange: (id: string, value: any) => void;
+    onNoteChange: (id: string, note: string) => void;
+    onEvidenceChange: (id: string, files: (File | { name: string; url: string; })[], docIndex?: number) => void;
+    onIsTaskedChange: (id: string, isTasked: boolean) => void;
+}) => {
+    const indicator1_1 = criterion.indicators[0];
+    const indicator1_2 = criterion.indicators[1];
+    const indicator1_3 = criterion.indicators[2];
+    
+    const data1_1 = assessmentData[indicator1_1.id];
+    
+    const assignedCount = criterion.assignedDocumentsCount || 0;
+    const deadlineDays = criterion.issuanceDeadlineDays || 'N/A';
+
+    const handleNoTaskChange = (isTasked: boolean) => {
+        onIsTaskedChange(indicator1_1.id, isTasked);
+        onIsTaskedChange(indicator1_2.id, isTasked);
+        onIsTaskedChange(indicator1_3.id, isTasked);
+    }
+    
+    const isNotTasked = data1_1.isTasked === false;
+    const isTasked = data1_1.isTasked === true;
+
+    return (
+        <div className="grid gap-6">
+            {/* Is Tasked Checkbox */}
+            <div className="flex items-center space-x-2">
+                <Checkbox 
+                    id={`${criterion.id}-notask`} 
+                    checked={isNotTasked} 
+                    onCheckedChange={(checked) => handleNoTaskChange(checked ? false : true)} 
+                />
+                <Label htmlFor={`${criterion.id}-notask`} className="font-semibold">Xã không được giao nhiệm vụ ban hành VBQPPL trong năm</Label>
+            </div>
+            
+            {isNotTasked && (
+                <Alert variant="default" className="bg-green-50 border-green-300">
+                    <CheckCircle className="h-4 w-4 text-green-600"/>
+                    <AlertTitle>Đã xác nhận</AlertTitle>
+                    <AlertDescription>
+                        Toàn bộ các chỉ tiêu của Tiêu chí 1 được đánh giá là <strong className="text-green-700">Đạt</strong>.
+                    </AlertDescription>
+                </Alert>
+            )}
+
+            {isTasked && (
+                 <div className="grid gap-8">
+                    {/* Admin Config Info */}
+                    <Card className="bg-muted/50">
+                        <CardHeader>
+                            <CardTitle className="text-base text-primary">Thông tin nhiệm vụ được giao</CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-2 gap-4 text-sm">
+                            <div className="font-semibold">Số lượng VBQPPL được giao:</div>
+                            <div>{assignedCount} văn bản</div>
+                            <div className="font-semibold">Thời hạn ban hành:</div>
+                            <div>{deadlineDays} ngày</div>
+                        </CardContent>
+                    </Card>
+                    
+                    {/* Indicator 1.1 */}
+                    <div className="grid gap-4">
+                        <h4 className="font-semibold">{indicator1_1.name}</h4>
+                         <div className="grid gap-2">
+                            <Label htmlFor={`value-${indicator1_1.id}`}>Tổng số Nghị quyết của HĐND, Quyết định của UBND cấp xã được ban hành</Label>
+                            <Input 
+                                id={`value-${indicator1_1.id}`} 
+                                type="number" 
+                                value={data1_1.value || ''}
+                                onChange={(e) => onValueChange(indicator1_1.id, e.target.value === '' ? null : Number(e.target.value))}
+                                placeholder="Nhập tổng số văn bản đã ban hành"
+                            />
+                        </div>
+                    </div>
+                    
+                     {/* Indicator 1.2 & 1.3 */}
+                    {[indicator1_2, indicator1_3].map(indicator => (
+                        <div key={indicator.id} className="grid gap-4">
+                            <h4 className="font-semibold">{indicator.name}</h4>
+                             <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
+                                <div className="flex items-start gap-2 text-blue-800">
+                                    <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                                    <div>
+                                        <p className="text-sm">{indicator.description}</p>
+                                        <p className="text-sm mt-2"><strong>Yêu cầu: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                                {Array.from({ length: assignedCount }, (_, i) => (
+                                    <div key={i} className="p-3 border rounded-lg grid gap-2">
+                                        <Label className="font-medium text-center">Minh chứng cho VB {i + 1}</Label>
+                                         <EvidenceUploaderComponent
+                                            indicatorId={indicator.id}
+                                            docIndex={i}
+                                            evidence={assessmentData[indicator.id]?.filesPerDocument?.[i] || []}
+                                            onEvidenceChange={onEvidenceChange}
+                                            isRequired={false} // Validation handled at the indicator level
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                             <div className="grid gap-2">
+                                <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình chung</Label>
+                                <Textarea 
+                                    id={`note-${indicator.id}`} 
+                                    placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
+                                    value={assessmentData[indicator.id]?.note || ''}
+                                    onChange={(e) => onNoteChange(indicator.id, e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    );
 };
 
 
@@ -498,6 +627,7 @@ export default function SelfAssessmentPage() {
                       isTasked: saved?.isTasked, 
                       value: saved?.value ?? '', 
                       files: saved?.files ?? [], 
+                      filesPerDocument: saved?.filesPerDocument ?? {},
                       note: saved?.note ?? '', 
                       status: saved?.status ?? 'pending' 
                   };
@@ -552,7 +682,9 @@ export default function SelfAssessmentPage() {
                 ...prev[indicatorId],
                 isTasked: isTasked,
                 status: newStatus,
-                files: isTasked ? prev[indicatorId].files : [], // Clear files if not tasked
+                value: isTasked ? prev[indicatorId].value : null,
+                files: isTasked ? prev[indicatorId].files : [],
+                filesPerDocument: isTasked ? prev[indicatorId].filesPerDocument : {},
             }
         }));
     }
@@ -563,7 +695,16 @@ export default function SelfAssessmentPage() {
     const indicator = findIndicator(indicatorId);
     if (indicator) {
         const isTasked = assessmentData[indicatorId].isTasked;
-        const newStatus = evaluateStatus(value, indicator.standardLevel, isTasked);
+        let newStatus = evaluateStatus(value, indicator.standardLevel, isTasked);
+        
+        // Criterion 1.1 specific logic
+        const criterion1 = criteria[0];
+        if(criterion1 && indicatorId === criterion1.indicators[0].id) {
+            const assignedCount = criterion1.assignedDocumentsCount || 0;
+            const enteredCount = value || 0;
+            newStatus = (enteredCount >= assignedCount) ? 'achieved' : 'not-achieved';
+        }
+
         setAssessmentData(prev => ({
             ...prev,
             [indicatorId]: {
@@ -586,14 +727,20 @@ export default function SelfAssessmentPage() {
   };
 
 
-  const handleEvidenceChange = (indicatorId: string, evidence: (File | { name: string, url: string })[]) => {
-      setAssessmentData(prev => ({
-          ...prev,
-          [indicatorId]: {
-              ...prev[indicatorId],
-              files: evidence
+  const handleEvidenceChange = (indicatorId: string, evidence: (File | { name: string, url: string })[], docIndex?: number) => {
+      setAssessmentData(prev => {
+          const newData = {...prev};
+          const currentIndicatorData = newData[indicatorId];
+
+          if (docIndex !== undefined) { // Criterion 1 logic
+            const newFilesPerDoc = {...currentIndicatorData.filesPerDocument};
+            newFilesPerDoc[docIndex] = evidence;
+            newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
+          } else { // Normal indicator
+            newData[indicatorId] = { ...currentIndicatorData, files: evidence };
           }
-      }))
+          return newData;
+      })
   }
 
   const uploadEvidenceFiles = async (periodId: string, communeId: string): Promise<AssessmentFileUrls> => {
@@ -669,24 +816,20 @@ export default function SelfAssessmentPage() {
   const { canSubmit, submissionErrors } = useMemo(() => {
         const errors = [];
         let allIndicatorsAssessed = true;
-        let allEvidenceProvided = true;
 
         for (const id in assessmentData) {
             const data = assessmentData[id];
             if (data.status === 'pending') {
                 allIndicatorsAssessed = false;
-            }
-            if (data.status !== 'pending' && data.isTasked !== false && data.files.length === 0) {
-                allEvidenceProvided = false;
+                break;
             }
         }
         
         if (!allIndicatorsAssessed) {
             errors.push("Bạn phải hoàn thành việc chấm điểm cho tất cả các chỉ tiêu.");
         }
-        if (!allEvidenceProvided) {
-            errors.push("Bạn phải cung cấp minh chứng cho tất cả các chỉ tiêu đã chấm (trừ các chỉ tiêu được đánh dấu 'Không được giao nhiệm vụ').");
-        }
+
+        // Add more specific evidence checks if needed in the future
 
         return { canSubmit: errors.length === 0, submissionErrors: errors };
     }, [assessmentData]);
@@ -765,83 +908,116 @@ export default function SelfAssessmentPage() {
                 <>
                 <CardContent>
                     <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
-                        {criteria.map((criterion, index) => (
-                            <AccordionItem value={criterion.id} key={criterion.id}>
-                                <AccordionTrigger className="font-headline text-lg">Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</AccordionTrigger>
-                                <AccordionContent>
-                                    <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
-                                        {(criterion.indicators || []).map(indicator => {
-                                            const status = assessmentData[indicator.id]?.status;
-                                            const blockClasses = cn(
-                                                "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
-                                                status === 'achieved' && 'bg-green-50 border-green-200',
-                                                status === 'not-achieved' && 'bg-red-50 border-red-200',
-                                                status === 'pending' && 'bg-amber-50 border-amber-200'
-                                            );
+                        {criteria.map((criterion, index) => {
+                             const status = 'pending'; // Placeholder
+                             const blockClasses = cn(
+                                "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
+                                status === 'achieved' && 'bg-green-50 border-green-200',
+                                status === 'not-achieved' && 'bg-red-50 border-red-200',
+                                status === 'pending' && 'bg-amber-50 border-amber-200'
+                             );
 
-                                            return (
-                                                <div key={indicator.id} className={blockClasses}>
-                                                    {(!indicator.subIndicators || indicator.subIndicators.length === 0) ? (
-                                                        <IndicatorAssessment 
-                                                            specialIndicatorIds={specialLogicIndicatorIds}
-                                                            specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
-                                                            customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
-                                                            checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
-                                                            indicator={indicator} 
-                                                            data={assessmentData[indicator.id]} 
-                                                            onValueChange={handleValueChange}
-                                                            onNoteChange={handleNoteChange}
-                                                            onEvidenceChange={handleEvidenceChange}
-                                                            onIsTaskedChange={handleIsTaskedChange}
-                                                        />
-                                                    ) : (
-                                                        <>
-                                                            <div>
-                                                              <h4 className="font-semibold text-base">{indicator.name}</h4>
-                                                              <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
-                                                                  <div className="flex items-start gap-2 text-blue-800">
-                                                                      <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                                                                      <p className="text-sm">{indicator.description}</p>
-                                                                  </div>
-                                                              </div>
-                                                            </div>
-                                                            <div className="mt-4 pl-6 space-y-6 border-l-2 border-dashed">
-                                                              {(indicator.subIndicators || []).map(sub => {
-                                                                    const subStatus = assessmentData[sub.id]?.status;
-                                                                    const subBlockClasses = cn(
-                                                                        "relative pl-6 transition-colors rounded-r-lg py-4",
-                                                                         subStatus === 'achieved' && 'bg-green-50',
-                                                                         subStatus === 'not-achieved' && 'bg-red-50',
-                                                                         subStatus === 'pending' && 'bg-amber-50 border-l-amber-200'
-                                                                    );
-                                                                    return (
-                                                                      <div key={sub.id} className={subBlockClasses}>
-                                                                          <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
-                                                                          <IndicatorAssessment
-                                                                              specialIndicatorIds={specialLogicIndicatorIds}
-                                                                              specialLabels={getSpecialIndicatorLabels(sub.id, criteria)}
-                                                                              customBooleanLabels={getCustomBooleanLabels(sub.id, criteria)}
-                                                                              checkboxOptions={getCheckboxOptions(sub.id, criteria)}
-                                                                              indicator={sub} 
-                                                                              data={assessmentData[sub.id]}
-                                                                              onValueChange={handleValueChange}
-                                                                              onNoteChange={handleNoteChange}
-                                                                              onEvidenceChange={handleEvidenceChange}
-                                                                              onIsTaskedChange={handleIsTaskedChange}
-                                                                          />
-                                                                      </div>
-                                                                    )
-                                                              })}
-                                                            </div>
-                                                        </>
-                                                    )}
+                             // Custom render for Criterion 1
+                             if (index === 0) {
+                                 return (
+                                     <AccordionItem value={criterion.id} key={criterion.id}>
+                                        <AccordionTrigger className="font-headline text-lg">Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</AccordionTrigger>
+                                        <AccordionContent>
+                                             <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
+                                                <div className={blockClasses}>
+                                                     <Criterion1Assessment
+                                                        criterion={criterion}
+                                                        assessmentData={assessmentData}
+                                                        onValueChange={handleValueChange}
+                                                        onNoteChange={handleNoteChange}
+                                                        onEvidenceChange={handleEvidenceChange}
+                                                        onIsTaskedChange={handleIsTaskedChange}
+                                                     />
                                                 </div>
-                                            );
-                                        })}
-                                    </div>
-                                </AccordionContent>
-                            </AccordionItem>
-                        ))}
+                                             </div>
+                                        </AccordionContent>
+                                     </AccordionItem>
+                                 );
+                             }
+
+                             // Default render for other criteria
+                             return (
+                                <AccordionItem value={criterion.id} key={criterion.id}>
+                                    <AccordionTrigger className="font-headline text-lg">Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</AccordionTrigger>
+                                    <AccordionContent>
+                                        <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
+                                            {(criterion.indicators || []).map(indicator => {
+                                                const indicatorBlockClasses = cn(
+                                                    "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
+                                                    assessmentData[indicator.id]?.status === 'achieved' && 'bg-green-50 border-green-200',
+                                                    assessmentData[indicator.id]?.status === 'not-achieved' && 'bg-red-50 border-red-200',
+                                                    assessmentData[indicator.id]?.status === 'pending' && 'bg-amber-50 border-amber-200'
+                                                );
+
+                                                return (
+                                                    <div key={indicator.id} className={indicatorBlockClasses}>
+                                                        {(!indicator.subIndicators || indicator.subIndicators.length === 0) ? (
+                                                            <IndicatorAssessment 
+                                                                specialIndicatorIds={specialLogicIndicatorIds}
+                                                                specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
+                                                                customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
+                                                                checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
+                                                                indicator={indicator} 
+                                                                data={assessmentData[indicator.id]} 
+                                                                onValueChange={handleValueChange}
+                                                                onNoteChange={handleNoteChange}
+                                                                onEvidenceChange={handleEvidenceChange}
+                                                                onIsTaskedChange={handleIsTaskedChange}
+                                                            />
+                                                        ) : (
+                                                            <>
+                                                                <div>
+                                                                  <h4 className="font-semibold text-base">{indicator.name}</h4>
+                                                                  <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
+                                                                      <div className="flex items-start gap-2 text-blue-800">
+                                                                          <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                                                                          <p className="text-sm">{indicator.description}</p>
+                                                                      </div>
+                                                                  </div>
+                                                                </div>
+                                                                <div className="mt-4 pl-6 space-y-6 border-l-2 border-dashed">
+                                                                  {(indicator.subIndicators || []).map(sub => {
+                                                                        const subStatus = assessmentData[sub.id]?.status;
+                                                                        const subBlockClasses = cn(
+                                                                            "relative pl-6 transition-colors rounded-r-lg py-4",
+                                                                             subStatus === 'achieved' && 'bg-green-50',
+                                                                             subStatus === 'not-achieved' && 'bg-red-50',
+                                                                             subStatus === 'pending' && 'bg-amber-50 border-l-amber-200'
+                                                                        );
+                                                                        return (
+                                                                          <div key={sub.id} className={subBlockClasses}>
+                                                                              <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
+                                                                              <IndicatorAssessment
+                                                                                  specialIndicatorIds={specialLogicIndicatorIds}
+                                                                                  specialLabels={getSpecialIndicatorLabels(sub.id, criteria)}
+                                                                                  customBooleanLabels={getCustomBooleanLabels(sub.id, criteria)}
+                                                                                  checkboxOptions={getCheckboxOptions(sub.id, criteria)}
+                                                                                  indicator={sub} 
+                                                                                  data={assessmentData[sub.id]}
+                                                                                  onValueChange={handleValueChange}
+                                                                                  onNoteChange={handleNoteChange}
+                                                                                  onEvidenceChange={handleEvidenceChange}
+                                                                                  onIsTaskedChange={handleIsTaskedChange}
+                                                                              />
+                                                                          </div>
+                                                                        )
+                                                                  })}
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
+                             )
+                        })}
                     </Accordion>
                 </CardContent>
                 <CardFooter className="flex flex-col items-end gap-4 border-t pt-6">
