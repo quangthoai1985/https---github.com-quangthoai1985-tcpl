@@ -125,7 +125,7 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
                         <div key={index} className="grid grid-cols-1 md:grid-cols-10 gap-4 items-center p-3 border rounded-md bg-orange-50 border-orange-300">
                             <Label className="md:col-span-1 text-sm text-muted-foreground text-center">VB {index + 1}</Label>
                             <div className="md:col-span-5 grid gap-1.5">
-                                <Label htmlFor={`doc-name-${index}`} className="text-xs">Tên văn bản QPPL</Label>
+                                <Label htmlFor={`doc-name-${index}`} className="text-xs font-semibold text-destructive">Tên văn bản QPPL</Label>
                                 <Input 
                                     id={`doc-name-${index}`} 
                                     value={doc.name} 
@@ -134,7 +134,7 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
                                 />
                             </div>
                             <div className="md:col-span-2 grid gap-1.5">
-                                <Label htmlFor={`doc-issuedate-${index}`} className="text-xs">Ngày ban hành</Label>
+                                <Label htmlFor={`doc-issuedate-${index}`} className="text-xs font-semibold text-destructive">Ngày ban hành</Label>
                                 <Input 
                                     id={`doc-issuedate-${index}`} 
                                     value={doc.issueDate} 
@@ -143,7 +143,7 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
                                 />
                             </div>
                              <div className="md:col-span-2 grid gap-1.5">
-                                <Label htmlFor={`doc-deadline-${index}`} className="text-xs">Thời hạn ban hành (ngày)</Label>
+                                <Label htmlFor={`doc-deadline-${index}`} className="text-xs font-semibold text-destructive">Thời hạn ban hành (ngày)</Label>
                                 <Input 
                                     id={`doc-deadline-${index}`} 
                                     type="number"
@@ -555,3 +555,4 @@ export default function CriteriaManagementPage() {
     </>
   );
 }
+
