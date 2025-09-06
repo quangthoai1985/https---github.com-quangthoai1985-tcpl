@@ -110,7 +110,7 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
     }
 
     return (
-        <div className="p-4 border rounded-lg bg-muted/50 mb-6 space-y-6">
+        <div className="p-4 border rounded-lg bg-blue-50/50 border-blue-200 mb-6 space-y-6">
             <h4 className='font-semibold text-primary'>Cấu hình đặc biệt: Giao nhiệm vụ ban hành VBQPPL</h4>
              <div className="grid gap-2">
                 <Label htmlFor="assignedDocumentsCount">Số lượng VBQPPL được giao</Label>
