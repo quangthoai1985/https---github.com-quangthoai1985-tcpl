@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock, Award, Undo2, CornerDownRight, Edit, CircleSlash, LinkIcon, Info } from "lucide-react";
+import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock, Award, Undo2, CornerDownRight, Edit, CircleSlash, LinkIcon, Info, ListChecks } from "lucide-react";
 import React, { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -403,8 +403,6 @@ export default function AssessmentDetailPage() {
                    <div className="space-y-6 pl-8 pr-4 py-4">
                      {/* Special Rendering for Criterion 1 */}
                     {index === 0 ? (() => {
-                        const assignedCount = criterion.assignedDocumentsCount || 0;
-                        const deadlineDays = criterion.issuanceDeadlineDays || 'N/A';
                         const firstIndicatorResult = getIndicatorResult(criterion.indicators[0]?.id);
                         const isNotTasked = firstIndicatorResult.isTasked === false;
 
@@ -423,13 +421,26 @@ export default function AssessmentDetailPage() {
                                         {/* Admin Config Info */}
                                         <Card className="bg-blue-50/50 border border-blue-200">
                                             <CardHeader>
-                                                <CardTitle className="text-base text-primary">Thông tin nhiệm vụ được giao</CardTitle>
+                                                <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao từ Admin</CardTitle>
                                             </CardHeader>
-                                            <CardContent className="grid grid-cols-2 gap-4 text-sm">
-                                                <div className="font-semibold">Số lượng VBQPPL được giao:</div>
-                                                <div>{assignedCount} văn bản</div>
-                                                <div className="font-semibold">Thời hạn ban hành:</div>
-                                                <div>{deadlineDays} ngày</div>
+                                            <CardContent className="space-y-4">
+                                                {(criterion.documents || []).length > 0 ? (
+                                                    criterion.documents?.map((doc, docIndex) => (
+                                                        <div key={docIndex} className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 p-3 border-l-4 border-blue-300 rounded bg-background text-sm">
+                                                            <div className="col-span-full font-semibold text-primary">Văn bản {docIndex + 1}: {doc.name}</div>
+                                                            <div className="text-muted-foreground">Trích yếu:</div>
+                                                            <div className="col-span-2 font-medium">{doc.excerpt}</div>
+                                                            <div className="text-muted-foreground">Ngày ban hành (ấn định):</div>
+                                                            <div className="col-span-2 font-medium">{doc.issueDate}</div>
+                                                            <div className="text-muted-foreground">Thời hạn ban hành:</div>
+                                                            <div className="col-span-2 font-medium">
+                                                                <Badge variant="destructive">{doc.issuanceDeadlineDays} ngày</Badge>
+                                                            </div>
+                                                        </div>
+                                                    ))
+                                                ) : (
+                                                    <p className="text-sm text-muted-foreground">Không có văn bản nào được Admin định danh cụ thể.</p>
+                                                )}
                                             </CardContent>
                                         </Card>
                                         
@@ -437,6 +448,7 @@ export default function AssessmentDetailPage() {
                                             {criterion.indicators.map((indicator, idx) => {
                                                 const result = getIndicatorResult(indicator.id);
                                                 const adminNote = adminNotes[indicator.id] || '';
+                                                const assignedCount = criterion.assignedDocumentsCount || 0;
                                                 const progress = assignedCount > 0 ? Math.round(((Number(result.value) || 0) / assignedCount) * 100) : 0;
                                                 const progressColor = progress >= 100 ? "bg-green-500" : "bg-yellow-500";
                                                 
