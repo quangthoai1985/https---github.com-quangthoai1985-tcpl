@@ -15,7 +15,7 @@ import {
   CardContent,
   CardHeader,
 } from '@/components/ui/card';
-import { MoreHorizontal, PlusCircle, CornerDownRight, Info, Calendar as CalendarIcon } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, CornerDownRight, Info, Calendar as CalendarIcon, Save } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -73,70 +73,48 @@ function CriterionForm({ criterion, onSave, onCancel }: { criterion: Partial<Cri
   );
 }
 
-// Special form for Criterion 1
-function Criterion1Form({ criterion, onSave, onCancel }: { criterion: Criterion, onSave: (criterion: Criterion) => void, onCancel: () => void }) {
-  const [formData, setFormData] = React.useState<Criterion>(criterion);
-  const [effectiveDate, setEffectiveDate] = React.useState<Date | undefined>(
-    criterion.effectiveDate ? new Date(criterion.effectiveDate) : undefined
-  );
+function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave: (criterion: Criterion) => void }) {
+    const [formData, setFormData] = React.useState<Criterion>(criterion);
+    const [effectiveDate, setEffectiveDate] = React.useState<Date | undefined>(
+        criterion.effectiveDate ? new Date(criterion.effectiveDate) : undefined
+    );
+     const { toast } = useToast();
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value } = e.target;
-    setFormData(prev => ({ ...prev, [id]: value }));
-  };
-  
-  const handleNumericInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-      const { id, value } = e.target;
-      setFormData(prev => ({...prev, [id]: value === '' ? undefined : Number(value) }));
-  }
+    const handleNumericInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { id, value } = e.target;
+        setFormData(prev => ({...prev, [id]: value === '' ? undefined : Number(value) }));
+    };
 
-  const handleIndicatorChange = (indicatorId: string, field: 'description' | 'standardLevel', value: string) => {
-      setFormData(prev => ({
-          ...prev,
-          indicators: prev.indicators.map(ind => 
-              ind.id === indicatorId ? { ...ind, [field]: value } : ind
-          )
-      }));
-  }
-  
-  React.useEffect(() => {
+    React.useEffect(() => {
       if (effectiveDate) {
           setFormData(prev => ({ ...prev, effectiveDate: format(effectiveDate, 'yyyy-MM-dd')}));
       }
-  }, [effectiveDate])
+    }, [effectiveDate]);
+    
+    const handleSave = () => {
+        onSave(formData);
+        toast({ title: "Thành công!", description: "Đã lưu cấu hình cho Tiêu chí 1."});
+    }
 
-  const indicator1 = formData.indicators.find(i => i.id.endsWith('_1'));
-  const indicator2 = formData.indicators.find(i => i.id.endsWith('_2'));
-  const indicator3 = formData.indicators.find(i => i.id.endsWith('_3'));
-
-  return (
-    <>
-      <DialogHeader>
-        <DialogTitle>Cấu hình đặc biệt: {criterion.name}</DialogTitle>
-        <DialogDescription>
-          Thiết lập các thông số chung cho Tiêu chí 1. Các thông số này sẽ được áp dụng cho tất cả các chỉ tiêu con.
-        </DialogDescription>
-      </DialogHeader>
-      <div className="grid gap-6 py-4 max-h-[70vh] overflow-y-auto pr-6">
-        {/* --- Chung --- */}
-        <div className='p-4 border rounded-lg bg-muted/50'>
-            <h4 className='font-semibold mb-4'>Cấu hình chung</h4>
-            <div className="grid grid-cols-2 gap-4">
+    return (
+        <div className="p-4 border rounded-lg bg-muted/50 mb-6">
+            <h4 className='font-semibold mb-4 text-primary'>Cấu hình đặc biệt: Số lượng & Thời hạn</h4>
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="grid gap-2">
-                    <Label htmlFor="assignedDocumentsCount">Số lượng VBQPPL được giao ban hành</Label>
+                    <Label htmlFor="assignedDocumentsCount">Số lượng VBQPPL được giao</Label>
                     <Input id="assignedDocumentsCount" type="number" value={formData.assignedDocumentsCount || ''} onChange={handleNumericInputChange} placeholder="Ví dụ: 5"/>
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor="issuanceDeadlineDays">Thời hạn ban hành (ngày)</Label>
                     <Input id="issuanceDeadlineDays" type="number" value={formData.issuanceDeadlineDays || ''} onChange={handleNumericInputChange} placeholder="Ví dụ: 30"/>
                 </div>
-                <div className="grid gap-2 col-span-2">
+                <div className="grid gap-2">
                      <Label htmlFor="effectiveDate">Ngày bắt đầu áp dụng</Label>
                     <Popover>
                         <PopoverTrigger asChild>
                             <Button
                             variant={"outline"}
-                            className={cn("justify-start text-left font-normal", !effectiveDate && "text-muted-foreground" )}
+                            className={cn("w-full justify-start text-left font-normal bg-white", !effectiveDate && "text-muted-foreground" )}
                             >
                             <CalendarIcon className="mr-2 h-4 w-4" />
                             {effectiveDate ? format(effectiveDate, "dd/MM/yyyy") : <span>Chọn ngày</span>}
@@ -148,68 +126,15 @@ function Criterion1Form({ criterion, onSave, onCancel }: { criterion: Criterion,
                     </Popover>
                 </div>
             </div>
+            <div className="flex justify-end mt-4">
+                <Button onClick={handleSave} size="sm">
+                    <Save className="mr-2 h-4 w-4"/>
+                    Lưu Cấu hình Tiêu chí 1
+                </Button>
+            </div>
         </div>
-
-        {/* --- Chỉ tiêu 1.1 --- */}
-        {indicator1 && (
-            <div className='p-4 border rounded-lg'>
-                <h4 className='font-semibold mb-2 text-base'>{indicator1.name}</h4>
-                <div className="grid gap-4">
-                     <div className="grid gap-2">
-                        <Label htmlFor={`desc_${indicator1.id}`}>Mô tả yêu cầu</Label>
-                        <Textarea id={`desc_${indicator1.id}`} value={indicator1.description} onChange={(e) => handleIndicatorChange(indicator1.id, 'description', e.target.value)} />
-                    </div>
-                     <div className="grid gap-2">
-                        <Label htmlFor={`standard_${indicator1.id}`}>Yêu cầu tỷ lệ đạt (%)</Label>
-                        <Input id={`standard_${indicator1.id}`} value={indicator1.standardLevel} onChange={(e) => handleIndicatorChange(indicator1.id, 'standardLevel', e.target.value)} placeholder="Mặc định: 100%"/>
-                    </div>
-                </div>
-            </div>
-        )}
-        
-         {/* --- Chỉ tiêu 1.2 --- */}
-        {indicator2 && (
-             <div className='p-4 border rounded-lg'>
-                <h4 className='font-semibold mb-2 text-base'>{indicator2.name}</h4>
-                <div className="grid gap-4">
-                     <div className="grid gap-2">
-                        <Label htmlFor={`desc_${indicator2.id}`}>Mô tả yêu cầu</Label>
-                        <Textarea id={`desc_${indicator2.id}`} value={indicator2.description} onChange={(e) => handleIndicatorChange(indicator2.id, 'description', e.target.value)} />
-                    </div>
-                     <div className="grid gap-2">
-                        <Label htmlFor={`standard_${indicator2.id}`}>Yêu cầu tỷ lệ minh chứng (%)</Label>
-                        <Input id={`standard_${indicator2.id}`} value={indicator2.standardLevel} onChange={(e) => handleIndicatorChange(indicator2.id, 'standardLevel', e.target.value)} placeholder="Mặc định: 100%"/>
-                    </div>
-                </div>
-            </div>
-        )}
-        
-         {/* --- Chỉ tiêu 1.3 --- */}
-        {indicator3 && (
-            <div className='p-4 border rounded-lg'>
-                <h4 className='font-semibold mb-2 text-base'>{indicator3.name}</h4>
-                <div className="grid gap-4">
-                     <div className="grid gap-2">
-                        <Label htmlFor={`desc_${indicator3.id}`}>Mô tả yêu cầu</Label>
-                        <Textarea id={`desc_${indicator3.id}`} value={indicator3.description} onChange={(e) => handleIndicatorChange(indicator3.id, 'description', e.target.value)} />
-                    </div>
-                     <div className="grid gap-2">
-                        <Label htmlFor={`standard_${indicator3.id}`}>Yêu cầu tỷ lệ minh chứng (%)</Label>
-                        <Input id={`standard_${indicator3.id}`} value={indicator3.standardLevel} onChange={(e) => handleIndicatorChange(indicator3.id, 'standardLevel', e.target.value)} placeholder="Mặc định: 100%"/>
-                    </div>
-                </div>
-            </div>
-        )}
-
-      </div>
-      <DialogFooter>
-        <Button variant="outline" onClick={onCancel}>Hủy</Button>
-        <Button type="submit" onClick={() => onSave(formData)}>Lưu thay đổi</Button>
-      </DialogFooter>
-    </>
-  );
+    );
 }
-
 
 function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: { indicator: Partial<Indicator | SubIndicator>, onSave: (indicator: Partial<Indicator | SubIndicator>) => void, onCancel: () => void, isSubIndicator?: boolean }) {
   const [formData, setFormData] = React.useState(indicator);
@@ -281,23 +206,16 @@ export default function CriteriaManagementPage() {
   
   const [editingSubIndicator, setEditingSubIndicator] = React.useState<{criterionId: string, indicatorId: string, subIndicator: Partial<SubIndicator>} | null>(null);
   const [addingSubIndicatorTo, setAddingSubIndicatorTo] = React.useState<{criterionId: string, indicatorId: string} | null>(null);
-  const [editingCriterion1, setEditingCriterion1] = React.useState<Criterion | null>(null);
 
   const { toast } = useToast();
   
   const handleEditCriterion = (criterion: Criterion) => {
-    // Special handling for the first criterion
-    if (criteria.indexOf(criterion) === 0) {
-        setEditingCriterion1(criterion);
-    } else {
-        setEditingCriterion(criterion);
-    }
+    setEditingCriterion(criterion);
   };
 
   const handleCancelEditCriterion = () => { 
       setEditingCriterion(null); 
       setAddingCriterion(false); 
-      setEditingCriterion1(null);
   }
 
   const handleSaveCriterion = async (criterionToSave: Partial<Criterion>) => {
@@ -475,6 +393,12 @@ export default function CriteriaManagementPage() {
               </div>
               <AccordionContent>
                 <div className="space-y-4 pl-8 pr-4 py-4">
+                  {index === 0 && (
+                      <Criterion1Config 
+                          criterion={criterion} 
+                          onSave={(updatedCriterion) => updateCriteria(criteria.map(c => c.id === updatedCriterion.id ? updatedCriterion : c))} 
+                      />
+                  )}
                   {criterion.indicators.map((indicator) => (
                     <div
                       key={indicator.id}
@@ -561,7 +485,6 @@ export default function CriteriaManagementPage() {
       </CardContent>
     </Card>
 
-    {/* Regular Criterion Form Dialog */}
     <Dialog open={addingCriterion || !!editingCriterion} onOpenChange={(open) => !open && handleCancelEditCriterion()}>
       <DialogContent>
         {(addingCriterion || editingCriterion) && (
@@ -574,20 +497,6 @@ export default function CriteriaManagementPage() {
       </DialogContent>
     </Dialog>
     
-    {/* Special Criterion 1 Form Dialog */}
-     <Dialog open={!!editingCriterion1} onOpenChange={(open) => !open && handleCancelEditCriterion()}>
-        <DialogContent className="max-w-3xl">
-            {editingCriterion1 && (
-                <Criterion1Form 
-                    criterion={editingCriterion1}
-                    onSave={handleSaveCriterion as (c: Criterion) => void}
-                    onCancel={handleCancelEditCriterion}
-                />
-            )}
-        </DialogContent>
-    </Dialog>
-
-    {/* Indicator Form Dialog */}
     <Dialog open={!!editingIndicator || !!addingIndicatorTo} onOpenChange={(open) => !open && handleCancelEditIndicator()}>
         <DialogContent className="max-w-2xl">
             {(editingIndicator || addingIndicatorTo) && (
@@ -600,7 +509,6 @@ export default function CriteriaManagementPage() {
         </DialogContent>
     </Dialog>
     
-    {/* SubIndicator Form Dialog */}
     <Dialog open={!!editingSubIndicator || !!addingSubIndicatorTo} onOpenChange={(open) => !open && handleCancelEditSubIndicator()}>
         <DialogContent className="max-w-2xl">
             {(editingSubIndicator || addingSubIndicatorTo) && (
@@ -617,3 +525,5 @@ export default function CriteriaManagementPage() {
     </>
   );
 }
+
+    
