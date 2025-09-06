@@ -80,6 +80,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
                 <p className="mt-2 text-xs text-muted-foreground">
                     Kéo thả hoặc <span className="font-semibold text-primary">nhấn để chọn tệp</span>
                 </p>
+                 <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
                 <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={handleFileSelect} />
             </div>
 
@@ -518,18 +519,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
              onIsTaskedChange(indicator.id, !notTasked);
          });
     }
-    
-    const getIndicatorLabel = (indicatorId: string): string => {
-        if (!criterion.indicators) return "Tổng số VBQPPL được ban hành";
-
-        const indicatorIndex = criterion.indicators.findIndex(i => i.id === indicatorId);
-        switch(indicatorIndex) {
-            case 0: return "Tổng số VBQPPL được ban hành";
-            case 1: return "Tổng số dự thảo VBQPPL được ban hành";
-            case 2: return "Tổng số Nghị quyết được thực hiện tự kiểm tra";
-            default: return "Tổng số VBQPPL được ban hành";
-        }
-    }
 
     return (
         <div className="grid gap-6">
@@ -571,15 +560,67 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                     <div className="space-y-12">
                         {criterion.indicators.map((indicator, index) => {
                             const data = assessmentData[indicator.id];
-                            const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
-                            const isAchieved = progress >= 100;
-                            const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
-                            const blockClasses = cn(
+                            
+                             const blockClasses = cn(
                                 "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
                                 data.status === 'achieved' && 'bg-green-50 border-green-200',
                                 data.status === 'not-achieved' && 'bg-red-50 border-red-200',
                                 data.status === 'pending' && 'bg-amber-50 border-amber-200'
                             );
+                            
+                            if (index === 0) { // Special render for TC 1.1
+                                return (
+                                     <React.Fragment key={indicator.id}>
+                                         {index > 0 && <Separator className="my-6"/>}
+                                         <div className={blockClasses}>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    <StatusBadge status={data.status} />
+                                                    <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
+                                                </div>
+                                                <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
+                                                    <div className="flex items-start gap-2 text-blue-800">
+                                                        <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                                                        <div>
+                                                            <p className="text-sm">{indicator.description}</p>
+                                                            <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                             <div className="grid gap-2">
+                                                <Label htmlFor={`${indicator.id}-input`}>Tổng số văn bản đã ban hành:</Label>
+                                                <Input 
+                                                    id={`${indicator.id}-input`} 
+                                                    type="number" 
+                                                    placeholder="Số lượng"
+                                                    className="w-48"
+                                                    value={data.value || ''} 
+                                                    onChange={(e) => onValueChange(indicator.id, e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="grid gap-2">
+                                                <Label className="font-medium">Hồ sơ minh chứng (chung)</Label>
+                                                <EvidenceUploaderComponent indicatorId={indicator.id} evidence={data.files} onEvidenceChange={onEvidenceChange} isRequired={data.status !== 'pending' && data.files.length === 0} />
+                                            </div>
+                                             <div className="grid gap-2">
+                                                <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
+                                                <Textarea 
+                                                    id={`note-${indicator.id}`} 
+                                                    placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
+                                                    value={data.note}
+                                                    onChange={(e) => onNoteChange(indicator.id, e.target.value)}
+                                                />
+                                            </div>
+                                         </div>
+                                     </React.Fragment>
+                                )
+                            }
+                            
+                            // Render for TC 1.2 and 1.3
+                            const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
+                            const isAchieved = progress >= 100;
+                            const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
                             const isAnyEvidenceRequired = data.status !== 'pending' && Array.from({length: Number(data.value) || 0}).some((_, i) => (data.filesPerDocument?.[i] || []).length === 0);
 
                             return (
@@ -607,7 +648,9 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                         <div className="grid gap-4">
                                             <div className="grid gap-2">
                                             <div className="flex items-center gap-4">
-                                                    <Label htmlFor={`${indicator.id}-input`} className="shrink-0">{getIndicatorLabel(indicator.id)}:</Label>
+                                                    <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
+                                                        {indicator.id.includes("CT02") ? "Tổng số dự thảo VBQPPL được ban hành" : "Tổng số Nghị quyết được thực hiện tự kiểm tra"}:
+                                                    </Label>
                                                     <Input 
                                                         id={`${indicator.id}-input`} 
                                                         type="number" 
@@ -633,7 +676,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
                                                 {Array.from({ length: Number(data.value) || 0 }, (_, i) => (
                                                     <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
-                                                        <Label className="font-medium text-center text-sm">Minh chứng cho mục {i + 1}</Label>
+                                                        <Label className="font-medium text-center text-sm">Minh chứng cho VB {i + 1}</Label>
                                                             <EvidenceUploaderComponent
                                                             indicatorId={indicator.id}
                                                             docIndex={i}
@@ -819,7 +862,7 @@ export default function SelfAssessmentPage() {
         const localFilesToUpload = indicatorData.files.filter((f): f is File => f instanceof File);
         const existingEvidence = indicatorData.files.filter((f): f is {name: string, url: string} => !(f instanceof File));
         
-        uploadedFileUrls[indicatorId] = existingEvidence;
+        uploadedFileUrls[indicatorId] = { ...uploadedFileUrls[indicatorId], files: existingEvidence };
 
         if (localFilesToUpload.length > 0) {
             const indicatorPromises = localFilesToUpload.map(async file => {
@@ -827,7 +870,10 @@ export default function SelfAssessmentPage() {
                 const storageRef = ref(storage, filePath);
                 const snapshot = await uploadBytes(storageRef, file);
                 const downloadURL = await getDownloadURL(snapshot.ref);
-                uploadedFileUrls[indicatorId].push({ name: file.name, url: downloadURL });
+                if (!uploadedFileUrls[indicatorId].files) {
+                  uploadedFileUrls[indicatorId].files = [];
+                }
+                uploadedFileUrls[indicatorId].files.push({ name: file.name, url: downloadURL });
             });
             allUploadPromises.push(...indicatorPromises);
         }
@@ -894,12 +940,17 @@ export default function SelfAssessmentPage() {
             const isCriterion1 = criteria.length > 0 && criteria[0].indicators.some(i => i.id === id);
 
             if (isCriterion1) {
-                // For criterion 1, check filesPerDocument
-                const numberOfDocs = Number(data.value) || 0;
-                if (numberOfDocs > 0) {
-                    const allDocsHaveEvidence = Array.from({ length: numberOfDocs }).every((_, i) => (data.filesPerDocument?.[i] || []).length > 0);
-                    if (!allDocsHaveEvidence) {
-                        errors.push(`Chỉ tiêu "${indicator.name}" yêu cầu minh chứng cho mỗi văn bản.`);
+                 if (criteria[0].indicators[0].id === id) { // TC 1.1
+                    if (data.files.length === 0) {
+                        errors.push(`Chỉ tiêu "${indicator.name}" yêu cầu minh chứng chung.`);
+                    }
+                } else { // TC 1.2, 1.3
+                    const numberOfDocs = Number(data.value) || 0;
+                    if (numberOfDocs > 0) {
+                        const allDocsHaveEvidence = Array.from({ length: numberOfDocs }).every((_, i) => (data.filesPerDocument?.[i] || []).length > 0);
+                        if (!allDocsHaveEvidence) {
+                            errors.push(`Chỉ tiêu "${indicator.name}" yêu cầu minh chứng cho mỗi văn bản.`);
+                        }
                     }
                 }
             } else {
@@ -936,7 +987,8 @@ export default function SelfAssessmentPage() {
         const assessmentDataForFirestore = Object.entries(sanitizedData).reduce((acc, [key, value]) => {
             acc[key] = {
                 ...value,
-                files: fileUrls[key] || [], // Use the uploaded URLs
+                files: fileUrls[key]?.files || [], // Use the uploaded URLs
+                filesPerDocument: fileUrls[key]?.filesPerDocument || {},
             };
             return acc;
         }, {} as Record<string, IndicatorResult>);

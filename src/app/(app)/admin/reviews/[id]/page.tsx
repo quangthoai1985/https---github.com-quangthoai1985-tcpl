@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -160,7 +161,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange }: 
                 <p className="mt-2 text-xs text-muted-foreground">
                     Kéo và thả tệp, hoặc <span className="font-semibold text-primary">nhấn để chọn</span>
                 </p>
-                <p className="text-xs text-muted-foreground mt-1">Dung lượng tối đa: 5MB.</p>
+                <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
                 <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={handleFileSelect} />
             </div>
              <div className="grid gap-2">
@@ -454,7 +455,11 @@ export default function AssessmentDetailPage() {
                                                         {/* Progress and commune input */}
                                                         <div className="flex items-center gap-4">
                                                             <div className="flex items-center gap-2">
-                                                                <Label htmlFor={`${indicator.id}-input`} className="shrink-0 text-sm">Số lượng xã báo cáo:</Label>
+                                                                <Label htmlFor={`${indicator.id}-input`} className="shrink-0 text-sm">
+                                                                     {idx === 0 && "Tổng số VBQPPL được ban hành:"}
+                                                                     {idx === 1 && "Tổng số dự thảo VBQPPL được ban hành:"}
+                                                                     {idx === 2 && "Tổng số Nghị quyết được thực hiện tự kiểm tra:"}
+                                                                </Label>
                                                                 <Badge variant="outline" className="text-base">{result.value || 0}</Badge>
                                                             </div>
                                                             <div className="flex-1">
@@ -472,7 +477,7 @@ export default function AssessmentDetailPage() {
                                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
                                                                  {Array.from({ length: Number(result.value) || 0 }).map((_, i) => (
                                                                     <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
-                                                                        <Label className="font-medium text-center text-sm">Minh chứng cho mục {i + 1}</Label>
+                                                                        <Label className="font-medium text-center text-sm">Minh chứng cho VB {i + 1}</Label>
                                                                         <div className="space-y-1">
                                                                         {(result.filesPerDocument?.[i] || []).length > 0 ? (result.filesPerDocument?.[i] || []).map((file, fileIdx) => (
                                                                             <div key={fileIdx} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm">
