@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
 
 type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
 // Updated value structure to handle the new logic
@@ -529,8 +530,8 @@ const Criterion1Indicator = ({ indicator, assignedCount, data, onValueChange, on
             {/* Input and Progress */}
             <div className="grid gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor={`${indicator.id}-input`}>Kết quả thực hiện</Label>
                    <div className="flex items-center gap-4">
+                        <Label htmlFor={`${indicator.id}-input`} className="shrink-0">Tổng số VBQPPL được ban hành:</Label>
                         <Input 
                             id={`${indicator.id}-input`} 
                             type="number" 
@@ -542,7 +543,7 @@ const Criterion1Indicator = ({ indicator, assignedCount, data, onValueChange, on
                         <div className="flex-1">
                             <div className="flex justify-between items-center mb-1">
                                 <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn</Label>
-                                <span className="text-xs font-semibold">{progress.toFixed(1)}%</span>
+                                <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
                             </div>
                             <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
                         </div>
@@ -598,12 +599,12 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     // Use the status of the first indicator as the master switch
     const firstIndicatorId = criterion.indicators[0].id;
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
-    const isTasked = assessmentData[firstIndicatorId]?.isTasked === true;
+    const isTasked = assessmentData[firstIndicatorId]?.isTasked !== false; // Default to tasked if not explicitly false
     
-    const handleNoTaskChange = (isTaskedValue: boolean) => {
-        const newIsTasked = isTaskedValue === false;
+    const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
+        const notTasked = checked === true;
          criterion.indicators.forEach(indicator => {
-             onIsTaskedChange(indicator.id, newIsTasked);
+             onIsTaskedChange(indicator.id, !notTasked);
          });
     }
 
@@ -614,7 +615,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                 <Checkbox 
                     id={`${criterion.id}-notask`} 
                     checked={isNotTasked} 
-                    onCheckedChange={(checked) => handleNoTaskChange(checked === true ? false : true)} 
+                    onCheckedChange={handleNoTaskChange} 
                 />
                 <Label htmlFor={`${criterion.id}-notask`} className="font-semibold">Xã không được giao nhiệm vụ ban hành VBQPPL trong năm</Label>
             </div>
@@ -1103,3 +1104,5 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
+
+    
