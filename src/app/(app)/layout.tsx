@@ -43,17 +43,29 @@ export default function AppLayout({
   // Render the layout only if there is a user
   return currentUser ? (
      <div className="flex min-h-screen w-full flex-col bg-muted/40">
-      <AppHeader />
+      <motion.div
+        initial={{ y: -100, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.5, ease: 'easeInOut' }}
+      >
+        <AppHeader />
+      </motion.div>
       <div className="flex flex-1">
-        <AppSidebar />
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-hidden">
+        <motion.div
+            initial={{ x: -100, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ duration: 0.5, ease: 'easeInOut', delay: 0.2 }}
+        >
+            <AppSidebar />
+        </motion.div>
+        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-auto">
           <AnimatePresence mode="wait">
             <motion.div
               key={pathname}
-              initial={{ x: 20, opacity: 0 }}
+              initial={{ x: 100, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
-              exit={{ x: -20, opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
+              exit={{ x: -100, opacity: 0 }}
+              transition={{ duration: 0.5, ease: "easeInOut" }}
             >
               {children}
             </motion.div>
