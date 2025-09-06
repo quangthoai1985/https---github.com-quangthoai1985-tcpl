@@ -3,9 +3,10 @@
 import AppHeader from '@/components/layout/app-header';
 import AppSidebar from '@/components/layout/app-sidebar';
 import { useData } from '@/context/DataContext';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 
 export default function AppLayout({
   children,
@@ -14,6 +15,7 @@ export default function AppLayout({
 }) {
   const { currentUser, loading } = useData();
   const router = useRouter();
+  const pathname = usePathname();
 
   useEffect(() => {
     // Redirect to login if not loading and no user is found.
@@ -44,8 +46,18 @@ export default function AppLayout({
       <AppHeader />
       <div className="flex flex-1">
         <AppSidebar />
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6">
-          {children}
+        <main className="flex flex-1 flex-col gap-4 p-4 lg:gap-6 lg:p-6 overflow-hidden">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={pathname}
+              initial={{ x: 20, opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -20, opacity: 0 }}
+              transition={{ duration: 0.3, ease: "easeInOut" }}
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
     </div>
