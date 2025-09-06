@@ -507,9 +507,16 @@ const Criterion1Indicator = ({ indicator, assignedCount, data, onValueChange, on
     const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
     const isAchieved = progress >= 100;
     const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
+    
+    const blockClasses = cn(
+      "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
+      data.status === 'achieved' && 'bg-green-50 border-green-200',
+      data.status === 'not-achieved' && 'bg-red-50 border-red-200',
+      data.status === 'pending' && 'bg-amber-50 border-amber-200'
+    );
 
     return (
-        <div className="grid gap-6">
+        <div className={blockClasses}>
             {/* Title and Info */}
             <div>
                 <div className="flex items-center gap-2">
@@ -966,10 +973,6 @@ export default function SelfAssessmentPage() {
                 <CardContent>
                     <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
                         {criteria.map((criterion, index) => {
-                             const blockClasses = cn(
-                                "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors"
-                             );
-
                              // Custom render for Criterion 1
                              if (index === 0) {
                                  return (
@@ -977,16 +980,14 @@ export default function SelfAssessmentPage() {
                                         <AccordionTrigger className="font-headline text-lg">Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</AccordionTrigger>
                                         <AccordionContent>
                                              <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
-                                                <div className={blockClasses}>
-                                                     <Criterion1Assessment
-                                                        criterion={criterion}
-                                                        assessmentData={assessmentData}
-                                                        onValueChange={handleValueChange}
-                                                        onNoteChange={handleNoteChange}
-                                                        onEvidenceChange={handleEvidenceChange}
-                                                        onIsTaskedChange={handleIsTaskedChange}
-                                                     />
-                                                </div>
+                                                <Criterion1Assessment
+                                                    criterion={criterion}
+                                                    assessmentData={assessmentData}
+                                                    onValueChange={handleValueChange}
+                                                    onNoteChange={handleNoteChange}
+                                                    onEvidenceChange={handleEvidenceChange}
+                                                    onIsTaskedChange={handleIsTaskedChange}
+                                                 />
                                              </div>
                                         </AccordionContent>
                                      </AccordionItem>
@@ -1104,5 +1105,3 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
-
-    
