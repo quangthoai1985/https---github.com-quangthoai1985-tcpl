@@ -36,10 +36,12 @@ import { cn } from '@/lib/utils';
 import { Separator } from '../ui/separator';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useState } from 'react';
 
 export default function AppHeader() {
   const { role, currentUser, units, logout, notifications, markNotificationAsRead } = useData();
   const router = useRouter();
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const unreadNotifications = notifications.filter(n => !n.read).length;
   
   const handleLogout = async () => {
@@ -84,32 +86,18 @@ export default function AppHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-[72px] items-center gap-4 border-b bg-background px-4 sm:px-6">
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0 md:hidden">
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Mở menu điều hướng</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="flex flex-col p-0">
-          <AppSidebar />
-        </SheetContent>
-      </Sheet>
-
-      <div className="flex items-center gap-3">
-         <Link href="/dashboard" className="flex items-center gap-3 font-semibold">
-            <Image src="/logo.png" alt="Logo" width={40} height={40} data-ai-hint="application logo" />
-            <div>
-                <h1 className="font-display-header text-lg uppercase tracking-wide text-header-blue whitespace-nowrap">
-                ĐÁNH GIÁ CHUẨN TIẾP CẬN PHÁP LUẬT
-                </h1>
-                <h2 className="font-display-subheader text-base uppercase text-header-red whitespace-nowrap">
-                TỈNH AN GIANG
-                </h2>
-            </div>
-          </Link>
-      </div>
+    <header className="sticky top-0 z-50 flex h-[72px] items-center gap-4 border-b bg-background px-4 sm:px-6">
+      <Link href="/dashboard" className="flex items-center gap-3 font-semibold">
+          <Image src="/logo.png" alt="Logo" width={40} height={40} data-ai-hint="application logo" />
+          <div>
+              <h1 className="font-display-header text-lg uppercase tracking-wide text-header-blue whitespace-nowrap">
+              ĐÁNH GIÁ CHUẨN TIẾP CẬN PHÁP LUẬT
+              </h1>
+              <h2 className="font-display-subheader text-base uppercase text-header-red whitespace-nowrap">
+              TỈNH AN GIANG
+              </h2>
+          </div>
+      </Link>
 
        <div className="ml-auto flex items-center gap-2">
         {currentUser && (
@@ -212,6 +200,19 @@ export default function AppHeader() {
             <DropdownMenuItem onClick={handleLogout} className='flex items-center gap-2'><LogOut className='h-4 w-4' />Đăng xuất</DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
+        
+        {/* Mobile navigation */}
+        <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="icon" className="shrink-0 md:hidden">
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Mở menu điều hướng</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="flex flex-col p-0 w-[250px]">
+             <AppSidebar isCollapsed={false} toggleSidebar={() => setIsMobileNavOpen(false)} />
+          </SheetContent>
+        </Sheet>
        </div>
     </header>
   );
