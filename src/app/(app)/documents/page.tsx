@@ -275,9 +275,7 @@ export default function DocumentsPage() {
               <TableHead>Tên văn bản</TableHead>
               <TableHead>Ngày ban hành</TableHead>
               <TableHead>Trích yếu</TableHead>
-              <TableHead>
-                <span className="sr-only">Actions</span>
-              </TableHead>
+              <TableHead className="text-right">Hành động</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -287,50 +285,46 @@ export default function DocumentsPage() {
                 <TableCell>{doc.name}</TableCell>
                 <TableCell>{doc.issueDate}</TableCell>
                 <TableCell>{doc.excerpt}</TableCell>
-                <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        aria-haspopup="true"
-                        size="icon"
-                        variant="ghost"
-                      >
-                        <MoreHorizontal className="h-4 w-4" />
-                        <span className="sr-only">Toggle menu</span>
+                <TableCell className="text-right flex items-center justify-end gap-2">
+                  {doc.fileUrl ? (
+                    <>
+                      <Button variant="outline" size="icon" onClick={() => setPreviewFile({name: doc.name, url: doc.fileUrl!})}>
+                          <Eye className="h-4 w-4" />
+                          <span className="sr-only">Xem trước</span>
                       </Button>
-                    </DropdownMenuTrigger>
-<DropdownMenuContent align="end">
-  <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-  
-  {/* Kiểm tra xem văn bản có file đính kèm không */}
-  {doc.fileUrl ? (
-    <>
-      <DropdownMenuItem onClick={() => setPreviewFile({name: doc.name, url: doc.fileUrl!})}>
-          <Eye className="mr-2 h-4 w-4" /> Xem trước
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => handleDownload(doc.fileUrl!, doc.name)}>
-         <Download className="mr-2 h-4 w-4" /> Tải về
-      </DropdownMenuItem>
-    </>
-  ) : (
-    // Nếu không có file, hiển thị thông báo
-    <DropdownMenuItem disabled>Không có tệp đính kèm</DropdownMenuItem>
-  )}
+                      <Button variant="outline" size="icon" onClick={() => handleDownload(doc.fileUrl!, doc.name)}>
+                         <Download className="h-4 w-4" />
+                         <span className="sr-only">Tải về</span>
+                      </Button>
+                    </>
+                  ) : (
+                     <Button variant="outline" size="sm" disabled>Không có tệp</Button>
+                  )}
 
-  {/* Chỉ Admin mới thấy các hành động quản trị */}
-  {isAdmin && (
-    <>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => handleEdit(doc)}>
-            <Edit className="mr-2 h-4 w-4" /> Sửa
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleDelete(doc)} className="text-destructive">
-            <Trash2 className="mr-2 h-4 w-4" /> Xóa
-        </DropdownMenuItem>
-    </>
-  )}
-</DropdownMenuContent>
-                  </DropdownMenu>
+                  {isAdmin && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            aria-haspopup="true"
+                            size="icon"
+                            variant="ghost"
+                          >
+                            <MoreHorizontal className="h-4 w-4" />
+                            <span className="sr-only">Hành động khác</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuLabel>Quản trị</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => handleEdit(doc)}>
+                              <Edit className="mr-2 h-4 w-4" /> Sửa
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleDelete(doc)} className="text-destructive">
+                              <Trash2 className="mr-2 h-4 w-4" /> Xóa
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
                 </TableCell>
               </TableRow>
             ))}
