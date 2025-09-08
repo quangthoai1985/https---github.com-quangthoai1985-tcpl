@@ -118,7 +118,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
                  <div className="space-y-2 mt-2">
                     {evidence.map((item, index) => (
                         <div key={index} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm">
-                            <div className="flex items-center gap-2 truncate flex-1">
+                            <div className="flex items-center gap-2 min-w-0 flex-1">
                                 {isLink(item) ? <LinkIcon className="h-4 w-4 flex-shrink-0 text-blue-500" /> : <FileIcon className="h-4 w-4 flex-shrink-0" />}
                                 <span className="truncate text-xs flex-1">{item.name}</span>
                             </div>
@@ -626,7 +626,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
 
             {evidence.map((item, index) => (
                 <div key={index} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm">
-                    <div className="flex items-center gap-2 truncate flex-1">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
                         <FileIcon className="h-4 w-4 flex-shrink-0" />
                         <span className="truncate text-xs flex-1">{item.name}</span>
                     </div>
@@ -645,7 +645,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
             ))}
              {uploadingFiles.map(name => (
                 <div key={name} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm opacity-70">
-                    <div className="flex items-center gap-2 truncate flex-1">
+                    <div className="flex items-center gap-2 truncate flex-1 min-w-0">
                         <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" />
                         <span className="truncate text-xs flex-1">{name}</span>
                     </div>
@@ -1428,3 +1428,5 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
+
+    
