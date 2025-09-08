@@ -369,7 +369,7 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean, a
     // Handle checkbox logic
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         const checkedCount = Object.values(value).filter(v => v === true).length;
-        const requiredCount = parseInt(standardLevel.match(/(\d+)/)?.[0] || '2', 10);
+        const requiredCount = parseInt(standardLevel.match(/(\\d+)/)?.[0] || '2', 10);
         return checkedCount >= requiredCount ? 'achieved' : 'not-achieved';
     }
 
@@ -628,7 +628,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                     <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
                                                        {index === 0 && "Tổng số VBQPPL được ban hành:"}
                                                        {index === 1 && "Tổng số dự thảo NQ của HĐND, QĐ của UBND được truyền thông"}
-                                                       {index === 2 && "Tổng số Nghị quyết được thực hiện tự kiểm tra:"}
+                                                       {index === 2 && "Tổng số NQ của HĐND, QĐ của UBND được thực hiện tự kiểm tra"}
                                                     </Label>
                                                      <Input 
                                                          id={`${indicator.id}-input`} 
@@ -1189,3 +1189,5 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
+
+    
