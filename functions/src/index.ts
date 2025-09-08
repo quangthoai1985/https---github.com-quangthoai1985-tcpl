@@ -116,10 +116,12 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
         if (!doc.exists) return;
 
         const data = doc.data();
-        const assessmentData = data?.assessmentData;
-        if (!assessmentData || !assessmentData[indicatorId] || !assessmentData[indicatorId].filesPerDocument) return;
+        if (!data) return;
+        const assessmentData = data.assessmentData || {};
         
         const indicatorResult = assessmentData[indicatorId];
+        if (!indicatorResult || !indicatorResult.filesPerDocument) return;
+
         const fileList = indicatorResult.filesPerDocument[docIndex] || [];
         const fileToUpdate = fileList.find((f: any) => f.name === fileName);
 
@@ -130,16 +132,16 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
             } else {
                  delete fileToUpdate.signatureError;
             }
+
+            const criterionDoc = await db.collection('criteria').doc('TC01').get();
+            const assignedCount = criterionDoc.data()?.assignedDocumentsCount || 0;
+            const allFilesValid = Object.values(indicatorResult.filesPerDocument).flat().every((f: any) => f.signatureStatus === 'valid');
+            const isAchieved = Number(indicatorResult.value) >= assignedCount && allFilesValid;
+            
+            indicatorResult.status = isAchieved ? 'achieved' : 'not-achieved';
+            
+            await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
         }
-        
-        const criterionDoc = await db.collection('criteria').doc('TC01').get();
-        const assignedCount = criterionDoc.data()?.assignedDocumentsCount || 0;
-        const allFilesValid = Object.values(indicatorResult.filesPerDocument).flat().every((f: any) => f.signatureStatus === 'valid');
-        const isAchieved = Number(indicatorResult.value) >= assignedCount && allFilesValid;
-        
-        indicatorResult.status = isAchieved ? 'achieved' : 'not-achieved';
-        
-        await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
     };
 
     await updateAssessmentFileStatus('validating');
@@ -209,6 +211,48 @@ function parseAssessmentPath(filePath: string): { communeId: string; periodId: s
 }
 
 /**
+ * Helper function to recursively collect all file URLs from an assessmentData object.
+ * @param assessmentData - The assessmentData object from Firestore.
+ * @returns A Set containing all unique file URLs.
+ */
+function collectAllFileUrls(assessmentData: any): Set<string> {
+    const urls = new Set<string>();
+
+    if (!assessmentData || typeof assessmentData !== 'object') {
+        return urls;
+    }
+
+    for (const indicatorId in assessmentData) {
+        const indicator = assessmentData[indicatorId];
+        if (indicator) {
+            // Collect from the top-level 'files' array
+            if (Array.isArray(indicator.files)) {
+                indicator.files.forEach((file: { url: string }) => {
+                    if (file && typeof file.url === 'string' && file.url) {
+                        urls.add(file.url);
+                    }
+                });
+            }
+            // Collect from the nested 'filesPerDocument' object
+            if (indicator.filesPerDocument && typeof indicator.filesPerDocument === 'object') {
+                for (const docIndex in indicator.filesPerDocument) {
+                    const fileList = indicator.filesPerDocument[docIndex];
+                    if (Array.isArray(fileList)) {
+                        fileList.forEach((file: { url: string }) => {
+                           if (file && typeof file.url === 'string' && file.url) {
+                                urls.add(file.url);
+                            }
+                        });
+                    }
+                }
+            }
+        }
+    }
+    return urls;
+}
+
+
+/**
  * Triggered when an assessment document is updated.
  * Compares file lists before and after the update to find deleted files
  * and removes them from Firebase Storage.
@@ -222,47 +266,29 @@ export const onDeleteAssessmentFile = onDocumentUpdated("assessments/{assessment
         return null;
     }
 
-    const assessmentDataBefore = dataBefore.assessmentData || {};
-    const assessmentDataAfter = dataAfter.assessmentData || {};
+    const filesBefore = collectAllFileUrls(dataBefore.assessmentData);
+    const filesAfter = collectAllFileUrls(dataAfter.assessmentData);
 
-    // Create a Set of all file URLs that exist AFTER the update for quick lookup
-    const filesAfterUpdate = new Set<string>();
-    for (const indicatorId in assessmentDataAfter) {
-        const indicator = assessmentDataAfter[indicatorId];
-        (indicator.files || []).forEach((file: {url: string}) => filesAfterUpdate.add(file.url));
-        
-        const filesPerDoc = indicator.filesPerDocument || {};
-        for (const docIndex in filesPerDoc) {
-            (filesPerDoc[docIndex] || []).forEach((file: {url: string}) => filesAfterUpdate.add(file.url));
-        }
-    }
-    
-    // Iterate through the files that existed BEFORE the update
     const deletionPromises: Promise<any>[] = [];
     const storage = admin.storage();
 
-    for (const indicatorId in assessmentDataBefore) {
-        const indicator = assessmentDataBefore[indicatorId];
-
-        const checkAndQueueDelete = (file: {url: string}) => {
-            // If a file URL existed before but doesn't exist now, and it's a valid Storage URL, delete it.
-            if (file.url && !filesAfterUpdate.has(file.url) && file.url.includes('firebasestorage.googleapis.com')) {
-                logger.info(`File ${file.url} was removed from assessment. Queuing for deletion from Storage.`);
-                const fileRef = storage.refFromURL(file.url);
+    filesBefore.forEach(fileUrl => {
+        if (!filesAfter.has(fileUrl) && fileUrl.includes('firebasestorage.googleapis.com')) {
+            logger.info(`File ${fileUrl} was removed from assessment. Queuing for deletion from Storage.`);
+            try {
+                const fileRef = storage.refFromURL(fileUrl);
                 deletionPromises.push(fileRef.delete().catch(err => {
-                    // Log errors but don't fail the whole function if a file is already gone
-                    logger.error(`Failed to delete file ${file.url}:`, err);
+                    if (err.code === 404) {
+                         logger.warn(`Attempted to delete ${fileUrl}, but it was not found. Ignoring.`);
+                    } else {
+                        logger.error(`Failed to delete file ${fileUrl}:`, err);
+                    }
                 }));
+            } catch (error) {
+                 logger.error(`Invalid file URL, cannot create ref: ${fileUrl}`, error);
             }
-        };
-
-        (indicator.files || []).forEach(checkAndQueueDelete);
-
-        const filesPerDoc = indicator.filesPerDocument || {};
-         for (const docIndex in filesPerDoc) {
-            (filesPerDoc[docIndex] || []).forEach(checkAndQueueDelete);
         }
-    }
+    });
 
     if (deletionPromises.length > 0) {
         await Promise.all(deletionPromises);
