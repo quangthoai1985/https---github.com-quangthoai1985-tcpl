@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2, LinkIcon, Info, AlertTriangle, FileUp, ListChecks } from "lucide-react";
+import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2, LinkIcon, Info, AlertTriangle, FileUp, ListChecks, Eye, Download } from "lucide-react";
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
@@ -22,6 +22,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
 type FileWithStatus = (File | { name: string, url: string, signatureStatus?: 'validating' | 'valid' | 'invalid' | 'error', signatureError?: string });
@@ -40,11 +41,12 @@ type IndicatorValue = {
 type AssessmentValues = Record<string, IndicatorValue>;
 
 
-function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, isRequired, docIndex, accept }: { 
+function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, isRequired, onPreview, docIndex, accept }: { 
     indicatorId: string; 
     evidence: FileWithStatus[]; 
     onEvidenceChange: (id: string, evidence: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => void; 
     isRequired: boolean;
+    onPreview: (file: { name: string, url: string }) => void;
     docIndex?: number;
     accept?: string;
 }) {
@@ -57,7 +59,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
     };
     
     const handleEvidenceRemove = (itemToRemove: FileWithStatus) => {
-        onEvidenceChange(indicatorId, [], docIndex, itemToRemove);
+        onEvidenceChange(indicatorId, [], docIndex, fileToRemove);
     };
 
     const handleAddLink = () => {
@@ -120,7 +122,12 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
                                 {isLink(item) ? <LinkIcon className="h-4 w-4 flex-shrink-0 text-blue-500" /> : <FileIcon className="h-4 w-4 flex-shrink-0" />}
                                 <span className="truncate text-xs flex-1">{item.name}</span>
                             </div>
-                             <div className="flex items-center gap-2">
+                             <div className="flex items-center gap-1">
+                                { 'url' in item && item.url && (
+                                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onPreview(item as { name: string, url: string })}>
+                                        <Eye className="h-4 w-4" />
+                                    </Button>
+                                )}
                                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEvidenceRemove(item)}>
                                     <X className="h-4 w-4" />
                                 </Button>
@@ -450,7 +457,7 @@ const StatusBadge = ({ status, isCriterion = false }: { status: AssessmentStatus
 };
 
 
-const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, indicator, data, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange }: { 
+const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, indicator, data, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview }: { 
     specialIndicatorIds: string[],
     specialLabels: { no: string; yes: string },
     customBooleanLabels: { true: string, false: string} | null,
@@ -461,6 +468,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
     onNoteChange: (id: string, note: string) => void,
     onEvidenceChange: (id: string, files: (File | { name: string; url: string; })[], docIndex?: number, fileToRemove?: FileWithStatus) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void,
+    onPreview: (file: {name: string, url: string}) => void,
 }) => {
     const isEvidenceRequired = data.status !== 'pending' && data.isTasked !== false && data.files.length === 0;
 
@@ -502,7 +510,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
                 <Label className="font-medium">Hồ sơ minh chứng</Label>
                 <p className="text-sm text-muted-foreground">{indicator.evidenceRequirement || 'Không yêu cầu cụ thể.'}</p>
                 <div className="mt-2">
-                    <EvidenceUploaderComponent indicatorId={indicator.id} evidence={data.files} onEvidenceChange={onEvidenceChange} isRequired={isEvidenceRequired} />
+                    <EvidenceUploaderComponent indicatorId={indicator.id} evidence={data.files} onEvidenceChange={onEvidenceChange} onPreview={onPreview} isRequired={isEvidenceRequired} />
                 </div>
             </div>
         </div>
@@ -543,12 +551,13 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
 
 
 // NEW: Uploader specifically for Criterion 1 that uploads instantly
-const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadComplete, onRemove, periodId, communeId }: {
+const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadComplete, onRemove, onPreview, periodId, communeId }: {
     indicatorId: string;
     docIndex: number;
     evidence: FileWithStatus[];
     onUploadComplete: (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => void;
     onRemove: (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => void;
+    onPreview: (file: { name: string, url: string }) => void;
     periodId: string;
     communeId: string;
 }) => {
@@ -621,8 +630,13 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
                         <FileIcon className="h-4 w-4 flex-shrink-0" />
                         <span className="truncate text-xs flex-1">{item.name}</span>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
                         <SignatureStatusBadge file={item} />
+                        {'url' in item && item.url && (
+                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onPreview(item as { name: string, url: string })}>
+                                <Eye className="h-4 w-4" />
+                            </Button>
+                        )}
                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemove(indicatorId, docIndex, item)}>
                             <X className="h-4 w-4" />
                         </Button>
@@ -641,13 +655,14 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
     );
 };
 
-const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, periodId, communeId }: {
+const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, communeId }: {
     criterion: Criterion;
     assessmentData: AssessmentValues;
     onValueChange: (id: string, value: any) => void;
     onNoteChange: (id: string, note: string) => void;
     onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void;
+    onPreview: (file: { name: string, url: string }) => void;
     periodId: string;
     communeId: string;
 }) => {
@@ -820,6 +835,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                             evidence={data.filesPerDocument?.[i] || []}
                                                             onUploadComplete={handleUploadComplete}
                                                             onRemove={handleRemoveFile}
+                                                            onPreview={onPreview}
                                                             periodId={periodId}
                                                             communeId={communeId}
                                                          />
@@ -855,6 +871,7 @@ export default function SelfAssessmentPage() {
   const { toast } = useToast();
   const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments, deleteFileByUrl } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
   
   const initializeState = useCallback((criteria: Criterion[], existingData?: Record<string, IndicatorResult>): AssessmentValues => {
       const initialState: AssessmentValues = {};
@@ -1262,6 +1279,7 @@ export default function SelfAssessmentPage() {
                                                     onNoteChange={handleNoteChange}
                                                     onEvidenceChange={handleEvidenceChange}
                                                     onIsTaskedChange={handleIsTaskedChange}
+                                                    onPreview={setPreviewFile}
                                                     periodId={activePeriod.id}
                                                     communeId={currentUser.communeId}
                                                  />
@@ -1304,6 +1322,7 @@ export default function SelfAssessmentPage() {
                                                                 onNoteChange={handleNoteChange}
                                                                 onEvidenceChange={handleEvidenceChange}
                                                                 onIsTaskedChange={handleIsTaskedChange}
+                                                                onPreview={setPreviewFile}
                                                             />
                                                         ) : (
                                                             <>
@@ -1339,6 +1358,7 @@ export default function SelfAssessmentPage() {
                                                                                   onNoteChange={handleNoteChange}
                                                                                   onEvidenceChange={handleEvidenceChange}
                                                                                   onIsTaskedChange={handleIsTaskedChange}
+                                                                                  onPreview={setPreviewFile}
                                                                               />
                                                                           </div>
                                                                         )
@@ -1384,6 +1404,27 @@ export default function SelfAssessmentPage() {
             )}
         </Card>
     </div>
+
+    <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
+            <DialogHeader className="p-6 pb-0">
+                <DialogTitle>Xem trước: {previewFile?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 px-6 pb-6 h-full">
+                {previewFile && (
+                   <iframe 
+                        src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`} 
+                        className="w-full h-full border rounded-md" 
+                        title={previewFile.name}
+                    ></iframe>
+                )}
+            </div>
+            <DialogFooter className="p-6 pt-0 border-t">
+                 <Button variant="secondary" onClick={() => window.open(previewFile?.url, '_blank')}><Download className="mr-2 h-4 w-4"/> Tải xuống</Button>
+                <Button variant="outline" onClick={() => setPreviewFile(null)}>Đóng</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
     </>
   );
 }
