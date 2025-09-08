@@ -627,7 +627,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                  <div className="flex items-center gap-4">
                                                     <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
                                                        {index === 0 && "Tổng số VBQPPL được ban hành:"}
-                                                       {index === 1 && "Tổng số dự thảo VBQPPL được ban hành:"}
+                                                       {index === 1 && "Tổng số dự thảo NQ của HĐND, QĐ của UBND được truyền thông"}
                                                        {index === 2 && "Tổng số Nghị quyết được thực hiện tự kiểm tra:"}
                                                     </Label>
                                                      <Input 

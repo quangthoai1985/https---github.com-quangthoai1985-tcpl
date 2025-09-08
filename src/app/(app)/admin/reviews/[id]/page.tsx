@@ -524,7 +524,7 @@ export default function AssessmentDetailPage() {
                                                                 <div className="flex items-center gap-2">
                                                                     <Label htmlFor={`${indicator.id}-input`} className="shrink-0 text-sm">
                                                                          {idx === 0 && "Tổng số VBQPPL được ban hành:"}
-                                                                         {idx === 1 && "Tổng số dự thảo VBQPPL được ban hành:"}
+                                                                         {idx === 1 && "Tổng số dự thảo NQ của HĐND, QĐ của UBND được truyền thông"}
                                                                          {idx === 2 && "Tổng số Nghị quyết được thực hiện tự kiểm tra:"}
                                                                     </Label>
                                                                     <Badge variant="outline" className="text-base">{result.value || 0}</Badge>
