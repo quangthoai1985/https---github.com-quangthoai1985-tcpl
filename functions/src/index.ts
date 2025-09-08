@@ -4,6 +4,7 @@ import { onDocumentWritten } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import { onObjectFinalized } from "firebase-functions/v2/storage";
 import { logger } from "firebase-functions";
+import * as forge from 'node-forge';
 
 admin.initializeApp();
 
@@ -50,6 +51,49 @@ export const syncUserClaims = onDocumentWritten("users/{userId}", async (event) 
   return null;
 });
 
+/**
+ * Extracts the raw signature data from a PDF buffer.
+ * @param pdfBuffer The buffer containing the PDF file content.
+ * @returns The signature data as a hexadecimal string, or null if not found.
+ */
+const extractSignature = (pdfBuffer: Buffer): string | null => {
+    const pdfString = pdfBuffer.toString('binary');
+    
+    // Find ByteRange
+    const byteRangePos = pdfString.lastIndexOf('/ByteRange');
+    if (byteRangePos === -1) {
+        logger.warn("Could not find /ByteRange in the PDF.");
+        return null;
+    }
+    
+    const byteRangeEnd = pdfString.indexOf(']', byteRangePos);
+    if (byteRangeEnd === -1) {
+        logger.warn("Could not find the end of /ByteRange array.");
+        return null;
+    }
+    
+    const byteRangeValue = pdfString.substring(byteRangePos, byteRangeEnd);
+    const match = byteRangeValue.match(/\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/);
+    if (!match) {
+        logger.warn("Could not parse /ByteRange values.");
+        return null;
+    }
+    
+    // Find signature content
+    const contentsPos = pdfString.lastIndexOf('/Contents');
+    const contentsStart = pdfString.indexOf('<', contentsPos);
+    const contentsEnd = pdfString.indexOf('>', contentsStart);
+    
+    if (contentsStart === -1 || contentsEnd === -1) {
+        logger.warn("Could not find signature /Contents block.");
+        return null;
+    }
+
+    const signatureHex = pdfString.substring(contentsStart + 1, contentsEnd);
+    // Remove any line breaks from the hex string
+    return signatureHex.replace(/\r\n|\n|\r/g, '');
+};
+
 
 /**
  * Triggered when a new file is uploaded to Firebase Storage.
@@ -75,13 +119,23 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
         
         // Download the file content into a buffer.
         const [fileBuffer] = await file.download();
-
         logger.info(`File content downloaded into buffer. Size: ${fileBuffer.length} bytes.`);
-        logger.log("TODO: Add PDF signature verification logic here using the buffer.");
+        
+        const signatureHex = extractSignature(fileBuffer);
+        
+        if (!signatureHex) {
+            logger.error("No signature found in the PDF file.");
+            return null;
+        }
 
-        // Example: You can now use a library to process the buffer
-        // const pdfData = await somePdfParser(fileBuffer);
-        // ... your logic here ...
+        logger.info(`Extracted signature hex data (length: ${signatureHex.length}).`);
+
+        // Parse the signature using node-forge
+        const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
+        const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
+
+        logger.info("Successfully parsed PKCS#7 signature from the PDF.");
+        logger.log("TODO: Add signature verification logic here using the parsed p7 object.");
 
     } catch (error) {
         logger.error("Error downloading or processing file:", error);
