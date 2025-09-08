@@ -631,15 +631,9 @@ export default function AssessmentDetailPage() {
                                                         <span className="truncate">{file.name}</span>
                                                       </div>
                                                       <div className="flex items-center">
-                                                        {isLink(file) ? (
-                                                          <Button variant="ghost" size="icon" className="h-8 w-8" asChild>
-                                                            <a href={file.url} target="_blank" rel="noopener noreferrer"><Eye className="h-4 w-4" /></a>
-                                                          </Button>
-                                                        ) : (
-                                                          <>
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewFile(file)}> <Eye className="h-4 w-4" /> </Button>
+                                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewFile(file)}> <Eye className="h-4 w-4" /> </Button>
+                                                        {isLink(file) ? null : (
                                                             <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.open(file.url, '_blank')}><Download className="h-4 w-4" /></Button>
-                                                          </>
                                                         )}
                                                       </div>
                                                     </div>

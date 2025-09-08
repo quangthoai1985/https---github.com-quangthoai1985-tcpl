@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { Button } from '@/components/ui/button';
@@ -125,7 +126,6 @@ export default function DocumentsPage() {
     const confirmDelete = async () => {
         if (!deletingDocument || !storage) return;
 
-        // **FIX**: Security Check
         if (!isAdmin) {
             toast({ variant: 'destructive', title: "Lỗi!", description: "Bạn không có quyền thực hiện hành động này." });
             setDeletingDocument(null);
@@ -134,21 +134,16 @@ export default function DocumentsPage() {
         
         setIsSubmitting(true);
         try {
-            // Delete file from storage if it exists
             if (deletingDocument.fileUrl) {
-                // We need to get the reference from the full URL.
-                // Firebase SDK v9+ can do this directly.
                 const fileRef = ref(storage, deletingDocument.fileUrl);
                 await deleteObject(fileRef);
                 toast({ title: "Thành công", description: "Đã xóa tệp đính kèm khỏi Storage." });
             }
 
-            // Delete document from Firestore
             await updateGuidanceDocuments(guidanceDocuments.filter(d => d.id !== deletingDocument.id));
             toast({ title: "Thành công!", description: `Đã xóa văn bản "${deletingDocument.name}".` });
 
         } catch (error: any) {
-            // If file doesn't exist, we can ignore the error and still delete the document entry
             if (error.code === 'storage/object-not-found') {
                 console.warn("File to delete was not found in Storage, proceeding to delete from Firestore.");
                 await updateGuidanceDocuments(guidanceDocuments.filter(d => d.id !== deletingDocument.id));
@@ -169,7 +164,6 @@ export default function DocumentsPage() {
             return;
         }
 
-        // **FIX**: Security Check
         if (!isAdmin) {
             toast({ variant: 'destructive', title: "Lỗi!", description: "Bạn không có quyền thực hiện hành động này." });
             return;
@@ -182,11 +176,9 @@ export default function DocumentsPage() {
         try {
             if (file) {
                 toast({ title: 'Đang tải tệp lên...'});
-                // **FIX**: Create a structured and secure file path
                 const filePath = `guidance_documents/${docId}/${file.name}`;
                 const storageRef = ref(storage, filePath);
                 
-                // Delete old file if editing and a new file is uploaded
                 if (docData.id && docData.fileUrl) {
                     try {
                         const oldFileRef = ref(storage, docData.fileUrl);
