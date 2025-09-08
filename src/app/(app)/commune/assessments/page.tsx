@@ -1,4 +1,3 @@
-
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -24,23 +23,24 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 
 type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
+type FileWithStatus = (File | { name: string, url: string, signatureStatus?: 'validating' | 'valid' | 'invalid' | 'error', signatureError?: string });
+
 // Updated value structure to handle the new logic
 type IndicatorValue = {
     isTasked?: boolean;
     value: any; // The actual value (percentage, boolean, text, object for checkboxes etc.)
-    files: (File | { name: string, url: string })[]; // Can hold local files or uploaded file info
-    filesPerDocument?: { [documentIndex: number]: (File | { name: string, url: string })[] };
+    files: FileWithStatus[]; // Can hold local files or uploaded file info
+    filesPerDocument?: { [documentIndex: number]: FileWithStatus[] };
     note: string;
     status: AssessmentStatus;
 };
 type AssessmentValues = Record<string, IndicatorValue>;
-type AssessmentFileUrls = Record<string, { name: string, url: string }[]>;
 
 
 function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, isRequired, docIndex, accept }: { 
     indicatorId: string; 
-    evidence: (File | { name: string, url: string })[]; 
-    onEvidenceChange: (id: string, evidence: (File | { name: string, url: string })[], docIndex?: number) => void; 
+    evidence: FileWithStatus[]; 
+    onEvidenceChange: (id: string, evidence: FileWithStatus[], docIndex?: number) => void; 
     isRequired: boolean;
     docIndex?: number;
     accept?: string;
@@ -53,7 +53,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
         onEvidenceChange(indicatorId, [...evidence, ...newFiles], docIndex);
     };
     
-    const handleEvidenceRemove = (itemToRemove: File | { name: string, url: string }) => {
+    const handleEvidenceRemove = (itemToRemove: FileWithStatus) => {
         onEvidenceChange(indicatorId, evidence.filter(item => item.name !== itemToRemove.name), docIndex);
     };
 
@@ -75,6 +75,31 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
         ? "Chỉ chấp nhận tệp PDF." 
         : "Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF.";
 
+    const SignatureStatusBadge = ({ file }: { file: FileWithStatus }) => {
+        if (!('signatureStatus' in file) || !file.signatureStatus) return null;
+
+        const statusMap = {
+            validating: { text: 'Đang kiểm tra...', className: 'bg-yellow-400', icon: <Loader2 className="h-3 w-3 animate-spin" /> },
+            valid: { text: 'Hợp lệ', className: 'bg-green-500', icon: <CheckCircle className="h-3 w-3" /> },
+            invalid: { text: 'Không hợp lệ', className: 'bg-red-500', icon: <XCircle className="h-3 w-3" /> },
+            error: { text: 'Lỗi kiểm tra', className: 'bg-gray-500', icon: <AlertTriangle className="h-3 w-3" /> }
+        };
+        const currentStatus = statusMap[file.signatureStatus];
+
+        return (
+            <div className="group relative">
+                <Badge className={`${currentStatus.className} text-white text-[10px] h-5`}>
+                    {currentStatus.icon}
+                    <span className="ml-1">{currentStatus.text}</span>
+                </Badge>
+                {(file.signatureStatus === 'invalid' || file.signatureStatus === 'error') && file.signatureError && (
+                    <div className="absolute bottom-full mb-2 w-48 z-10 hidden group-hover:block p-2 text-xs font-normal text-white bg-black rounded-lg shadow-lg">
+                        {file.signatureError}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     return (
         <div className="grid gap-4">
@@ -114,13 +139,16 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
                  <div className="space-y-2 mt-2">
                     {evidence.map((item, index) => (
                         <div key={index} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm">
-                            <div className="flex items-center gap-2 truncate">
+                            <div className="flex items-center gap-2 truncate flex-1">
                                 {isLink(item) ? <LinkIcon className="h-4 w-4 flex-shrink-0 text-blue-500" /> : <FileIcon className="h-4 w-4 flex-shrink-0" />}
-                                <span className="truncate text-xs">{item.name}</span>
+                                <span className="truncate text-xs flex-1">{item.name}</span>
                             </div>
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEvidenceRemove(item)}>
-                                <X className="h-4 w-4" />
-                            </Button>
+                             <div className="flex items-center gap-2">
+                                <SignatureStatusBadge file={item} />
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEvidenceRemove(item)}>
+                                    <X className="h-4 w-4" />
+                                </Button>
+                             </div>
                         </div>
                     ))}
                  </div>
@@ -359,7 +387,7 @@ const renderInput = (
     }
 }
 
-const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean, assignedCount?: number): AssessmentStatus => {
+const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean, assignedCount?: number, filesPerDocument?: { [documentIndex: number]: FileWithStatus[] }): AssessmentStatus => {
     // If not tasked/required, it's automatically achieved.
     if (isTasked === false) {
         return 'achieved';
@@ -369,13 +397,17 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean, a
     if (assignedCount && assignedCount > 0) {
         const enteredValue = Number(value);
         if (isNaN(enteredValue) || value === '' || value === null) return 'pending';
+        
+        const allFilesValid = Object.values(filesPerDocument || {}).flat().every(f => f.signatureStatus === 'valid');
+        if (!allFilesValid) return 'not-achieved';
+
         return enteredValue >= assignedCount ? 'achieved' : 'not-achieved';
     }
     
     // Handle checkbox logic
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         const checkedCount = Object.values(value).filter(v => v === true).length;
-        const requiredCount = parseInt(standardLevel.match(/(\\d+)/)?.[0] || '2', 10);
+        const requiredCount = parseInt(standardLevel.match(/(\d+)/)?.[0] || '2', 10);
         return checkedCount >= requiredCount ? 'achieved' : 'not-achieved';
     }
 
@@ -507,13 +539,23 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
     for (const key in data) {
         if (Object.prototype.hasOwnProperty.call(data, key)) {
             const indicatorData = data[key];
+            const sanitizeFiles = (files: FileWithStatus[]) => files.map(f => {
+                if (f instanceof File) {
+                    return { name: f.name, url: '' }; // URL will be filled in after upload
+                }
+                // Keep existing file objects but strip away local-only properties if any
+                return { name: f.name, url: f.url, signatureStatus: f.signatureStatus, signatureError: f.signatureError };
+            });
+
             sanitizedData[key] = {
-                ...indicatorData,
                 isTasked: indicatorData.isTasked === undefined ? null : indicatorData.isTasked,
                 value: indicatorData.value === undefined ? null : indicatorData.value,
-                 // Ensure files only contain URL and name for Firestore
-                files: indicatorData.files.map(f => !(f instanceof File) ? f : { name: f.name, url: '' }), // Placeholder for now
-                filesPerDocument: indicatorData.filesPerDocument ? Object.fromEntries(Object.entries(indicatorData.filesPerDocument).map(([idx, fileList]) => [idx, fileList.map(f => !(f instanceof File) ? f : {name: f.name, url: ''})])) : {}
+                note: indicatorData.note,
+                status: indicatorData.status,
+                files: sanitizeFiles(indicatorData.files),
+                filesPerDocument: indicatorData.filesPerDocument ? Object.fromEntries(
+                    Object.entries(indicatorData.filesPerDocument).map(([idx, fileList]) => [idx, sanitizeFiles(fileList)])
+                ) : {},
             };
         }
     }
@@ -525,7 +567,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     assessmentData: AssessmentValues;
     onValueChange: (id: string, value: any) => void;
     onNoteChange: (id: string, note: string) => void;
-    onEvidenceChange: (id: string, files: (File | { name: string; url: string; })[], docIndex?: number) => void;
+    onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number) => void;
     onIsTaskedChange: (id: string, isTasked: boolean) => void;
 }) => {
     const assignedCount = criterion.assignedDocumentsCount || 0;
@@ -782,8 +824,9 @@ export default function SelfAssessmentPage() {
         // For criterion 1, assignedCount is on the parent criterion
         const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
         const assignedCount = parentCriterion?.id === 'TC01' ? parentCriterion.assignedDocumentsCount : undefined;
+        const filesPerDocument = parentCriterion?.id === 'TC01' ? assessmentData[indicatorId].filesPerDocument : undefined;
         
-        const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, isTasked, assignedCount);
+        const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, isTasked, assignedCount, filesPerDocument);
         setAssessmentData(prev => ({
             ...prev,
             [indicatorId]: {
@@ -806,8 +849,9 @@ export default function SelfAssessmentPage() {
         
         const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
         const assignedCount = parentCriterion?.id === 'TC01' ? parentCriterion.assignedDocumentsCount : undefined;
+        const filesPerDocument = parentCriterion?.id === 'TC01' ? assessmentData[indicatorId].filesPerDocument : undefined;
         
-        let newStatus = evaluateStatus(value, indicator.standardLevel, isTasked, assignedCount);
+        let newStatus = evaluateStatus(value, indicator.standardLevel, isTasked, assignedCount, filesPerDocument);
         
         setAssessmentData(prev => ({
             ...prev,
@@ -831,7 +875,7 @@ export default function SelfAssessmentPage() {
   };
 
 
-  const handleEvidenceChange = (indicatorId: string, evidence: (File | { name: string, url: string })[], docIndex?: number) => {
+  const handleEvidenceChange = (indicatorId: string, evidence: FileWithStatus[], docIndex?: number) => {
       setAssessmentData(prev => {
           const newData = {...prev};
           const currentIndicatorData = newData[indicatorId];
@@ -847,33 +891,55 @@ export default function SelfAssessmentPage() {
       })
   }
 
-  const uploadEvidenceFiles = async (periodId: string, communeId: string): Promise<AssessmentFileUrls> => {
+  const uploadEvidenceFiles = async (periodId: string, communeId: string): Promise<Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }>> => {
     if (!storage) throw new Error("Firebase Storage is not initialized.");
 
-    const uploadedFileUrls: AssessmentFileUrls = {};
+    const uploadedFileUrls: Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithSthatus[]> }> = {};
     const allUploadPromises: Promise<void>[] = [];
 
     for (const indicatorId in assessmentData) {
         const indicatorData = assessmentData[indicatorId];
-        
-        // Separate local files from existing links/files
-        const localFilesToUpload = indicatorData.files.filter((f): f is File => f instanceof File);
-        const existingEvidence = indicatorData.files.filter((f): f is {name: string, url: string} => !(f instanceof File));
-        
-        uploadedFileUrls[indicatorId] = { ...uploadedFileUrls[indicatorId], files: existingEvidence };
+        uploadedFileUrls[indicatorId] = {};
 
-        if (localFilesToUpload.length > 0) {
-            const indicatorPromises = localFilesToUpload.map(async file => {
+        // Process general files
+        const localFiles = indicatorData.files.filter((f): f is File => f instanceof File);
+        const existingFiles = indicatorData.files.filter((f): f is {name: string, url: string} => !(f instanceof File));
+        uploadedFileUrls[indicatorId].files = existingFiles;
+        
+        localFiles.forEach(file => {
+            const promise = async () => {
                 const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${file.name}`;
                 const storageRef = ref(storage, filePath);
                 const snapshot = await uploadBytes(storageRef, file);
                 const downloadURL = await getDownloadURL(snapshot.ref);
-                if (!uploadedFileUrls[indicatorId].files) {
-                  uploadedFileUrls[indicatorId].files = [];
+                uploadedFileUrls[indicatorId].files!.push({ name: file.name, url: downloadURL });
+            };
+            allUploadPromises.push(promise());
+        });
+        
+        // Process files per document (for Criterion 1)
+        if (indicatorData.filesPerDocument) {
+            uploadedFileUrls[indicatorId].filesPerDocument = {};
+             for (const docIdx in indicatorData.filesPerDocument) {
+                const localDocFiles = indicatorData.filesPerDocument[docIdx].filter((f): f is File => f instanceof File);
+                const existingDocFiles = indicatorData.filesPerDocument[docIdx].filter((f): f is {name: string, url: string} => !(f instanceof File));
+                
+                if (!uploadedFileUrls[indicatorId].filesPerDocument![docIdx]) {
+                    uploadedFileUrls[indicatorId].filesPerDocument![docIdx] = [];
                 }
-                uploadedFileUrls[indicatorId].files.push({ name: file.name, url: downloadURL });
-            });
-            allUploadPromises.push(...indicatorPromises);
+                uploadedFileUrls[indicatorId].filesPerDocument![docIdx].push(...existingDocFiles);
+
+                localDocFiles.forEach(file => {
+                    const promise = async () => {
+                        const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIdx}/${file.name}`;
+                        const storageRef = ref(storage, filePath);
+                        const snapshot = await uploadBytes(storageRef, file);
+                        const downloadURL = await getDownloadURL(snapshot.ref);
+                         uploadedFileUrls[indicatorId].filesPerDocument![docIdx].push({ name: file.name, url: downloadURL });
+                    };
+                    allUploadPromises.push(promise());
+                });
+            }
         }
     }
 
@@ -940,9 +1006,9 @@ export default function SelfAssessmentPage() {
 
             if (isCriterion1) {
                  const assignedDocs = parentCriterion.documents || [];
-                 if (assignedDocs.length > 0) {
-                     const allDocsHaveEvidence = assignedDocs.every((_, i) => (data.filesPerDocument?.[i] || []).length > 0);
-                     if (!allDocsHaveEvidence) {
+                 if (assignedDocs.length > 0 && data.value > 0) { // Only check if documents are assigned and user has entered a value
+                     const docIndicesWithMissingFiles = assignedDocs.map((_,i) => i).filter(i => (data.filesPerDocument?.[i] || []).length === 0);
+                     if (docIndicesWithMissingFiles.length > 0) {
                          errors.push(`Chỉ tiêu "${indicator.name}" yêu cầu minh chứng cho mỗi văn bản được giao.`);
                      }
                  }
@@ -973,15 +1039,15 @@ export default function SelfAssessmentPage() {
     toast({ title: 'Đang gửi hồ sơ...', description: 'Vui lòng chờ trong giây lát.' });
 
     try {
-        const fileUrls = await uploadEvidenceFiles(activePeriod.id, currentUser.communeId);
+        const fileUrlsByIndicator = await uploadEvidenceFiles(activePeriod.id, currentUser.communeId);
         
-        // Create a serializable version of assessmentData with file URLs, also sanitizing it
+        // Create a serializable version of assessmentData with file URLs
         const sanitizedData = sanitizeDataForFirestore(assessmentData);
         const assessmentDataForFirestore = Object.entries(sanitizedData).reduce((acc, [key, value]) => {
             acc[key] = {
                 ...value,
-                files: fileUrls[key]?.files || [], // Use the uploaded URLs
-                filesPerDocument: fileUrls[key]?.filesPerDocument || {},
+                files: fileUrlsByIndicator[key]?.files || value.files,
+                filesPerDocument: fileUrlsByIndicator[key]?.filesPerDocument || value.filesPerDocument,
             };
             return acc;
         }, {} as Record<string, IndicatorResult>);
@@ -1206,4 +1272,3 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
-

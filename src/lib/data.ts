@@ -4,9 +4,20 @@
 export type IndicatorResult = {
     isTasked?: boolean | null;
     value: any;
-    files: { name: string, url: string }[];
+    files: { 
+        name: string, 
+        url: string,
+        // NEW: Add fields for real-time signature validation
+        signatureStatus?: 'validating' | 'valid' | 'invalid' | 'error';
+        signatureError?: string;
+    }[];
     // NEW: Add a field to store files for each specific document required by Criterion 1
-    filesPerDocument?: { [documentIndex: number]: { name: string, url: string }[] };
+    filesPerDocument?: { [documentIndex: number]: { 
+        name: string, 
+        url: string,
+        signatureStatus?: 'validating' | 'valid' | 'invalid' | 'error';
+        signatureError?: string;
+    }[] };
     note: string;
     status: 'achieved' | 'not-achieved' | 'pending';
     adminNote?: string; // Ghi chú của admin cho từng chỉ tiêu

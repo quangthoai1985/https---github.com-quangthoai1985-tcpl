@@ -12,7 +12,7 @@ import {
     type LoginConfig
 } from '@/lib/data';
 import { initializeApp, getApp, getApps, FirebaseOptions, type FirebaseApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, type Firestore, deleteDoc, getDoc } from 'firebase/firestore'; // Import 'getDoc'
+import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, type Firestore, deleteDoc, getDoc, onSnapshot, query, where } from 'firebase/firestore'; // Import onSnapshot
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser, type Auth } from 'firebase/auth';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
 
@@ -110,46 +110,39 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       if (!user) return [];
       
       const generated: Notification[] = [];
-      const sortedAssessments = [...allAssessments].sort((a,b) => (b.submissionDate || '').localeCompare(a.submissionDate || ''));
+      const sortedAssessments = [...allAssessments].sort((a,b) => (b.registrationSubmissionDate || b.assessmentSubmissionDate || '').localeCompare(a.registrationSubmissionDate || a.assessmentSubmissionDate || ''));
 
       if (user.role === 'admin') {
           sortedAssessments.forEach(assessment => {
-              if (assessment.status === 'pending_registration') {
+              if (assessment.registrationStatus === 'pending') {
                   const communeName = getUnitName(assessment.communeId, allUnits);
                   generated.push({
                       id: `admin-notif-reg-${assessment.id}`,
                       title: `${communeName} vừa gửi yêu cầu đăng ký.`,
-                      time: `Ngày ${assessment.submissionDate}`,
+                      time: `Ngày ${assessment.registrationSubmissionDate}`,
                       read: false,
                       link: `/admin/registrations?tab=pending`
                   });
               }
-              if (assessment.status === 'pending_review') {
+              if (assessment.assessmentStatus === 'pending_review') {
                   const communeName = getUnitName(assessment.communeId, allUnits);
                   generated.push({
                       id: `admin-notif-${assessment.id}`,
                       title: `${communeName} vừa gửi hồ sơ đánh giá.`,
-                      time: `Ngày ${assessment.submissionDate}`,
+                      time: `Ngày ${assessment.assessmentSubmissionDate}`,
                       read: false,
                       link: `/admin/reviews/${assessment.id}`
                   });
               }
-              if (assessment.status === 'rejected' && assessment.communeExplanation) {
-                   const communeName = getUnitName(assessment.communeId, allUnits);
-                   generated.push({
-                      id: `admin-resubmit-notif-${assessment.id}`,
-                      title: `${communeName} vừa gửi lại hồ sơ sau khi bị từ chối.`,
-                      time: `Ngày ${assessment.submissionDate}`,
-                      read: false,
-                      link: `/admin/reviews/${assessment.id}`
-                  });
-              }
+               if (assessment.assessmentStatus === 'returned_for_revision') {
+                   // Add notification logic if needed
+               }
           });
 
       } else { // commune_staff
           const userAssessments = sortedAssessments.filter(a => a.communeId === user.communeId);
           userAssessments.forEach(assessment => {
-              if (assessment.status === 'registration_approved') {
+              if (assessment.registrationStatus === 'approved') {
                   generated.push({
                       id: `commune-reg-approved-${assessment.id}`,
                       title: `Đăng ký của bạn đã được duyệt.`,
@@ -158,7 +151,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                       link: `/commune/assessments`
                   });
               }
-               if (assessment.status === 'registration_rejected') {
+               if (assessment.registrationStatus === 'rejected') {
                   generated.push({
                       id: `commune-reg-rejected-${assessment.id}`,
                       title: `Đăng ký của bạn đã bị từ chối/bị trả lại.`,
@@ -167,20 +160,29 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                       link: `/dashboard`
                   });
               }
-              if (assessment.status === 'approved') {
+              if (assessment.assessmentStatus === 'achieved_standard') {
                   generated.push({
                       id: `commune-approved-${assessment.id}`,
-                      title: `Hồ sơ của bạn đã được duyệt.`,
+                      title: `Chúc mừng! Hồ sơ của bạn đã được công nhận Đạt Chuẩn.`,
                       time: `Ngày ${assessment.approvalDate}`,
                       read: false,
                       link: `/admin/reviews/${assessment.id}`
                   });
               }
-               if (assessment.status === 'rejected') {
+               if (assessment.assessmentStatus === 'rejected') {
                   generated.push({
                       id: `commune-rejected-${assessment.id}`,
-                      title: `Hồ sơ của bạn đã bị từ chối.`,
-                      time: `Ngày ${assessment.submissionDate}`,
+                      title: `Rất tiếc, hồ sơ của bạn đã bị đánh giá là Không Đạt.`,
+                      time: `Ngày ${assessment.approvalDate}`,
+                      read: false,
+                      link: `/admin/reviews/${assessment.id}`
+                  });
+              }
+              if (assessment.assessmentStatus === 'returned_for_revision') {
+                  generated.push({
+                      id: `commune-returned-${assessment.id}`,
+                      title: `Hồ sơ của bạn đã được trả lại để bổ sung/chỉnh sửa.`,
+                      time: `Vui lòng xem chi tiết ghi chú của Admin.`,
                       read: false,
                       link: `/admin/reviews/${assessment.id}`
                   });
@@ -188,145 +190,117 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           });
       }
 
-      return generated.slice(0, 10);
+      // Simple deduplication and limit
+      const uniqueNotifications = Array.from(new Map(generated.map(item => [item.id, item])).values());
+      return uniqueNotifications.slice(0, 15);
   };
-
-  const fetchPrivateData = useCallback(async (loggedInUser: User) => {
-    if (!db) return;
-    console.log("Fetching private data for logged in user:", loggedInUser.role);
-    try {
-        // Tạo một mảng các promise để lấy dữ liệu chung
-        const commonPromises = [
-            getDocs(collection(db, 'units')),
-            getDocs(collection(db, 'assessmentPeriods')),
-            getDocs(collection(db, 'assessments')),
-            getDocs(collection(db, 'criteria')),
-            getDocs(collection(db, 'guidanceDocuments')),
-        ];
-
-        // Chạy các promise chung trước
-        const [
-            unitsSnapshot,
-            periodsSnapshot,
-            assessmentsSnapshot,
-            criteriaSnapshot,
-            documentsSnapshot,
-        ] = await Promise.all(commonPromises);
-
-        const fetchedUnits = unitsSnapshot.docs.map(d => d.data() as Unit);
-        const fetchedAssessments = assessmentsSnapshot.docs.map(d => d.data() as Assessment);
-
-        // Cập nhật state cho dữ liệu chung
-        setUnits(fetchedUnits);
-        setAssessmentPeriods(periodsSnapshot.docs.map(d => d.data() as AssessmentPeriod));
-        setAssessments(fetchedAssessments);
-        setCriteria(criteriaSnapshot.docs.map(d => d.data() as Criterion));
-        setGuidanceDocuments(documentsSnapshot.docs.map(d => d.data() as AppDocument));
-
-        // ✅ LOGIC QUAN TRỌNG: Chỉ lấy danh sách users nếu là admin
-        if (loggedInUser.role === 'admin') {
-            console.log("User is admin, fetching all users...");
-            const usersSnapshot = await getDocs(collection(db, 'users'));
-            setUsers(usersSnapshot.docs.map(d => d.data() as User));
-        } else {
-            // Nếu không phải admin, đặt danh sách users là một mảng rỗng
-            setUsers([]);
-        }
-        
-        // Tạo thông báo sau khi đã có đủ dữ liệu cần thiết
-        setNotifications(generateNotifications(loggedInUser, fetchedAssessments, fetchedUnits));
-        console.log("Private data fetched successfully.");
-
-    } catch (error) {
-        console.error("Error fetching private data:", error);
-        // Có lỗi xảy ra, đảm bảo các state đều rỗng để tránh hiển thị dữ liệu cũ
-        setUsers([]);
-        setUnits([]);
-        setAssessments([]);
-        // ... reset các state khác nếu cần
-    }
-}, [db]); // Bỏ generateNotifications khỏi dependencies nếu nó không thay đổi
-
-  // ✅ BƯỚC 1: Tải dữ liệu CÔNG KHAI ngay khi có 'db'.
-  // Chạy độc lập và không phụ thuộc vào trạng thái đăng nhập.
+  
   useEffect(() => {
-    const fetchPublicData = async () => {
-        if (!db) return;
-        console.log("Fetching public data (login config)...");
-        try {
-            // Tối ưu: Đọc trực tiếp document thay vì cả collection
-            const configDocRef = doc(db, 'configurations', 'loginPage');
-            const configDocSnap = await getDoc(configDocRef);
-            
-            if (configDocSnap.exists()) {
-                setLoginConfig(configDocSnap.data() as LoginConfig);
-                console.log("Public data fetched successfully.");
-            } else {
-                console.log("No login config found.");
-                setLoginConfig(null);
+    if (!db) return;
+
+    const collectionsToFetch = ['units', 'assessmentPeriods', 'criteria', 'guidanceDocuments'];
+    const unsubscribes = collectionsToFetch.map(collectionName => {
+        const q = query(collection(db, collectionName));
+        return onSnapshot(q, (querySnapshot) => {
+            const data = querySnapshot.docs.map(doc => doc.data());
+            switch(collectionName) {
+                case 'units': setUnits(data as Unit[]); break;
+                case 'assessmentPeriods': setAssessmentPeriods(data as AssessmentPeriod[]); break;
+                case 'criteria': setCriteria(data as Criterion[]); break;
+                case 'guidanceDocuments': setGuidanceDocuments(data as AppDocument[]); break;
             }
-        } catch (error) {
-            console.error("Error fetching public data:", error);
+        }, (error) => {
+            console.error(`Error listening to ${collectionName}:`, error);
+        });
+    });
+
+    const fetchPublicConfig = async () => {
+      const configDocRef = doc(db, 'configurations', 'loginPage');
+      const unsubConfig = onSnapshot(configDocRef, (doc) => {
+        if (doc.exists()) {
+          setLoginConfig(doc.data() as LoginConfig);
+        } else {
+          setLoginConfig(null);
         }
+      });
+      unsubscribes.push(unsubConfig);
     };
-    fetchPublicData();
+
+    fetchPublicConfig();
+
+    return () => unsubscribes.forEach(unsub => unsub());
   }, [db]);
 
 
-  // ✅ BƯỚC 2: Lắng nghe trạng thái đăng nhập và chỉ tải dữ liệu RIÊNG TƯ KHI CẦN.
+  // Effect for Auth state and user-specific data
   useEffect(() => {
     if (!auth || !db) return;
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      setLoading(true);
-      if (firebaseUser) {
-        // Người dùng đã đăng nhập
-        try {
-            // ✅ SỬA LỖI: Đọc trực tiếp document của người dùng bằng UID, không quét cả collection.
+
+    let unsubAssessments = () => {};
+    let unsubUsers = () => {};
+
+    const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+        setLoading(true);
+
+        // Unsubscribe from previous listeners
+        unsubAssessments();
+        unsubUsers();
+
+        if (firebaseUser) {
             const userDocRef = doc(db, 'users', firebaseUser.uid);
             const userDocSnap = await getDoc(userDocRef);
 
             if (userDocSnap.exists()) {
-              const loggedInUser = userDocSnap.data() as User;
-              setCurrentUser(loggedInUser);
-              setRole(loggedInUser.role);
-              
-              // Chỉ tải dữ liệu riêng tư sau khi đã xác nhận được người dùng
-              await fetchPrivateData(loggedInUser);
-            } else {
-              // Trường hợp hiếm: có auth user nhưng không có profile trong Firestore
-              console.error("User profile not found in Firestore for uid:", firebaseUser.uid);
-              await signOut(auth); // Đăng xuất người dùng
-            }
-        } catch(e) {
-             console.error("Error fetching user profile:", e);
-             await signOut(auth);
-        }
+                const loggedInUser = userDocSnap.data() as User;
+                setCurrentUser(loggedInUser);
+                setRole(loggedInUser.role);
 
-      } else {
-        // Người dùng đã đăng xuất hoặc chưa đăng nhập
-        setCurrentUser(null);
-        setRole(null);
-        // Dọn dẹp state chứa dữ liệu nhạy cảm
-        setUsers([]);
-        setUnits([]);
-        setAssessments([]);
-        setAssessmentPeriods([]);
-        setCriteria([]);
-        setGuidanceDocuments([]);
-        setNotifications([]);
-      }
-      setLoading(false);
+                // Set up new listeners based on role
+                if (loggedInUser.role === 'admin') {
+                    const usersQuery = query(collection(db, 'users'));
+                    unsubUsers = onSnapshot(usersQuery, (snap) => setUsers(snap.docs.map(d => d.data() as User)));
+
+                    const assessmentsQuery = query(collection(db, 'assessments'));
+                    unsubAssessments = onSnapshot(assessmentsQuery, (snap) => setAssessments(snap.docs.map(d => d.data() as Assessment)));
+                } else { // commune_staff
+                    setUsers([]); // Staff don't see other users
+                    const assessmentsQuery = query(collection(db, 'assessments'), where("communeId", "==", loggedInUser.communeId));
+                    unsubAssessments = onSnapshot(assessmentsQuery, (snap) => setAssessments(snap.docs.map(d => d.data() as Assessment)));
+                }
+            } else {
+                console.error("User profile not found, logging out.");
+                await signOut(auth);
+            }
+        } else {
+            // Logged out
+            setCurrentUser(null);
+            setRole(null);
+            setUsers([]);
+            setAssessments([]);
+            setNotifications([]);
+        }
+        setLoading(false);
     });
 
-    return () => unsubscribe();
-  }, [auth, db, fetchPrivateData]); // Bỏ fetchPublicData khỏi dependencies
+    return () => {
+        unsubAuth();
+        unsubAssessments();
+        unsubUsers();
+    };
+}, [auth, db]);
+
+// Effect to generate notifications whenever relevant data changes
+useEffect(() => {
+    setNotifications(generateNotifications(currentUser, assessments, units));
+}, [currentUser, assessments, units]);
+
+
 
   const setLoginInfo = async (email: string, password: string): Promise<boolean> => {
     if (!auth) return false;
     setLoading(true);
     try {
         const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        // Listener onAuthStateChanged sẽ tự động xử lý việc tải dữ liệu sau khi đăng nhập thành công
         return !!userCredential.user;
     } catch(e) {
         console.error("Login Error: ", e);
@@ -339,7 +313,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     if (!auth) return;
     try {
       await signOut(auth);
-      // Listener onAuthStateChanged sẽ tự động dọn dẹp state
     } catch (error) {
       console.error("Error signing out: ", error);
     }
@@ -371,8 +344,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       });
       
       await batch.commit();
-      stateUpdater(newData);
-      await refreshData();
+      // stateUpdater(newData); // No need to update state manually, onSnapshot will do it.
       setLoading(false);
     };
   };
@@ -382,8 +354,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       const docRef = doc(db, 'configurations', 'loginPage');
       await setDoc(docRef, newConfig, { merge: true });
-      // Cập nhật lại state cục bộ để UI thay đổi ngay lập tức
-      setLoginConfig(prevConfig => ({...prevConfig, ...newConfig}));
+      // setLoginConfig(prevConfig => ({...prevConfig, ...newConfig}));
       setLoading(false);
   }
 
@@ -392,7 +363,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       setLoading(true);
       try {
           await deleteDoc(doc(db, 'assessments', assessmentId));
-          setAssessments(prev => prev.filter(a => a.id !== assessmentId));
+          // setAssessments(prev => prev.filter(a => a.id !== assessmentId));
       } catch (error) {
           console.error("Error deleting assessment:", error);
           throw error;
@@ -401,22 +372,11 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       }
   };
 
-  // refreshData được đơn giản hóa, vì onAuthStateChanged đã xử lý logic chính
   const refreshData = useCallback(async () => {
-      if (!auth?.currentUser || !db) {
-        console.log("User not logged in or DB not ready, skipping refresh.");
-        return;
-      }
-      setLoading(true);
-      const userDocRef = doc(db, 'users', auth.currentUser.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      if (userDocSnap.exists()) {
-          await fetchPrivateData(userDocSnap.data() as User);
-      } else {
-          await logout();
-      }
-      setLoading(false);
-  }, [auth, db, fetchPrivateData]);
+      // This function is less critical with onSnapshot, but can be kept for manual refresh triggers.
+      console.log("Manual refresh triggered. Data is already real-time.");
+      return Promise.resolve();
+  }, []);
   
   const markNotificationAsRead = (notificationId: string) => {
     setNotifications(prevNotifications => 
