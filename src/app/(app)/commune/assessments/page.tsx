@@ -605,6 +605,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                              const isAchieved = progress >= 100;
                              const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
                              const isAnyEvidenceRequired = data.status !== 'pending' && (criterion.documents || []).some((_, i) => (data.filesPerDocument?.[i] || []).length === 0);
+                             const isFirstIndicator = indicator.id === criterion.indicators[0]?.id;
  
                              return (
                                  <React.Fragment key={indicator.id}>
@@ -658,6 +659,15 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                          {/* Dynamic Evidence Uploaders */}
                                          <div className="grid gap-2">
                                             <Label className="font-medium">Hồ sơ minh chứng (tương ứng với { (criterion.documents || []).length} văn bản được giao)</Label>
+                                             {isFirstIndicator && (
+                                                <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
+                                                    <AlertTriangle className="h-4 w-4" />
+                                                    <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
+                                                    <AlertDescription>
+                                                        Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số và ngày ký để đối chiếu với thời hạn ban hành.
+                                                    </AlertDescription>
+                                                </Alert>
+                                             )}
                                              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
                                                  {(criterion.documents || []).map((doc, i) => (
                                                      <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
@@ -670,7 +680,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                              evidence={data.filesPerDocument?.[i] || []}
                                                              onEvidenceChange={onEvidenceChange}
                                                              isRequired={data.status !== 'pending' && (data.filesPerDocument?.[i] || []).length === 0}
-                                                             accept={indicator.id === criterion.indicators[0].id ? '.pdf' : undefined}
+                                                             accept={isFirstIndicator ? '.pdf' : undefined}
                                                          />
                                                      </div>
                                                  ))}
@@ -1196,5 +1206,3 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
-
-    
