@@ -1,7 +1,6 @@
-
 // File: functions/src/index.ts
 
-import { onDocumentWritten } from "firebase-functions/v2/firestore";
+import { onDocumentWritten, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import { onObjectFinalized } from "firebase-functions/v2/storage";
 import { logger } from "firebase-functions";
@@ -15,8 +14,6 @@ export const syncUserClaims = onDocumentWritten("users/{userId}", async (event) 
   // Trường hợp document bị xóa, không làm gì cả
   if (!event.data?.after.exists) {
     console.log(`User document ${event.params.userId} deleted. Removing claims.`);
-    // Tùy chọn: Xóa claims khi user bị xóa khỏi Firestore
-    // await admin.auth().setCustomUserClaims(event.params.userId, null);
     return null;
   }
 
@@ -28,20 +25,15 @@ export const syncUserClaims = onDocumentWritten("users/{userId}", async (event) 
     return null;
   }
 
-  // === PHẦN SỬA LỖI QUAN TRỌNG NHẤT ===
-  // Tạo một đối tượng claims trống để thêm các giá trị hợp lệ vào
   const claimsToSet: { [key: string]: any } = {};
 
-  // Chỉ thêm 'role' vào claims nếu nó tồn tại trong userData
   if (userData.role) {
     claimsToSet.role = userData.role;
   }
   
-  // Chỉ thêm 'communeId' vào claims nếu nó tồn tại trong userData
   if (userData.communeId) {
     claimsToSet.communeId = userData.communeId;
   }
-  // =====================================
 
   try {
     console.log(`Updating claims for user ${userId}:`, claimsToSet);
@@ -54,55 +46,35 @@ export const syncUserClaims = onDocumentWritten("users/{userId}", async (event) 
   return null;
 });
 
-/**
- * Extracts the raw signature data from a PDF buffer.
- * @param pdfBuffer The buffer containing the PDF file content.
- * @returns The signature data as a hexadecimal string, or null if not found.
- */
 const extractSignature = (pdfBuffer: Buffer): string | null => {
     const pdfString = pdfBuffer.toString('binary');
-    
-    // Find ByteRange
     const byteRangePos = pdfString.lastIndexOf('/ByteRange');
     if (byteRangePos === -1) {
         logger.warn("Could not find /ByteRange in the PDF.");
         return null;
     }
-    
     const byteRangeEnd = pdfString.indexOf(']', byteRangePos);
     if (byteRangeEnd === -1) {
         logger.warn("Could not find the end of /ByteRange array.");
         return null;
     }
-    
     const byteRangeValue = pdfString.substring(byteRangePos, byteRangeEnd);
     const match = byteRangeValue.match(/\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/);
     if (!match) {
         logger.warn("Could not parse /ByteRange values.");
         return null;
     }
-    
-    // Find signature content
     const contentsPos = pdfString.lastIndexOf('/Contents');
     const contentsStart = pdfString.indexOf('<', contentsPos);
     const contentsEnd = pdfString.indexOf('>', contentsStart);
-    
     if (contentsStart === -1 || contentsEnd === -1) {
         logger.warn("Could not find signature /Contents block.");
         return null;
     }
-
     const signatureHex = pdfString.substring(contentsStart + 1, contentsEnd);
-    // Remove any line breaks from the hex string
     return signatureHex.replace(/\r\n|\n|\r/g, '');
 };
 
-
-/**
- * Triggered when a new file is uploaded to Firebase Storage.
- * It checks if the file is a PDF, downloads its content into a buffer,
- * and logs it for further processing.
- */
 export const processSignedPDF = onObjectFinalized(async (event) => {
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
@@ -139,7 +111,6 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
     const assessmentId = `assess_${periodId}_${communeId}`;
     const assessmentRef = db.collection('assessments').doc(assessmentId);
 
-    // Helper to update the assessment document in Firestore
     const updateAssessmentFileStatus = async (fileStatus: 'validating' | 'valid' | 'invalid' | 'error', reason?: string) => {
         const doc = await assessmentRef.get();
         if (!doc.exists) return;
@@ -161,7 +132,6 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
             }
         }
         
-        // Re-evaluate the overall indicator status after updating the file status
         const criterionDoc = await db.collection('criteria').doc('TC01').get();
         const assignedCount = criterionDoc.data()?.assignedDocumentsCount || 0;
         const allFilesValid = Object.values(indicatorResult.filesPerDocument).flat().every((f: any) => f.signatureStatus === 'valid');
@@ -172,7 +142,6 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
         await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
     };
 
-    // Initial update to show "validating" status on the frontend
     await updateAssessmentFileStatus('validating');
     
     try {
@@ -223,9 +192,7 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
     return null;
 });
 
-// Helper for path parsing
 function parseAssessmentPath(filePath: string): { communeId: string; periodId: string; indicatorId: string; docIndex: number } | null {
-    // Expected path: hoso/{communeId}/evidence/{periodId}/{indicatorId}/{docIndex}/{fileName}
     const parts = filePath.split('/');
     if (parts.length === 7 && parts[0] === 'hoso' && parts[2] === 'evidence') {
          const docIndex = parseInt(parts[5], 10);
@@ -240,3 +207,69 @@ function parseAssessmentPath(filePath: string): { communeId: string; periodId: s
     }
     return null;
 }
+
+/**
+ * Triggered when an assessment document is updated.
+ * Compares file lists before and after the update to find deleted files
+ * and removes them from Firebase Storage.
+ */
+export const onDeleteAssessmentFile = onDocumentUpdated("assessments/{assessmentId}", async (event) => {
+    const dataBefore = event.data?.before.data();
+    const dataAfter = event.data?.after.data();
+
+    if (!dataBefore || !dataAfter) {
+        logger.log("Document data is missing, cannot compare file lists.");
+        return null;
+    }
+
+    const assessmentDataBefore = dataBefore.assessmentData || {};
+    const assessmentDataAfter = dataAfter.assessmentData || {};
+
+    // Create a Set of all file URLs that exist AFTER the update for quick lookup
+    const filesAfterUpdate = new Set<string>();
+    for (const indicatorId in assessmentDataAfter) {
+        const indicator = assessmentDataAfter[indicatorId];
+        (indicator.files || []).forEach((file: {url: string}) => filesAfterUpdate.add(file.url));
+        
+        const filesPerDoc = indicator.filesPerDocument || {};
+        for (const docIndex in filesPerDoc) {
+            (filesPerDoc[docIndex] || []).forEach((file: {url: string}) => filesAfterUpdate.add(file.url));
+        }
+    }
+    
+    // Iterate through the files that existed BEFORE the update
+    const deletionPromises: Promise<any>[] = [];
+    const storage = admin.storage();
+
+    for (const indicatorId in assessmentDataBefore) {
+        const indicator = assessmentDataBefore[indicatorId];
+
+        const checkAndQueueDelete = (file: {url: string}) => {
+            // If a file URL existed before but doesn't exist now, and it's a valid Storage URL, delete it.
+            if (file.url && !filesAfterUpdate.has(file.url) && file.url.includes('firebasestorage.googleapis.com')) {
+                logger.info(`File ${file.url} was removed from assessment. Queuing for deletion from Storage.`);
+                const fileRef = storage.refFromURL(file.url);
+                deletionPromises.push(fileRef.delete().catch(err => {
+                    // Log errors but don't fail the whole function if a file is already gone
+                    logger.error(`Failed to delete file ${file.url}:`, err);
+                }));
+            }
+        };
+
+        (indicator.files || []).forEach(checkAndQueueDelete);
+
+        const filesPerDoc = indicator.filesPerDocument || {};
+         for (const docIndex in filesPerDoc) {
+            (filesPerDoc[docIndex] || []).forEach(checkAndQueueDelete);
+        }
+    }
+
+    if (deletionPromises.length > 0) {
+        await Promise.all(deletionPromises);
+        logger.info(`Successfully deleted ${deletionPromises.length} orphaned file(s) from Storage.`);
+    } else {
+        logger.log("No files were removed in this update. No deletions necessary.");
+    }
+
+    return null;
+});
