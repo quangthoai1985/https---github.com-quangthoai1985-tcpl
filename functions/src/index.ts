@@ -271,28 +271,40 @@ export const onDeleteAssessmentFile = onDocumentUpdated("assessments/{assessment
 
     const deletionPromises: Promise<any>[] = [];
     const storage = admin.storage();
+    const bucket = storage.bucket();
 
-    filesBefore.forEach(fileUrl => {
+    for (const fileUrl of filesBefore) {
         if (!filesAfter.has(fileUrl) && fileUrl.includes('firebasestorage.googleapis.com')) {
             logger.info(`File ${fileUrl} was removed from assessment. Queuing for deletion from Storage.`);
             try {
-                const fileRef = storage.refFromURL(fileUrl);
+                // Correctly parse the file path from the GCS URL
+                const url = new URL(fileUrl);
+                const filePath = decodeURIComponent(url.pathname).split('/o/')[1];
+                
+                if (!filePath) {
+                    throw new Error("Could not extract file path from URL.");
+                }
+
+                logger.log(`Attempting to delete file from path: ${filePath}`);
+                const fileRef = bucket.file(filePath);
+
                 deletionPromises.push(fileRef.delete().catch(err => {
                     if (err.code === 404) {
-                         logger.warn(`Attempted to delete ${fileUrl}, but it was not found. Ignoring.`);
+                         logger.warn(`Attempted to delete ${filePath}, but it was not found. Ignoring.`);
                     } else {
-                        logger.error(`Failed to delete file ${fileUrl}:`, err);
+                        logger.error(`Failed to delete file ${filePath}:`, err);
                     }
                 }));
+
             } catch (error) {
-                 logger.error(`Invalid file URL, cannot create ref: ${fileUrl}`, error);
+                 logger.error(`Error processing URL for deletion: ${fileUrl}`, error);
             }
         }
-    });
+    }
 
     if (deletionPromises.length > 0) {
         await Promise.all(deletionPromises);
-        logger.info(`Successfully deleted ${deletionPromises.length} orphaned file(s) from Storage.`);
+        logger.info(`Successfully processed ${deletionPromises.length} potential file deletion(s).`);
     } else {
         logger.log("No files were removed in this update. No deletions necessary.");
     }
