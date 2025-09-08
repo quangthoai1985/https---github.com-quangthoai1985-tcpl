@@ -109,12 +109,15 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
     const contentType = event.data.contentType;
     const fileName = filePath.split('/').pop() || 'unknownfile';
 
-    const saveErrorResult = async (reason: string) => {
+    const saveCheckResult = async (status: "valid" | "expired" | "error", reason?: string, signingTime?: Date | null, deadline?: Date, signerName?: string) => {
         await db.collection('signature_checks').add({
             fileName: fileName,
             filePath: filePath,
-            status: "error",
-            reason: reason,
+            status: status,
+            reason: reason || null,
+            signingTime: signingTime || null,
+            deadline: deadline || null,
+            signerName: signerName || null,
             processedAt: admin.firestore.FieldValue.serverTimestamp(),
         });
     };
@@ -124,110 +127,96 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
         return null;
     }
 
-    // Path structure: hoso/{communeId}/evidence/{periodId}/TC01_CT01/{docIndex}/{fileName}
-    const pathParts = filePath.split('/');
-    if (pathParts.length !== 6 || pathParts[0] !== 'hoso' || pathParts[2] !== 'evidence' || pathParts[4] !== 'TC01_CT01') {
-        logger.log(`File ${filePath} is not a signature evidence file for Criterion 1.1, skipping.`);
+    const pathInfo = parseAssessmentPath(filePath);
+    if (!pathInfo || !pathInfo.indicatorId.startsWith('TC01')) {
+        logger.log(`File ${filePath} does not match Criterion 1 evidence path structure. Skipping.`);
         return null;
     }
     
-    const communeId = pathParts[1];
-    const assessmentPeriodId = pathParts[3];
-    const docIndex = parseInt(pathParts[4], 10); // This is incorrect, let's fix path splitting
-    const correctDocIndex = parseInt(pathParts[5], 10);
-    // Correct path parsing:
-    // pathParts[0] = hoso
-    // pathParts[1] = communeId
-    // pathParts[2] = evidence
-    // pathParts[3] = periodId
-    // pathParts[4] = indicatorId (e.g., 'TC01_CT01')
-    // pathParts[5] = docIndex
-    // pathParts[6] = fileName
+    const { communeId, periodId, indicatorId, docIndex } = pathInfo;
+    logger.info(`Processing signature for PDF: ${filePath}`, { pathInfo });
     
-    // Re-check path structure based on new understanding from assessment page
-    if (pathParts.length !== 7) {
-       logger.log(`File path ${filePath} does not match the expected structure for Criterion 1 evidence.`);
-       return null;
-    }
-    const indicatorId = pathParts[4];
-    const realDocIndex = parseInt(pathParts[5], 10);
+    const assessmentId = `assess_${periodId}_${communeId}`;
+    const assessmentRef = db.collection('assessments').doc(assessmentId);
 
-    if (indicatorId !== 'TC01_CT01' || isNaN(realDocIndex)) {
-        logger.log(`File is not for the correct indicator or has invalid document index. Skipping.`);
-        return null;
-    }
+    // Helper to update the assessment document in Firestore
+    const updateAssessmentFileStatus = async (fileStatus: 'validating' | 'valid' | 'invalid' | 'error', reason?: string) => {
+        const doc = await assessmentRef.get();
+        if (!doc.exists) return;
 
-    logger.info(`Processing signature for PDF: ${filePath}`);
+        const data = doc.data();
+        const assessmentData = data?.assessmentData;
+        if (!assessmentData || !assessmentData[indicatorId] || !assessmentData[indicatorId].filesPerDocument) return;
+        
+        const indicatorResult = assessmentData[indicatorId];
+        const fileList = indicatorResult.filesPerDocument[docIndex] || [];
+        const fileToUpdate = fileList.find((f: any) => f.name === fileName);
 
-    try {
-        // Step 1: Find the corresponding assessment to get the deadline
-        const assessmentId = `assess_${assessmentPeriodId}_${communeId}`;
-        const assessmentDoc = await db.collection('assessments').doc(assessmentId).get();
-        if (!assessmentDoc.exists) {
-            throw new Error(`Assessment document not found for ID: ${assessmentId}`);
+        if (fileToUpdate) {
+            fileToUpdate.signatureStatus = fileStatus;
+            if (reason) {
+                fileToUpdate.signatureError = reason;
+            } else {
+                 delete fileToUpdate.signatureError;
+            }
         }
         
-        // Step 2: Get the specific document deadline from Criterion data
+        // Re-evaluate the overall indicator status after updating the file status
         const criterionDoc = await db.collection('criteria').doc('TC01').get();
-        if (!criterionDoc.exists) {
-            throw new Error("Criterion document TC01 not found.");
-        }
+        const assignedCount = criterionDoc.data()?.assignedDocumentsCount || 0;
+        const allFilesValid = Object.values(indicatorResult.filesPerDocument).flat().every((f: any) => f.signatureStatus === 'valid');
+        const isAchieved = Number(indicatorResult.value) >= assignedCount && allFilesValid;
+        
+        indicatorResult.status = isAchieved ? 'achieved' : 'not-achieved';
+        
+        await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
+    };
+
+    // Initial update to show "validating" status on the frontend
+    await updateAssessmentFileStatus('validating');
+    
+    try {
+        const criterionDoc = await db.collection('criteria').doc('TC01').get();
+        if (!criterionDoc.exists) throw new Error("Criterion document TC01 not found.");
+
         const criterionData = criterionDoc.data();
-        const documentConfig = criterionData?.documents?.[realDocIndex];
-        if (!documentConfig) {
-            throw new Error(`Document configuration for index ${realDocIndex} not found in TC01.`);
-        }
+        const documentConfig = criterionData?.documents?.[docIndex];
+        if (!documentConfig) throw new Error(`Document configuration for index ${docIndex} not found in TC01.`);
         
         const issueDate = parse(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
         const deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
 
-        // Step 3: Download and process the PDF file
         const bucket = admin.storage().bucket(fileBucket);
         const file = bucket.file(filePath);
         const [fileBuffer] = await file.download();
         
         const signatureHex = extractSignature(fileBuffer);
-        if (!signatureHex) {
-            throw new Error("No digital signature found in the PDF file.");
-        }
+        if (!signatureHex) throw new Error("Không tìm thấy chữ ký số trong tệp PDF.");
 
         const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
         const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
 
         const signerCertificate = p7.certificates[0];
-        if (!signerCertificate) {
-            throw new Error("Could not find certificate in the signature.");
-        }
+        if (!signerCertificate) throw new Error("Không tìm thấy chứng thư số trong chữ ký.");
 
-        const signingTimeAttr = p7.signers[0].authenticatedAttributes.find(
-            (attr: any) => attr.type === forge.pki.oids.signingTime
-        );
+        const signingTimeAttr = p7.signers[0].authenticatedAttributes.find((attr: any) => attr.type === forge.pki.oids.signingTime);
         const signingTime = signingTimeAttr ? new Date(forge.asn1.fromDer(signingTimeAttr.value).value) : null;
-        if (!signingTime) {
-            throw new Error("Signing time not found in the signature.");
-        }
+        if (!signingTime) throw new Error("Không tìm thấy thời gian ký trong chữ ký.");
 
         const signerName = signerCertificate.subject.getField('CN')?.value || 'Unknown Signer';
         
-        // Step 4: Compare and save result
         const isValid = signingTime <= deadline;
         const status = isValid ? "valid" : "expired";
 
-        await db.collection('signature_checks').add({
-            fileName: fileName,
-            filePath: filePath,
-            status: status,
-            signingTime: signingTime,
-            deadline: deadline,
-            signerName: signerName,
-            processedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
+        await saveCheckResult(status, undefined, signingTime, deadline, signerName);
+        await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
 
         logger.info(`Successfully processed signature for ${fileName}. Status: ${status}`);
 
     } catch (error: any) {
         logger.error(`Error processing ${filePath}:`, error);
-        await saveErrorResult(error.message);
+        await saveCheckResult("error", error.message);
+        await updateAssessmentFileStatus('error', error.message);
         return null;
     }
 
@@ -236,10 +225,11 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
 
 // Helper for path parsing
 function parseAssessmentPath(filePath: string): { communeId: string; periodId: string; indicatorId: string; docIndex: number } | null {
+    // Expected path: hoso/{communeId}/evidence/{periodId}/{indicatorId}/{docIndex}/{fileName}
     const parts = filePath.split('/');
     if (parts.length === 7 && parts[0] === 'hoso' && parts[2] === 'evidence') {
-        const docIndex = parseInt(parts[5], 10);
-        if (!isNaN(docIndex)) {
+         const docIndex = parseInt(parts[5], 10);
+         if (!isNaN(docIndex)) {
             return {
                 communeId: parts[1],
                 periodId: parts[3],
