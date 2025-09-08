@@ -43,7 +43,7 @@ type AssessmentValues = Record<string, IndicatorValue>;
 function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, isRequired, docIndex, accept }: { 
     indicatorId: string; 
     evidence: FileWithStatus[]; 
-    onEvidenceChange: (id: string, evidence: FileWithStatus[], docIndex?: number) => void; 
+    onEvidenceChange: (id: string, evidence: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => void; 
     isRequired: boolean;
     docIndex?: number;
     accept?: string;
@@ -57,7 +57,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
     };
     
     const handleEvidenceRemove = (itemToRemove: FileWithStatus) => {
-        onEvidenceChange(indicatorId, evidence.filter(item => item.name !== itemToRemove.name), docIndex);
+        onEvidenceChange(indicatorId, [], docIndex, itemToRemove);
     };
 
     const handleAddLink = () => {
@@ -459,7 +459,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
     data: AssessmentValues[string],
     onValueChange: (id: string, value: any) => void,
     onNoteChange: (id: string, note: string) => void,
-    onEvidenceChange: (id: string, files: (File | { name: string; url: string; })[], docIndex?: number) => void,
+    onEvidenceChange: (id: string, files: (File | { name: string; url: string; })[], docIndex?: number, fileToRemove?: FileWithStatus) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void,
 }) => {
     const isEvidenceRequired = data.status !== 'pending' && data.isTasked !== false && data.files.length === 0;
@@ -517,9 +517,11 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
             const indicatorData = data[key];
             const sanitizeFiles = (files: FileWithStatus[]) => files.map(f => {
                 if (f instanceof File) {
-                    return { name: f.name, url: '' }; // URL will be filled in after upload
+                    // When saving a draft, we don't have the URL yet. The upload function will add it.
+                    // This object shape is temporary until the file is uploaded.
+                    return { name: f.name, url: '' }; 
                 }
-                // Keep existing file objects but strip away local-only properties if any
+                // Keep existing file objects from Firestore
                 return { name: f.name, url: f.url, signatureStatus: f.signatureStatus, signatureError: f.signatureError };
             });
 
@@ -538,6 +540,7 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
     }
     return sanitizedData;
 };
+
 
 // NEW: Uploader specifically for Criterion 1 that uploads instantly
 const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadComplete, onRemove, periodId, communeId }: {
@@ -560,6 +563,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
         for (const file of filesToUpload) {
             setUploadingFiles(prev => [...prev, file.name]);
             try {
+                // Ensure docIndex is part of the path for uniqueness
                 const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
                 const storageRef = ref(storage, filePath);
                 const snapshot = await uploadBytes(storageRef, file);
@@ -647,27 +651,40 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     periodId: string;
     communeId: string;
 }) => {
+    const { deleteFileByUrl } = useData();
+    const { toast } = useToast();
     const assignedCount = criterion.assignedDocumentsCount || 0;
     
-    // Find the first indicator to check its isTasked status, which applies to the whole criterion.
     const firstIndicatorId = criterion.indicators[0]?.id;
-    if (!firstIndicatorId) return null; // Should not happen if data is correct
+    if (!firstIndicatorId) return null;
     
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
     
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
         const notTasked = checked === true;
-        // Apply the same isTasked status to all indicators in this criterion
         criterion.indicators.forEach(indicator => {
             onIsTaskedChange(indicator.id, !notTasked);
         });
     }
 
     const handleUploadComplete = (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => {
-        onEvidenceChange(indicatorId, [newFile], docIndex);
+        // This function adds the new file to the state.
+        const currentFiles = assessmentData[indicatorId]?.filesPerDocument?.[docIndex] || [];
+        onEvidenceChange(indicatorId, [...currentFiles, newFile], docIndex);
     }
     
-    const handleRemoveFile = (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => {
+    const handleRemoveFile = async (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => {
+        // This function now handles file deletion from Storage.
+        if ('url' in fileToRemove && fileToRemove.url) {
+            try {
+                await deleteFileByUrl(fileToRemove.url);
+                toast({ title: "Thành công", description: `Đã xóa tệp: ${fileToRemove.name}` });
+            } catch (error) {
+                toast({ variant: 'destructive', title: "Lỗi", description: "Không thể xóa tệp khỏi Storage." });
+                return; // Stop if deletion fails
+            }
+        }
+        // Then, remove it from the state.
         onEvidenceChange(indicatorId, [], docIndex, fileToRemove);
     }
 
@@ -836,7 +853,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
 export default function SelfAssessmentPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments } = useData();
+  const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments, deleteFileByUrl } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const initializeState = useCallback((criteria: Criterion[], existingData?: Record<string, IndicatorResult>): AssessmentValues => {
@@ -952,12 +969,22 @@ export default function SelfAssessmentPage() {
   };
 
 
-  const handleEvidenceChange = (indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
-      setAssessmentData(prev => {
-          const newData = {...prev};
-          const currentIndicatorData = newData[indicatorId];
+  const handleEvidenceChange = async (indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
+    if (fileToRemove && 'url' in fileToRemove && fileToRemove.url) {
+        try {
+            await deleteFileByUrl(fileToRemove.url);
+            toast({ title: "Thành công", description: `Đã xóa tệp: ${fileToRemove.name}` });
+        } catch (error) {
+            toast({ variant: 'destructive', title: "Lỗi", description: "Không thể xóa tệp khỏi Storage." });
+            return;
+        }
+    }
 
-          if (docIndex !== undefined) { // Criterion 1 logic
+    setAssessmentData(prev => {
+        const newData = {...prev};
+        const currentIndicatorData = newData[indicatorId];
+
+        if (docIndex !== undefined) { // Criterion 1 logic
             const newFilesPerDoc = {...currentIndicatorData.filesPerDocument};
             if(fileToRemove) {
                  newFilesPerDoc[docIndex] = (newFilesPerDoc[docIndex] || []).filter(f => f.name !== fileToRemove.name);
@@ -965,11 +992,15 @@ export default function SelfAssessmentPage() {
                  newFilesPerDoc[docIndex] = [...(newFilesPerDoc[docIndex] || []), ...newFiles];
             }
             newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
-          } else { // Normal indicator
-            newData[indicatorId] = { ...currentIndicatorData, files: newFiles };
-          }
-          return newData;
-      })
+        } else { // Normal indicator
+            if (fileToRemove) {
+                 newData[indicatorId] = { ...currentIndicatorData, files: currentIndicatorData.files.filter(f => f.name !== fileToRemove.name) };
+            } else {
+                newData[indicatorId] = { ...currentIndicatorData, files: [...currentIndicatorData.files, ...newFiles] };
+            }
+        }
+        return newData;
+    })
   }
 
   const uploadEvidenceFiles = async (periodId: string, communeId: string): Promise<Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }>> => {
@@ -982,7 +1013,7 @@ export default function SelfAssessmentPage() {
         const indicatorData = assessmentData[indicatorId];
         const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
         
-        // Skip upload for Criterion 1 as it's handled separately now
+        // Skip upload for Criterion 1 as it's handled separately (instant upload)
         if (parentCriterion?.id === 'TC01') {
             uploadedFileUrls[indicatorId] = {
                 files: indicatorData.files,

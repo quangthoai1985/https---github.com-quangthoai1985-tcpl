@@ -14,7 +14,7 @@ import {
 import { initializeApp, getApp, getApps, FirebaseOptions, type FirebaseApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, type Firestore, deleteDoc, getDoc, onSnapshot, query, where } from 'firebase/firestore'; // Import onSnapshot
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser, type Auth } from 'firebase/auth';
-import { getStorage, type FirebaseStorage } from 'firebase/storage';
+import { getStorage, ref, deleteObject, type FirebaseStorage } from 'firebase/storage';
 
 // Hardcoded Firebase configuration from user
 const firebaseConfig: FirebaseOptions = {
@@ -65,6 +65,7 @@ interface DataContextType {
   updateGuidanceDocuments: (newDocs: AppDocument[]) => Promise<void>;
   loginConfig: LoginConfig | null;
   updateLoginConfig: (newConfig: LoginConfig) => Promise<void>;
+  deleteFileByUrl: (fileUrl: string) => Promise<void>;
   role: Role | null;
   currentUser: User | null;
   notifications: Notification[];
@@ -371,6 +372,20 @@ useEffect(() => {
           setLoading(false);
       }
   };
+  
+  const deleteFileByUrl = async (fileUrl: string) => {
+      if (!storage) return;
+      try {
+          const fileRef = ref(storage, fileUrl);
+          await deleteObject(fileRef);
+      } catch (error: any) {
+           if (error.code !== 'storage/object-not-found') {
+               console.error("Error deleting file from storage:", error);
+               throw error; // Re-throw to be caught by the caller
+           }
+            console.warn("File to delete was not found in Storage, it might have been deleted already.");
+      }
+  };
 
   const refreshData = useCallback(async () => {
       // This function is less critical with onSnapshot, but can be kept for manual refresh triggers.
@@ -402,6 +417,7 @@ useEffect(() => {
         assessmentPeriods, updateAssessmentPeriods, 
         assessments, updateAssessments, 
         deleteAssessment,
+        deleteFileByUrl,
         criteria, updateCriteria,
         guidanceDocuments, updateGuidanceDocuments,
         loginConfig, updateLoginConfig,
