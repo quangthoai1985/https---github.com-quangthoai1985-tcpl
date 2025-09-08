@@ -649,14 +649,18 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
 }) => {
     const assignedCount = criterion.assignedDocumentsCount || 0;
     
-    const firstIndicatorId = criterion.indicators[0].id;
+    // Find the first indicator to check its isTasked status, which applies to the whole criterion.
+    const firstIndicatorId = criterion.indicators[0]?.id;
+    if (!firstIndicatorId) return null; // Should not happen if data is correct
+    
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
     
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
         const notTasked = checked === true;
-         criterion.indicators.forEach(indicator => {
-             onIsTaskedChange(indicator.id, !notTasked);
-         });
+        // Apply the same isTasked status to all indicators in this criterion
+        criterion.indicators.forEach(indicator => {
+            onIsTaskedChange(indicator.id, !notTasked);
+        });
     }
 
     const handleUploadComplete = (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => {
@@ -842,12 +846,13 @@ export default function SelfAssessmentPage() {
               const processIndicator = (sub: Indicator | SubIndicator) => {
                   const saved = existingData?.[sub.id];
                   initialState[sub.id] = { 
-                      isTasked: saved?.isTasked, 
+                      isTasked: saved?.isTasked ?? null, 
                       value: saved?.value ?? '', 
                       files: saved?.files ?? [], 
                       filesPerDocument: saved?.filesPerDocument ?? {},
                       note: saved?.note ?? '', 
-                      status: saved?.status ?? 'pending' 
+                      status: saved?.status ?? 'pending',
+                      adminNote: saved?.adminNote ?? '',
                   };
               };
               if (indicator.subIndicators && indicator.subIndicators.length > 0) {
@@ -999,6 +1004,10 @@ export default function SelfAssessmentPage() {
                 const storageRef = ref(storage, filePath);
                 const snapshot = await uploadBytes(storageRef, file);
                 const downloadURL = await getDownloadURL(snapshot.ref);
+                // Ensure the files array exists before pushing
+                if (!uploadedFileUrls[indicatorId].files) {
+                    uploadedFileUrls[indicatorId].files = [];
+                }
                 uploadedFileUrls[indicatorId].files!.push({ name: file.name, url: downloadURL });
             };
             allUploadPromises.push(promise());
@@ -1011,7 +1020,7 @@ export default function SelfAssessmentPage() {
 
 
   const handleSaveDraft = async () => {
-    if (!activePeriod || !currentUser) {
+    if (!activePeriod || !currentUser || !storage) {
         toast({ variant: 'destructive', title: 'Lỗi', description: 'Không tìm thấy kỳ đánh giá hoặc người dùng.' });
         return;
     }
@@ -1026,12 +1035,23 @@ export default function SelfAssessmentPage() {
     toast({ title: 'Đang lưu nháp...' });
     
     try {
-        const dataToSave = sanitizeDataForFirestore(assessmentData);
+        const fileUrlsByIndicator = await uploadEvidenceFiles(activePeriod.id, currentUser.communeId);
+        
+        const sanitizedData = sanitizeDataForFirestore(assessmentData);
+        const assessmentDataForFirestore = Object.entries(sanitizedData).reduce((acc, [key, value]) => {
+            acc[key] = {
+                ...value,
+                files: fileUrlsByIndicator[key]?.files || value.files,
+                filesPerDocument: fileUrlsByIndicator[key]?.filesPerDocument || value.filesPerDocument,
+            };
+            return acc;
+        }, {} as Record<string, IndicatorResult>);
+
 
         const updatedAssessment: Assessment = {
             ...currentAssessment,
             assessmentStatus: 'draft',
-            assessmentData: dataToSave,
+            assessmentData: assessmentDataForFirestore,
         };
         
         await updateAssessments(assessments.map(a => a.id === updatedAssessment.id ? updatedAssessment : a));
@@ -1042,7 +1062,7 @@ export default function SelfAssessmentPage() {
         });
     } catch (error) {
         console.error("Draft saving error:", error);
-        toast({ variant: 'destructive', title: 'Lỗi khi lưu nháp', description: 'Đã xảy ra lỗi khi lưu dữ liệu.' });
+        toast({ variant: 'destructive', title: 'Lỗi khi lưu nháp', description: 'Đã xảy ra lỗi khi tải tệp hoặc lưu dữ liệu.' });
     } finally {
         setIsSubmitting(false);
     }
@@ -1336,5 +1356,3 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
-
-    
