@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -33,6 +34,8 @@ type IndicatorValue = {
     filesPerDocument?: { [documentIndex: number]: FileWithStatus[] };
     note: string;
     status: AssessmentStatus;
+    // New field from admin review
+    adminNote?: string;
 };
 type AssessmentValues = Record<string, IndicatorValue>;
 
@@ -74,32 +77,6 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
     const acceptedFileText = accept === '.pdf' 
         ? "Chỉ chấp nhận tệp PDF." 
         : "Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF.";
-
-    const SignatureStatusBadge = ({ file }: { file: FileWithStatus }) => {
-        if (!('signatureStatus' in file) || !file.signatureStatus) return null;
-
-        const statusMap = {
-            validating: { text: 'Đang kiểm tra...', className: 'bg-yellow-400', icon: <Loader2 className="h-3 w-3 animate-spin" /> },
-            valid: { text: 'Hợp lệ', className: 'bg-green-500', icon: <CheckCircle className="h-3 w-3" /> },
-            invalid: { text: 'Không hợp lệ', className: 'bg-red-500', icon: <XCircle className="h-3 w-3" /> },
-            error: { text: 'Lỗi kiểm tra', className: 'bg-gray-500', icon: <AlertTriangle className="h-3 w-3" /> }
-        };
-        const currentStatus = statusMap[file.signatureStatus];
-
-        return (
-            <div className="group relative">
-                <Badge className={`${currentStatus.className} text-white text-[10px] h-5`}>
-                    {currentStatus.icon}
-                    <span className="ml-1">{currentStatus.text}</span>
-                </Badge>
-                {(file.signatureStatus === 'invalid' || file.signatureStatus === 'error') && file.signatureError && (
-                    <div className="absolute bottom-full mb-2 w-48 z-10 hidden group-hover:block p-2 text-xs font-normal text-white bg-black rounded-lg shadow-lg">
-                        {file.signatureError}
-                    </div>
-                )}
-            </div>
-        );
-    };
 
     return (
         <div className="grid gap-4">
@@ -144,7 +121,6 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
                                 <span className="truncate text-xs flex-1">{item.name}</span>
                             </div>
                              <div className="flex items-center gap-2">
-                                <SignatureStatusBadge file={item} />
                                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleEvidenceRemove(item)}>
                                     <X className="h-4 w-4" />
                                 </Button>
@@ -396,11 +372,11 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean, a
     // Special evaluation for Criterion 1 indicators
     if (assignedCount && assignedCount > 0) {
         const enteredValue = Number(value);
-        if (isNaN(enteredValue) || value === '' || value === null) return 'pending';
+        if (isNaN(enteredValue) || value === '' || value === null || enteredValue < assignedCount) return 'pending';
         
-        const allFilesValid = Object.values(filesPerDocument || {}).flat().every(f => f.signatureStatus === 'valid');
+        const allFilesValid = Object.values(filesPerDocument || {}).flat().every(f => 'signatureStatus' in f && f.signatureStatus === 'valid');
         if (!allFilesValid) return 'not-achieved';
-
+        
         return enteredValue >= assignedCount ? 'achieved' : 'not-achieved';
     }
     
@@ -552,6 +528,7 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
                 value: indicatorData.value === undefined ? null : indicatorData.value,
                 note: indicatorData.note,
                 status: indicatorData.status,
+                adminNote: indicatorData.adminNote,
                 files: sanitizeFiles(indicatorData.files),
                 filesPerDocument: indicatorData.filesPerDocument ? Object.fromEntries(
                     Object.entries(indicatorData.filesPerDocument).map(([idx, fileList]) => [idx, sanitizeFiles(fileList)])
@@ -562,17 +539,116 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
     return sanitizedData;
 };
 
-const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange }: {
+// NEW: Uploader specifically for Criterion 1 that uploads instantly
+const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadComplete, onRemove, periodId, communeId }: {
+    indicatorId: string;
+    docIndex: number;
+    evidence: FileWithStatus[];
+    onUploadComplete: (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => void;
+    onRemove: (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => void;
+    periodId: string;
+    communeId: string;
+}) => {
+    const { storage } = useData();
+    const { toast } = useToast();
+    const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
+
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const filesToUpload = Array.from(e.target.files || []);
+        if (filesToUpload.length === 0 || !storage) return;
+
+        for (const file of filesToUpload) {
+            setUploadingFiles(prev => [...prev, file.name]);
+            try {
+                const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
+                const storageRef = ref(storage, filePath);
+                const snapshot = await uploadBytes(storageRef, file);
+                const downloadURL = await getDownloadURL(snapshot.ref);
+                onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
+                toast({ title: 'Thành công', description: `Đã tải lên tệp: ${file.name}` });
+            } catch (error) {
+                console.error("Upload error:", error);
+                toast({ variant: 'destructive', title: 'Lỗi tải tệp', description: `Không thể tải lên tệp: ${file.name}` });
+            } finally {
+                setUploadingFiles(prev => prev.filter(fname => fname !== file.name));
+            }
+        }
+    };
+    
+    const isRequired = evidence.length === 0;
+
+    const SignatureStatusBadge = ({ file }: { file: FileWithStatus }) => {
+        if (!('signatureStatus' in file) || !file.signatureStatus) return null;
+
+        const statusMap = {
+            validating: { text: 'Đang kiểm tra...', className: 'bg-yellow-400', icon: <Loader2 className="h-3 w-3 animate-spin" /> },
+            valid: { text: 'Hợp lệ', className: 'bg-green-500', icon: <CheckCircle className="h-3 w-3" /> },
+            invalid: { text: 'Không hợp lệ', className: 'bg-red-500', icon: <XCircle className="h-3 w-3" /> },
+            error: { text: 'Lỗi kiểm tra', className: 'bg-gray-500', icon: <AlertTriangle className="h-3 w-3" /> }
+        };
+        const currentStatus = statusMap[file.signatureStatus];
+
+        return (
+            <div className="group relative">
+                <Badge className={`${currentStatus.className} text-white text-[10px] h-5`}>
+                    {currentStatus.icon}
+                    <span className="ml-1">{currentStatus.text}</span>
+                </Badge>
+                {((file.signatureStatus === 'invalid' || file.signatureStatus === 'error') && file.signatureError) && (
+                    <div className="absolute bottom-full mb-2 w-48 z-10 hidden group-hover:block p-2 text-xs font-normal text-white bg-black rounded-lg shadow-lg">
+                        {file.signatureError}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    return (
+        <div className="grid gap-4">
+            <div className={cn("w-full relative border-2 border-dashed rounded-lg p-4 text-center hover:border-primary transition-colors", isRequired && "border-destructive")}>
+                <FileUp className="mx-auto h-8 w-8 text-muted-foreground" />
+                <p className="mt-2 text-xs text-muted-foreground">Chỉ chấp nhận tệp PDF. Tệp sẽ được tải lên và kiểm tra ngay lập tức.</p>
+                <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={handleFileSelect} accept=".pdf" disabled={uploadingFiles.length > 0}/>
+            </div>
+
+            {evidence.map((item, index) => (
+                <div key={index} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm">
+                    <div className="flex items-center gap-2 truncate flex-1">
+                        <FileIcon className="h-4 w-4 flex-shrink-0" />
+                        <span className="truncate text-xs flex-1">{item.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <SignatureStatusBadge file={item} />
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemove(indicatorId, docIndex, item)}>
+                            <X className="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            ))}
+             {uploadingFiles.map(name => (
+                <div key={name} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm opacity-70">
+                    <div className="flex items-center gap-2 truncate flex-1">
+                        <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" />
+                        <span className="truncate text-xs flex-1">{name}</span>
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, periodId, communeId }: {
     criterion: Criterion;
     assessmentData: AssessmentValues;
     onValueChange: (id: string, value: any) => void;
     onNoteChange: (id: string, note: string) => void;
-    onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number) => void;
+    onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void;
+    periodId: string;
+    communeId: string;
 }) => {
     const assignedCount = criterion.assignedDocumentsCount || 0;
     
-    // Use the status of the first indicator as the master switch
     const firstIndicatorId = criterion.indicators[0].id;
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
     
@@ -583,9 +659,16 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
          });
     }
 
+    const handleUploadComplete = (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => {
+        onEvidenceChange(indicatorId, [newFile], docIndex);
+    }
+    
+    const handleRemoveFile = (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => {
+        onEvidenceChange(indicatorId, [], docIndex, fileToRemove);
+    }
+
     return (
         <div className="grid gap-6">
-            {/* Is Tasked Checkbox */}
             <div className="flex items-center space-x-2">
                 <Checkbox 
                     id={`${criterion.id}-notask`} 
@@ -607,7 +690,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
 
             {!isNotTasked && (
                  <div className="grid gap-8">
-                    {/* Admin Config Info */}
                     <Card className="bg-blue-50/50 border border-blue-200">
                         <CardHeader>
                             <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao từ Admin</CardTitle>
@@ -646,14 +728,11 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                              const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
                              const isAchieved = progress >= 100;
                              const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
-                             const isAnyEvidenceRequired = data.status !== 'pending' && (criterion.documents || []).some((_, i) => (data.filesPerDocument?.[i] || []).length === 0);
-                             const isFirstIndicator = indicator.id === criterion.indicators[0]?.id;
  
                              return (
                                  <React.Fragment key={indicator.id}>
                                      {index > 0 && <Separator className="my-6"/>}
                                      <div className={blockClasses}>
-                                         {/* Title and Info */}
                                          <div>
                                              <div className="flex items-center gap-2">
                                                  <StatusBadge status={data.status} />
@@ -670,14 +749,13 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                              </div>
                                          </div>
                                          
-                                         {/* Input and Progress */}
                                          <div className="grid gap-4">
                                              <div className="grid gap-2">
                                                  <div className="flex items-center gap-4">
                                                     <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
-                                                       {index === 0 && "Tổng số VBQPPL được ban hành:"}
-                                                       {index === 1 && "Tổng số dự thảo NQ của HĐND, QĐ của UBND được truyền thông"}
-                                                       {index === 2 && "Tổng số NQ của HĐND, QĐ của UBND được thực hiện tự kiểm tra"}
+                                                       {index === 0 && "Tổng số VBQPPL đã ban hành:"}
+                                                       {index === 1 && "Tổng số dự thảo NQ của HĐND, QĐ của UBND được truyền thông:"}
+                                                       {index === 2 && "Tổng số NQ của HĐND, QĐ của UBND được thực hiện tự kiểm tra:"}
                                                     </Label>
                                                      <Input 
                                                          id={`${indicator.id}-input`} 
@@ -698,10 +776,9 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                              </div>
                                          </div>
  
-                                         {/* Dynamic Evidence Uploaders */}
                                          <div className="grid gap-2">
                                             <Label className="font-medium">Hồ sơ minh chứng (tương ứng với { (criterion.documents || []).length} văn bản được giao)</Label>
-                                             {isFirstIndicator && (
+                                             {index === 0 && (
                                                 <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
                                                     <AlertTriangle className="h-4 w-4" />
                                                     <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
@@ -716,25 +793,20 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                          <Label className="font-medium text-center text-sm">
                                                             Minh chứng cho VB: <span className="font-bold text-primary">{doc.name}</span>
                                                          </Label>
-                                                         <EvidenceUploaderComponent
-                                                             indicatorId={indicator.id}
-                                                             docIndex={i}
-                                                             evidence={data.filesPerDocument?.[i] || []}
-                                                             onEvidenceChange={onEvidenceChange}
-                                                             isRequired={data.status !== 'pending' && (data.filesPerDocument?.[i] || []).length === 0}
-                                                             accept={isFirstIndicator ? '.pdf' : undefined}
+                                                         <Criterion1EvidenceUploader
+                                                            indicatorId={indicator.id}
+                                                            docIndex={i}
+                                                            evidence={data.filesPerDocument?.[i] || []}
+                                                            onUploadComplete={handleUploadComplete}
+                                                            onRemove={handleRemoveFile}
+                                                            periodId={periodId}
+                                                            communeId={communeId}
                                                          />
                                                      </div>
                                                  ))}
                                              </div>
-                                             {isAnyEvidenceRequired && (
-                                                 <p className="text-sm font-medium text-destructive mt-2">
-                                                     Yêu cầu ít nhất một minh chứng cho mỗi văn bản được giao.
-                                                 </p>
-                                             )}
                                          </div>
  
-                                         {/* Notes */}
                                          <div className="grid gap-2">
                                              <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
                                              <Textarea 
@@ -875,17 +947,21 @@ export default function SelfAssessmentPage() {
   };
 
 
-  const handleEvidenceChange = (indicatorId: string, evidence: FileWithStatus[], docIndex?: number) => {
+  const handleEvidenceChange = (indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
       setAssessmentData(prev => {
           const newData = {...prev};
           const currentIndicatorData = newData[indicatorId];
 
           if (docIndex !== undefined) { // Criterion 1 logic
             const newFilesPerDoc = {...currentIndicatorData.filesPerDocument};
-            newFilesPerDoc[docIndex] = evidence;
+            if(fileToRemove) {
+                 newFilesPerDoc[docIndex] = (newFilesPerDoc[docIndex] || []).filter(f => f.name !== fileToRemove.name);
+            } else {
+                 newFilesPerDoc[docIndex] = [...(newFilesPerDoc[docIndex] || []), ...newFiles];
+            }
             newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
           } else { // Normal indicator
-            newData[indicatorId] = { ...currentIndicatorData, files: evidence };
+            newData[indicatorId] = { ...currentIndicatorData, files: newFiles };
           }
           return newData;
       })
@@ -894,11 +970,22 @@ export default function SelfAssessmentPage() {
   const uploadEvidenceFiles = async (periodId: string, communeId: string): Promise<Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }>> => {
     if (!storage) throw new Error("Firebase Storage is not initialized.");
 
-    const uploadedFileUrls: Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithSthatus[]> }> = {};
+    const uploadedFileUrls: Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }> = {};
     const allUploadPromises: Promise<void>[] = [];
 
     for (const indicatorId in assessmentData) {
         const indicatorData = assessmentData[indicatorId];
+        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
+        
+        // Skip upload for Criterion 1 as it's handled separately now
+        if (parentCriterion?.id === 'TC01') {
+            uploadedFileUrls[indicatorId] = {
+                files: indicatorData.files,
+                filesPerDocument: indicatorData.filesPerDocument
+            };
+            continue;
+        }
+        
         uploadedFileUrls[indicatorId] = {};
 
         // Process general files
@@ -916,31 +1003,6 @@ export default function SelfAssessmentPage() {
             };
             allUploadPromises.push(promise());
         });
-        
-        // Process files per document (for Criterion 1)
-        if (indicatorData.filesPerDocument) {
-            uploadedFileUrls[indicatorId].filesPerDocument = {};
-             for (const docIdx in indicatorData.filesPerDocument) {
-                const localDocFiles = indicatorData.filesPerDocument[docIdx].filter((f): f is File => f instanceof File);
-                const existingDocFiles = indicatorData.filesPerDocument[docIdx].filter((f): f is {name: string, url: string} => !(f instanceof File));
-                
-                if (!uploadedFileUrls[indicatorId].filesPerDocument![docIdx]) {
-                    uploadedFileUrls[indicatorId].filesPerDocument![docIdx] = [];
-                }
-                uploadedFileUrls[indicatorId].filesPerDocument![docIdx].push(...existingDocFiles);
-
-                localDocFiles.forEach(file => {
-                    const promise = async () => {
-                        const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIdx}/${file.name}`;
-                        const storageRef = ref(storage, filePath);
-                        const snapshot = await uploadBytes(storageRef, file);
-                        const downloadURL = await getDownloadURL(snapshot.ref);
-                         uploadedFileUrls[indicatorId].filesPerDocument![docIdx].push({ name: file.name, url: downloadURL });
-                    };
-                    allUploadPromises.push(promise());
-                });
-            }
-        }
     }
 
     await Promise.all(allUploadPromises);
@@ -1006,7 +1068,7 @@ export default function SelfAssessmentPage() {
 
             if (isCriterion1) {
                  const assignedDocs = parentCriterion.documents || [];
-                 if (assignedDocs.length > 0 && data.value > 0) { // Only check if documents are assigned and user has entered a value
+                 if (assignedDocs.length > 0 && Number(data.value) > 0) { 
                      const docIndicesWithMissingFiles = assignedDocs.map((_,i) => i).filter(i => (data.filesPerDocument?.[i] || []).length === 0);
                      if (docIndicesWithMissingFiles.length > 0) {
                          errors.push(`Chỉ tiêu "${indicator.name}" yêu cầu minh chứng cho mỗi văn bản được giao.`);
@@ -1118,7 +1180,7 @@ export default function SelfAssessmentPage() {
                   }
                 </CardDescription>
             </CardHeader>
-            {activePeriod ? (
+            {activePeriod && currentUser ? (
                 <>
                 <CardContent>
                     <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
@@ -1149,6 +1211,8 @@ export default function SelfAssessmentPage() {
                                                     onNoteChange={handleNoteChange}
                                                     onEvidenceChange={handleEvidenceChange}
                                                     onIsTaskedChange={handleIsTaskedChange}
+                                                    periodId={activePeriod.id}
+                                                    communeId={currentUser.communeId}
                                                  />
                                              </div>
                                         </AccordionContent>
@@ -1272,3 +1336,5 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
+
+    
