@@ -37,12 +37,13 @@ type AssessmentValues = Record<string, IndicatorValue>;
 type AssessmentFileUrls = Record<string, { name: string, url: string }[]>;
 
 
-function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, isRequired, docIndex }: { 
+function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, isRequired, docIndex, accept }: { 
     indicatorId: string; 
     evidence: (File | { name: string, url: string })[]; 
     onEvidenceChange: (id: string, evidence: (File | { name: string, url: string })[], docIndex?: number) => void; 
-    isRequired: boolean,
-    docIndex?: number,
+    isRequired: boolean;
+    docIndex?: number;
+    accept?: string;
 }) {
     const [linkInput, setLinkInput] = useState('');
     const { toast } = useToast();
@@ -69,6 +70,11 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
     const isLink = (item: any): item is { name: string, url: string } => {
         return typeof item.url === 'string' && (item.url.startsWith('http://') || item.url.startsWith('https://'));
     }
+    
+    const acceptedFileText = accept === '.pdf' 
+        ? "Chỉ chấp nhận tệp PDF." 
+        : "Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF.";
+
 
     return (
         <div className="grid gap-4">
@@ -79,9 +85,9 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
                 <p className="mt-2 text-xs text-muted-foreground">
                     Kéo thả hoặc <span className="font-semibold text-primary">nhấn để chọn tệp</span>
                 </p>
-                <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={handleFileSelect} />
+                <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={handleFileSelect} accept={accept} />
             </div>
-             <p className="text-xs text-muted-foreground mt-1">Các tệp được chấp nhận: Ảnh, Video, Word, Excel, PDF. Dung lượng tối đa: 5MB.</p>
+             <p className="text-xs text-muted-foreground mt-1">{acceptedFileText} Dung lượng tối đa: 5MB.</p>
 
             {/* Link Input Area */}
             <div className="grid gap-1">
@@ -664,6 +670,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                              evidence={data.filesPerDocument?.[i] || []}
                                                              onEvidenceChange={onEvidenceChange}
                                                              isRequired={data.status !== 'pending' && (data.filesPerDocument?.[i] || []).length === 0}
+                                                             accept={indicator.id === criterion.indicators[0].id ? '.pdf' : undefined}
                                                          />
                                                      </div>
                                                  ))}
