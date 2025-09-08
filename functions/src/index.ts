@@ -53,7 +53,8 @@ export const syncUserClaims = onDocumentWritten("users/{userId}", async (event) 
 
 /**
  * Triggered when a new file is uploaded to Firebase Storage.
- * It checks if the file is a PDF and logs it for further processing.
+ * It checks if the file is a PDF, downloads its content into a buffer,
+ * and logs it for further processing.
  */
 export const processSignedPDF = onObjectFinalized(async (event) => {
     const fileBucket = event.data.bucket; // The Storage bucket that contains the file.
@@ -66,18 +67,26 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
         return null;
     }
 
-    // Log the PDF file for further processing.
-    // This is where you would add your PDF signature verification logic.
     logger.info(`Processing PDF file: ${filePath} from bucket: ${fileBucket}`);
-    logger.log("TODO: Add PDF signature verification logic here.");
+    
+    try {
+        const bucket = admin.storage().bucket(fileBucket);
+        const file = bucket.file(filePath);
+        
+        // Download the file content into a buffer.
+        const [fileBuffer] = await file.download();
 
-    // You can download the file to a temporary directory to process it.
-    // Example:
-    // const bucket = admin.storage().bucket(fileBucket);
-    // const tempFilePath = path.join(os.tmpdir(), path.basename(filePath));
-    // await bucket.file(filePath).download({destination: tempFilePath});
-    // ... process the file at tempFilePath ...
-    // bucket.file(filePath).delete(); // Optionally delete the file after processing
+        logger.info(`File content downloaded into buffer. Size: ${fileBuffer.length} bytes.`);
+        logger.log("TODO: Add PDF signature verification logic here using the buffer.");
+
+        // Example: You can now use a library to process the buffer
+        // const pdfData = await somePdfParser(fileBuffer);
+        // ... your logic here ...
+
+    } catch (error) {
+        logger.error("Error downloading or processing file:", error);
+        return null;
+    }
 
     return null;
 });
