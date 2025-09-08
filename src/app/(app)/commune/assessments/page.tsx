@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -660,11 +661,19 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
         onEvidenceChange(indicatorId, [...currentFiles, newFile], docIndex);
     }
     
-    const handleRemoveFile = async (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => {
+    const handleRemoveFile = (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => {
         onEvidenceChange(indicatorId, [], docIndex, fileToRemove);
-        // After removing file from state, save draft to trigger server-side deletion
-        await handleSaveDraft();
     }
+
+    // Effect to trigger save when a file is removed
+    const filesPerDocRef = React.useRef(assessmentData[firstIndicatorId].filesPerDocument);
+    useEffect(() => {
+        if (JSON.stringify(filesPerDocRef.current) !== JSON.stringify(assessmentData[firstIndicatorId].filesPerDocument)) {
+             // A file was likely removed, trigger a save to update Firestore and trigger the delete function.
+            handleSaveDraft();
+            filesPerDocRef.current = assessmentData[firstIndicatorId].filesPerDocument; // Update ref to prevent loops
+        }
+    }, [assessmentData, handleSaveDraft, firstIndicatorId]);
 
     return (
         <div className="grid gap-6">
@@ -947,7 +956,7 @@ export default function SelfAssessmentPage() {
   };
 
 
-  const handleEvidenceChange = async (indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
+  const handleEvidenceChange = (indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
       setAssessmentData(prev => {
         const newData = {...prev};
         const currentIndicatorData = newData[indicatorId];
@@ -1015,7 +1024,7 @@ export default function SelfAssessmentPage() {
 }
 
 
-  const handleSaveDraft = async () => {
+  const handleSaveDraft = useCallback(async () => {
     if (!activePeriod || !currentUser || !storage) {
         toast({ variant: 'destructive', title: 'Lỗi', description: 'Không tìm thấy kỳ đánh giá hoặc người dùng.' });
         return;
@@ -1062,7 +1071,7 @@ export default function SelfAssessmentPage() {
     } finally {
         setIsSubmitting(false);
     }
-  };
+  }, [activePeriod, currentUser, storage, assessments, assessmentData, updateAssessments, toast]);
 
   const { canSubmit, submissionErrors } = useMemo(() => {
     const errors: string[] = [];
