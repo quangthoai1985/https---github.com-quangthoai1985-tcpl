@@ -2,38 +2,35 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-
-    // --- QUY TẮC CHO CÁC THƯ MỤC CHUNG ---
-
-    // Chỉ người dùng đã đăng nhập mới được đọc config và guidance
-    match /config/{path=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.token.role == 'admin';
-    }
-
-    match /guidance/{path=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth.token.role == 'admin';
-    }
-
-    // --- QUY TẮC QUAN TRỌNG NHẤT CHO HỒ SƠ MINH CHỨNG ---
     
-    match /hoso/{communeId}/{allPaths=**} {
-      
-      // Cho phép ĐỌC nếu là Admin HOẶC đúng là người của xã đó.
-      allow read: if request.auth.token.role == 'admin' || 
-                  request.auth.token.communeId == communeId;
-      
-      // Cho phép GHI (tạo/cập nhật) nếu:
-      // 1. Người dùng là Admin, HOẶC
-      // 2. Người dùng là Cán bộ xã, ghi vào đúng thư mục của xã mình, VÀ file nhỏ hơn 5MB.
-      allow write: if request.auth.token.role == 'admin' ||
-                   (request.auth.token.role == 'commune_staff' &&
-                    request.auth.token.communeId == communeId &&
-                    request.resource.size < 5 * 1024 * 1024);
-      
-      // CHẶN người dùng tự XÓA file từ giao diện.
-      allow delete: if false;
+    // Allow any authenticated user to write to the 'debug' directory for testing purposes.
+    match /debug/{allPaths=**} {
+      allow write: if request.auth != null;
+      allow read: if request.auth != null;
     }
+
+    // Only admins can write to the config folder, but anyone can read.
+    match /config/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.role == 'admin';
+    }
+
+    // Only admins can write guidance documents, but any authenticated user can read.
+    match /guidance_documents/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.token.role == 'admin';
+    }
+    
+    // Users can only access their own commune's folder.
+    match /hoso/{communeId}/{path=**} {
+      allow read, write: if request.auth != null && request.auth.token.communeId == communeId;
+    }
+
+    // Allow admin to manage announcement files.
+    match /hoso/{communeId}/announcements/{allPaths=**} {
+        allow read: if request.auth != null; // All users can view announcements
+        allow write: if request.auth != null && request.auth.token.role == 'admin';
+    }
+
   }
 }
