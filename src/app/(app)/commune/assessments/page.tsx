@@ -24,9 +24,18 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
-type FileWithStatus = (File | { name: string, url: string, signatureStatus?: 'validating' | 'valid' | 'invalid' | 'error', signatureError?: string });
+type FileWithStatus = (File | { 
+    name: string, 
+    url: string, 
+    signatureStatus?: 'validating' | 'valid' | 'invalid' | 'error', 
+    signatureError?: string,
+    contentCheckStatus?: 'passed' | 'failed' | 'not_checked',
+    contentCheckIssues?: string[] 
+});
 
 type IndicatorValue = {
     isTasked?: boolean;
@@ -508,7 +517,14 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
                 if (f instanceof File) {
                     return { name: f.name, url: '' }; 
                 }
-                return { name: f.name, url: f.url, signatureStatus: f.signatureStatus, signatureError: f.signatureError };
+                return { 
+                    name: f.name, 
+                    url: f.url, 
+                    signatureStatus: f.signatureStatus, 
+                    signatureError: f.signatureError,
+                    contentCheckStatus: f.contentCheckStatus,
+                    contentCheckIssues: f.contentCheckIssues
+                };
             });
 
             sanitizedData[key] = {
@@ -577,19 +593,60 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
         const currentStatus = statusMap[file.signatureStatus];
 
         return (
-            <div className="group relative">
-                <Badge className={`${currentStatus.className} text-white text-[10px] h-5`}>
-                    {currentStatus.icon}
-                    <span className="ml-1">{currentStatus.text}</span>
-                </Badge>
-                {((file.signatureStatus === 'invalid' || file.signatureStatus === 'error') && file.signatureError) && (
-                    <div className="absolute bottom-full mb-2 w-48 z-10 hidden group-hover:block p-2 text-xs font-normal text-white bg-black rounded-lg shadow-lg">
-                        {file.signatureError}
-                    </div>
-                )}
-            </div>
+             <TooltipProvider>
+                <Tooltip>
+                    <TooltipTrigger>
+                        <Badge className={`${currentStatus.className} text-white text-[10px] h-5`}>
+                            {currentStatus.icon}
+                            <span className="ml-1">{currentStatus.text}</span>
+                        </Badge>
+                    </TooltipTrigger>
+                     {((file.signatureStatus === 'invalid' || file.signatureStatus === 'error') && file.signatureError) && (
+                        <TooltipContent>
+                            <p>{file.signatureError}</p>
+                        </TooltipContent>
+                     )}
+                </Tooltip>
+            </TooltipProvider>
         );
     };
+
+    const ContentCheckBadge = ({ file }: { file: FileWithStatus }) => {
+        if (!('contentCheckStatus' in file) || !file.contentCheckStatus || file.contentCheckStatus === 'not_checked') return null;
+
+        const statusMap = {
+            passed: { text: 'Thể thức hợp lệ', className: 'bg-green-500', icon: <CheckCircle className="h-3 w-3" /> },
+            failed: { text: 'Lỗi thể thức', className: 'bg-amber-500', icon: <AlertTriangle className="h-3 w-3" /> },
+        };
+        const currentStatus = statusMap[file.contentCheckStatus];
+         if (!currentStatus) return null;
+
+
+        const badge = (
+             <Badge className={`${currentStatus.className} text-white text-[10px] h-5`}>
+                {currentStatus.icon}
+                <span className="ml-1">{currentStatus.text}</span>
+            </Badge>
+        );
+
+        if (file.contentCheckStatus === 'failed' && file.contentCheckIssues && file.contentCheckIssues.length > 0) {
+             return (
+                <TooltipProvider>
+                    <Tooltip>
+                        <TooltipTrigger>{badge}</TooltipTrigger>
+                        <TooltipContent>
+                            <ul className="list-disc pl-4">
+                                {file.contentCheckIssues.map((issue, i) => <li key={i}>{issue}</li>)}
+                            </ul>
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
+            );
+        }
+
+        return badge;
+    }
+
 
     return (
         <div className="grid gap-4">
@@ -606,7 +663,10 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
                         <span className="truncate text-xs flex-1">{item.name}</span>
                     </div>
                     <div className="flex items-center gap-1">
-                        <SignatureStatusBadge file={item} />
+                        <div className="flex flex-col gap-1 items-end">
+                            <SignatureStatusBadge file={item} />
+                            <ContentCheckBadge file={item} />
+                        </div>
                         {'url' in item && item.url && (
                              <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onPreview(item as { name: string, url: string })}>
                                 <Eye className="h-4 w-4" />
