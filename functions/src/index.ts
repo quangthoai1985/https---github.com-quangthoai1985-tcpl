@@ -6,7 +6,7 @@ import { onObjectFinalized } from "firebase-functions/v2/storage";
 import { logger } from "firebase-functions";
 import * as forge from 'node-forge';
 import { addDays, parse } from 'date-fns';
-import * as pdfParse from 'pdf-parse';
+import pdfParse from 'pdf-parse';
 
 admin.initializeApp();
 const db = admin.firestore();

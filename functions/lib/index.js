@@ -41,6 +41,7 @@ const storage_1 = require("firebase-functions/v2/storage");
 const firebase_functions_1 = require("firebase-functions");
 const forge = __importStar(require("node-forge"));
 const date_fns_1 = require("date-fns");
+const pdfParse = __importStar(require("pdf-parse"));
 admin.initializeApp();
 const db = admin.firestore();
 exports.syncUserClaims = (0, firestore_1.onDocumentWritten)("users/{userId}", async (event) => {
@@ -101,6 +102,31 @@ const extractSignature = (pdfBuffer) => {
     const signatureHex = pdfString.substring(contentsStart + 1, contentsEnd);
     return signatureHex.replace(/\r\n|\n|\r/g, '');
 };
+const checkDocumentFormatting = (textContent) => {
+    const issues = [];
+    const normalizedText = textContent.toUpperCase();
+    // Rule 1: Check for national emblem and motto
+    if (!normalizedText.includes("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")) {
+        issues.push("Không tìm thấy Quốc hiệu 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM'.");
+    }
+    if (!normalizedText.includes("ĐỘC LẬP - TỰ DO - HẠNH PHÚC")) {
+        issues.push("Không tìm thấy Tiêu ngữ 'Độc lập - Tự do - Hạnh phúc'.");
+    }
+    // Rule 2: Check for document number and symbol using regex
+    const docNumberRegex = /SỐ\s*:\s*(\d+[A-Z]?)\/(\d{4})\/([A-ZĐ]+)-([A-ZĐ]+)/i;
+    if (!docNumberRegex.test(textContent)) {
+        issues.push("Không tìm thấy hoặc sai định dạng Số, ký hiệu văn bản (Ví dụ: Số: 01/2024/NQ-HĐND).");
+    }
+    // Rule 3: Check for document type
+    const docTypes = ["NGHỊ QUYẾT", "QUYẾT ĐỊNH", "CHỈ THỊ", "KẾ HOẠCH"];
+    if (!docTypes.some(type => normalizedText.includes(type))) {
+        issues.push(`Không tìm thấy tên loại văn bản (ví dụ: ${docTypes.join(', ')}).`);
+    }
+    return {
+        status: issues.length === 0 ? 'passed' : 'failed',
+        issues: issues
+    };
+};
 exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
     var _a, _b;
     const fileBucket = event.data.bucket;
@@ -132,7 +158,7 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
     firebase_functions_1.logger.info(`Processing signature for PDF: ${filePath}`, { pathInfo });
     const assessmentId = `assess_${periodId}_${communeId}`;
     const assessmentRef = db.collection('assessments').doc(assessmentId);
-    const updateAssessmentFileStatus = async (fileStatus, reason) => {
+    const updateAssessmentFileStatus = async (fileStatus, reason, contentCheckStatus, contentCheckIssues) => {
         var _a;
         const doc = await assessmentRef.get();
         if (!doc.exists)
@@ -154,6 +180,14 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
             else {
                 delete fileToUpdate.signatureError;
             }
+            // Add content check results
+            fileToUpdate.contentCheckStatus = contentCheckStatus || 'not_checked';
+            if (contentCheckIssues && contentCheckIssues.length > 0) {
+                fileToUpdate.contentCheckIssues = contentCheckIssues;
+            }
+            else {
+                delete fileToUpdate.contentCheckIssues;
+            }
             const criterionDoc = await db.collection('criteria').doc('TC01').get();
             const assignedCount = ((_a = criterionDoc.data()) === null || _a === void 0 ? void 0 : _a.assignedDocumentsCount) || 0;
             const allFilesValid = Object.values(indicatorResult.filesPerDocument).flat().every((f) => f.signatureStatus === 'valid');
@@ -162,8 +196,7 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
             await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
         }
     };
-    await updateAssessmentFileStatus('validating');
-    // === BẮT ĐẦU KHỐI CODE CẦN THAY THẾ ===
+    await updateAssessmentFileStatus('validating', undefined, 'not_checked');
     try {
         const criterionDoc = await db.collection('criteria').doc('TC01').get();
         if (!criterionDoc.exists)
@@ -182,10 +215,7 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
             throw new Error("Không tìm thấy chữ ký số trong tệp PDF.");
         const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
         const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
-        // --- PHẦN SỬA LỖI QUAN TRỌNG ---
-        // Ép kiểu 'p7' để TypeScript tin tưởng và cho phép truy cập thuộc tính
         const signedData = p7;
-        // Bây giờ sử dụng 'signedData' để thực hiện các bước kiểm tra
         if (signedData.type !== forge.pki.oids.signedData) {
             throw new Error(`Loại chữ ký không hợp lệ. Yêu cầu "SignedData", nhận được "${signedData.type}".`);
         }
@@ -205,16 +235,32 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
         const isValid = signingTime <= deadline;
         const status = isValid ? "valid" : "expired";
         await saveCheckResult(status, undefined, signingTime, deadline, signerName);
-        await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
+        // --- NEW: CONTENT CHECKING LOGIC ---
+        let contentCheckStatus = 'not_checked';
+        let contentCheckIssues = [];
+        if (isValid) {
+            firebase_functions_1.logger.info(`Signature is valid for ${fileName}. Proceeding to content check.`);
+            const pdfData = await pdfParse(fileBuffer);
+            const { status: checkStatus, issues } = checkDocumentFormatting(pdfData.text);
+            contentCheckStatus = checkStatus;
+            contentCheckIssues = issues;
+            if (checkStatus === 'failed') {
+                firebase_functions_1.logger.warn(`Content formatting issues found for ${fileName}:`, issues);
+            }
+            else {
+                firebase_functions_1.logger.info(`Content formatting check passed for ${fileName}.`);
+            }
+        }
+        // --- END: CONTENT CHECKING LOGIC ---
+        await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`, contentCheckStatus, contentCheckIssues);
         firebase_functions_1.logger.info(`Successfully processed signature for ${fileName}. Status: ${status}`);
     }
     catch (error) {
         firebase_functions_1.logger.error(`Error processing ${filePath}:`, error);
         await saveCheckResult("error", error.message);
-        await updateAssessmentFileStatus('error', error.message);
+        await updateAssessmentFileStatus('error', error.message, 'not_checked');
         return null;
     }
-    // === KẾT THÚC KHỐI CODE CẦN THAY THẾ ===
     return null;
 });
 function parseAssessmentPath(filePath) {
@@ -232,11 +278,6 @@ function parseAssessmentPath(filePath) {
     }
     return null;
 }
-/**
- * Helper function to recursively collect all file URLs from an assessmentData object.
- * @param assessmentData - The assessmentData object from Firestore.
- * @returns A Set containing all unique file URLs.
- */
 function collectAllFileUrls(assessmentData) {
     const urls = new Set();
     if (!assessmentData || typeof assessmentData !== 'object') {
@@ -270,11 +311,6 @@ function collectAllFileUrls(assessmentData) {
     }
     return urls;
 }
-/**
- * Triggered when an assessment document is updated.
- * Compares file lists before and after the update to find deleted files
- * and removes them from Firebase Storage.
- */
 exports.onAssessmentFileDeleted = (0, firestore_1.onDocumentUpdated)("assessments/{assessmentId}", async (event) => {
     var _a, _b;
     const dataBefore = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
