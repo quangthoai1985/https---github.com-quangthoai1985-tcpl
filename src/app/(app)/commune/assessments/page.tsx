@@ -707,7 +707,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     const assignedCount = criterion.assignedDocumentsCount || 0;
     
     const firstIndicatorId = criterion.indicators[0]?.id;
-    if (!firstIndicatorId) return null;
+    if (!firstIndicatorId || !assessmentData[firstIndicatorId]) return null;
     
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
     
@@ -790,6 +790,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                     <div className="space-y-8">
                         {criterion.indicators.map((indicator, index) => {
                              const data = assessmentData[indicator.id];
+                             if (!data) return null; // FIX: Add a guard clause
                              const blockClasses = cn(
                                  "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
                                  data.status === 'achieved' && 'bg-green-50 border-green-200',
