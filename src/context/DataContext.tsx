@@ -17,15 +17,14 @@ import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, type Firest
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser, type Auth } from 'firebase/auth';
 import { getStorage, ref, deleteObject, type FirebaseStorage } from 'firebase/storage';
 
-// Read Firebase configuration from environment variables
-console.log("API Key đang được sử dụng:", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
+// Hard-coded Firebase configuration as requested
 const firebaseConfig: FirebaseOptions = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: "AIzaSyCj0H_a8O7znR_M1bFim9Lzt5MfnsptxH4",
+  authDomain: "chuan-tiep-can-pl.firebaseapp.com",
+  projectId: "chuan-tiep-can-pl",
+  storageBucket: "chuan-tiep-can-pl.appspot.com",
+  messagingSenderId: "851876581009",
+  appId: "1:851876581009:web:60bfbcc40055f76f607930"
 };
 
 // Helper function to initialize Firebase services safely on the client-side
