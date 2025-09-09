@@ -23,6 +23,8 @@ export type IndicatorResult = {
     adminNote?: string; // Ghi chú của admin cho từng chỉ tiêu
     communeNote?: string; // Nội dung giải trình của xã cho từng chỉ tiêu
     statusByAdmin?: 'approved' | 'rejected' | 'pending'; // Trạng thái admin duyệt cho từng chỉ tiêu
+    contentCheckStatus?: 'passed' | 'failed' | 'not_checked'; // Trạng thái kiểm tra nội dung
+    contentCheckIssues?: string[]; // Danh sách các lỗi thể thức tìm thấy
 };
 
 
