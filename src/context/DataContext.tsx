@@ -13,7 +13,7 @@ import {
     type LoginConfig
 } from '@/lib/data';
 import { initializeApp, getApp, getApps, FirebaseOptions, type FirebaseApp } from 'firebase/app';
-import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, type Firestore, deleteDoc, getDoc, onSnapshot, query, where } from 'firebase/firestore'; // Import onSnapshot
+import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, type Firestore, deleteDoc, getDoc, onSnapshot, query, where, Unsubscribe } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser, type Auth } from 'firebase/auth';
 import { getStorage, ref, deleteObject, type FirebaseStorage } from 'firebase/storage';
 
@@ -106,8 +106,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const getUnitName = (unitId: string, allUnits: Unit[]) => {
       return allUnits.find(u => u.id === unitId)?.name || 'Không xác định';
   }
-
-  // ... (Hàm generateNotifications của bạn không thay đổi, giữ nguyên)
+  
   const generateNotifications = (user: User | null, allAssessments: Assessment[], allUnits: Unit[]) => {
       if (!user) return [];
       
@@ -136,9 +135,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                       link: `/admin/reviews/${assessment.id}`
                   });
               }
-               if (assessment.assessmentStatus === 'returned_for_revision') {
-                   // Add notification logic if needed
-               }
           });
 
       } else { // commune_staff
@@ -192,45 +188,23 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
           });
       }
 
-      // Simple deduplication and limit
       const uniqueNotifications = Array.from(new Map(generated.map(item => [item.id, item])).values());
       return uniqueNotifications.slice(0, 15);
   };
   
+  // Listener for public config, available even when not logged in
   useEffect(() => {
     if (!db) return;
-
-    const collectionsToFetch = ['units', 'assessmentPeriods', 'criteria', 'guidanceDocuments'];
-    const unsubscribes = collectionsToFetch.map(collectionName => {
-        const q = query(collection(db, collectionName));
-        return onSnapshot(q, (querySnapshot) => {
-            const data = querySnapshot.docs.map(doc => doc.data());
-            switch(collectionName) {
-                case 'units': setUnits(data as Unit[]); break;
-                case 'assessmentPeriods': setAssessmentPeriods(data as AssessmentPeriod[]); break;
-                case 'criteria': setCriteria(data as Criterion[]); break;
-                case 'guidanceDocuments': setGuidanceDocuments(data as AppDocument[]); break;
-            }
-        }, (error) => {
-            console.error(`Error listening to ${collectionName}:`, error);
-        });
+    const configDocRef = doc(db, 'configurations', 'loginPage');
+    const unsubConfig = onSnapshot(configDocRef, (doc) => {
+        if (doc.exists()) {
+            setLoginConfig(doc.data() as LoginConfig);
+        } else {
+            setLoginConfig(null);
+        }
     });
 
-    const fetchPublicConfig = async () => {
-      const configDocRef = doc(db, 'configurations', 'loginPage');
-      const unsubConfig = onSnapshot(configDocRef, (doc) => {
-        if (doc.exists()) {
-          setLoginConfig(doc.data() as LoginConfig);
-        } else {
-          setLoginConfig(null);
-        }
-      });
-      unsubscribes.push(unsubConfig);
-    };
-
-    fetchPublicConfig();
-
-    return () => unsubscribes.forEach(unsub => unsub());
+    return () => unsubConfig();
   }, [db]);
 
 
@@ -238,64 +212,85 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     if (!auth || !db) return;
 
-    let unsubAssessments = () => {};
-    let unsubUsers = () => {};
-
     const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
         setLoading(true);
-
-        // Unsubscribe from previous listeners
-        unsubAssessments();
-        unsubUsers();
+        let allUnsubs: Unsubscribe[] = [];
 
         if (firebaseUser) {
             const userDocRef = doc(db, 'users', firebaseUser.uid);
-            const userDocSnap = await getDoc(userDocRef);
+            
+            try {
+                const userDocSnap = await getDoc(userDocRef);
 
-            if (userDocSnap.exists()) {
-                const loggedInUser = userDocSnap.data() as User;
-                setCurrentUser(loggedInUser);
-                setRole(loggedInUser.role);
+                if (userDocSnap.exists()) {
+                    const loggedInUser = userDocSnap.data() as User;
+                    setCurrentUser(loggedInUser);
+                    setRole(loggedInUser.role);
 
-                // Set up new listeners based on role
-                if (loggedInUser.role === 'admin') {
-                    const usersQuery = query(collection(db, 'users'));
-                    unsubUsers = onSnapshot(usersQuery, (snap) => setUsers(snap.docs.map(d => d.data() as User)));
+                    // Set up common listeners
+                    const commonCollections = ['units', 'assessmentPeriods', 'criteria', 'guidanceDocuments'];
+                    commonCollections.forEach(colName => {
+                        const q = query(collection(db, colName));
+                        const unsub = onSnapshot(q, (snap) => {
+                            const data = snap.docs.map(d => d.data());
+                            switch(colName) {
+                                case 'units': setUnits(data as Unit[]); break;
+                                case 'assessmentPeriods': setAssessmentPeriods(data as AssessmentPeriod[]); break;
+                                case 'criteria': setCriteria(data as Criterion[]); break;
+                                case 'guidanceDocuments': setGuidanceDocuments(data as AppDocument[]); break;
+                            }
+                        });
+                        allUnsubs.push(unsub);
+                    });
 
-                    const assessmentsQuery = query(collection(db, 'assessments'));
-                    unsubAssessments = onSnapshot(assessmentsQuery, (snap) => setAssessments(snap.docs.map(d => d.data() as Assessment)));
-                } else { // commune_staff
-                    setUsers([]); // Staff don't see other users
-                    const assessmentsQuery = query(collection(db, 'assessments'), where("communeId", "==", loggedInUser.communeId));
-                    unsubAssessments = onSnapshot(assessmentsQuery, (snap) => setAssessments(snap.docs.map(d => d.data() as Assessment)));
+                    // Set up role-specific listeners
+                    if (loggedInUser.role === 'admin') {
+                        const usersQuery = query(collection(db, 'users'));
+                        allUnsubs.push(onSnapshot(usersQuery, (snap) => setUsers(snap.docs.map(d => d.data() as User))));
+
+                        const assessmentsQuery = query(collection(db, 'assessments'));
+                        allUnsubs.push(onSnapshot(assessmentsQuery, (snap) => setAssessments(snap.docs.map(d => d.data() as Assessment))));
+                    } else { // commune_staff
+                        setUsers([]); 
+                        const assessmentsQuery = query(collection(db, 'assessments'), where("communeId", "==", loggedInUser.communeId));
+                        allUnsubs.push(onSnapshot(assessmentsQuery, (snap) => setAssessments(snap.docs.map(d => d.data() as Assessment))));
+                    }
+                } else {
+                    console.error("User profile not found, logging out.");
+                    await signOut(auth);
                 }
-            } else {
-                console.error("User profile not found, logging out.");
-                await signOut(auth);
+            } catch (error) {
+                console.error("Error fetching user data:", error);
+                 await signOut(auth);
             }
+
         } else {
-            // Logged out
+            // Logged out: clean up state
             setCurrentUser(null);
             setRole(null);
             setUsers([]);
             setAssessments([]);
+            setUnits([]);
+            setAssessmentPeriods([]);
+            setCriteria([]);
+            setGuidanceDocuments([]);
             setNotifications([]);
         }
         setLoading(false);
+        
+        // Return a cleanup function that unsubscribes from everything when auth state changes
+        return () => {
+            allUnsubs.forEach(unsub => unsub());
+        };
     });
 
-    return () => {
-        unsubAuth();
-        unsubAssessments();
-        unsubUsers();
-    };
+    return () => unsubAuth();
 }, [auth, db]);
 
-// Effect to generate notifications whenever relevant data changes
-useEffect(() => {
-    setNotifications(generateNotifications(currentUser, assessments, units));
-}, [currentUser, assessments, units]);
-
+  // Effect to generate notifications whenever relevant data changes
+  useEffect(() => {
+      setNotifications(generateNotifications(currentUser, assessments, units));
+  }, [currentUser, assessments, units]);
 
 
   const setLoginInfo = async (email: string, password: string): Promise<boolean> => {
@@ -321,8 +316,7 @@ useEffect(() => {
   };
 
   const createFirestoreUpdater = <T extends {id: string}>(
-    collectionName: string,
-    stateUpdater: React.Dispatch<React.SetStateAction<T[]>>
+    collectionName: string
   ) => {
     return async (newData: T[]) => {
       if (!db) return;
@@ -346,7 +340,6 @@ useEffect(() => {
       });
       
       await batch.commit();
-      // stateUpdater(newData); // No need to update state manually, onSnapshot will do it.
       setLoading(false);
     };
   };
@@ -356,7 +349,6 @@ useEffect(() => {
       setLoading(true);
       const docRef = doc(db, 'configurations', 'loginPage');
       await setDoc(docRef, newConfig, { merge: true });
-      // setLoginConfig(prevConfig => ({...prevConfig, ...newConfig}));
       setLoading(false);
   }
 
@@ -365,7 +357,6 @@ useEffect(() => {
       setLoading(true);
       try {
           await deleteDoc(doc(db, 'assessments', assessmentId));
-          // setAssessments(prev => prev.filter(a => a.id !== assessmentId));
       } catch (error) {
           console.error("Error deleting assessment:", error);
           throw error;
@@ -382,14 +373,13 @@ useEffect(() => {
       } catch (error: any) {
            if (error.code !== 'storage/object-not-found') {
                console.error("Error deleting file from storage:", error);
-               throw error; // Re-throw to be caught by the caller
+               throw error; 
            }
             console.warn("File to delete was not found in Storage, it might have been deleted already.");
       }
   };
 
   const refreshData = useCallback(async () => {
-      // This function is less critical with onSnapshot, but can be kept for manual refresh triggers.
       console.log("Manual refresh triggered. Data is already real-time.");
       return Promise.resolve();
   }, []);
@@ -402,12 +392,12 @@ useEffect(() => {
     );
   };
 
-  const updateUsers = createFirestoreUpdater('users', setUsers);
-  const updateUnits = createFirestoreUpdater('units', setUnits);
-  const updateAssessmentPeriods = createFirestoreUpdater('assessmentPeriods', setAssessmentPeriods);
-  const updateAssessments = createFirestoreUpdater('assessments', setAssessments);
-  const updateCriteria = createFirestoreUpdater('criteria', setCriteria);
-  const updateGuidanceDocuments = createFirestoreUpdater('guidanceDocuments', setGuidanceDocuments);
+  const updateUsers = createFirestoreUpdater('users');
+  const updateUnits = createFirestoreUpdater('units');
+  const updateAssessmentPeriods = createFirestoreUpdater('assessmentPeriods');
+  const updateAssessments = createFirestoreUpdater('assessments');
+  const updateCriteria = createFirestoreUpdater('criteria');
+  const updateGuidanceDocuments = createFirestoreUpdater('guidanceDocuments');
 
   return (
     <DataContext.Provider value={{ 
