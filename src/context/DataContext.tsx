@@ -18,6 +18,7 @@ import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, User 
 import { getStorage, ref, deleteObject, type FirebaseStorage } from 'firebase/storage';
 
 // Read Firebase configuration from environment variables
+console.log("API Key đang được sử dụng:", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
 const firebaseConfig: FirebaseOptions = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
