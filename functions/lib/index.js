@@ -163,6 +163,8 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
         }
     };
     await updateAssessmentFileStatus('validating');
+    // === BẮT ĐẦU KHỐI CODE CẦN THAY THẾ ===
+    // === BẮT ĐẦU KHỐI CODE CẦN THAY THẾ ===
     try {
         const criterionDoc = await db.collection('criteria').doc('TC01').get();
         if (!criterionDoc.exists)
@@ -181,13 +183,25 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
             throw new Error("Không tìm thấy chữ ký số trong tệp PDF.");
         const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
         const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
-        const signerCertificate = p7.certificates[0];
-        if (!signerCertificate)
+        // --- PHẦN SỬA LỖI QUAN TRỌNG ---
+        // BƯỚC 1: Ép kiểu 'p7' để TypeScript tin tưởng và cho phép truy cập thuộc tính
+        const signedData = p7;
+        // BƯỚC 2: Bây giờ sử dụng 'signedData' để thực hiện các bước kiểm tra
+        if (signedData.type !== forge.pki.oids.signedData) {
+            throw new Error(`Loại chữ ký không hợp lệ. Yêu cầu "SignedData", nhận được "${signedData.type}".`);
+        }
+        if (!signedData.signers || signedData.signers.length === 0) {
+            throw new Error("Không tìm thấy thông tin người ký trong chữ ký.");
+        }
+        if (!signedData.certificates || signedData.certificates.length === 0) {
             throw new Error("Không tìm thấy chứng thư số trong chữ ký.");
-        const signingTimeAttr = p7.signers[0].authenticatedAttributes.find((attr) => attr.type === forge.pki.oids.signingTime);
-        const signingTime = signingTimeAttr ? new Date(forge.asn1.fromDer(signingTimeAttr.value).value) : null;
-        if (!signingTime)
-            throw new Error("Không tìm thấy thời gian ký trong chữ ký.");
+        }
+        const signer = signedData.signers[0];
+        const signerCertificate = signedData.certificates[0];
+        const signingTime = signer.signingTime;
+        if (!signingTime) {
+            throw new Error("Không tìm thấy thuộc tính thời gian ký (signingTime) trong chữ ký.");
+        }
         const signerName = ((_b = signerCertificate.subject.getField('CN')) === null || _b === void 0 ? void 0 : _b.value) || 'Unknown Signer';
         const isValid = signingTime <= deadline;
         const status = isValid ? "valid" : "expired";
@@ -201,6 +215,7 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
         await updateAssessmentFileStatus('error', error.message);
         return null;
     }
+    // === KẾT THÚC KHỐI CODE CẦN THAY THẾ ===
     return null;
 });
 function parseAssessmentPath(filePath) {

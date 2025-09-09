@@ -276,7 +276,7 @@ function collectAllFileUrls(assessmentData: any): Set<string> {
  * Compares file lists before and after the update to find deleted files
  * and removes them from Firebase Storage.
  */
-export const onDeleteAssessmentFile = onDocumentUpdated("assessments/{assessmentId}", async (event) => {
+export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmentId}", async (event) => {
     const dataBefore = event.data?.before.data();
     const dataAfter = event.data?.after.data();
 
