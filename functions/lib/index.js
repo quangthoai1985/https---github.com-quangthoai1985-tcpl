@@ -34,7 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onDeleteAssessmentFile = exports.processSignedPDF = exports.syncUserClaims = void 0;
+exports.onAssessmentFileDeleted = exports.processSignedPDF = exports.syncUserClaims = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const admin = __importStar(require("firebase-admin"));
 const storage_1 = require("firebase-functions/v2/storage");
@@ -164,7 +164,6 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
     };
     await updateAssessmentFileStatus('validating');
     // === BẮT ĐẦU KHỐI CODE CẦN THAY THẾ ===
-    // === BẮT ĐẦU KHỐI CODE CẦN THAY THẾ ===
     try {
         const criterionDoc = await db.collection('criteria').doc('TC01').get();
         if (!criterionDoc.exists)
@@ -184,9 +183,9 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
         const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
         const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
         // --- PHẦN SỬA LỖI QUAN TRỌNG ---
-        // BƯỚC 1: Ép kiểu 'p7' để TypeScript tin tưởng và cho phép truy cập thuộc tính
+        // Ép kiểu 'p7' để TypeScript tin tưởng và cho phép truy cập thuộc tính
         const signedData = p7;
-        // BƯỚC 2: Bây giờ sử dụng 'signedData' để thực hiện các bước kiểm tra
+        // Bây giờ sử dụng 'signedData' để thực hiện các bước kiểm tra
         if (signedData.type !== forge.pki.oids.signedData) {
             throw new Error(`Loại chữ ký không hợp lệ. Yêu cầu "SignedData", nhận được "${signedData.type}".`);
         }
@@ -276,7 +275,7 @@ function collectAllFileUrls(assessmentData) {
  * Compares file lists before and after the update to find deleted files
  * and removes them from Firebase Storage.
  */
-exports.onDeleteAssessmentFile = (0, firestore_1.onDocumentUpdated)("assessments/{assessmentId}", async (event) => {
+exports.onAssessmentFileDeleted = (0, firestore_1.onDocumentUpdated)("assessments/{assessmentId}", async (event) => {
     var _a, _b;
     const dataBefore = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
     const dataAfter = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
