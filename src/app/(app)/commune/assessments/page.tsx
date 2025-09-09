@@ -1244,36 +1244,9 @@ export default function SelfAssessmentPage() {
     }
     return hasPending ? 'pending' : 'achieved';
   };
-const handleDebugTest = async () => {
-    if (!storage) {
-      alert("Dịch vụ Storage chưa sẵn sàng.");
-      console.error("Dịch vụ Storage chưa sẵn sàng.");
-      return;
-    }
-    try {
-      alert("Bắt đầu test upload... Vui lòng mở Console (F12) để xem chi tiết.");
-      const testFileContent = "This is a simple test file.";
-      const blob = new Blob([testFileContent], { type: "text/plain" });
-      
-      // Sử dụng một đường dẫn cực kỳ đơn giản và không có ký tự đặc biệt
-      const testPath = "debug/test-upload.txt"; 
-      const testStorageRef = ref(storage, testPath);
-      
-      console.log(`Đang thử upload lên đường dẫn: ${testPath}`);
-      await uploadBytes(testStorageRef, blob);
-      
-      console.log("TEST UPLOAD THÀNH CÔNG!");
-      alert("TEST UPLOAD THÀNH CÔNG! Vui lòng kiểm tra thư mục 'debug' trong Firebase Storage.");
-} catch (error) {
-        console.error("TEST UPLOAD THẤT BẠI:", error);
-        alert("TEST UPLOAD THẤT BẠI! Hãy kiểm tra Console (F12) để xem chi tiết lỗi, đặc biệt là các lỗi liên quan đến CORS hoặc phân quyền của Storage.");
-    }
-  };
-
   return (
     <>
     <PageHeader title="Tự Chấm điểm & Đánh giá" description="Thực hiện tự đánh giá theo các tiêu chí và cung cấp hồ sơ minh chứng đi kèm."/>
-    <Button onClick={handleDebugTest} variant="destructive" className="mb-4">Chạy Test Upload</Button>
     <div className="grid gap-6">
         <Card>
             <CardHeader>
@@ -1470,4 +1443,3 @@ const handleDebugTest = async () => {
     </>
   );
 }
-
