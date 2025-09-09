@@ -33,6 +33,9 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onAssessmentFileDeleted = exports.processSignedPDF = exports.syncUserClaims = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
@@ -41,7 +44,7 @@ const storage_1 = require("firebase-functions/v2/storage");
 const firebase_functions_1 = require("firebase-functions");
 const forge = __importStar(require("node-forge"));
 const date_fns_1 = require("date-fns");
-const pdfParse = __importStar(require("pdf-parse"));
+const pdf_parse_1 = __importDefault(require("pdf-parse"));
 admin.initializeApp();
 const db = admin.firestore();
 exports.syncUserClaims = (0, firestore_1.onDocumentWritten)("users/{userId}", async (event) => {
@@ -240,7 +243,7 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
         let contentCheckIssues = [];
         if (isValid) {
             firebase_functions_1.logger.info(`Signature is valid for ${fileName}. Proceeding to content check.`);
-            const pdfData = await pdfParse(fileBuffer);
+            const pdfData = await (0, pdf_parse_1.default)(fileBuffer);
             const { status: checkStatus, issues } = checkDocumentFormatting(pdfData.text);
             contentCheckStatus = checkStatus;
             contentCheckIssues = issues;

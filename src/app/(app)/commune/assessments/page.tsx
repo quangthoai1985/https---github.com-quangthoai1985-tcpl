@@ -45,6 +45,7 @@ type IndicatorValue = {
     note: string;
     status: AssessmentStatus;
     adminNote?: string;
+    communeNote?: string;
 };
 type AssessmentValues = Record<string, IndicatorValue>;
 
@@ -533,6 +534,7 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
                 note: indicatorData.note,
                 status: indicatorData.status,
                 adminNote: indicatorData.adminNote,
+                communeNote: indicatorData.communeNote,
                 files: sanitizeFiles(indicatorData.files),
                 filesPerDocument: indicatorData.filesPerDocument ? Object.fromEntries(
                     Object.entries(indicatorData.filesPerDocument).map(([idx, fileList]) => [idx, sanitizeFiles(fileList)])
@@ -726,12 +728,13 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     }
 
     // Effect to trigger save when a file is removed
-    const filesPerDocRef = React.useRef(assessmentData[firstIndicatorId].filesPerDocument);
+    const filesPerDocRef = React.useRef(assessmentData[firstIndicatorId]?.filesPerDocument);
     useEffect(() => {
-        if (JSON.stringify(filesPerDocRef.current) !== JSON.stringify(assessmentData[firstIndicatorId].filesPerDocument)) {
+        const firstIndicatorData = assessmentData[firstIndicatorId];
+        if (firstIndicatorData && JSON.stringify(filesPerDocRef.current) !== JSON.stringify(firstIndicatorData.filesPerDocument)) {
              // A file was likely removed, trigger a save to update Firestore and trigger the delete function.
             handleSaveDraft();
-            filesPerDocRef.current = assessmentData[firstIndicatorId].filesPerDocument; // Update ref to prevent loops
+            filesPerDocRef.current = firstIndicatorData.filesPerDocument; // Update ref to prevent loops
         }
     }, [assessmentData, handleSaveDraft, firstIndicatorId]);
 
@@ -919,12 +922,13 @@ export default function SelfAssessmentPage() {
                       note: saved?.note ?? '', 
                       status: saved?.status ?? 'pending',
                       adminNote: saved?.adminNote ?? '',
+                      communeNote: saved?.communeNote ?? '',
                   };
               };
+              processIndicator(indicator); // Luôn xử lý chỉ tiêu cha trước
+              
               if (indicator.subIndicators && indicator.subIndicators.length > 0) {
-                  indicator.subIndicators.forEach(processIndicator);
-              } else {
-                  processIndicator(indicator);
+                  indicator.subIndicators.forEach(processIndicator); // Sau đó xử lý các chỉ tiêu con
               }
           });
       });
@@ -1048,7 +1052,7 @@ export default function SelfAssessmentPage() {
 
     for (const indicatorId in assessmentData) {
         const indicatorData = assessmentData[indicatorId];
-        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
+        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
         
         if (parentCriterion?.id === 'TC01') {
             uploadedFileUrls[indicatorId] = {
@@ -1302,6 +1306,8 @@ export default function SelfAssessmentPage() {
                                     <AccordionContent>
                                         <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
                                             {(criterion.indicators || []).map(indicator => {
+                                                if (!assessmentData[indicator.id]) return null;
+
                                                 const indicatorBlockClasses = cn(
                                                     "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
                                                     assessmentData[indicator.id]?.status === 'achieved' && 'bg-green-50 border-green-200',
@@ -1310,23 +1316,25 @@ export default function SelfAssessmentPage() {
                                                 );
 
                                                 return (
-                                                    <div key={indicator.id} className={indicatorBlockClasses}>
+                                                    <div key={indicator.id}>
                                                         {(!indicator.subIndicators || indicator.subIndicators.length === 0) ? (
-                                                            <IndicatorAssessment 
-                                                                specialIndicatorIds={specialLogicIndicatorIds}
-                                                                specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
-                                                                customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
-                                                                checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
-                                                                indicator={indicator} 
-                                                                data={assessmentData[indicator.id]} 
-                                                                onValueChange={handleValueChange}
-                                                                onNoteChange={handleNoteChange}
-                                                                onEvidenceChange={handleEvidenceChange}
-                                                                onIsTaskedChange={handleIsTaskedChange}
-                                                                onPreview={setPreviewFile}
-                                                            />
+                                                            <div className={indicatorBlockClasses}>
+                                                                <IndicatorAssessment 
+                                                                    specialIndicatorIds={specialLogicIndicatorIds}
+                                                                    specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
+                                                                    customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
+                                                                    checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
+                                                                    indicator={indicator} 
+                                                                    data={assessmentData[indicator.id]} 
+                                                                    onValueChange={handleValueChange}
+                                                                    onNoteChange={handleNoteChange}
+                                                                    onEvidenceChange={handleEvidenceChange}
+                                                                    onIsTaskedChange={handleIsTaskedChange}
+                                                                    onPreview={setPreviewFile}
+                                                                />
+                                                            </div>
                                                         ) : (
-                                                            <>
+                                                            <div className={indicatorBlockClasses}>
                                                                 <div>
                                                                   <h4 className="font-semibold text-base">{indicator.name}</h4>
                                                                   <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
@@ -1338,6 +1346,7 @@ export default function SelfAssessmentPage() {
                                                                 </div>
                                                                 <div className="mt-4 pl-6 space-y-6 border-l-2 border-dashed">
                                                                   {(indicator.subIndicators || []).map(sub => {
+                                                                        if (!assessmentData[sub.id]) return null;
                                                                         const subStatus = assessmentData[sub.id]?.status;
                                                                         const subBlockClasses = cn(
                                                                             "relative pl-6 transition-colors rounded-r-lg py-4",
@@ -1365,7 +1374,7 @@ export default function SelfAssessmentPage() {
                                                                         )
                                                                   })}
                                                                 </div>
-                                                            </>
+                                                            </div>
                                                         )}
                                                     </div>
                                                 );
