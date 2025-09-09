@@ -692,185 +692,6 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
     );
 };
 
-const Criterion1IndicatorBlock = ({ indicator, criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onPreview, periodId, communeId }: {
-    indicator: Indicator;
-    criterion: Criterion;
-    assessmentData: AssessmentValues;
-    onValueChange: (id: string, value: any) => void;
-    onNoteChange: (id: string, note: string) => void;
-    onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => void,
-    onPreview: (file: { name: string, url: string }) => void;
-    periodId: string;
-    communeId: string;
-}) => {
-    const data = assessmentData[indicator.id];
-    if (!data) return null;
-
-    const assignedCount = criterion.assignedDocumentsCount || 0;
-    const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
-    const isAchieved = progress >= 100;
-    const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
-
-    const blockClasses = cn(
-        "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
-        data.status === 'achieved' && 'bg-green-50 border-green-200',
-        data.status === 'not-achieved' && 'bg-red-50 border-red-200',
-        data.status === 'pending' && 'bg-amber-50 border-amber-200'
-    );
-
-    const indicatorTitles = [
-        "Tổng số VBQPPL đã ban hành:",
-        "Tổng số dự thảo NQ của HĐND, QĐ của UBND được truyền thông:",
-        "Tổng số NQ của HĐND, QĐ của UBND được thực hiện tự kiểm tra:"
-    ];
-    const indicatorIndex = criterion.indicators.findIndex(i => i.id === indicator.id);
-
-    const handleUploadComplete = (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => {
-        const currentFiles = assessmentData[indicatorId]?.filesPerDocument?.[docIndex] || [];
-        onEvidenceChange(indicatorId, [...currentFiles, newFile], docIndex);
-    };
-
-    const handleRemoveFile = (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => {
-        onEvidenceChange(indicatorId, [], docIndex, fileToRemove);
-    };
-
-    if(indicator.subIndicators && indicator.subIndicators.length > 0) {
-        return (
-            <div className={blockClasses}>
-                <div>
-                    <h4 className="font-semibold text-base">{indicator.name}</h4>
-                    <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
-                        <div className="flex items-start gap-2 text-blue-800">
-                            <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                            <p className="text-sm">{indicator.description}</p>
-                        </div>
-                    </div>
-                </div>
-                <div className="mt-4 pl-6 space-y-6 border-l-2 border-dashed">
-                  {(indicator.subIndicators || []).map(sub => {
-                        const subData = assessmentData[sub.id];
-                        if (!subData) return null;
-
-                        const subStatus = subData.status;
-                        const subBlockClasses = cn(
-                            "relative pl-6 transition-colors rounded-r-lg py-4",
-                                subStatus === 'achieved' && 'bg-green-50',
-                                subStatus === 'not-achieved' && 'bg-red-50',
-                                subStatus === 'pending' && 'bg-amber-50 border-l-amber-200'
-                        );
-                        return (
-                          <div key={sub.id} className={subBlockClasses}>
-                              <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
-                              <IndicatorAssessment
-                                  specialIndicatorIds={getSpecialLogicIndicatorIds(useData().criteria)}
-                                  specialLabels={getSpecialIndicatorLabels(sub.id, useData().criteria)}
-                                  customBooleanLabels={getCustomBooleanLabels(sub.id, useData().criteria)}
-                                  checkboxOptions={getCheckboxOptions(sub.id, useData().criteria)}
-                                  indicator={sub} 
-                                  data={subData}
-                                  onValueChange={onValueChange}
-                                  onNoteChange={onNoteChange}
-                                  onEvidenceChange={onEvidenceChange}
-                                  onIsTaskedChange={() => {}}
-                                  onPreview={onPreview}
-                              />
-                          </div>
-                        )
-                  })}
-                </div>
-            </div>
-        )
-    }
-
-    return (
-        <div className={blockClasses}>
-            <div>
-                <div className="flex items-center gap-2">
-                    <StatusBadge status={data.status} />
-                    <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
-                </div>
-                <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
-                    <div className="flex items-start gap-2 text-blue-800">
-                        <Info className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                        <div>
-                            <p className="text-sm">{indicator.description}</p>
-                            <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid gap-4">
-                <div className="grid gap-2">
-                    <div className="flex items-center gap-4">
-                        <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
-                            {indicatorTitles[indicatorIndex] || 'Tổng số:'}
-                        </Label>
-                        <Input
-                            id={`${indicator.id}-input`}
-                            type="number"
-                            placeholder="Số lượng"
-                            className="w-28"
-                            value={data.value || ''}
-                            onChange={(e) => onValueChange(indicator.id, e.target.value)}
-                        />
-                        <div className="flex-1">
-                            <div className="flex justify-between items-center mb-1">
-                                <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
-                                <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
-                            </div>
-                            <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div className="grid gap-2">
-                <Label className="font-medium">Hồ sơ minh chứng (tương ứng với {(criterion.documents || []).length} văn bản được giao)</Label>
-                {indicatorIndex === 0 && (
-                    <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
-                        <AlertTriangle className="h-4 w-4" />
-                        <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
-                        <AlertDescription>
-                            Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số và ngày ký để đối chiếu với thời hạn ban hành.
-                        </AlertDescription>
-                    </Alert>
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                    {(criterion.documents || []).map((doc, i) => (
-                        <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
-                            <Label className="font-medium text-center text-sm">
-                                Minh chứng cho VB: <span className="font-bold text-primary">{doc.name}</span>
-                            </Label>
-                            <Criterion1EvidenceUploader
-                                indicatorId={indicator.id}
-                                docIndex={i}
-                                evidence={data.filesPerDocument?.[i] || []}
-                                onUploadComplete={handleUploadComplete}
-                                onRemove={handleRemoveFile}
-                                onPreview={onPreview}
-                                periodId={periodId}
-                                communeId={communeId}
-                            />
-                        </div>
-                    ))}
-                </div>
-            </div>
-
-            <div className="grid gap-2">
-                <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
-                <Textarea
-                    id={`note-${indicator.id}`}
-                    placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..."
-                    value={data.note}
-                    onChange={(e) => onNoteChange(indicator.id, e.target.value)}
-                />
-            </div>
-        </div>
-    );
-};
-
-
 const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, communeId, handleSaveDraft }: {
     criterion: Criterion;
     assessmentData: AssessmentValues;
@@ -883,6 +704,9 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     communeId: string;
     handleSaveDraft: () => Promise<void>;
 }) => {
+    if (!criterion || !assessmentData) {
+      return null; 
+    }
     const firstIndicatorId = criterion.indicators[0]?.id;
     if (!firstIndicatorId || !assessmentData[firstIndicatorId]) return null;
     
@@ -953,25 +777,176 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                         </CardContent>
                     </Card>
                     
-                    <div className="space-y-8">
+                    <div className="space-y-12">
                         {criterion.indicators.map((indicator, index) => {
-                             if (!assessmentData[indicator.id]) return null;
-                             return(
+                            const data = assessmentData[indicator.id];
+                             if (!data) return null;
+
+                            const assignedCount = criterion.assignedDocumentsCount || 0;
+                            const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
+                            const isAchieved = progress >= 100;
+                            const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
+                            
+                            const blockClasses = cn(
+                                "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
+                                data.status === 'achieved' && 'bg-green-50 border-green-200',
+                                data.status === 'not-achieved' && 'bg-red-50 border-red-200',
+                                data.status === 'pending' && 'bg-amber-50 border-amber-200'
+                            );
+
+                            const indicatorTitles = [
+                                "Tổng số VBQPPL đã ban hành:",
+                                "Tổng số dự thảo NQ của HĐND, QĐ của UBND được truyền thông:",
+                                "Tổng số NQ của HĐND, QĐ của UBND được thực hiện tự kiểm tra:"
+                            ];
+                            const indicatorIndex = criterion.indicators.findIndex(i => i.id === indicator.id);
+                        
+                            const handleUploadComplete = (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => {
+                                const currentFiles = assessmentData[indicatorId]?.filesPerDocument?.[docIndex] || [];
+                                onEvidenceChange(indicatorId, [...currentFiles, newFile], docIndex);
+                            };
+
+                            const handleRemoveFile = (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => {
+                                onEvidenceChange(indicatorId, [], docIndex, fileToRemove);
+                            };
+                            
+                             if(indicator.subIndicators && indicator.subIndicators.length > 0) {
+                                return (
+                                    <div className={blockClasses} key={indicator.id}>
+                                        <div>
+                                            <h4 className="font-semibold text-base">{indicator.name}</h4>
+                                            <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
+                                                <div className="flex items-start gap-2 text-blue-800">
+                                                    <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                                                    <p className="text-sm">{indicator.description}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="mt-4 pl-6 space-y-6 border-l-2 border-dashed">
+                                          {(indicator.subIndicators || []).map(sub => {
+                                                const subData = assessmentData[sub.id];
+                                                if (!subData) return null;
+
+                                                const subStatus = subData.status;
+                                                const subBlockClasses = cn(
+                                                    "relative pl-6 transition-colors rounded-r-lg py-4",
+                                                        subStatus === 'achieved' && 'bg-green-50',
+                                                        subStatus === 'not-achieved' && 'bg-red-50',
+                                                        subStatus === 'pending' && 'bg-amber-50 border-l-amber-200'
+                                                );
+                                                return (
+                                                  <div key={sub.id} className={subBlockClasses}>
+                                                      <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
+                                                      <IndicatorAssessment
+                                                          specialIndicatorIds={getSpecialLogicIndicatorIds(useData().criteria)}
+                                                          specialLabels={getSpecialIndicatorLabels(sub.id, useData().criteria)}
+                                                          customBooleanLabels={getCustomBooleanLabels(sub.id, useData().criteria)}
+                                                          checkboxOptions={getCheckboxOptions(sub.id, useData().criteria)}
+                                                          indicator={sub} 
+                                                          data={subData}
+                                                          onValueChange={onValueChange}
+                                                          onNoteChange={onNoteChange}
+                                                          onEvidenceChange={onEvidenceChange}
+                                                          onIsTaskedChange={() => {}}
+                                                          onPreview={onPreview}
+                                                      />
+                                                  </div>
+                                                )
+                                          })}
+                                        </div>
+                                    </div>
+                                )
+                            }
+                            
+                            return (
                                 <React.Fragment key={indicator.id}>
                                     {index > 0 && <Separator className="my-6"/>}
-                                    <Criterion1IndicatorBlock 
-                                        indicator={indicator}
-                                        criterion={criterion}
-                                        assessmentData={assessmentData}
-                                        onValueChange={onValueChange}
-                                        onNoteChange={onNoteChange}
-                                        onEvidenceChange={onEvidenceChange}
-                                        onPreview={onPreview}
-                                        periodId={periodId}
-                                        communeId={communeId}
-                                    />
+                                    <div className={blockClasses}>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <StatusBadge status={data.status} />
+                                                <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
+                                            </div>
+                                            <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
+                                                <div className="flex items-start gap-2 text-blue-800">
+                                                    <Info className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                                                    <div>
+                                                        <p className="text-sm">{indicator.description}</p>
+                                                        <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid gap-4">
+                                            <div className="grid gap-2">
+                                                <div className="flex items-center gap-4">
+                                                    <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
+                                                        {indicatorTitles[indicatorIndex] || 'Tổng số:'}
+                                                    </Label>
+                                                    <Input
+                                                        id={`${indicator.id}-input`}
+                                                        type="number"
+                                                        placeholder="Số lượng"
+                                                        className="w-28"
+                                                        value={data.value || ''}
+                                                        onChange={(e) => onValueChange(indicator.id, e.target.value)}
+                                                    />
+                                                    <div className="flex-1">
+                                                        <div className="flex justify-between items-center mb-1">
+                                                            <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
+                                                            <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
+                                                        </div>
+                                                        <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid gap-2">
+                                            <Label className="font-medium">Hồ sơ minh chứng (tương ứng với {(criterion.documents || []).length} văn bản được giao)</Label>
+                                            {indicatorIndex === 0 && (
+                                                <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
+                                                    <AlertTriangle className="h-4 w-4" />
+                                                    <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
+                                                    <AlertDescription>
+                                                        Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số và ngày ký để đối chiếu với thời hạn ban hành.
+                                                    </AlertDescription>
+                                                </Alert>
+                                            )}
+                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                                                {(criterion.documents || []).map((doc, i) => (
+                                                    <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
+                                                        <Label className="font-medium text-center text-sm">
+                                                            Minh chứng cho VB: <span className="font-bold text-primary">{doc.name}</span>
+                                                        </Label>
+                                                        <Criterion1EvidenceUploader
+                                                            indicatorId={indicator.id}
+                                                            docIndex={i}
+                                                            evidence={data.filesPerDocument?.[i] || []}
+                                                            onUploadComplete={handleUploadComplete}
+                                                            onRemove={handleRemoveFile}
+                                                            onPreview={onPreview}
+                                                            periodId={periodId}
+                                                            communeId={communeId}
+                                                        />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="grid gap-2">
+                                            <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
+                                            <Textarea
+                                                id={`note-${indicator.id}`}
+                                                placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..."
+                                                value={data.note}
+                                                onChange={(e) => onNoteChange(indicator.id, e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
                                 </React.Fragment>
-                             )
+                            );
                         })}
                     </div>
                 </div>
