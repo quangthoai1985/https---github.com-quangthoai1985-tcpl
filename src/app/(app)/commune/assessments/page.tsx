@@ -734,6 +734,54 @@ const Criterion1IndicatorBlock = ({ indicator, criterion, assessmentData, onValu
         onEvidenceChange(indicatorId, [], docIndex, fileToRemove);
     };
 
+    if(indicator.subIndicators && indicator.subIndicators.length > 0) {
+        return (
+            <div className={blockClasses}>
+                <div>
+                    <h4 className="font-semibold text-base">{indicator.name}</h4>
+                    <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
+                        <div className="flex items-start gap-2 text-blue-800">
+                            <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                            <p className="text-sm">{indicator.description}</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="mt-4 pl-6 space-y-6 border-l-2 border-dashed">
+                  {(indicator.subIndicators || []).map(sub => {
+                        const subData = assessmentData[sub.id];
+                        if (!subData) return null;
+
+                        const subStatus = subData.status;
+                        const subBlockClasses = cn(
+                            "relative pl-6 transition-colors rounded-r-lg py-4",
+                                subStatus === 'achieved' && 'bg-green-50',
+                                subStatus === 'not-achieved' && 'bg-red-50',
+                                subStatus === 'pending' && 'bg-amber-50 border-l-amber-200'
+                        );
+                        return (
+                          <div key={sub.id} className={subBlockClasses}>
+                              <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
+                              <IndicatorAssessment
+                                  specialIndicatorIds={getSpecialLogicIndicatorIds(useData().criteria)}
+                                  specialLabels={getSpecialIndicatorLabels(sub.id, useData().criteria)}
+                                  customBooleanLabels={getCustomBooleanLabels(sub.id, useData().criteria)}
+                                  checkboxOptions={getCheckboxOptions(sub.id, useData().criteria)}
+                                  indicator={sub} 
+                                  data={subData}
+                                  onValueChange={onValueChange}
+                                  onNoteChange={onNoteChange}
+                                  onEvidenceChange={onEvidenceChange}
+                                  onIsTaskedChange={() => {}}
+                                  onPreview={onPreview}
+                              />
+                          </div>
+                        )
+                  })}
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div className={blockClasses}>
             <div>
@@ -906,22 +954,25 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                     </Card>
                     
                     <div className="space-y-8">
-                        {criterion.indicators.map((indicator, index) => (
-                            <React.Fragment key={indicator.id}>
-                                {index > 0 && <Separator className="my-6"/>}
-                                <Criterion1IndicatorBlock 
-                                    indicator={indicator}
-                                    criterion={criterion}
-                                    assessmentData={assessmentData}
-                                    onValueChange={onValueChange}
-                                    onNoteChange={onNoteChange}
-                                    onEvidenceChange={onEvidenceChange}
-                                    onPreview={onPreview}
-                                    periodId={periodId}
-                                    communeId={communeId}
-                                />
-                            </React.Fragment>
-                        ))}
+                        {criterion.indicators.map((indicator, index) => {
+                             if (!assessmentData[indicator.id]) return null;
+                             return(
+                                <React.Fragment key={indicator.id}>
+                                    {index > 0 && <Separator className="my-6"/>}
+                                    <Criterion1IndicatorBlock 
+                                        indicator={indicator}
+                                        criterion={criterion}
+                                        assessmentData={assessmentData}
+                                        onValueChange={onValueChange}
+                                        onNoteChange={onNoteChange}
+                                        onEvidenceChange={onEvidenceChange}
+                                        onPreview={onPreview}
+                                        periodId={periodId}
+                                        communeId={communeId}
+                                    />
+                                </React.Fragment>
+                             )
+                        })}
                     </div>
                 </div>
             )}
@@ -1267,11 +1318,36 @@ export default function SelfAssessmentPage() {
     }
     return hasPending ? 'pending' : 'achieved';
   };
-
+const handleDebugTest = async () => {
+    if (!storage) {
+      alert("Dịch vụ Storage chưa sẵn sàng.");
+      console.error("Dịch vụ Storage chưa sẵn sàng.");
+      return;
+    }
+    try {
+      alert("Bắt đầu test upload... Vui lòng mở Console (F12) để xem chi tiết.");
+      const testFileContent = "This is a simple test file.";
+      const blob = new Blob([testFileContent], { type: "text/plain" });
+      
+      // Sử dụng một đường dẫn cực kỳ đơn giản và không có ký tự đặc biệt
+      const testPath = "debug/test-upload.txt"; 
+      const testStorageRef = ref(storage, testPath);
+      
+      console.log(`Đang thử upload lên đường dẫn: ${testPath}`);
+      await uploadBytes(testStorageRef, blob);
+      
+      console.log("TEST UPLOAD THÀNH CÔNG!");
+      alert("TEST UPLOAD THÀNH CÔNG! Vui lòng kiểm tra thư mục 'debug' trong Firebase Storage.");
+} catch (error) {
+        console.error("TEST UPLOAD THẤT BẠI:", error);
+        alert("TEST UPLOAD THẤT BẠI! Hãy kiểm tra Console (F12) để xem chi tiết lỗi, đặc biệt là các lỗi liên quan đến CORS hoặc phân quyền của Storage.");
+    }
+  };
 
   return (
     <>
     <PageHeader title="Tự Chấm điểm & Đánh giá" description="Thực hiện tự đánh giá theo các tiêu chí và cung cấp hồ sơ minh chứng đi kèm."/>
+    <Button onClick={handleDebugTest} variant="destructive" className="mb-4">Chạy Test Upload</Button>
     <div className="grid gap-6">
         <Card>
             <CardHeader>
