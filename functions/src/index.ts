@@ -6,6 +6,7 @@ import { onObjectFinalized } from "firebase-functions/v2/storage";
 import { logger } from "firebase-functions";
 import * as forge from 'node-forge';
 import { addDays, parse } from 'date-fns';
+import * as pdfParse from 'pdf-parse';
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -75,6 +76,37 @@ const extractSignature = (pdfBuffer: Buffer): string | null => {
     return signatureHex.replace(/\r\n|\n|\r/g, '');
 };
 
+const checkDocumentFormatting = (textContent: string): { status: 'passed' | 'failed', issues: string[] } => {
+    const issues: string[] = [];
+    const normalizedText = textContent.toUpperCase();
+
+    // Rule 1: Check for national emblem and motto
+    if (!normalizedText.includes("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")) {
+        issues.push("Không tìm thấy Quốc hiệu 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM'.");
+    }
+    if (!normalizedText.includes("ĐỘC LẬP - TỰ DO - HẠNH PHÚC")) {
+        issues.push("Không tìm thấy Tiêu ngữ 'Độc lập - Tự do - Hạnh phúc'.");
+    }
+
+    // Rule 2: Check for document number and symbol using regex
+    const docNumberRegex = /SỐ\s*:\s*(\d+[A-Z]?)\/(\d{4})\/([A-ZĐ]+)-([A-ZĐ]+)/i;
+    if (!docNumberRegex.test(textContent)) {
+        issues.push("Không tìm thấy hoặc sai định dạng Số, ký hiệu văn bản (Ví dụ: Số: 01/2024/NQ-HĐND).");
+    }
+
+    // Rule 3: Check for document type
+    const docTypes = ["NGHỊ QUYẾT", "QUYẾT ĐỊNH", "CHỈ THỊ", "KẾ HOẠCH"];
+    if (!docTypes.some(type => normalizedText.includes(type))) {
+        issues.push(`Không tìm thấy tên loại văn bản (ví dụ: ${docTypes.join(', ')}).`);
+    }
+    
+    return {
+        status: issues.length === 0 ? 'passed' : 'failed',
+        issues: issues
+    };
+}
+
+
 export const processSignedPDF = onObjectFinalized(async (event) => {
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
@@ -111,7 +143,12 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
     const assessmentId = `assess_${periodId}_${communeId}`;
     const assessmentRef = db.collection('assessments').doc(assessmentId);
 
-    const updateAssessmentFileStatus = async (fileStatus: 'validating' | 'valid' | 'invalid' | 'error', reason?: string) => {
+    const updateAssessmentFileStatus = async (
+        fileStatus: 'validating' | 'valid' | 'invalid' | 'error',
+        reason?: string,
+        contentCheckStatus?: 'passed' | 'failed' | 'not_checked',
+        contentCheckIssues?: string[]
+    ) => {
         const doc = await assessmentRef.get();
         if (!doc.exists) return;
 
@@ -132,6 +169,15 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
             } else {
                  delete fileToUpdate.signatureError;
             }
+            
+            // Add content check results
+            fileToUpdate.contentCheckStatus = contentCheckStatus || 'not_checked';
+            if (contentCheckIssues && contentCheckIssues.length > 0) {
+                 fileToUpdate.contentCheckIssues = contentCheckIssues;
+            } else {
+                 delete fileToUpdate.contentCheckIssues;
+            }
+
 
             const criterionDoc = await db.collection('criteria').doc('TC01').get();
             const assignedCount = criterionDoc.data()?.assignedDocumentsCount || 0;
@@ -144,9 +190,8 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
         }
     };
 
-    await updateAssessmentFileStatus('validating');
+    await updateAssessmentFileStatus('validating', undefined, 'not_checked');
     
-// === BẮT ĐẦU KHỐI CODE CẦN THAY THẾ ===
 try {
     const criterionDoc = await db.collection('criteria').doc('TC01').get();
     if (!criterionDoc.exists) throw new Error("Criterion document TC01 not found.");
@@ -168,11 +213,8 @@ try {
     const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
     const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
 
-    // --- PHẦN SỬA LỖI QUAN TRỌNG ---
-    // Ép kiểu 'p7' để TypeScript tin tưởng và cho phép truy cập thuộc tính
     const signedData = p7 as any;
 
-    // Bây giờ sử dụng 'signedData' để thực hiện các bước kiểm tra
     if (signedData.type !== forge.pki.oids.signedData) {
         throw new Error(`Loại chữ ký không hợp lệ. Yêu cầu "SignedData", nhận được "${signedData.type}".`);
     }
@@ -198,17 +240,40 @@ try {
     const status = isValid ? "valid" : "expired";
 
     await saveCheckResult(status, undefined, signingTime, deadline, signerName);
-    await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
+    
+    // --- NEW: CONTENT CHECKING LOGIC ---
+    let contentCheckStatus: 'passed' | 'failed' | 'not_checked' = 'not_checked';
+    let contentCheckIssues: string[] = [];
+
+    if (isValid) {
+        logger.info(`Signature is valid for ${fileName}. Proceeding to content check.`);
+        const pdfData = await pdfParse(fileBuffer);
+        const { status: checkStatus, issues } = checkDocumentFormatting(pdfData.text);
+        contentCheckStatus = checkStatus;
+        contentCheckIssues = issues;
+        if (checkStatus === 'failed') {
+            logger.warn(`Content formatting issues found for ${fileName}:`, issues);
+        } else {
+            logger.info(`Content formatting check passed for ${fileName}.`);
+        }
+    }
+    // --- END: CONTENT CHECKING LOGIC ---
+
+    await updateAssessmentFileStatus(
+        isValid ? 'valid' : 'invalid', 
+        isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`,
+        contentCheckStatus,
+        contentCheckIssues
+    );
 
     logger.info(`Successfully processed signature for ${fileName}. Status: ${status}`);
 
 } catch (error: any) {
     logger.error(`Error processing ${filePath}:`, error);
     await saveCheckResult("error", error.message);
-    await updateAssessmentFileStatus('error', error.message);
+    await updateAssessmentFileStatus('error', error.message, 'not_checked');
     return null;
 }
-// === KẾT THÚC KHỐI CODE CẦN THAY THẾ ===
 
     return null;
 });
@@ -229,11 +294,6 @@ function parseAssessmentPath(filePath: string): { communeId: string; periodId: s
     return null;
 }
 
-/**
- * Helper function to recursively collect all file URLs from an assessmentData object.
- * @param assessmentData - The assessmentData object from Firestore.
- * @returns A Set containing all unique file URLs.
- */
 function collectAllFileUrls(assessmentData: any): Set<string> {
     const urls = new Set<string>();
 
@@ -270,12 +330,6 @@ function collectAllFileUrls(assessmentData: any): Set<string> {
     return urls;
 }
 
-
-/**
- * Triggered when an assessment document is updated.
- * Compares file lists before and after the update to find deleted files
- * and removes them from Firebase Storage.
- */
 export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmentId}", async (event) => {
     const dataBefore = event.data?.before.data();
     const dataAfter = event.data?.after.data();
