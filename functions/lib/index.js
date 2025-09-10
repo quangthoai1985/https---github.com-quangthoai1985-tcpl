@@ -39,7 +39,6 @@ const firestore_1 = require("firebase-functions/v2/firestore");
 const admin = __importStar(require("firebase-admin"));
 const storage_1 = require("firebase-functions/v2/storage");
 const firebase_functions_1 = require("firebase-functions");
-const forge = __importStar(require("node-forge"));
 const date_fns_1 = require("date-fns");
 admin.initializeApp();
 const db = admin.firestore();
@@ -90,6 +89,7 @@ const extractSignature = (pdfBuffer) => {
     }
 };
 exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
+    var _a;
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;
@@ -125,6 +125,7 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
     const assessmentId = `assess_${periodId}_${communeId}`;
     const assessmentRef = db.collection('assessments').doc(assessmentId);
     const updateAssessmentFileStatus = async (fileStatus, reason) => {
+        var _a;
         const doc = await assessmentRef.get();
         if (!doc.exists)
             return;
@@ -144,7 +145,7 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
             else
                 delete fileToUpdate.signatureError;
             const criterionDoc = await db.collection('criteria').doc('TC01').get();
-            const assignedCount = criterionDoc.data()?.assignedDocumentsCount || 0;
+            const assignedCount = ((_a = criterionDoc.data()) === null || _a === void 0 ? void 0 : _a.assignedDocumentsCount) || 0;
             const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
             const allFilesUploaded = allFiles.length >= assignedCount;
             const allSignaturesValid = allFiles.every((f) => f.signatureStatus === 'valid');
@@ -164,7 +165,7 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
         if (!criterionDoc.exists)
             throw new Error("Criterion document TC01 not found.");
         const criterionData = criterionDoc.data();
-        const documentConfig = criterionData?.documents?.[docIndex];
+        const documentConfig = (_a = criterionData === null || criterionData === void 0 ? void 0 : criterionData.documents) === null || _a === void 0 ? void 0 : _a[docIndex];
         if (!documentConfig)
             throw new Error(`Document configuration for index ${docIndex} not found.`);
         const issueDate = (0, date_fns_1.parse)(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
@@ -292,4 +293,3 @@ exports.onAssessmentFileDeleted = (0, firestore_1.onDocumentUpdated)("assessment
     return null;
 });
 //# sourceMappingURL=index.js.map
-    
