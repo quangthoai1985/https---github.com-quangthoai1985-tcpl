@@ -153,7 +153,7 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
         // --- BẮT ĐẦU SỬA LỖI ---
         // Buộc node-forge xử lý sâu hơn bằng cách gọi verify() trong try...catch
         try {
-          p7.verify();
+          (p7 as any).verify();
         } catch (e) {
           logger.warn("Verification step failed as expected, proceeding to extract signer info. Error: ", (e as Error).message);
         }

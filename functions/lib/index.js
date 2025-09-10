@@ -175,7 +175,14 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
             throw new Error("Không tìm thấy khối dữ liệu chữ ký trong tệp PDF.");
         const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
         const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
-        // --- BẮT ĐẦU SỬA LỖI TYPESCRIPT ---
+        // --- BẮT ĐẦU SỬA LỖI ---
+        // Buộc node-forge xử lý sâu hơn bằng cách gọi verify() trong try...catch
+        try {
+            p7.verify();
+        }
+        catch (e) {
+            firebase_functions_1.logger.warn("Verification step failed as expected, proceeding to extract signer info. Error: ", e.message);
+        }
         const signedData = p7; // Ép kiểu để bỏ qua kiểm tra của TS
         if (signedData.type !== forge.pki.oids.signedData)
             throw new Error(`Loại chữ ký không hợp lệ.`);
@@ -192,7 +199,7 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
         const signingTime = new Date(signingTimeObject[0].value);
         const signerCertificate = signedData.certificates[0];
         const signerName = ((_b = signerCertificate.subject.getField('CN')) === null || _b === void 0 ? void 0 : _b.value) || 'Unknown Signer';
-        // --- KẾT THÚC SỬA LỖI TYPESCRIPT ---
+        // --- KẾT THÚC SỬA LỖI ---
         const isValid = signingTime <= deadline;
         const status = isValid ? "valid" : "expired";
         await saveCheckResult(status, undefined, signingTime, deadline, signerName);
