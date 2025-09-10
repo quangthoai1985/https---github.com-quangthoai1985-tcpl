@@ -153,8 +153,17 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
         return null;
     }
     const pathInfo = parseAssessmentPath(filePath);
-    if (!pathInfo || !pathInfo.indicatorId.startsWith('TC01')) {
-        firebase_functions_1.logger.log(`File ${filePath} does not match Criterion 1 evidence path structure. Skipping.`);
+    // Fetch TC01 criterion document to validate the path more reliably
+    const criterionDocRef = db.collection('criteria').doc('TC01');
+    const criterionDoc = await criterionDocRef.get();
+    if (!criterionDoc.exists) {
+        firebase_functions_1.logger.error("Criterion document TC01 not found. Cannot validate path.");
+        return null;
+    }
+    const criterionData = criterionDoc.data();
+    const criterion1IndicatorIds = ((criterionData === null || criterionData === void 0 ? void 0 : criterionData.indicators) || []).map((i) => i.id);
+    if (!pathInfo || !criterion1IndicatorIds.includes(pathInfo.indicatorId)) {
+        firebase_functions_1.logger.log(`File ${filePath} does not match any indicator in Criterion 1. Skipping.`);
         return null;
     }
     const { communeId, periodId, indicatorId, docIndex } = pathInfo;
@@ -162,7 +171,6 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
     const assessmentId = `assess_${periodId}_${communeId}`;
     const assessmentRef = db.collection('assessments').doc(assessmentId);
     const updateAssessmentFileStatus = async (fileStatus, reason, contentCheckStatus, contentCheckIssues) => {
-        var _a;
         const doc = await assessmentRef.get();
         if (!doc.exists)
             return;
@@ -191,8 +199,7 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
             else {
                 delete fileToUpdate.contentCheckIssues;
             }
-            const criterionDoc = await db.collection('criteria').doc('TC01').get();
-            const assignedCount = ((_a = criterionDoc.data()) === null || _a === void 0 ? void 0 : _a.assignedDocumentsCount) || 0;
+            const assignedCount = (criterionData === null || criterionData === void 0 ? void 0 : criterionData.assignedDocumentsCount) || 0;
             const allFilesValid = Object.values(indicatorResult.filesPerDocument).flat().every((f) => f.signatureStatus === 'valid');
             const isAchieved = Number(indicatorResult.value) >= assignedCount && allFilesValid;
             indicatorResult.status = isAchieved ? 'achieved' : 'not-achieved';
@@ -201,10 +208,6 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
     };
     await updateAssessmentFileStatus('validating', undefined, 'not_checked');
     try {
-        const criterionDoc = await db.collection('criteria').doc('TC01').get();
-        if (!criterionDoc.exists)
-            throw new Error("Criterion document TC01 not found.");
-        const criterionData = criterionDoc.data();
         const documentConfig = (_a = criterionData === null || criterionData === void 0 ? void 0 : criterionData.documents) === null || _a === void 0 ? void 0 : _a[docIndex];
         if (!documentConfig)
             throw new Error(`Document configuration for index ${docIndex} not found in TC01.`);
