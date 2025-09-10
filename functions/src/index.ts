@@ -49,10 +49,16 @@ export const syncUserClaims = onDocumentWritten("users/{userId}", async (event) 
 
 const extractSignature = (pdfBuffer: Buffer): string | null => {
     const pdfString = pdfBuffer.toString('binary');
-    const signatureRegex = /\/ByteRange\s*\[\s*\d+\s+\d+\s+\d+\s+\d+\s*\][^<]*\/Contents\s*<([a-fA-F0-9\s]+)>/;
+
+    // Regex phiên bản cuối cùng: Chính xác hơn, đảm bảo chỉ lấy nội dung bên trong dấu <...>
+    // Nó tìm khối chữ ký hoàn chỉnh chứa /ByteRange và /Contents.
+    const signatureRegex = /\/ByteRange\s*\[\s*\d+\s+\d+\s+\d+\s+\d+\s*\][^<]*\/Contents\s*<([^>]+)>/;
+
     const match = pdfString.match(signatureRegex);
+
     if (match && match[1]) {
-        logger.info("Successfully extracted signature using regex.");
+        logger.info("Successfully extracted signature using the final regex.");
+        // Loại bỏ mọi khoảng trắng hoặc ký tự xuống dòng khỏi chuỗi hex đã bắt được
         return match[1].replace(/\s/g, '');
     } else {
         logger.warn("Could not find signature block using regex. The PDF structure might be non-standard or encrypted.");
@@ -60,115 +66,109 @@ const extractSignature = (pdfBuffer: Buffer): string | null => {
     }
 };
 
-export const processSignedPDF = onObjectFinalized(async (event) => {
+export const verifyPDFSignature = onObjectFinalized(async (event) => {
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;
     const fileName = filePath.split('/').pop() || 'unknownfile';
-
-    const saveCheckResult = async (status: "valid" | "expired" | "error", reason?: string, signingTime?: Date | null, deadline?: Date, signerName?: string) => {
-        await db.collection('signature_checks').add({
-            fileName: fileName,
-            filePath: filePath,
-            status: status,
-            reason: reason || null,
-            signingTime: signingTime || null,
-            deadline: deadline || null,
-            signerName: signerName || null,
-            processedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-    };
-
-    if (!contentType || !contentType.startsWith('application/pdf')) {
-        logger.log(`File ${filePath} is not a PDF, skipping processing.`);
-        return null;
-    }
-
-    const pathInfo = parseAssessmentPath(filePath);
-    if (!pathInfo || !pathInfo.indicatorId.startsWith('CT1.')) {
-        logger.log(`File ${filePath} does not match Criterion 1 evidence path structure. Skipping.`);
-        // Thêm logic báo lỗi về giao diện
-        const assessmentId = `assess_${pathInfo?.periodId}_${pathInfo?.communeId}`;
-        if (assessmentId) {
-          await db.doc(`assessments/${assessmentId}`).set({}, {merge: true}); // Đảm bảo doc tồn tại
-          // Cần một hàm update an toàn hơn, nhưng tạm thời chỉ log
-        }
-        return null;
-    }
-    const { communeId, periodId, indicatorId, docIndex } = pathInfo;
-    const assessmentId = `assess_${periodId}_${communeId}`;
-    const assessmentRef = db.collection('assessments').doc(assessmentId);
-
-    const updateAssessmentFileStatus = async (
-        fileStatus: 'validating' | 'valid' | 'invalid' | 'error',
-        reason?: string
-    ) => {
-        const doc = await assessmentRef.get();
-        if (!doc.exists) return;
-        const data = doc.data();
-        if (!data) return;
-        const assessmentData = data.assessmentData || {};
-        const indicatorResult = assessmentData[indicatorId];
-        if (!indicatorResult || !indicatorResult.filesPerDocument) return;
-        const fileList = indicatorResult.filesPerDocument[docIndex] || [];
-        const fileToUpdate = fileList.find((f: any) => f.name === fileName);
-        if (fileToUpdate) {
-            fileToUpdate.signatureStatus = fileStatus;
-            if (reason) fileToUpdate.signatureError = reason; else delete fileToUpdate.signatureError;
-            
-            const criterionDoc = await db.collection('criteria').doc('TC01').get();
-            const assignedCount = criterionDoc.data()?.assignedDocumentsCount || 0;
-            const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
-            const allFilesUploaded = allFiles.length >= assignedCount;
-            const allSignaturesValid = allFiles.every((f: any) => f.signatureStatus === 'valid');
-            const quantityMet = Number(indicatorResult.value) >= assignedCount;
-            if (quantityMet && allFilesUploaded && allSignaturesValid) {
-                indicatorResult.status = 'achieved';
-            } else {
-                indicatorResult.status = 'not-achieved';
-            }
-            await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
-        }
-    };
-    await updateAssessmentFileStatus('validating');
-    try {
-        const criterionDoc = await db.collection('criteria').doc('TC01').get();
-        if (!criterionDoc.exists) throw new Error("Criterion document TC01 not found.");
-        const criterionData = criterionDoc.data();
-        const documentConfig = criterionData?.documents?.[docIndex];
-        if (!documentConfig) throw new Error(`Document configuration for index ${docIndex} not found.`);
-
-        const issueDate = parse(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
-        const deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
-        const bucket = admin.storage().bucket(fileBucket);
-        const [fileBuffer] = await bucket.file(filePath).download();
-        
-        const signatureHex = extractSignature(fileBuffer); // 'await' is good practice if it becomes async
-        if (!signatureHex) throw new Error("Không tìm thấy chữ ký số trong tệp PDF.");
-        const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
-        const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
-        const signedData = p7 as any;
-        if (signedData.type !== forge.pki.oids.signedData) throw new Error(`Loại chữ ký không hợp lệ.`);
-        if (!signedData.signers || signedData.signers.length === 0) throw new Error("Không tìm thấy thông tin người ký.");
-        if (!signedData.certificates || signedData.certificates.length === 0) throw new Error("Không tìm thấy chứng thư số.");
-        const signer = signedData.signers[0];
-        const signerCertificate = signedData.certificates[0];
-        const signingTime = signer.signingTime;
-        
-        if (!signingTime) throw new Error("Không tìm thấy thời gian ký (signingTime).");
-        const signerName = signerCertificate.subject.getField('CN')?.value || 'Unknown Signer';
-        const isValid = signingTime <= deadline;
-        const status = isValid ? "valid" : "expired";
-        await saveCheckResult(status, undefined, signingTime, deadline, signerName);
-        await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
-        logger.info(`Successfully processed signature for ${fileName}. Status: ${status}`);
-    } catch (error: any) {
-        logger.error(`Error processing ${filePath}:`, error);
-        await saveCheckResult("error", error.message);
-        await updateAssessmentFileStatus('error', error.message);
-        return null;
+const saveCheckResult = async (status: "valid" | "expired" | "error", reason?: string, signingTime?: Date | null, deadline?: Date, signerName?: string) => {
+    await db.collection('signature_checks').add({
+        fileName: fileName,
+        filePath: filePath,
+        status: status,
+        reason: reason || null,
+        signingTime: signingTime || null,
+        deadline: deadline || null,
+        signerName: signerName || null,
+        processedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+};
+if (!contentType || !contentType.startsWith('application/pdf')) {
+    logger.log(`File ${filePath} is not a PDF, skipping processing.`);
+    return null;
+}
+const pathInfo = parseAssessmentPath(filePath);
+if (!pathInfo || !pathInfo.indicatorId.startsWith('CT1.')) {
+    logger.log(`File ${filePath} does not match Criterion 1 evidence path structure. Skipping.`);
+    // Thêm logic báo lỗi về giao diện
+    const assessmentId = `assess_${pathInfo?.periodId}_${pathInfo?.communeId}`;
+    if (assessmentId) {
+      await db.doc(`assessments/${assessmentId}`).set({}, {merge: true}); // Đảm bảo doc tồn tại
+      // Cần một hàm update an toàn hơn, nhưng tạm thời chỉ log
     }
     return null;
+}
+const { communeId, periodId, indicatorId, docIndex } = pathInfo;
+const assessmentId = `assess_${periodId}_${communeId}`;
+const assessmentRef = db.collection('assessments').doc(assessmentId);
+
+const updateAssessmentFileStatus = async (
+    fileStatus: 'validating' | 'valid' | 'invalid' | 'error',
+    reason?: string
+) => {
+    const doc = await assessmentRef.get();
+    if (!doc.exists) return;
+    const data = doc.data();
+    if (!data) return;
+    const assessmentData = data.assessmentData || {};
+    const indicatorResult = assessmentData[indicatorId];
+    if (!indicatorResult || !indicatorResult.filesPerDocument) return;
+    const fileList = indicatorResult.filesPerDocument[docIndex] || [];
+    const fileToUpdate = fileList.find((f: any) => f.name === fileName);
+    if (fileToUpdate) {
+        fileToUpdate.signatureStatus = fileStatus;
+        if (reason) fileToUpdate.signatureError = reason; else delete fileToUpdate.signatureError;
+        
+        const criterionDoc = await db.collection('criteria').doc('TC01').get();
+        const assignedCount = criterionDoc.data()?.assignedDocumentsCount || 0;
+        const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
+        const allFilesUploaded = allFiles.length >= assignedCount;
+        const allSignaturesValid = allFiles.every((f: any) => f.signatureStatus === 'valid');
+        const quantityMet = Number(indicatorResult.value) >= assignedCount;
+        if (quantityMet && allFilesUploaded && allSignaturesValid) {
+            indicatorResult.status = 'achieved';
+        } else {
+            indicatorResult.status = 'not-achieved';
+        }
+        await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
+    }
+};
+await updateAssessmentFileStatus('validating');
+try {
+const criterionDoc = await db.collection('criteria').doc('TC01').get();
+if (!criterionDoc.exists) throw new Error("Criterion document TC01 not found.");
+const criterionData = criterionDoc.data();
+const documentConfig = criterionData?.documents?.[docIndex];
+if (!documentConfig) throw new Error(`Document configuration for index ${docIndex} not found.`);
+
+const issueDate = parse(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
+const deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
+    const bucket = admin.storage().bucket(fileBucket);
+    const [fileBuffer] = await bucket.file(filePath).download();
+    
+    const signatureHex = extractSignature(fileBuffer);
+if (!signatureHex) {
+throw new Error("Không tìm thấy chữ ký số trong tệp PDF.");
+} else {
+// LOG DỮ LIỆU ĐỂ GỠ LỖI
+logger.log(">>>>>> RAW SIGNATURE HEX EXTRACTED <<<<<<", {
+signatureHex: signatureHex
+});
+
+// Tạm thời báo lỗi về giao diện và dừng xử lý để chúng ta có thể xem log
+await updateAssessmentFileStatus('error', 'Debug: Đã trích xuất chữ ký, cần phân tích log.');
+await saveCheckResult("error", "Debug: Đã trích xuất chữ ký, cần phân tích log.");
+return null; // Dừng hàm tại đây
+}
+
+// Các dòng code xử lý signature bên dưới sẽ tạm thời không được chạy
+} catch (error: any) {
+    logger.error(`Error processing ${filePath}:`, error);
+    await saveCheckResult("error", error.message);
+    await updateAssessmentFileStatus('error', error.message);
+    return null;
+}
+return null;
 });
 
 

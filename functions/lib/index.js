@@ -34,7 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.onAssessmentFileDeleted = exports.processSignedPDF = exports.syncUserClaims = void 0;
+exports.onAssessmentFileDeleted = exports.verifyPDFSignature = exports.syncUserClaims = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const admin = __importStar(require("firebase-admin"));
 const storage_1 = require("firebase-functions/v2/storage");
@@ -75,10 +75,13 @@ exports.syncUserClaims = (0, firestore_1.onDocumentWritten)("users/{userId}", as
 });
 const extractSignature = (pdfBuffer) => {
     const pdfString = pdfBuffer.toString('binary');
-    const signatureRegex = /\/ByteRange\s*\[\s*\d+\s+\d+\s+\d+\s+\d+\s*\][^<]*\/Contents\s*<([a-fA-F0-9\s]+)>/;
+    // Regex phiên bản cuối cùng: Chính xác hơn, đảm bảo chỉ lấy nội dung bên trong dấu <...>
+    // Nó tìm khối chữ ký hoàn chỉnh chứa /ByteRange và /Contents.
+    const signatureRegex = /\/ByteRange\s*\[\s*\d+\s+\d+\s+\d+\s+\d+\s*\][^<]*\/Contents\s*<([^>]+)>/;
     const match = pdfString.match(signatureRegex);
     if (match && match[1]) {
-        firebase_functions_1.logger.info("Successfully extracted signature using regex.");
+        firebase_functions_1.logger.info("Successfully extracted signature using the final regex.");
+        // Loại bỏ mọi khoảng trắng hoặc ký tự xuống dòng khỏi chuỗi hex đã bắt được
         return match[1].replace(/\s/g, '');
     }
     else {
@@ -86,8 +89,7 @@ const extractSignature = (pdfBuffer) => {
         return null;
     }
 };
-exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
-    var _a, _b;
+exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;
@@ -123,7 +125,6 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
     const assessmentId = `assess_${periodId}_${communeId}`;
     const assessmentRef = db.collection('assessments').doc(assessmentId);
     const updateAssessmentFileStatus = async (fileStatus, reason) => {
-        var _a;
         const doc = await assessmentRef.get();
         if (!doc.exists)
             return;
@@ -143,7 +144,7 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
             else
                 delete fileToUpdate.signatureError;
             const criterionDoc = await db.collection('criteria').doc('TC01').get();
-            const assignedCount = ((_a = criterionDoc.data()) === null || _a === void 0 ? void 0 : _a.assignedDocumentsCount) || 0;
+            const assignedCount = criterionDoc.data()?.assignedDocumentsCount || 0;
             const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
             const allFilesUploaded = allFiles.length >= assignedCount;
             const allSignaturesValid = allFiles.every((f) => f.signatureStatus === 'valid');
@@ -163,36 +164,28 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
         if (!criterionDoc.exists)
             throw new Error("Criterion document TC01 not found.");
         const criterionData = criterionDoc.data();
-        const documentConfig = (_a = criterionData === null || criterionData === void 0 ? void 0 : criterionData.documents) === null || _a === void 0 ? void 0 : _a[docIndex];
+        const documentConfig = criterionData?.documents?.[docIndex];
         if (!documentConfig)
             throw new Error(`Document configuration for index ${docIndex} not found.`);
         const issueDate = (0, date_fns_1.parse)(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
         const deadline = (0, date_fns_1.addDays)(issueDate, documentConfig.issuanceDeadlineDays);
         const bucket = admin.storage().bucket(fileBucket);
         const [fileBuffer] = await bucket.file(filePath).download();
-        const signatureHex = extractSignature(fileBuffer); // 'await' is good practice if it becomes async
-        if (!signatureHex)
+        const signatureHex = extractSignature(fileBuffer);
+        if (!signatureHex) {
             throw new Error("Không tìm thấy chữ ký số trong tệp PDF.");
-        const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
-        const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
-        const signedData = p7;
-        if (signedData.type !== forge.pki.oids.signedData)
-            throw new Error(`Loại chữ ký không hợp lệ.`);
-        if (!signedData.signers || signedData.signers.length === 0)
-            throw new Error("Không tìm thấy thông tin người ký.");
-        if (!signedData.certificates || signedData.certificates.length === 0)
-            throw new Error("Không tìm thấy chứng thư số.");
-        const signer = signedData.signers[0];
-        const signerCertificate = signedData.certificates[0];
-        const signingTime = signer.signingTime;
-        if (!signingTime)
-            throw new Error("Không tìm thấy thời gian ký (signingTime).");
-        const signerName = ((_b = signerCertificate.subject.getField('CN')) === null || _b === void 0 ? void 0 : _b.value) || 'Unknown Signer';
-        const isValid = signingTime <= deadline;
-        const status = isValid ? "valid" : "expired";
-        await saveCheckResult(status, undefined, signingTime, deadline, signerName);
-        await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
-        firebase_functions_1.logger.info(`Successfully processed signature for ${fileName}. Status: ${status}`);
+        }
+        else {
+            // LOG DỮ LIỆU ĐỂ GỠ LỖI
+            firebase_functions_1.logger.log(">>>>>> RAW SIGNATURE HEX EXTRACTED <<<<<<", {
+                signatureHex: signatureHex
+            });
+            // Tạm thời báo lỗi về giao diện và dừng xử lý để chúng ta có thể xem log
+            await updateAssessmentFileStatus('error', 'Debug: Đã trích xuất chữ ký, cần phân tích log.');
+            await saveCheckResult("error", "Debug: Đã trích xuất chữ ký, cần phân tích log.");
+            return null; // Dừng hàm tại đây
+        }
+        // Các dòng code xử lý signature bên dưới sẽ tạm thời không được chạy
     }
     catch (error) {
         firebase_functions_1.logger.error(`Error processing ${filePath}:`, error);
@@ -299,3 +292,4 @@ exports.onAssessmentFileDeleted = (0, firestore_1.onDocumentUpdated)("assessment
     return null;
 });
 //# sourceMappingURL=index.js.map
+    
