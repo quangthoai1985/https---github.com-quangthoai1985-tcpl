@@ -545,7 +545,7 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
     return sanitizedData;
 };
 
-const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadComplete, onRemove, onPreview, periodId, communeId }: {
+const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadComplete, onRemove, onPreview, periodId, userId }: {
     indicatorId: string;
     docIndex: number;
     evidence: FileWithStatus[];
@@ -553,7 +553,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
     onRemove: (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => void;
     onPreview: (file: { name: string, url: string }) => void;
     periodId: string;
-    communeId: string;
+    userId: string;
 }) => {
     const { storage } = useData();
     const { toast } = useToast();
@@ -566,7 +566,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
         for (const file of filesToUpload) {
             setUploadingFiles(prev => [...prev, file.name]);
             try {
-                const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
+                const filePath = `hoso/${userId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
                 const storageRef = ref(storage, filePath);
                 const snapshot = await uploadBytes(storageRef, file);
                 const downloadURL = await getDownloadURL(snapshot.ref);
@@ -692,7 +692,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
     );
 };
 
-const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, communeId, handleSaveDraft }: {
+const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, userId, handleSaveDraft }: {
     criterion: Criterion;
     assessmentData: AssessmentValues;
     onValueChange: (id: string, value: any) => void;
@@ -701,7 +701,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     onIsTaskedChange: (id: string, isTasked: boolean) => void;
     onPreview: (file: { name: string, url: string }) => void;
     periodId: string;
-    communeId: string;
+    userId: string;
     handleSaveDraft: () => Promise<void>;
 }) => {
     // BƯỚC 1: Thêm "rào chắn" an toàn ngay từ đầu
@@ -880,7 +880,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                             onRemove={handleRemoveFile}
                                                             onPreview={onPreview}
                                                             periodId={periodId}
-                                                            communeId={communeId}
+                                                            userId={userId}
                                                          />
                                                      </div>
                                                  ))}
@@ -1291,7 +1291,7 @@ export default function SelfAssessmentPage() {
                                                     onIsTaskedChange={handleIsTaskedChange}
                                                     onPreview={setPreviewFile}
                                                     periodId={activePeriod.id}
-                                                    communeId={currentUser.communeId}
+                                                    userId={currentUser.id}
                                                     handleSaveDraft={handleSaveDraft}
                                                  />
                                              </div>

@@ -2,36 +2,23 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Cho phép người dùng đã đăng nhập đọc tất cả các file
-    match /{allPaths=**} {
-      allow read: if request.auth != null;
+    // Allow debug writes for authenticated users
+    match /debug/{allPaths=**} {
+      allow write: if request.auth != null;
     }
 
-    // Quy tắc cho việc upload hồ sơ đăng ký của xã
-    // Bất kỳ ai đăng nhập cũng có thể ghi vào thư mục con có tên là UID của chính họ
-    match /hoso/{userId}/registration/{allPaths=**} {
-       allow write: if request.auth != null && request.auth.uid == userId;
+    // Allow commune staff to write to their own evidence folder
+    match /hoso/{userId}/{allPaths=**} {
+      allow write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null; // Allow authenticated users to read files (e.g., admins)
     }
 
-    // Quy tắc cho việc upload hồ sơ minh chứng
-    match /hoso/{userId}/evidence/{allPaths=**} {
-       allow write: if request.auth != null && request.auth.uid == userId;
-    }
-
-    // Quy tắc cho việc upload quyết định công nhận (chỉ admin)
-    match /hoso/{communeId}/announcements/{allPaths=**} {
-       allow write: if request.auth != null && request.auth.token.role == 'admin';
-    }
-    
-    // Quy tắc cho việc upload file văn bản hướng dẫn (chỉ admin)
+    // Allow anyone to read guidance documents and config files
     match /guidance_documents/{allPaths=**} {
-        allow write: if request.auth != null && request.auth.token.role == 'admin';
+      allow read;
     }
-    
-    // Quy tắc cho việc upload file cấu hình (logo, ảnh nền) (chỉ admin)
     match /config/{allPaths=**} {
-       allow write: if request.auth != null && request.auth.token.role == 'admin';
+      allow read;
     }
-
   }
 }
