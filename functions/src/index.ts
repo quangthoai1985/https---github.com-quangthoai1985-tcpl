@@ -18,10 +18,10 @@ function parseAssessmentPath(filePath: string): { communeId: string; periodId: s
     // Path structure: hoso/{communeId}/evidence/{periodId}/{indicatorId}/{docIndex}/{fileName}
     const parts = filePath.split('/');
     if (parts.length === 7 && parts[0] === 'hoso' && parts[2] === 'evidence') {
-         const docIndex = parseInt(parts[5], 10);
-         if (!isNaN(docIndex)) {
+        const docIndex = parseInt(parts[5], 10);
+        if (!isNaN(docIndex)) {
             return {
-                communeId: parts[1], 
+                communeId: parts[1],
                 periodId: parts[3],
                 indicatorId: parts[4],
                 docIndex: docIndex
@@ -83,7 +83,6 @@ export const syncUserClaims = onDocumentWritten("users/{userId}", async (event) 
     return;
 });
 
-
 export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmentId}", async (event) => {
     const dataBefore = event.data?.before.data();
     const dataAfter = event.data?.after.data();
@@ -138,11 +137,25 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
     const contentType = event.data.contentType;
     const fileName = filePath.split('/').pop() || 'unknownfile';
 
+    const saveCheckResult = async (status: "valid" | "expired" | "error", reason?: string, signingTime?: Date | null, deadline?: Date, signerName?: string) => {
+        await db.collection('signature_checks').add({
+            fileName: fileName,
+            filePath: filePath,
+            status: status,
+            reason: reason || null,
+            signingTime: signingTime || null,
+            deadline: deadline || null,
+            signerName: signerName || null,
+            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    };
+
     if (!contentType || !contentType.startsWith('application/pdf')) {
         return null;
     }
     const pathInfo = parseAssessmentPath(filePath);
     if (!pathInfo || !pathInfo.indicatorId.startsWith('CT1.')) {
+        logger.log(`File ${filePath} does not match Criterion 1 structure. Skipping.`);
         return null;
     }
 
@@ -243,7 +256,9 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
         const status = isValid ? "valid" : "invalid";
         const reason = isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`;
 
+        await saveCheckResult(status, reason, new Date(signingTime), deadline, signerName);
         await updateAssessmentFileStatus(status, reason);
+
     } catch (error: any) {
         logger.error(`Error processing signature for ${filePath}:`, error);
         await updateAssessmentFileStatus('error', error.message);
