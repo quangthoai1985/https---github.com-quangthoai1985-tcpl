@@ -150,7 +150,14 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
         const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
         const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
 
-        // --- BẮT ĐẦU SỬA LỖI TYPESCRIPT ---
+        // --- BẮT ĐẦU SỬA LỖI ---
+        // Buộc node-forge xử lý sâu hơn bằng cách gọi verify() trong try...catch
+        try {
+          p7.verify();
+        } catch (e) {
+          logger.warn("Verification step failed as expected, proceeding to extract signer info. Error: ", (e as Error).message);
+        }
+        
         const signedData: any = p7; // Ép kiểu để bỏ qua kiểm tra của TS
 
         if (signedData.type !== forge.pki.oids.signedData) throw new Error(`Loại chữ ký không hợp lệ.`);
@@ -170,7 +177,7 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
         
         const signerCertificate = signedData.certificates[0];
         const signerName = signerCertificate.subject.getField('CN')?.value || 'Unknown Signer';
-        // --- KẾT THÚC SỬA LỖI TYPESCRIPT ---
+        // --- KẾT THÚC SỬA LỖI ---
         
         const isValid = signingTime <= deadline;
         const status = isValid ? "valid" : "expired";

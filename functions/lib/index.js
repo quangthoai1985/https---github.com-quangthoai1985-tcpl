@@ -175,25 +175,27 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
             throw new Error("Không tìm thấy khối dữ liệu chữ ký trong tệp PDF.");
         const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
         const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
-        // --- BẮT ĐẦU LOGIC MỚI, ĐÁNG TIN CẬY HƠN ---
-        if (!p7.rawCapture.signerInfo) {
-            throw new Error("Không tìm thấy cấu trúc thông tin người ký (signerInfo) trong chữ ký.");
-        }
-        const signerInfo = p7.rawCapture.signerInfo;
+        // --- BẮT ĐẦU SỬA LỖI TYPESCRIPT ---
+        const signedData = p7; // Ép kiểu để bỏ qua kiểm tra của TS
+        if (signedData.type !== forge.pki.oids.signedData)
+            throw new Error(`Loại chữ ký không hợp lệ.`);
+        if (!signedData.signers || signedData.signers.length === 0)
+            throw new Error("Không tìm thấy thông tin người ký trong chữ ký.");
+        if (!signedData.certificates || signedData.certificates.length === 0)
+            throw new Error("Không tìm thấy chứng thư số trong chữ ký.");
+        const signerInfo = signedData.rawCapture.signerInfo;
         const signingTimeAttr = signerInfo.authenticatedAttributes.find((attr) => forge.pki.oids.signingTime === attr.oid);
         if (!signingTimeAttr || !signingTimeAttr.value) {
             throw new Error("Không tìm thấy thuộc tính thời gian ký (signingTime) trong chữ ký.");
         }
-        const signingTime = forge.asn1.fromDer(signingTimeAttr.value).value[0].value;
-        if (!p7.certificates || p7.certificates.length === 0) {
-            throw new Error("Không tìm thấy chứng thư nào trong chữ ký.");
-        }
-        const signerCertificate = p7.certificates[0];
+        const signingTimeObject = forge.asn1.fromDer(signingTimeAttr.value).value;
+        const signingTime = new Date(signingTimeObject[0].value);
+        const signerCertificate = signedData.certificates[0];
         const signerName = ((_b = signerCertificate.subject.getField('CN')) === null || _b === void 0 ? void 0 : _b.value) || 'Unknown Signer';
-        // --- KẾT THÚC LOGIC MỚI ---
-        const isValid = new Date(signingTime) <= deadline;
+        // --- KẾT THÚC SỬA LỖI TYPESCRIPT ---
+        const isValid = signingTime <= deadline;
         const status = isValid ? "valid" : "expired";
-        await saveCheckResult(status, undefined, new Date(signingTime), deadline, signerName);
+        await saveCheckResult(status, undefined, signingTime, deadline, signerName);
         await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
         firebase_functions_1.logger.info(`Successfully processed signature for ${fileName}. Status: ${status}`);
     }
