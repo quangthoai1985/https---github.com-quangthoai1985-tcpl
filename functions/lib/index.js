@@ -16,23 +16,13 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
+var __importStar = (this && this.__importStar) || function (mod) {
+    if (mod && mod.__esModule) return mod;
+    var result = {};
+    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
+    __setModuleDefault(result, mod);
+    return result;
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.verifyPDFSignature = exports.onAssessmentFileDeleted = exports.syncUserClaims = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
@@ -205,11 +195,11 @@ async function extractSignatureInfo(pdfBuffer) {
             const fieldType = (_a = field.acroField.FT()) === null || _a === void 0 ? void 0 : _a.toString();
             if (fieldType === '/Sig') {
                 const sigDict = field.acroField.V();
-                if (sigDict) {
+                if (sigDict instanceof pdf_lib_1.PDFDict) {
                     const nameRaw = (_b = sigDict.get(pdf_lib_1.PDFName.of('Name'))) === null || _b === void 0 ? void 0 : _b.toString();
                     const signDateRaw = (_c = sigDict.get(pdf_lib_1.PDFName.of('M'))) === null || _c === void 0 ? void 0 : _c.toString();
-                    const name = nameRaw ? nameRaw.substring(1, nameRaw.length - 1) : null; // Bỏ dấu / ở đầu
-                    const signDate = signDateRaw ? parsePdfDate(signDateRaw.substring(1, signDateRaw.length - 1)) : null; // Bỏ dấu ()
+                    const name = nameRaw ? nameRaw.substring(1) : null;
+                    const signDate = signDateRaw ? parsePdfDate(signDateRaw.substring(1, signDateRaw.length - 1)) : null;
                     signatures.push({ name, signDate });
                 }
             }
@@ -325,3 +315,5 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
     return null;
 });
 //# sourceMappingURL=index.js.map
+
+    

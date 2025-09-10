@@ -179,12 +179,12 @@ async function extractSignatureInfo(pdfBuffer: Buffer): Promise<{ name: string |
             const fieldType = field.acroField.FT()?.toString();
             if (fieldType === '/Sig') {
                 const sigDict = field.acroField.V();
-                if (sigDict) {
+                if (sigDict instanceof PDFDict) {
                     const nameRaw = sigDict.get(PDFName.of('Name'))?.toString();
                     const signDateRaw = sigDict.get(PDFName.of('M'))?.toString();
                     
-                    const name = nameRaw ? nameRaw.substring(1, nameRaw.length - 1) : null; // Bỏ dấu / ở đầu
-                    const signDate = signDateRaw ? parsePdfDate(signDateRaw.substring(1, signDateRaw.length - 1)) : null; // Bỏ dấu ()
+                    const name = nameRaw ? nameRaw.substring(1) : null;
+                    const signDate = signDateRaw ? parsePdfDate(signDateRaw.substring(1, signDateRaw.length - 1)) : null;
 
                     signatures.push({ name, signDate });
                 }
