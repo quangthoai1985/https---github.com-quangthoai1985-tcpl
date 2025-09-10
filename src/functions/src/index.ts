@@ -4,7 +4,7 @@ import { onDocumentWritten, onDocumentUpdated } from "firebase-functions/v2/fire
 import * as admin from "firebase-admin";
 import { onObjectFinalized } from "firebase-functions/v2/storage";
 import { logger } from "firebase-functions";
-import * as forge from 'node-forge';
+import { PDFDocument, PDFName, PDFDict } from 'pdf-lib'; // <-- Thư viện mới
 import { addDays, parse } from 'date-fns';
 
 admin.initializeApp();
@@ -38,168 +38,6 @@ export const syncUserClaims = onDocumentWritten("users/{userId}", async (event) 
   }
   return null;
 });
-
-// ===== HÀM TRÍCH XUẤT CHỮ KÝ (PHIÊN BẢN CUỐI CÙNG) =====
-const extractSignature = (pdfBuffer: Buffer): string | null => {
-    const pdfString = pdfBuffer.toString('binary');
-    const signatureRegex = /\/ByteRange\s*\[\s*\d+\s+\d+\s+\d+\s+\d+\s*\][^<]*\/Contents\s*<([^>]+)>/;
-    const match = pdfString.match(signatureRegex);
-
-    if (match && match[1]) {
-        logger.info("Successfully extracted signature block using regex.");
-        // Loại bỏ khoảng trắng và sau đó loại bỏ các byte null (00) ở cuối chuỗi
-        const cleanedHex = match[1].replace(/\s/g, '').replace(/0+$/, '');
-        return cleanedHex;
-    } else {
-        logger.warn("Could not find signature block using regex.");
-        return null;
-    }
-};
-
-// ===== HÀM XỬ LÝ PDF (ĐÃ KHÔI PHỤC VÀ HOÀN CHỈNH) =====
-export const verifyPDFSignature = onObjectFinalized(async (event) => {
-    const fileBucket = event.data.bucket;
-    const filePath = event.data.name;
-    const contentType = event.data.contentType;
-    const fileName = filePath.split('/').pop() || 'unknownfile';
-
-    // Helper function to write to a log collection
-    const saveCheckResult = async (status: "valid" | "expired" | "error", reason?: string, signingTime?: Date | null, deadline?: Date, signerName?: string) => {
-        await db.collection('signature_checks').add({
-            fileName: fileName,
-            filePath: filePath,
-            status: status,
-            reason: reason || null,
-            signingTime: signingTime || null,
-            deadline: deadline || null,
-            signerName: signerName || null,
-            processedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-    };
-
-    // --- Start of Main Logic ---
-    if (!contentType || !contentType.startsWith('application/pdf')) {
-        return null;
-    }
-    const pathInfo = parseAssessmentPath(filePath);
-    if (!pathInfo || !pathInfo.indicatorId.startsWith('CT1.')) {
-        logger.log(`File ${filePath} does not match Criterion 1 structure. Skipping.`);
-        return null;
-    }
-
-    const { communeId, periodId, indicatorId, docIndex } = pathInfo;
-    const assessmentId = `assess_${periodId}_${communeId}`;
-    const assessmentRef = db.collection('assessments').doc(assessmentId);
-
-    // Helper to update the main assessment document
-    const updateAssessmentFileStatus = async (
-        fileStatus: 'validating' | 'valid' | 'invalid' | 'error',
-        reason?: string
-    ) => {
-        const docSnap = await assessmentRef.get();
-        if (!docSnap.exists()) return;
-
-        const data = docSnap.data();
-        if (!data || !data.assessmentData) return;
-
-        const assessmentData = data.assessmentData;
-        const indicatorResult = assessmentData[indicatorId];
-        if (!indicatorResult || !indicatorResult.filesPerDocument) return;
-
-        const fileList = indicatorResult.filesPerDocument[docIndex] || [];
-        const fileToUpdate = fileList.find((f: any) => f.name === fileName);
-
-        if (fileToUpdate) {
-            fileToUpdate.signatureStatus = fileStatus;
-            if (reason) {
-                fileToUpdate.signatureError = reason;
-            } else {
-                delete fileToUpdate.signatureError;
-            }
-
-            const criterionDoc = await db.collection('criteria').doc('TC01').get();
-            const assignedCount = criterionDoc.data()?.assignedDocumentsCount || 0;
-            const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
-            const allFilesUploaded = allFiles.length >= assignedCount;
-            const allSignaturesValid = allFiles.every((f: any) => f.signatureStatus === 'valid');
-            const quantityMet = Number(indicatorResult.value) >= assignedCount;
-
-            if (quantityMet && allFilesUploaded && allSignaturesValid) {
-                indicatorResult.status = 'achieved';
-            } else {
-                indicatorResult.status = 'not-achieved';
-            }
-            await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
-        }
-    };
-
-    await updateAssessmentFileStatus('validating');
-
-    try {
-        const criterionDoc = await db.collection('criteria').doc('TC01').get();
-        if (!criterionDoc.exists) throw new Error("Criterion document TC01 not found.");
-        const documentConfig = criterionDoc.data()?.documents?.[docIndex];
-        if (!documentConfig) throw new Error(`Document config for index ${docIndex} not found.`);
-
-        const issueDate = parse(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
-        const deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
-
-        const bucket = admin.storage().bucket(fileBucket);
-        const [fileBuffer] = await bucket.file(filePath).download();
-        
-        const signatureHex = extractSignature(fileBuffer);
-        if (!signatureHex) throw new Error("Could not find signature block in PDF.");
-
-        const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
-        const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
-        
-        // --- START OF THE FIX ---
-        // Use type assertion to tell TypeScript we know what we're doing.
-        const signedData: any = p7;
-
-        if (signedData.type !== forge.pki.oids.signedData) throw new Error(`Invalid signature type.`);
-        if (!signedData.signers || signedData.signers.length === 0) throw new Error("No signer information found in signature.");
-        if (!signedData.certificates || signedData.certificates.length === 0) throw new Error("No certificates found in signature.");
-        
-        const signerInfo = signedData.rawCapture.signerInfo;
-        const signingTimeAttr = signerInfo.authenticatedAttributes.find(
-            (attr: any) => forge.pki.oids.signingTime === attr.oid
-        );
-        if (!signingTimeAttr || !signingTimeAttr.value) throw new Error("Signing time attribute not found.");
-        
-        // Safely handle the signingTime value which can be a string or an array
-        const signingTimeObject = forge.asn1.fromDer(signingTimeAttr.value).value;
-        let signingTimeString: string;
-        if (typeof signingTimeObject === 'string') {
-            signingTimeString = signingTimeObject;
-        } else if (Array.isArray(signingTimeObject) && signingTimeObject.length > 0 && typeof signingTimeObject[0].value === 'string') {
-            signingTimeString = signingTimeObject[0].value;
-        } else {
-            throw new Error("Could not parse the signing time value.");
-        }
-        const signingTime = new Date(signingTimeString);
-
-        const signerCertificate = signedData.certificates[0];
-        const signerName = signerCertificate.subject.getField('CN')?.value || 'Unknown Signer';
-        // --- END OF THE FIX ---
-        
-        const isValid = signingTime <= deadline;
-        const status = isValid ? "valid" : "expired";
-
-        await saveCheckResult(status, undefined, signingTime, deadline, signerName);
-        await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
-
-        logger.info(`Successfully processed signature for ${fileName}. Status: ${status}`);
-
-    } catch (error: any) {
-        logger.error(`Error processing ${filePath}:`, error);
-        await saveCheckResult("error", error.message);
-        await updateAssessmentFileStatus('error', error.message);
-        return null;
-    }
-    return null;
-});
-
 
 // ===== CÁC HÀM PHỤ TRỢ (GIỮ NGUYÊN) =====
 function parseAssessmentPath(filePath: string): { communeId: string; periodId: string; indicatorId: string; docIndex: number } | null {
@@ -245,7 +83,6 @@ function collectAllFileUrls(assessmentData: any): Set<string> {
 }
 
 export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmentId}", async (event) => {
-    // ... (Giữ nguyên nội dung hàm này)
     const dataBefore = event.data?.before.data();
     const dataAfter = event.data?.after.data();
 
@@ -296,5 +133,191 @@ export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmen
         logger.log("No files were removed in this update. No deletions necessary.");
     }
 
+    return null;
+});
+
+// ===== HÀM MỚI ĐỂ XỬ LÝ CHỮ KÝ BẰNG PDF-LIB =====
+
+/**
+ * Phân tích chuỗi ngày tháng từ chữ ký PDF (định dạng D:YYYYMMDDHHmmssZ) thành đối tượng Date.
+ */
+function parsePdfDate(raw: string): Date | null {
+    if (!raw) return null;
+    try {
+        const clean = raw.replace("D:", "").slice(0, 14); // Lấy phần YYYYMMDDHHmmss
+        const year = parseInt(clean.slice(0, 4), 10);
+        const month = parseInt(clean.slice(4, 6), 10) - 1; // Tháng trong JS bắt đầu từ 0
+        const day = parseInt(clean.slice(6, 8), 10);
+        const hour = parseInt(clean.slice(8, 10), 10);
+        const minute = parseInt(clean.slice(10, 12), 10);
+        const second = parseInt(clean.slice(12, 14), 10);
+        
+        // Giả định múi giờ Việt Nam (+07:00)
+        // Tạo một đối tượng Date ở múi giờ UTC, sau đó trừ đi 7 tiếng để có được thời gian đúng
+        const dateInUTC = new Date(Date.UTC(year, month, day, hour, minute, second));
+        dateInUTC.setHours(dateInUTC.getHours() - 7);
+        return dateInUTC;
+
+    } catch (e) {
+        logger.error("Failed to parse PDF date string:", raw, e);
+        return null;
+    }
+}
+
+/**
+ * Trích xuất tên người ký và ngày ký từ file PDF sử dụng pdf-lib.
+ */
+async function extractSignatureInfo(pdfBuffer: Buffer): Promise<{ name: string | null; signDate: Date | null }[]> {
+    const signatures: { name: string | null; signDate: Date | null }[] = [];
+    try {
+        const pdfDoc = await PDFDocument.load(pdfBuffer, { updateMetadata: false });
+        const acroForm = pdfDoc.getForm();
+        const fields = acroForm.getFields();
+
+        for (const field of fields) {
+            const fieldType = field.acroField.FT()?.toString();
+            if (fieldType === '/Sig') {
+                const sigDict = field.acroField.V();
+
+                // === PHẦN SỬA LỖI QUAN TRỌNG ===
+                // Chỉ xử lý nếu sigDict là một đối tượng Dictionary
+                if (sigDict instanceof PDFDict) {
+                    const nameRaw = sigDict.get(PDFName.of('Name'))?.toString();
+                    const signDateRaw = sigDict.get(PDFName.of('M'))?.toString();
+                    
+                    // Bỏ ký tự '/' ở đầu đối với tên
+                    const name = nameRaw ? nameRaw.substring(1) : null;
+                    // Bỏ cặp dấu () ở đầu và cuối chuỗi ngày tháng
+                    const signDate = signDateRaw ? parsePdfDate(signDateRaw.substring(1, signDateRaw.length - 1)) : null;
+
+                    if (signDate) {
+                         signatures.push({ name, signDate });
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        logger.error("Error extracting signature with pdf-lib:", error);
+    }
+    return signatures;
+}
+
+
+// ===== CLOUD FUNCTION CHÍNH ĐƯỢC NÂNG CẤP =====
+
+export const verifyPDFSignature = onObjectFinalized(async (event) => {
+    const fileBucket = event.data.bucket;
+    const filePath = event.data.name;
+    const contentType = event.data.contentType;
+    const fileName = filePath.split('/').pop() || 'unknownfile';
+
+    const saveCheckResult = async (status: "valid" | "expired" | "error", reason?: string, signingTime?: Date | null, deadline?: Date, signerName?: string) => {
+        await db.collection('signature_checks').add({
+            fileName: fileName,
+            filePath: filePath,
+            status: status,
+            reason: reason || null,
+            signingTime: signingTime || null,
+            deadline: deadline || null,
+            signerName: signerName || null,
+            processedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+    };
+
+    if (!contentType || !contentType.startsWith('application/pdf')) return null;
+    
+    const pathInfo = parseAssessmentPath(filePath);
+    if (!pathInfo || !pathInfo.indicatorId.startsWith('CT1.')) {
+        logger.log(`File ${filePath} does not match Criterion 1 structure. Skipping.`);
+        return null;
+    }
+
+    const { communeId, periodId, indicatorId, docIndex } = pathInfo;
+    const assessmentId = `assess_${periodId}_${communeId}`;
+    const assessmentRef = db.collection('assessments').doc(assessmentId);
+
+    const updateAssessmentFileStatus = async (
+        fileStatus: 'validating' | 'valid' | 'invalid' | 'error',
+        reason?: string
+    ) => {
+        const doc = await assessmentRef.get();
+        if (!doc.exists) return;
+        const data = doc.data();
+        if (!data) return;
+        const assessmentData = data.assessmentData || {};
+        const indicatorResult = assessmentData[indicatorId];
+        if (!indicatorResult || !indicatorResult.filesPerDocument) return;
+        const fileList = indicatorResult.filesPerDocument[docIndex] || [];
+        const fileToUpdate = fileList.find((f: any) => f.name === fileName);
+
+        if (fileToUpdate) {
+            fileToUpdate.signatureStatus = fileStatus;
+            if (reason) {
+                fileToUpdate.signatureError = reason;
+            } else {
+                 delete fileToUpdate.signatureError;
+            }
+            
+            const criterionDoc = await db.collection('criteria').doc('TC01').get();
+            const assignedCount = criterionDoc.data()?.assignedDocumentsCount || 0;
+            const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
+            const allFilesUploaded = allFiles.length >= assignedCount;
+            const allSignaturesValid = allFiles.every((f: any) => f.signatureStatus === 'valid');
+            const quantityMet = Number(indicatorResult.value) >= assignedCount;
+
+            if (quantityMet && allFilesUploaded && allSignaturesValid) {
+                indicatorResult.status = 'achieved';
+            } else {
+                indicatorResult.status = 'not-achieved';
+            }
+            
+            await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
+        }
+    };
+
+    await updateAssessmentFileStatus('validating');
+
+    try {
+        const criterionDoc = await db.collection('criteria').doc('TC01').get();
+        if (!criterionDoc.exists) throw new Error("Criterion document TC01 not found.");
+        const documentConfig = criterionDoc.data()?.documents?.[docIndex];
+        if (!documentConfig) throw new Error(`Document config for index ${docIndex} not found.`);
+        
+        const issueDate = parse(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
+        const deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
+
+        const bucket = admin.storage().bucket(fileBucket);
+        const [fileBuffer] = await bucket.file(filePath).download();
+
+        // --- BẮT ĐẦU LOGIC MỚI ---
+        const signatures = await extractSignatureInfo(fileBuffer);
+        
+        if (signatures.length === 0) {
+            throw new Error("Không tìm thấy chữ ký nào trong tài liệu bằng pdf-lib.");
+        }
+
+        // Lấy chữ ký đầu tiên tìm thấy để kiểm tra
+        const firstSignature = signatures[0];
+        const signingTime = firstSignature.signDate;
+        const signerName = firstSignature.name;
+
+        if (!signingTime) {
+            throw new Error("Chữ ký không chứa thông tin ngày ký (M).");
+        }
+        
+        const isValid = signingTime <= deadline;
+        const status = isValid ? "valid" : "expired";
+
+        await saveCheckResult(status, undefined, signingTime, deadline, signerName || undefined);
+        await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
+        
+        logger.info(`[pdf-lib] Successfully processed signature for ${fileName}. Status: ${status}`);
+
+    } catch (error: any) {
+        logger.error(`[pdf-lib] Error processing ${filePath}:`, error);
+        await saveCheckResult("error", error.message);
+        await updateAssessmentFileStatus('error', error.message);
+        return null;
+    }
     return null;
 });
