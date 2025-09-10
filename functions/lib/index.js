@@ -39,6 +39,7 @@ const firestore_1 = require("firebase-functions/v2/firestore");
 const admin = __importStar(require("firebase-admin"));
 const storage_1 = require("firebase-functions/v2/storage");
 const firebase_functions_1 = require("firebase-functions");
+// import * as forge from 'node-forge';
 const date_fns_1 = require("date-fns");
 admin.initializeApp();
 const db = admin.firestore();
@@ -169,7 +170,7 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
         if (!documentConfig)
             throw new Error(`Document configuration for index ${docIndex} not found.`);
         const issueDate = (0, date_fns_1.parse)(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
-        const deadline = (0, date_fns_1.addDays)(issueDate, documentConfig.issuanceDeadlineDays);
+        // const deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
         const bucket = admin.storage().bucket(fileBucket);
         const [fileBuffer] = await bucket.file(filePath).download();
         const signatureHex = extractSignature(fileBuffer);
