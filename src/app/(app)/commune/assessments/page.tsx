@@ -1051,7 +1051,7 @@ export default function SelfAssessmentPage() {
     })
   }
 
-  const uploadEvidenceFiles = async (periodId: string, communeId: string): Promise<Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }>> => {
+  const uploadEvidenceFiles = async (periodId: string, userId: string): Promise<Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }>> => {
     if (!storage) throw new Error("Firebase Storage is not initialized.");
 
     const uploadedFileUrls: Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }> = {};
@@ -1077,7 +1077,7 @@ export default function SelfAssessmentPage() {
         
         localFiles.forEach(file => {
             const promise = async () => {
-                const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${file.name}`;
+                const filePath = `hoso/${userId}/evidence/${periodId}/${indicatorId}/${file.name}`;
                 const storageRef = ref(storage, filePath);
                 const snapshot = await uploadBytes(storageRef, file);
                 const downloadURL = await getDownloadURL(snapshot.ref);
@@ -1111,7 +1111,7 @@ export default function SelfAssessmentPage() {
     toast({ title: 'Đang lưu nháp...' });
     
     try {
-        const fileUrlsByIndicator = await uploadEvidenceFiles(activePeriod.id, currentUser.communeId);
+        const fileUrlsByIndicator = await uploadEvidenceFiles(activePeriod.id, currentUser.id);
         
         const sanitizedData = sanitizeDataForFirestore(assessmentData);
         const assessmentDataForFirestore = Object.entries(sanitizedData).reduce((acc, [key, value]) => {

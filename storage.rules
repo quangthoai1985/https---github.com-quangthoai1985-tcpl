@@ -2,35 +2,36 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow uploads to the debug directory for any authenticated user
-    match /debug/{allPaths=**} {
-      allow write: if request.auth != null;
+    // Cho phép người dùng đã đăng nhập đọc tất cả các file
+    match /{allPaths=**} {
+      allow read: if request.auth != null;
+    }
+
+    // Quy tắc cho việc upload hồ sơ đăng ký của xã
+    // Bất kỳ ai đăng nhập cũng có thể ghi vào thư mục con có tên là UID của chính họ
+    match /hoso/{userId}/registration/{allPaths=**} {
+       allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Quy tắc cho việc upload hồ sơ minh chứng
+    match /hoso/{userId}/evidence/{allPaths=**} {
+       allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Quy tắc cho việc upload quyết định công nhận (chỉ admin)
+    match /hoso/{communeId}/announcements/{allPaths=**} {
+       allow write: if request.auth != null && request.auth.token.role == 'admin';
     }
     
-    // Allow commune staff to write to their own evidence folders.
-    // The path is hoso/{communeId}/... but we secure it by the user's actual UID,
-    // assuming one commune has one user. For more complex scenarios, this would need refinement.
-    // For simplicity and since communeId is on the user's custom claims, let's allow any authenticated user to write to their folder.
-    // The path is hoso/{communeId}/... we can use a wildcard for communeId.
-    match /hoso/{communeId}/{allPaths=**} {
-       allow read, write: if request.auth != null;
-    }
-
-    // Rules for guidance documents - allow admin to write, all to read
+    // Quy tắc cho việc upload file văn bản hướng dẫn (chỉ admin)
     match /guidance_documents/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null && request.auth.token.role == 'admin';
+        allow write: if request.auth != null && request.auth.token.role == 'admin';
+    }
+    
+    // Quy tắc cho việc upload file cấu hình (logo, ảnh nền) (chỉ admin)
+    match /config/{allPaths=**} {
+       allow write: if request.auth != null && request.auth.token.role == 'admin';
     }
 
-    // Rules for login page assets - allow admin to write, all to read
-    match /config/{allPaths=**} {
-       allow read: if true;
-       allow write: if request.auth != null && request.auth.token.role == 'admin';
-    }
-     // Rules for announcements - allow admin to write, all to read
-    match /announcements/{allPaths=**} {
-       allow read: if true;
-       allow write: if request.auth != null && request.auth.token.role == 'admin';
-    }
   }
 }
