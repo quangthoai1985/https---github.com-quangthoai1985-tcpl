@@ -150,12 +150,14 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
         const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
         const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
 
-        // --- BẮT ĐẦU LOGIC MỚI, ĐÁNG TIN CẬY HƠN ---
-        if (!p7.rawCapture.signerInfo) {
-            throw new Error("Không tìm thấy cấu trúc thông tin người ký (signerInfo) trong chữ ký.");
-        }
-        const signerInfo = p7.rawCapture.signerInfo;
+        // --- BẮT ĐẦU SỬA LỖI TYPESCRIPT ---
+        const signedData: any = p7; // Ép kiểu để bỏ qua kiểm tra của TS
 
+        if (signedData.type !== forge.pki.oids.signedData) throw new Error(`Loại chữ ký không hợp lệ.`);
+        if (!signedData.signers || signedData.signers.length === 0) throw new Error("Không tìm thấy thông tin người ký trong chữ ký.");
+        if (!signedData.certificates || signedData.certificates.length === 0) throw new Error("Không tìm thấy chứng thư số trong chữ ký.");
+        
+        const signerInfo = signedData.rawCapture.signerInfo;
         const signingTimeAttr = signerInfo.authenticatedAttributes.find(
             (attr: any) => forge.pki.oids.signingTime === attr.oid
         );
@@ -163,19 +165,17 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
             throw new Error("Không tìm thấy thuộc tính thời gian ký (signingTime) trong chữ ký.");
         }
         
-        const signingTime = forge.asn1.fromDer(signingTimeAttr.value).value[0].value;
+        const signingTimeObject = forge.asn1.fromDer(signingTimeAttr.value).value as any;
+        const signingTime = new Date(signingTimeObject[0].value);
         
-        if (!p7.certificates || p7.certificates.length === 0) {
-            throw new Error("Không tìm thấy chứng thư nào trong chữ ký.");
-        }
-        const signerCertificate = p7.certificates[0];
+        const signerCertificate = signedData.certificates[0];
         const signerName = signerCertificate.subject.getField('CN')?.value || 'Unknown Signer';
-        // --- KẾT THÚC LOGIC MỚI ---
+        // --- KẾT THÚC SỬA LỖI TYPESCRIPT ---
         
-        const isValid = new Date(signingTime) <= deadline;
+        const isValid = signingTime <= deadline;
         const status = isValid ? "valid" : "expired";
 
-        await saveCheckResult(status, undefined, new Date(signingTime), deadline, signerName);
+        await saveCheckResult(status, undefined, signingTime, deadline, signerName);
         await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
 
         logger.info(`Successfully processed signature for ${fileName}. Status: ${status}`);
