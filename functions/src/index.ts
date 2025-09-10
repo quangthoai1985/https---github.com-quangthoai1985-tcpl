@@ -293,3 +293,4 @@ export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmen
 
     return null;
 });
+    
