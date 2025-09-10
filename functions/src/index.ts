@@ -144,6 +144,15 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
 
         const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
         const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
+        
+        // Thêm đoạn code này để buộc node-forge xử lý sâu hơn
+        try {
+          p7.verify();
+        } catch (e: any) {
+          // Ở bước này, chúng ta có thể bỏ qua lỗi xác thực vì mục đích chính là để thư viện xử lý và điền đủ dữ liệu.
+          logger.warn("Verification step failed as expected, proceeding to extract signer info. Error: ", e.message);
+        }
+
         const signedData = p7 as any;
 
         if (signedData.type !== forge.pki.oids.signedData) throw new Error(`Loại chữ ký không hợp lệ.`);

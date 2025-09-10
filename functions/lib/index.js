@@ -39,13 +39,13 @@ const firestore_1 = require("firebase-functions/v2/firestore");
 const admin = __importStar(require("firebase-admin"));
 const storage_1 = require("firebase-functions/v2/storage");
 const firebase_functions_1 = require("firebase-functions");
-// import * as forge from 'node-forge';
-// import { addDays, parse } from 'date-fns';
+const forge = __importStar(require("node-forge"));
+const date_fns_1 = require("date-fns");
 admin.initializeApp();
 const db = admin.firestore();
+// ===== HÀM SYNC CLAIMS (GIỮ NGUYÊN) =====
 exports.syncUserClaims = (0, firestore_1.onDocumentWritten)("users/{userId}", async (event) => {
     var _a;
-    // Trường hợp document bị xóa, không làm gì cả
     if (!((_a = event.data) === null || _a === void 0 ? void 0 : _a.after.exists)) {
         console.log(`User document ${event.params.userId} deleted. Removing claims.`);
         return null;
@@ -73,24 +73,25 @@ exports.syncUserClaims = (0, firestore_1.onDocumentWritten)("users/{userId}", as
     }
     return null;
 });
+// ===== HÀM TRÍCH XUẤT CHỮ KÝ (PHIÊN BẢN CUỐI CÙNG) =====
 const extractSignature = (pdfBuffer) => {
     const pdfString = pdfBuffer.toString('binary');
-    // Regex phiên bản cuối cùng: Chính xác hơn, đảm bảo chỉ lấy nội dung bên trong dấu <...>
-    // Nó tìm khối chữ ký hoàn chỉnh chứa /ByteRange và /Contents.
     const signatureRegex = /\/ByteRange\s*\[\s*\d+\s+\d+\s+\d+\s+\d+\s*\][^<]*\/Contents\s*<([^>]+)>/;
     const match = pdfString.match(signatureRegex);
     if (match && match[1]) {
-        firebase_functions_1.logger.info("Successfully extracted signature using the final regex.");
-        // Loại bỏ mọi khoảng trắng hoặc ký tự xuống dòng khỏi chuỗi hex đã bắt được
-        return match[1].replace(/\s/g, '');
+        firebase_functions_1.logger.info("Successfully extracted signature block using regex.");
+        // Loại bỏ khoảng trắng và sau đó loại bỏ các byte null (00) ở cuối chuỗi
+        const cleanedHex = match[1].replace(/\s/g, '').replace(/0+$/, '');
+        return cleanedHex;
     }
     else {
-        firebase_functions_1.logger.warn("Could not find signature block using regex. The PDF structure might be non-standard or encrypted.");
+        firebase_functions_1.logger.warn("Could not find signature block using regex.");
         return null;
     }
 };
+// ===== HÀM XỬ LÝ PDF (ĐÃ KHÔI PHỤC VÀ HOÀN CHỈNH) =====
 exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
-    var _a;
+    var _a, _b;
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;
@@ -114,12 +115,6 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
     const pathInfo = parseAssessmentPath(filePath);
     if (!pathInfo || !pathInfo.indicatorId.startsWith('CT1.')) {
         firebase_functions_1.logger.log(`File ${filePath} does not match Criterion 1 evidence path structure. Skipping.`);
-        // Thêm logic báo lỗi về giao diện
-        const assessmentId = `assess_${pathInfo === null || pathInfo === void 0 ? void 0 : pathInfo.periodId}_${pathInfo === null || pathInfo === void 0 ? void 0 : pathInfo.communeId}`;
-        if (assessmentId) {
-            await db.doc(`assessments/${assessmentId}`).set({}, { merge: true }); // Đảm bảo doc tồn tại
-            // Cần một hàm update an toàn hơn, nhưng tạm thời chỉ log
-        }
         return null;
     }
     const { communeId, periodId, indicatorId, docIndex } = pathInfo;
@@ -169,25 +164,33 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
         const documentConfig = (_a = criterionData === null || criterionData === void 0 ? void 0 : criterionData.documents) === null || _a === void 0 ? void 0 : _a[docIndex];
         if (!documentConfig)
             throw new Error(`Document configuration for index ${docIndex} not found.`);
-        // const issueDate = parse(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
-        // const deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
+        const issueDate = (0, date_fns_1.parse)(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
+        const deadline = (0, date_fns_1.addDays)(issueDate, documentConfig.issuanceDeadlineDays);
         const bucket = admin.storage().bucket(fileBucket);
         const [fileBuffer] = await bucket.file(filePath).download();
         const signatureHex = extractSignature(fileBuffer);
-        if (!signatureHex) {
+        if (!signatureHex)
             throw new Error("Không tìm thấy chữ ký số trong tệp PDF.");
-        }
-        else {
-            // LOG DỮ LIỆU ĐỂ GỠ LỖI
-            firebase_functions_1.logger.log(">>>>>> RAW SIGNATURE HEX EXTRACTED <<<<<<", {
-                signatureHex: signatureHex
-            });
-            // Tạm thời báo lỗi về giao diện và dừng xử lý để chúng ta có thể xem log
-            await updateAssessmentFileStatus('error', 'Debug: Đã trích xuất chữ ký, cần phân tích log.');
-            await saveCheckResult("error", "Debug: Đã trích xuất chữ ký, cần phân tích log.");
-            return null; // Dừng hàm tại đây
-        }
-        // Các dòng code xử lý signature bên dưới sẽ tạm thời không được chạy
+        const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
+        const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
+        const signedData = p7;
+        if (signedData.type !== forge.pki.oids.signedData)
+            throw new Error(`Loại chữ ký không hợp lệ.`);
+        if (!signedData.signers || signedData.signers.length === 0)
+            throw new Error("Không tìm thấy thông tin người ký.");
+        if (!signedData.certificates || signedData.certificates.length === 0)
+            throw new Error("Không tìm thấy chứng thư số.");
+        const signer = signedData.signers[0];
+        const signerCertificate = signedData.certificates[0];
+        const signingTime = signer.signingTime;
+        if (!signingTime)
+            throw new Error("Không tìm thấy thời gian ký (signingTime).");
+        const signerName = ((_b = signerCertificate.subject.getField('CN')) === null || _b === void 0 ? void 0 : _b.value) || 'Unknown Signer';
+        const isValid = signingTime <= deadline;
+        const status = isValid ? "valid" : "expired";
+        await saveCheckResult(status, undefined, signingTime, deadline, signerName);
+        await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
+        firebase_functions_1.logger.info(`Successfully processed signature for ${fileName}. Status: ${status}`);
     }
     catch (error) {
         firebase_functions_1.logger.error(`Error processing ${filePath}:`, error);
@@ -197,6 +200,7 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
     }
     return null;
 });
+// ===== CÁC HÀM PHỤ TRỢ (GIỮ NGUYÊN) =====
 function parseAssessmentPath(filePath) {
     const parts = filePath.split('/');
     if (parts.length === 7 && parts[0] === 'hoso' && parts[2] === 'evidence') {
@@ -214,29 +218,24 @@ function parseAssessmentPath(filePath) {
 }
 function collectAllFileUrls(assessmentData) {
     const urls = new Set();
-    if (!assessmentData || typeof assessmentData !== 'object') {
+    if (!assessmentData || typeof assessmentData !== 'object')
         return urls;
-    }
     for (const indicatorId in assessmentData) {
         const indicator = assessmentData[indicatorId];
         if (indicator) {
-            // Collect from the top-level 'files' array
             if (Array.isArray(indicator.files)) {
                 indicator.files.forEach((file) => {
-                    if (file && typeof file.url === 'string' && file.url) {
+                    if (file && typeof file.url === 'string' && file.url)
                         urls.add(file.url);
-                    }
                 });
             }
-            // Collect from the nested 'filesPerDocument' object
             if (indicator.filesPerDocument && typeof indicator.filesPerDocument === 'object') {
                 for (const docIndex in indicator.filesPerDocument) {
                     const fileList = indicator.filesPerDocument[docIndex];
                     if (Array.isArray(fileList)) {
                         fileList.forEach((file) => {
-                            if (file && typeof file.url === 'string' && file.url) {
+                            if (file && typeof file.url === 'string' && file.url)
                                 urls.add(file.url);
-                            }
                         });
                     }
                 }
@@ -247,6 +246,7 @@ function collectAllFileUrls(assessmentData) {
 }
 exports.onAssessmentFileDeleted = (0, firestore_1.onDocumentUpdated)("assessments/{assessmentId}", async (event) => {
     var _a, _b;
+    // ... (Giữ nguyên nội dung hàm này)
     const dataBefore = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
     const dataAfter = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
     if (!dataBefore || !dataAfter) {
@@ -262,7 +262,6 @@ exports.onAssessmentFileDeleted = (0, firestore_1.onDocumentUpdated)("assessment
         if (!filesAfter.has(fileUrl) && fileUrl.includes('firebasestorage.googleapis.com')) {
             firebase_functions_1.logger.info(`File ${fileUrl} was removed from assessment. Queuing for deletion from Storage.`);
             try {
-                // Correctly parse the file path from the GCS URL
                 const url = new URL(fileUrl);
                 const filePath = decodeURIComponent(url.pathname).split('/o/')[1];
                 if (!filePath) {
