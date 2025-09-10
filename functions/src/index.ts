@@ -1,34 +1,79 @@
 // File: functions/src/index.ts
-
-import { onDocumentWritten, onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import { onObjectFinalized } from "firebase-functions/v2/storage";
 import { logger } from "firebase-functions";
-import * as forge from 'node-forge';
+import { PDFDocument, PDFDict, PDFName } from 'pdf-lib';
 import { addDays, parse } from 'date-fns';
 
 admin.initializeApp();
 const db = admin.firestore();
 
 // =================================================================================================
-// HELPER FUNCTIONS (HÀM PHỤ TRỢ)
+// TYPE DEFINITIONS
+// =================================================================================================
+type SignatureStatus = 'valid' | 'invalid' | 'error' | 'validating';
+
+// =================================================================================================
+// HELPER FUNCTIONS
 // =================================================================================================
 
 function parseAssessmentPath(filePath: string): { communeId: string; periodId: string; indicatorId: string; docIndex: number } | null {
-    // Path structure: hoso/{communeId}/evidence/{periodId}/{indicatorId}/{docIndex}/{fileName}
     const parts = filePath.split('/');
     if (parts.length === 7 && parts[0] === 'hoso' && parts[2] === 'evidence') {
         const docIndex = parseInt(parts[5], 10);
         if (!isNaN(docIndex)) {
-            return {
-                communeId: parts[1],
-                periodId: parts[3],
-                indicatorId: parts[4],
-                docIndex: docIndex
-            };
+            return { communeId: parts[1], periodId: parts[3], indicatorId: parts[4], docIndex };
         }
     }
     return null;
+}
+
+function parsePdfDate(raw: string): Date | null {
+    if (!raw || !raw.startsWith('D:')) return null;
+    try {
+        const dateString = raw.substring(2, 16); // D:YYYYMMDDHHmmss
+        const year = parseInt(dateString.substring(0, 4), 10);
+        const month = parseInt(dateString.substring(4, 6), 10) - 1;
+        const day = parseInt(dateString.substring(6, 8), 10);
+        const hour = parseInt(dateString.substring(8, 10), 10);
+        const minute = parseInt(dateString.substring(10, 12), 10);
+        const second = parseInt(dateString.substring(12, 14), 10);
+        return new Date(year, month, day, hour, minute, second);
+    } catch (e) {
+        logger.error("Failed to parse PDF date string:", raw, e);
+        return null;
+    }
+}
+
+async function extractSignatureInfo(pdfBuffer: Buffer): Promise<{ name: string | null; signDate: Date | null }[]> {
+    const signatures: { name: string | null; signDate: Date | null }[] = [];
+    try {
+        const pdfDoc = await PDFDocument.load(pdfBuffer, { updateMetadata: false });
+        const acroForm = pdfDoc.getForm();
+        const fields = acroForm.getFields();
+
+        for (const field of fields) {
+            const fieldType = field.acroField.FT()?.toString();
+            if (fieldType === '/Sig') {
+                const sigDict = field.acroField.V();
+                if (sigDict instanceof PDFDict) {
+                    const nameRaw = sigDict.get(PDFName.of('Name'))?.toString();
+                    const signDateRaw = sigDict.get(PDFName.of('M'))?.toString();
+                    
+                    const name = nameRaw ? nameRaw.substring(1, nameRaw.length - 1) : null;
+                    const signDate = signDateRaw ? parsePdfDate(signDateRaw.substring(1, signDateRaw.length - 1)) : null;
+
+                    if (signDate) {
+                         signatures.push({ name, signDate });
+                    }
+                }
+            }
+        }
+    } catch (error) {
+        logger.error("Error extracting signature with pdf-lib:", error);
+    }
+    return signatures;
 }
 
 function collectAllFileUrls(assessmentData: any): Set<string> {
@@ -50,37 +95,113 @@ function collectAllFileUrls(assessmentData: any): Set<string> {
     return urls;
 }
 
-const extractSignature = (pdfBuffer: Buffer): string | null => {
-    const pdfString = pdfBuffer.toString('binary');
-    const signatureRegex = /\/ByteRange\s*\[\s*\d+\s+\d+\s+\d+\s+\d+\s*\][^<]*\/Contents\s*<([^>]+)>/;
-    const match = pdfString.match(signatureRegex);
-    if (match && match[1]) {
-        logger.info("Successfully extracted signature using regex.");
-        return match[1].replace(/\s/g, '');
-    }
-    logger.warn("Could not find signature block using regex.");
-    return null;
-};
-
-
 // =================================================================================================
 // CLOUD FUNCTIONS
 // =================================================================================================
 
-export const syncUserClaims = onDocumentWritten("users/{userId}", async (event) => {
-    if (!event.data?.after.exists) { return; }
-    const userData = event.data.after.data();
-    const userId = event.params.userId;
-    if (!userData) { return; }
-    const claimsToSet: { [key: string]: any } = {};
-    if (userData.role) { claimsToSet.role = userData.role; }
-    if (userData.communeId) { claimsToSet.communeId = userData.communeId; }
+export const handleSignatureCheck = onObjectFinalized(async (event) => {
+    const fileBucket = event.data.bucket;
+    const filePath = event.data.name;
+    const contentType = event.data.contentType;
+    const fileName = filePath.split('/').pop() || 'unknownfile';
+
+    if (!contentType || !contentType.startsWith('application/pdf')) return null;
+    
+    const pathInfo = parseAssessmentPath(filePath);
+    if (!pathInfo || !pathInfo.indicatorId.startsWith('CT1.')) return null;
+
+    const { communeId, periodId, indicatorId, docIndex } = pathInfo;
+    const assessmentId = `assess_${periodId}_${communeId}`;
+    const assessmentRef = db.collection('assessments').doc(assessmentId);
+
+    const updateStatus = async (status: SignatureStatus, reason?: string) => {
+        try {
+            await db.runTransaction(async (transaction) => {
+                const doc = await transaction.get(assessmentRef);
+                if (!doc.exists) {
+                    logger.error(`Assessment document ${assessmentId} does not exist.`);
+                    return;
+                }
+                const data = doc.data();
+                if (!data || !data.assessmentData) return;
+
+                const assessmentData = { ...data.assessmentData };
+                const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {}, status: 'pending', value: 0 };
+                const filesPerDocument = indicatorResult.filesPerDocument || {};
+                let fileList = filesPerDocument[docIndex] || [];
+                
+                let fileToUpdate = fileList.find((f: any) => f.name === fileName);
+
+                if (!fileToUpdate) {
+                    const downloadURL = `https://firebasestorage.googleapis.com/v0/b/${fileBucket}/o/${encodeURIComponent(filePath)}?alt=media`;
+                    fileToUpdate = { name: fileName, url: downloadURL };
+                    fileList.push(fileToUpdate);
+                }
+                
+                fileToUpdate.signatureStatus = status;
+                if (reason) fileToUpdate.signatureError = reason; else delete fileToUpdate.signatureError;
+
+                filesPerDocument[docIndex] = fileList;
+                indicatorResult.filesPerDocument = filesPerDocument;
+                
+                const criterionDocSnap = await transaction.get(db.collection('criteria').doc('TC01'));
+                const assignedCount = criterionDocSnap.data()?.assignedDocumentsCount || 0;
+                
+                const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
+                const allFilesUploaded = allFiles.length >= assignedCount;
+                const allSignaturesValid = allFiles.every((f: any) => f.signatureStatus === 'valid');
+                const quantityMet = Number(indicatorResult.value) >= assignedCount;
+
+                if (quantityMet && allFilesUploaded && allSignaturesValid) {
+                    indicatorResult.status = 'achieved';
+                } else if (!quantityMet || !allFilesUploaded) {
+                    indicatorResult.status = 'pending';
+                }
+                else {
+                    indicatorResult.status = 'not-achieved';
+                }
+                
+                transaction.set(assessmentRef, { assessmentData: { [indicatorId]: indicatorResult } }, { merge: true });
+            });
+        } catch (error) {
+            logger.error(`Transaction to update file status for ${fileName} failed:`, error);
+        }
+    };
+    
+    await updateStatus('validating');
+    
     try {
-        await admin.auth().setCustomUserClaims(userId, claimsToSet);
-    } catch (error) {
-        logger.error(`Error updating custom claims for user ${userId}:`, error);
+        const criterionDoc = await db.collection('criteria').doc('TC01').get();
+        if (!criterionDoc.exists) throw new Error("Criterion document TC01 not found.");
+        const documentConfig = criterionDoc.data()?.documents?.[docIndex];
+        if (!documentConfig) throw new Error(`Document config for index ${docIndex} not found.`);
+        
+        const issueDate = parse(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
+        const deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
+
+        const bucket = admin.storage().bucket(fileBucket);
+        const [fileBuffer] = await bucket.file(filePath).download();
+        
+        const signatures = await extractSignatureInfo(fileBuffer);
+        if (signatures.length === 0) throw new Error("Không tìm thấy thông tin chữ ký hợp lệ trong tài liệu.");
+
+        const firstSignature = signatures[0];
+        const signingTime = firstSignature.signDate;
+
+        if (!signingTime) throw new Error("Chữ ký không chứa thông tin ngày ký hợp lệ.");
+        
+        const isValid = signingTime <= deadline;
+        const status = isValid ? "valid" : "invalid"; // Changed from 'expired' to 'invalid' for consistency
+        const reason = isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`;
+        
+        await updateStatus(status, reason);
+        logger.info(`[pdf-lib SUCCESS] Processed ${fileName}. Status: ${status}`);
+
+    } catch (error: any) {
+        logger.error(`[pdf-lib ERROR] Error processing ${filePath}:`, error);
+        await updateStatus('error', error.message);
     }
-    return;
+    return null;
 });
 
 export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmentId}", async (event) => {
@@ -96,27 +217,31 @@ export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmen
     const filesAfter = collectAllFileUrls(dataAfter.assessmentData);
 
     const deletionPromises: Promise<any>[] = [];
-    const bucket = admin.storage().bucket(); // Lấy bucket mặc định
+    const storage = admin.storage();
+    const bucket = storage.bucket();
 
     for (const fileUrl of filesBefore) {
         if (!filesAfter.has(fileUrl) && fileUrl.includes('firebasestorage.googleapis.com')) {
+            logger.info(`File ${fileUrl} was removed from assessment. Queuing for deletion from Storage.`);
             try {
-                // **SỬA LỖI**: Phân tích URL để lấy đúng đường dẫn file trong Storage
                 const url = new URL(fileUrl);
-                const decodedPath = decodeURIComponent(url.pathname);
-                const filePathInBucket = decodedPath.substring(decodedPath.indexOf('/o/') + 3);
-
-                if (filePathInBucket) {
-                    logger.log(`Attempting to delete file from path: ${filePathInBucket}`);
-                    const fileRef = bucket.file(filePathInBucket);
-                    deletionPromises.push(fileRef.delete().catch((err: any) => { // Thêm kiểu 'any' cho err
-                        if (err.code === 404) {
-                             logger.warn(`Attempted to delete ${filePathInBucket}, but it was not found.`);
-                        } else {
-                            logger.error(`Failed to delete file ${filePathInBucket}:`, err);
-                        }
-                    }));
+                const filePath = decodeURIComponent(url.pathname).split('/o/')[1];
+                
+                if (!filePath) {
+                    throw new Error("Could not extract file path from URL.");
                 }
+
+                logger.log(`Attempting to delete file from path: ${filePath}`);
+                const fileRef = bucket.file(filePath);
+
+                deletionPromises.push(fileRef.delete().catch(err => {
+                    if (err.code === 404) {
+                         logger.warn(`Attempted to delete ${filePath}, but it was not found. Ignoring.`);
+                    } else {
+                        logger.error(`Failed to delete file ${filePath}:`, err);
+                    }
+                }));
+
             } catch (error) {
                  logger.error(`Error processing URL for deletion: ${fileUrl}`, error);
             }
@@ -126,142 +251,9 @@ export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmen
     if (deletionPromises.length > 0) {
         await Promise.all(deletionPromises);
         logger.info(`Successfully processed ${deletionPromises.length} potential file deletion(s).`);
+    } else {
+        logger.log("No files were removed in this update. No deletions necessary.");
     }
 
-    return null;
-});
-
-export const verifyPDFSignature = onObjectFinalized(async (event) => {
-    const fileBucket = event.data.bucket;
-    const filePath = event.data.name;
-    const contentType = event.data.contentType;
-    const fileName = filePath.split('/').pop() || 'unknownfile';
-
-    const saveCheckResult = async (status: "valid" | "expired" | "error", reason?: string, signingTime?: Date | null, deadline?: Date, signerName?: string) => {
-        await db.collection('signature_checks').add({
-            fileName: fileName,
-            filePath: filePath,
-            status: status,
-            reason: reason || null,
-            signingTime: signingTime || null,
-            deadline: deadline || null,
-            signerName: signerName || null,
-            processedAt: admin.firestore.FieldValue.serverTimestamp(),
-        });
-    };
-
-    if (!contentType || !contentType.startsWith('application/pdf')) {
-        return null;
-    }
-    const pathInfo = parseAssessmentPath(filePath);
-    if (!pathInfo || !pathInfo.indicatorId.startsWith('CT1.')) {
-        logger.log(`File ${filePath} does not match Criterion 1 structure. Skipping.`);
-        return null;
-    }
-
-    const { communeId, periodId, indicatorId, docIndex } = pathInfo;
-    const assessmentId = `assess_${periodId}_${communeId}`;
-    const assessmentRef = db.collection('assessments').doc(assessmentId);
-
-    const updateAssessmentFileStatus = async (
-        fileStatus: 'validating' | 'valid' | 'invalid' | 'error',
-        reason?: string
-    ) => {
-        try {
-            await db.runTransaction(async (transaction) => {
-                const doc = await transaction.get(assessmentRef);
-                if (!doc.exists) {
-                    logger.error(`Assessment document ${assessmentId} does not exist.`);
-                    return;
-                }
-                const data = doc.data();
-                if (!data) return;
-
-                const assessmentData = data.assessmentData || {};
-                const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {}, status: 'pending', value: 0 };
-                const filesPerDocument = indicatorResult.filesPerDocument || {};
-                let fileList = filesPerDocument[docIndex] || [];
-                
-                let fileToUpdate = fileList.find((f: any) => f.name === fileName);
-
-                if (!fileToUpdate) {
-                    const downloadURL = `https://firebasestorage.googleapis.com/v0/b/${fileBucket}/o/${encodeURIComponent(filePath)}?alt=media`;
-                    fileToUpdate = { name: fileName, url: downloadURL };
-                    fileList.push(fileToUpdate);
-                }
-                
-                fileToUpdate.signatureStatus = fileStatus;
-                if (reason) fileToUpdate.signatureError = reason; else delete fileToUpdate.signatureError;
-
-                filesPerDocument[docIndex] = fileList;
-                indicatorResult.filesPerDocument = filesPerDocument;
-                
-                const criterionDocSnap = await transaction.get(db.collection('criteria').doc('TC01'));
-                const criterionData = criterionDocSnap.data();
-                const assignedCount = criterionData?.assignedDocumentsCount || 0;
-                
-                const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
-                const allFilesUploaded = allFiles.length >= assignedCount;
-                const allSignaturesValid = allFiles.every((f: any) => f.signatureStatus === 'valid');
-                const quantityMet = Number(indicatorResult.value) >= assignedCount;
-
-                if (quantityMet && allFilesUploaded && allSignaturesValid) {
-                    indicatorResult.status = 'achieved';
-                } else {
-                    indicatorResult.status = 'not-achieved';
-                }
-                
-                transaction.set(assessmentRef, { assessmentData: { [indicatorId]: indicatorResult } }, { merge: true });
-            });
-        } catch (error) {
-            logger.error(`Transaction to update file status for ${fileName} failed:`, error);
-        }
-    };
-    
-    await updateAssessmentFileStatus('validating');
-    
-    try {
-        const criterionDoc = await db.collection('criteria').doc('TC01').get();
-        if (!criterionDoc.exists) throw new Error("Criterion document TC01 not found.");
-        const documentConfig = criterionDoc.data()?.documents?.[docIndex];
-        if (!documentConfig) throw new Error(`Document config for index ${docIndex} not found.`);
-        
-        const issueDate = parse(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
-        const deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
-
-        const bucket = admin.storage().bucket(fileBucket);
-        const [fileBuffer] = await bucket.file(filePath).download();
-        
-        const signatureHex = extractSignature(fileBuffer);
-        if (!signatureHex) throw new Error("Không tìm thấy khối dữ liệu chữ ký trong tệp PDF.");
-        
-        const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex), false);
-        const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
-        
-        const signerInfo = (p7 as any).rawCapture.signerInfo;
-        if (!signerInfo) throw new Error("Không tìm thấy thông tin người ký trong chữ ký.");
-
-        const signingTimeAttr = signerInfo.authenticatedAttributes.find(
-            (attr: any) => forge.pki.oids.signingTime === attr.oid
-        );
-        if (!signingTimeAttr || !signingTimeAttr.value) throw new Error("Không tìm thấy thuộc tính thời gian ký.");
-        
-        const signingTime = forge.asn1.fromDer(signingTimeAttr.value).value[0].value;
-        
-        if (!p7.certificates || p7.certificates.length === 0) throw new Error("Không tìm thấy chứng thư nào trong chữ ký.");
-        const signerCertificate = p7.certificates[0];
-        const signerName = signerCertificate.subject.getField('CN')?.value || 'Unknown Signer';
-        
-        const isValid = new Date(signingTime) <= deadline;
-        const status = isValid ? "valid" : "invalid";
-        const reason = isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`;
-
-        await saveCheckResult(status, reason, new Date(signingTime), deadline, signerName);
-        await updateAssessmentFileStatus(status, reason);
-
-    } catch (error: any) {
-        logger.error(`Error processing signature for ${filePath}:`, error);
-        await updateAssessmentFileStatus('error', error.message);
-    }
     return null;
 });

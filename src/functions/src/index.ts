@@ -5,7 +5,7 @@ import * as admin from "firebase-admin";
 import { onObjectFinalized } from "firebase-functions/v2/storage";
 import { logger } from "firebase-functions";
 import { PDFDocument, PDFName, PDFDict } from 'pdf-lib'; // <-- Thư viện mới
-import { addDays, parse } from 'date-fns';
+//import { addDays, parse } from 'date-fns';
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -283,8 +283,8 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
         const documentConfig = criterionDoc.data()?.documents?.[docIndex];
         if (!documentConfig) throw new Error(`Document config for index ${docIndex} not found.`);
         
-        const issueDate = parse(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
-        const deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
+        //const issueDate = parse(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
+        //const deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
 
         const bucket = admin.storage().bucket(fileBucket);
         const [fileBuffer] = await bucket.file(filePath).download();
