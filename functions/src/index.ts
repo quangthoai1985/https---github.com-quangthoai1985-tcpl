@@ -106,7 +106,11 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
 
         if (fileToUpdate) {
             fileToUpdate.signatureStatus = fileStatus;
-            if (reason) fileToUpdate.signatureError = reason; else delete fileToUpdate.signatureError;
+            if (reason) {
+                fileToUpdate.signatureError = reason;
+            } else {
+                 delete fileToUpdate.signatureError;
+            }
             
             const criterionDoc = await db.collection('criteria').doc('TC01').get();
             const assignedCount = criterionDoc.data()?.assignedDocumentsCount || 0;
@@ -120,6 +124,7 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
             } else {
                 indicatorResult.status = 'not-achieved';
             }
+            
             await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
         }
     };
@@ -128,10 +133,10 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
     
     try {
         const criterionDoc = await db.collection('criteria').doc('TC01').get();
-        if (!criterionDoc.exists) throw new Error("Criterion document TC01 not found.");
+        if (!criterionDoc.exists) throw new Error("Không tìm thấy văn bản tiêu chí TC01.");
         const criterionData = criterionDoc.data();
         const documentConfig = criterionData?.documents?.[docIndex];
-        if (!documentConfig) throw new Error(`Document configuration for index ${docIndex} not found.`);
+        if (!documentConfig) throw new Error(`Không tìm thấy cấu hình cho văn bản với chỉ số ${docIndex}.`);
         
         const issueDate = parse(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
         const deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
@@ -140,36 +145,37 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
         const [fileBuffer] = await bucket.file(filePath).download();
         
         const signatureHex = extractSignature(fileBuffer);
-        if (!signatureHex) throw new Error("Không tìm thấy chữ ký số trong tệp PDF.");
+        if (!signatureHex) throw new Error("Không tìm thấy khối dữ liệu chữ ký trong tệp PDF.");
 
         const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
         const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
-        
-        // Thêm đoạn code này để buộc node-forge xử lý sâu hơn
-        try {
-          p7.verify();
-        } catch (e: any) {
-          // Ở bước này, chúng ta có thể bỏ qua lỗi xác thực vì mục đích chính là để thư viện xử lý và điền đủ dữ liệu.
-          logger.warn("Verification step failed as expected, proceeding to extract signer info. Error: ", e.message);
+
+        // --- BẮT ĐẦU LOGIC MỚI, ĐÁNG TIN CẬY HƠN ---
+        if (!p7.rawCapture.signerInfo) {
+            throw new Error("Không tìm thấy cấu trúc thông tin người ký (signerInfo) trong chữ ký.");
         }
+        const signerInfo = p7.rawCapture.signerInfo;
 
-        const signedData = p7 as any;
-
-        if (signedData.type !== forge.pki.oids.signedData) throw new Error(`Loại chữ ký không hợp lệ.`);
-        if (!signedData.signers || signedData.signers.length === 0) throw new Error("Không tìm thấy thông tin người ký.");
-        if (!signedData.certificates || signedData.certificates.length === 0) throw new Error("Không tìm thấy chứng thư số.");
-
-        const signer = signedData.signers[0];
-        const signerCertificate = signedData.certificates[0];
-        const signingTime = signer.signingTime;
+        const signingTimeAttr = signerInfo.authenticatedAttributes.find(
+            (attr: any) => forge.pki.oids.signingTime === attr.oid
+        );
+        if (!signingTimeAttr || !signingTimeAttr.value) {
+            throw new Error("Không tìm thấy thuộc tính thời gian ký (signingTime) trong chữ ký.");
+        }
         
-        if (!signingTime) throw new Error("Không tìm thấy thời gian ký (signingTime).");
-
+        const signingTime = forge.asn1.fromDer(signingTimeAttr.value).value[0].value;
+        
+        if (!p7.certificates || p7.certificates.length === 0) {
+            throw new Error("Không tìm thấy chứng thư nào trong chữ ký.");
+        }
+        const signerCertificate = p7.certificates[0];
         const signerName = signerCertificate.subject.getField('CN')?.value || 'Unknown Signer';
-        const isValid = signingTime <= deadline;
+        // --- KẾT THÚC LOGIC MỚI ---
+        
+        const isValid = new Date(signingTime) <= deadline;
         const status = isValid ? "valid" : "expired";
 
-        await saveCheckResult(status, undefined, signingTime, deadline, signerName);
+        await saveCheckResult(status, undefined, new Date(signingTime), deadline, signerName);
         await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
 
         logger.info(`Successfully processed signature for ${fileName}. Status: ${status}`);
