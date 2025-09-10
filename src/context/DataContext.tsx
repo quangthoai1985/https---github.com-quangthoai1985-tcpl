@@ -59,6 +59,7 @@ interface DataContextType {
   updateAssessmentPeriods: (newPeriods: AssessmentPeriod[]) => Promise<void>;
   assessments: Assessment[];
   updateAssessments: (newAssessments: Assessment[]) => Promise<void>;
+  updateSingleAssessment: (assessment: Assessment) => Promise<void>; // NEW
   deleteAssessment: (assessmentId: string) => Promise<void>;
   criteria: Criterion[];
   updateCriteria: (newCriteria: Criterion[]) => Promise<void>;
@@ -344,6 +345,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     };
   };
 
+  // New function to update a single document efficiently
+  const updateSingleAssessment = async (assessment: Assessment) => {
+    if (!db) return;
+    const docRef = doc(db, 'assessments', assessment.id);
+    await setDoc(docRef, assessment, { merge: true }); // Use merge to be safe
+  };
+
   const updateLoginConfig = async (newConfig: LoginConfig) => {
       if (!db) return;
       setLoading(true);
@@ -407,6 +415,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         units, updateUnits, 
         assessmentPeriods, updateAssessmentPeriods, 
         assessments, updateAssessments, 
+        updateSingleAssessment, // EXPORT NEW FUNCTION
         deleteAssessment,
         deleteFileByUrl,
         criteria, updateCriteria,

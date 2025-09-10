@@ -545,7 +545,7 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
     return sanitizedData;
 };
 
-const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadComplete, onRemove, onPreview, periodId, userId }: {
+const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadComplete, onRemove, onPreview, periodId, communeId }: {
     indicatorId: string;
     docIndex: number;
     evidence: FileWithStatus[];
@@ -553,7 +553,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
     onRemove: (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => void;
     onPreview: (file: { name: string, url: string }) => void;
     periodId: string;
-    userId: string;
+    communeId: string;
 }) => {
     const { storage } = useData();
     const { toast } = useToast();
@@ -566,7 +566,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
         for (const file of filesToUpload) {
             setUploadingFiles(prev => [...prev, file.name]);
             try {
-                const filePath = `hoso/${userId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
+                const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
                 const storageRef = ref(storage, filePath);
                 const snapshot = await uploadBytes(storageRef, file);
                 const downloadURL = await getDownloadURL(snapshot.ref);
@@ -692,7 +692,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
     );
 };
 
-const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, userId, handleSaveDraft }: {
+const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, communeId, handleSaveDraft }: {
     criterion: Criterion;
     assessmentData: AssessmentValues;
     onValueChange: (id: string, value: any) => void;
@@ -701,7 +701,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     onIsTaskedChange: (id: string, isTasked: boolean) => void;
     onPreview: (file: { name: string, url: string }) => void;
     periodId: string;
-    userId: string;
+    communeId: string;
     handleSaveDraft: () => Promise<void>;
 }) => {
     // BƯỚC 1: Thêm "rào chắn" an toàn ngay từ đầu
@@ -880,7 +880,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                             onRemove={handleRemoveFile}
                                                             onPreview={onPreview}
                                                             periodId={periodId}
-                                                            userId={userId}
+                                                            communeId={communeId}
                                                          />
                                                      </div>
                                                  ))}
@@ -911,7 +911,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
 export default function SelfAssessmentPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments } = useData();
+  const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments, updateSingleAssessment } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
   
@@ -1051,7 +1051,7 @@ export default function SelfAssessmentPage() {
     })
   }
 
-  const uploadEvidenceFiles = async (periodId: string, userId: string): Promise<Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }>> => {
+  const uploadEvidenceFiles = async (communeId: string, periodId: string): Promise<Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }>> => {
     if (!storage) throw new Error("Firebase Storage is not initialized.");
 
     const uploadedFileUrls: Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }> = {};
@@ -1062,8 +1062,10 @@ export default function SelfAssessmentPage() {
         const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
         
         if (parentCriterion?.id === 'TC01') {
-            uploadedFileUrls[indicatorId] = {
-                files: indicatorData.files,
+            // For Criterion 1, files are uploaded directly and their URLs are already present.
+            // We just need to copy them over.
+             uploadedFileUrls[indicatorId] = {
+                files: indicatorData.files, // This should be empty for C1
                 filesPerDocument: indicatorData.filesPerDocument
             };
             continue;
@@ -1077,7 +1079,7 @@ export default function SelfAssessmentPage() {
         
         localFiles.forEach(file => {
             const promise = async () => {
-                const filePath = `hoso/${userId}/evidence/${periodId}/${indicatorId}/${file.name}`;
+                const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${file.name}`;
                 const storageRef = ref(storage, filePath);
                 const snapshot = await uploadBytes(storageRef, file);
                 const downloadURL = await getDownloadURL(snapshot.ref);
@@ -1111,7 +1113,7 @@ export default function SelfAssessmentPage() {
     toast({ title: 'Đang lưu nháp...' });
     
     try {
-        const fileUrlsByIndicator = await uploadEvidenceFiles(activePeriod.id, currentUser.id);
+        const fileUrlsByIndicator = await uploadEvidenceFiles(currentUser.communeId, activePeriod.id);
         
         const sanitizedData = sanitizeDataForFirestore(assessmentData);
         const assessmentDataForFirestore = Object.entries(sanitizedData).reduce((acc, [key, value]) => {
@@ -1130,7 +1132,7 @@ export default function SelfAssessmentPage() {
             assessmentData: assessmentDataForFirestore,
         };
         
-        await updateAssessments(assessments.map(a => a.id === updatedAssessment.id ? updatedAssessment : a));
+        await updateSingleAssessment(updatedAssessment);
 
         toast({
           title: "Lưu nháp thành công!",
@@ -1142,7 +1144,7 @@ export default function SelfAssessmentPage() {
     } finally {
         setIsSubmitting(false);
     }
-  }, [activePeriod, currentUser, storage, assessments, assessmentData, updateAssessments, toast]);
+  }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast]);
 
   const { canSubmit, submissionErrors } = useMemo(() => {
     const errors: string[] = [];
@@ -1195,22 +1197,22 @@ export default function SelfAssessmentPage() {
 
     try {
         await handleSaveDraft(); // Save first to ensure all files are uploaded and data is consistent
-        const myAssessment = assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId);
+        const myAssessmentAfterDraft = assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId);
         
-        if (!myAssessment) {
+        if (!myAssessmentAfterDraft) {
              toast({ variant: 'destructive', title: 'Lỗi', description: 'Không tìm thấy hồ sơ đăng ký hợp lệ.' });
              setIsSubmitting(false);
              return;
         }
 
         const updatedAssessment: Assessment = {
-            ...myAssessment,
+            ...myAssessmentAfterDraft,
             assessmentStatus: 'pending_review',
             assessmentSubmissionDate: new Date().toLocaleDateString('vi-VN'),
             submittedBy: currentUser.id,
         };
 
-        await updateAssessments(assessments.map(a => a.id === myAssessment.id ? updatedAssessment : a));
+        await updateSingleAssessment(updatedAssessment);
 
         toast({
             title: "Gửi đánh giá thành công!",
@@ -1291,7 +1293,7 @@ export default function SelfAssessmentPage() {
                                                     onIsTaskedChange={handleIsTaskedChange}
                                                     onPreview={setPreviewFile}
                                                     periodId={activePeriod.id}
-                                                    userId={currentUser.id}
+                                                    communeId={currentUser.communeId}
                                                     handleSaveDraft={handleSaveDraft}
                                                  />
                                              </div>
