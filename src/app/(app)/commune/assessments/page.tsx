@@ -659,12 +659,12 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
             </div>
 
             {evidence.map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm">
+                <div key={index} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm overflow-hidden">
                     <div className="flex items-center gap-2 min-w-0 flex-1">
                         <FileIcon className="h-4 w-4 flex-shrink-0" />
-                        <span className="truncate text-xs flex-1">{item.name}</span>
+                        <span className="truncate text-xs">{item.name}</span>
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 flex-shrink-0">
                         <div className="flex flex-col gap-1 items-end">
                             <SignatureStatusBadge file={item} />
                             <ContentCheckBadge file={item} />
