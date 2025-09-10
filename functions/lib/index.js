@@ -33,9 +33,6 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onAssessmentFileDeleted = exports.processSignedPDF = exports.syncUserClaims = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
@@ -44,7 +41,6 @@ const storage_1 = require("firebase-functions/v2/storage");
 const firebase_functions_1 = require("firebase-functions");
 const forge = __importStar(require("node-forge"));
 const date_fns_1 = require("date-fns");
-const pdf_parse_1 = __importDefault(require("pdf-parse"));
 admin.initializeApp();
 const db = admin.firestore();
 exports.syncUserClaims = (0, firestore_1.onDocumentWritten)("users/{userId}", async (event) => {
@@ -79,56 +75,16 @@ exports.syncUserClaims = (0, firestore_1.onDocumentWritten)("users/{userId}", as
 });
 const extractSignature = (pdfBuffer) => {
     const pdfString = pdfBuffer.toString('binary');
-    const byteRangePos = pdfString.lastIndexOf('/ByteRange');
-    if (byteRangePos === -1) {
-        firebase_functions_1.logger.warn("Could not find /ByteRange in the PDF.");
+    const signatureRegex = /\/ByteRange\s*\[\s*\d+\s+\d+\s+\d+\s+\d+\s*\][^<]*\/Contents\s*<([a-fA-F0-9\s]+)>/;
+    const match = pdfString.match(signatureRegex);
+    if (match && match[1]) {
+        firebase_functions_1.logger.info("Successfully extracted signature using regex.");
+        return match[1].replace(/\s/g, '');
+    }
+    else {
+        firebase_functions_1.logger.warn("Could not find signature block using regex. The PDF structure might be non-standard or encrypted.");
         return null;
     }
-    const byteRangeEnd = pdfString.indexOf(']', byteRangePos);
-    if (byteRangeEnd === -1) {
-        firebase_functions_1.logger.warn("Could not find the end of /ByteRange array.");
-        return null;
-    }
-    const byteRangeValue = pdfString.substring(byteRangePos, byteRangeEnd);
-    const match = byteRangeValue.match(/\[\s*(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s*\]/);
-    if (!match) {
-        firebase_functions_1.logger.warn("Could not parse /ByteRange values.");
-        return null;
-    }
-    const contentsPos = pdfString.lastIndexOf('/Contents');
-    const contentsStart = pdfString.indexOf('<', contentsPos);
-    const contentsEnd = pdfString.indexOf('>', contentsStart);
-    if (contentsStart === -1 || contentsEnd === -1) {
-        firebase_functions_1.logger.warn("Could not find signature /Contents block.");
-        return null;
-    }
-    const signatureHex = pdfString.substring(contentsStart + 1, contentsEnd);
-    return signatureHex.replace(/\r\n|\n|\r/g, '');
-};
-const checkDocumentFormatting = (textContent) => {
-    const issues = [];
-    const normalizedText = textContent.toUpperCase();
-    // Rule 1: Check for national emblem and motto
-    if (!normalizedText.includes("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM")) {
-        issues.push("Không tìm thấy Quốc hiệu 'CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM'.");
-    }
-    if (!normalizedText.includes("ĐỘC LẬP - TỰ DO - HẠNH PHÚC")) {
-        issues.push("Không tìm thấy Tiêu ngữ 'Độc lập - Tự do - Hạnh phúc'.");
-    }
-    // Rule 2: Check for document number and symbol using regex
-    const docNumberRegex = /SỐ\s*:\s*(\d+[A-Z]?)\/(\d{4})\/([A-ZĐ]+)-([A-ZĐ]+)/i;
-    if (!docNumberRegex.test(textContent)) {
-        issues.push("Không tìm thấy hoặc sai định dạng Số, ký hiệu văn bản (Ví dụ: Số: 01/2024/NQ-HĐND).");
-    }
-    // Rule 3: Check for document type
-    const docTypes = ["NGHỊ QUYẾT", "QUYẾT ĐỊNH", "CHỈ THỊ", "KẾ HOẠCH"];
-    if (!docTypes.some(type => normalizedText.includes(type))) {
-        issues.push(`Không tìm thấy tên loại văn bản (ví dụ: ${docTypes.join(', ')}).`);
-    }
-    return {
-        status: issues.length === 0 ? 'passed' : 'failed',
-        issues: issues
-    };
 };
 exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
     var _a, _b;
@@ -153,24 +109,21 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
         return null;
     }
     const pathInfo = parseAssessmentPath(filePath);
-    // Fetch TC01 criterion document to validate the path more reliably
-    const criterionDocRef = db.collection('criteria').doc('TC01');
-    const criterionDoc = await criterionDocRef.get();
-    if (!criterionDoc.exists) {
-        firebase_functions_1.logger.error("Criterion document TC01 not found. Cannot validate path.");
-        return null;
-    }
-    const criterionData = criterionDoc.data();
-    const criterion1IndicatorIds = ((criterionData === null || criterionData === void 0 ? void 0 : criterionData.indicators) || []).map((i) => i.id);
-    if (!pathInfo || !criterion1IndicatorIds.includes(pathInfo.indicatorId)) {
-        firebase_functions_1.logger.log(`File ${filePath} does not match any indicator in Criterion 1. Skipping.`);
+    if (!pathInfo || !pathInfo.indicatorId.startsWith('CT1.')) {
+        firebase_functions_1.logger.log(`File ${filePath} does not match Criterion 1 evidence path structure. Skipping.`);
+        // Thêm logic báo lỗi về giao diện
+        const assessmentId = `assess_${pathInfo === null || pathInfo === void 0 ? void 0 : pathInfo.periodId}_${pathInfo === null || pathInfo === void 0 ? void 0 : pathInfo.communeId}`;
+        if (assessmentId) {
+            await db.doc(`assessments/${assessmentId}`).set({}, { merge: true }); // Đảm bảo doc tồn tại
+            // Cần một hàm update an toàn hơn, nhưng tạm thời chỉ log
+        }
         return null;
     }
     const { communeId, periodId, indicatorId, docIndex } = pathInfo;
-    firebase_functions_1.logger.info(`Processing signature for PDF: ${filePath}`, { pathInfo });
     const assessmentId = `assess_${periodId}_${communeId}`;
     const assessmentRef = db.collection('assessments').doc(assessmentId);
-    const updateAssessmentFileStatus = async (fileStatus, reason, contentCheckStatus, contentCheckIssues) => {
+    const updateAssessmentFileStatus = async (fileStatus, reason) => {
+        var _a;
         const doc = await assessmentRef.get();
         if (!doc.exists)
             return;
@@ -185,86 +138,66 @@ exports.processSignedPDF = (0, storage_1.onObjectFinalized)(async (event) => {
         const fileToUpdate = fileList.find((f) => f.name === fileName);
         if (fileToUpdate) {
             fileToUpdate.signatureStatus = fileStatus;
-            if (reason) {
+            if (reason)
                 fileToUpdate.signatureError = reason;
-            }
-            else {
+            else
                 delete fileToUpdate.signatureError;
-            }
-            // Add content check results
-            fileToUpdate.contentCheckStatus = contentCheckStatus || 'not_checked';
-            if (contentCheckIssues && contentCheckIssues.length > 0) {
-                fileToUpdate.contentCheckIssues = contentCheckIssues;
+            const criterionDoc = await db.collection('criteria').doc('TC01').get();
+            const assignedCount = ((_a = criterionDoc.data()) === null || _a === void 0 ? void 0 : _a.assignedDocumentsCount) || 0;
+            const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
+            const allFilesUploaded = allFiles.length >= assignedCount;
+            const allSignaturesValid = allFiles.every((f) => f.signatureStatus === 'valid');
+            const quantityMet = Number(indicatorResult.value) >= assignedCount;
+            if (quantityMet && allFilesUploaded && allSignaturesValid) {
+                indicatorResult.status = 'achieved';
             }
             else {
-                delete fileToUpdate.contentCheckIssues;
+                indicatorResult.status = 'not-achieved';
             }
-            const assignedCount = (criterionData === null || criterionData === void 0 ? void 0 : criterionData.assignedDocumentsCount) || 0;
-            const allFilesValid = Object.values(indicatorResult.filesPerDocument).flat().every((f) => f.signatureStatus === 'valid');
-            const isAchieved = Number(indicatorResult.value) >= assignedCount && allFilesValid;
-            indicatorResult.status = isAchieved ? 'achieved' : 'not-achieved';
             await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
         }
     };
-    await updateAssessmentFileStatus('validating', undefined, 'not_checked');
+    await updateAssessmentFileStatus('validating');
     try {
+        const criterionDoc = await db.collection('criteria').doc('TC01').get();
+        if (!criterionDoc.exists)
+            throw new Error("Criterion document TC01 not found.");
+        const criterionData = criterionDoc.data();
         const documentConfig = (_a = criterionData === null || criterionData === void 0 ? void 0 : criterionData.documents) === null || _a === void 0 ? void 0 : _a[docIndex];
         if (!documentConfig)
-            throw new Error(`Document configuration for index ${docIndex} not found in TC01.`);
+            throw new Error(`Document configuration for index ${docIndex} not found.`);
         const issueDate = (0, date_fns_1.parse)(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
         const deadline = (0, date_fns_1.addDays)(issueDate, documentConfig.issuanceDeadlineDays);
         const bucket = admin.storage().bucket(fileBucket);
-        const file = bucket.file(filePath);
-        const [fileBuffer] = await file.download();
-        const signatureHex = extractSignature(fileBuffer);
+        const [fileBuffer] = await bucket.file(filePath).download();
+        const signatureHex = extractSignature(fileBuffer); // 'await' is good practice if it becomes async
         if (!signatureHex)
             throw new Error("Không tìm thấy chữ ký số trong tệp PDF.");
         const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
         const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
         const signedData = p7;
-        if (signedData.type !== forge.pki.oids.signedData) {
-            throw new Error(`Loại chữ ký không hợp lệ. Yêu cầu "SignedData", nhận được "${signedData.type}".`);
-        }
-        if (!signedData.signers || signedData.signers.length === 0) {
-            throw new Error("Không tìm thấy thông tin người ký trong chữ ký.");
-        }
-        if (!signedData.certificates || signedData.certificates.length === 0) {
-            throw new Error("Không tìm thấy chứng thư số trong chữ ký.");
-        }
+        if (signedData.type !== forge.pki.oids.signedData)
+            throw new Error(`Loại chữ ký không hợp lệ.`);
+        if (!signedData.signers || signedData.signers.length === 0)
+            throw new Error("Không tìm thấy thông tin người ký.");
+        if (!signedData.certificates || signedData.certificates.length === 0)
+            throw new Error("Không tìm thấy chứng thư số.");
         const signer = signedData.signers[0];
         const signerCertificate = signedData.certificates[0];
         const signingTime = signer.signingTime;
-        if (!signingTime) {
-            throw new Error("Không tìm thấy thuộc tính thời gian ký (signingTime) trong chữ ký.");
-        }
+        if (!signingTime)
+            throw new Error("Không tìm thấy thời gian ký (signingTime).");
         const signerName = ((_b = signerCertificate.subject.getField('CN')) === null || _b === void 0 ? void 0 : _b.value) || 'Unknown Signer';
         const isValid = signingTime <= deadline;
         const status = isValid ? "valid" : "expired";
         await saveCheckResult(status, undefined, signingTime, deadline, signerName);
-        // --- NEW: CONTENT CHECKING LOGIC ---
-        let contentCheckStatus = 'not_checked';
-        let contentCheckIssues = [];
-        if (isValid) {
-            firebase_functions_1.logger.info(`Signature is valid for ${fileName}. Proceeding to content check.`);
-            const pdfData = await (0, pdf_parse_1.default)(fileBuffer);
-            const { status: checkStatus, issues } = checkDocumentFormatting(pdfData.text);
-            contentCheckStatus = checkStatus;
-            contentCheckIssues = issues;
-            if (checkStatus === 'failed') {
-                firebase_functions_1.logger.warn(`Content formatting issues found for ${fileName}:`, issues);
-            }
-            else {
-                firebase_functions_1.logger.info(`Content formatting check passed for ${fileName}.`);
-            }
-        }
-        // --- END: CONTENT CHECKING LOGIC ---
-        await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`, contentCheckStatus, contentCheckIssues);
+        await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
         firebase_functions_1.logger.info(`Successfully processed signature for ${fileName}. Status: ${status}`);
     }
     catch (error) {
         firebase_functions_1.logger.error(`Error processing ${filePath}:`, error);
         await saveCheckResult("error", error.message);
-        await updateAssessmentFileStatus('error', error.message, 'not_checked');
+        await updateAssessmentFileStatus('error', error.message);
         return null;
     }
     return null;
