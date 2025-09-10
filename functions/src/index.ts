@@ -137,17 +137,8 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
         return null;
     }
     
-    const { userId, periodId, indicatorId, docIndex } = pathInfo;
-    const userDoc = await db.collection('users').doc(userId).get();
-    if (!userDoc.exists) {
-        throw new Error(`User with ID ${userId} not found in Firestore.`);
-    }
-    const communeId = userDoc.data()?.communeId;
-    if (!communeId) {
-        throw new Error(`User ${userId} does not have a communeId.`);
-    }
-
-    logger.info(`Processing signature for PDF: ${filePath}`, { pathInfo, communeId });
+    const { communeId, periodId, indicatorId, docIndex } = pathInfo;
+    logger.info(`Processing signature for PDF: ${filePath}`, { pathInfo });
     
     const assessmentId = `assess_${periodId}_${communeId}`;
     const assessmentRef = db.collection('assessments').doc(assessmentId);
@@ -287,13 +278,13 @@ try {
     return null;
 });
 
-function parseAssessmentPath(filePath: string): { userId: string; periodId: string; indicatorId: string; docIndex: number } | null {
+function parseAssessmentPath(filePath: string): { communeId: string; periodId: string; indicatorId: string; docIndex: number } | null {
     const parts = filePath.split('/');
     if (parts.length === 7 && parts[0] === 'hoso' && parts[2] === 'evidence') {
          const docIndex = parseInt(parts[5], 10);
          if (!isNaN(docIndex)) {
             return {
-                userId: parts[1], // This is now userId instead of communeId
+                communeId: parts[1], 
                 periodId: parts[3],
                 indicatorId: parts[4],
                 docIndex: docIndex

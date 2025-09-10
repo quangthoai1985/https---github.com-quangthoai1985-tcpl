@@ -2,23 +2,45 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow debug writes for authenticated users
-    match /debug/{allPaths=**} {
-      allow write: if request.auth != null;
+
+    // QUY TẮC CHUNG CHO CÁC THƯ MỤC VÀ TÀI LIỆU CHUNG
+
+    // Thư mục cấu hình chung (logo, ảnh nền,...)
+    // - Ai cũng có thể đọc.
+    // - Chỉ admin mới có thể ghi.
+    match /config/{path=**} {
+      allow read;
+      allow write: if request.auth != null && request.auth.token.role == 'admin';
     }
 
-    // Allow commune staff to write to their own evidence folder
-    match /hoso/{userId}/{allPaths=**} {
-      allow write: if request.auth != null && request.auth.uid == userId;
-      allow read: if request.auth != null; // Allow authenticated users to read files (e.g., admins)
+    // Thư mục văn bản hướng dẫn
+    // - Người dùng đăng nhập có thể đọc.
+    // - Chỉ admin mới có thể ghi.
+    match /guidance_documents/{path=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.token.role == 'admin';
     }
 
-    // Allow anyone to read guidance documents and config files
-    match /guidance_documents/{allPaths=**} {
-      allow read;
+    // QUY TẮC RIÊNG CHO THƯ MỤC HỒ SƠ CỦA CÁC XÃ
+    match /hoso/{communeId}/{path=**} {
+      
+      // ĐIỀU KIỆN ĐỌC (READ)
+      // - Admin được đọc tất cả.
+      // - Cán bộ xã được đọc hồ sơ của chính xã mình.
+      allow read: if request.auth != null && 
+        (request.auth.token.role == 'admin' || request.auth.token.communeId == communeId);
+
+      // ĐIỀU KIỆN GHI (WRITE: create, update, delete)
+      // Cán bộ xã có thể ghi vào thư mục của mình, miễn là file nhỏ hơn 5MB
+      allow write: if request.auth != null && 
+        request.auth.token.communeId == communeId &&
+        request.resource.size < 5 * 1024 * 1024;
     }
-    match /config/{allPaths=**} {
-      allow read;
-    }
+     
+     // QUY TẮC RIÊNG CHO THƯ MỤC ANNOUNCEMENTS CỦA ADMIN
+     match /hoso/{communeId}/announcements/{path=**} {
+        allow read: if true; // Publicly readable
+        allow write: if request.auth != null && request.auth.token.role == 'admin';
+     }
   }
 }
