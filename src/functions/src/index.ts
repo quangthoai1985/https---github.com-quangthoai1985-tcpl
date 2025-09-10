@@ -128,7 +128,7 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
 
     // Path structure: hoso/{communeId}/evidence/{periodId}/{indicatorId}/{docIndex}/{fileName}
     const pathInfo = parseAssessmentPath(filePath);
-    if (!pathInfo || !pathInfo.indicatorId.startsWith('TC01')) {
+    if (!pathInfo || !pathInfo.indicatorId.startsWith('CT1.')) {
         logger.log(`File ${filePath} is not a signature evidence file for Criterion 1, skipping.`);
         return null;
     }

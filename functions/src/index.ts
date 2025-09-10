@@ -133,8 +133,20 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
     }
 
     const pathInfo = parseAssessmentPath(filePath);
-    if (!pathInfo || !pathInfo.indicatorId.startsWith('TC01')) {
-        logger.log(`File ${filePath} does not match Criterion 1 evidence path structure. Skipping.`);
+    
+    // Fetch TC01 criterion document to validate the path more reliably
+    const criterionDocRef = db.collection('criteria').doc('TC01');
+    const criterionDoc = await criterionDocRef.get();
+    
+    if (!criterionDoc.exists) {
+        logger.error("Criterion document TC01 not found. Cannot validate path.");
+        return null;
+    }
+    const criterionData = criterionDoc.data();
+    const criterion1IndicatorIds = (criterionData?.indicators || []).map((i: any) => i.id);
+
+    if (!pathInfo || !criterion1IndicatorIds.includes(pathInfo.indicatorId)) {
+        logger.log(`File ${filePath} does not match any indicator in Criterion 1. Skipping.`);
         return null;
     }
     
@@ -179,9 +191,7 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
                  delete fileToUpdate.contentCheckIssues;
             }
 
-
-            const criterionDoc = await db.collection('criteria').doc('TC01').get();
-            const assignedCount = criterionDoc.data()?.assignedDocumentsCount || 0;
+            const assignedCount = criterionData?.assignedDocumentsCount || 0;
             const allFilesValid = Object.values(indicatorResult.filesPerDocument).flat().every((f: any) => f.signatureStatus === 'valid');
             const isAchieved = Number(indicatorResult.value) >= assignedCount && allFilesValid;
             
@@ -194,10 +204,6 @@ export const processSignedPDF = onObjectFinalized(async (event) => {
     await updateAssessmentFileStatus('validating', undefined, 'not_checked');
     
 try {
-    const criterionDoc = await db.collection('criteria').doc('TC01').get();
-    if (!criterionDoc.exists) throw new Error("Criterion document TC01 not found.");
-
-    const criterionData = criterionDoc.data();
     const documentConfig = criterionData?.documents?.[docIndex];
     if (!documentConfig) throw new Error(`Document configuration for index ${docIndex} not found in TC01.`);
     
@@ -385,3 +391,5 @@ export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmen
 
     return null;
 });
+
+    
