@@ -7,24 +7,24 @@ export type IndicatorResult = {
     files: { 
         name: string, 
         url: string,
-        // NEW: Add fields for real-time signature validation
         signatureStatus?: 'validating' | 'valid' | 'invalid' | 'error';
         signatureError?: string;
+        contentCheckStatus?: 'passed' | 'failed' | 'not_checked';
+        contentCheckIssues?: string[];
     }[];
-    // NEW: Add a field to store files for each specific document required by Criterion 1
     filesPerDocument?: { [documentIndex: number]: { 
         name: string, 
         url: string,
         signatureStatus?: 'validating' | 'valid' | 'invalid' | 'error';
         signatureError?: string;
+        contentCheckStatus?: 'passed' | 'failed' | 'not_checked';
+        contentCheckIssues?: string[];
     }[] };
     note: string;
     status: 'achieved' | 'not-achieved' | 'pending';
     adminNote?: string; // Ghi chú của admin cho từng chỉ tiêu
     communeNote?: string; // Nội dung giải trình của xã cho từng chỉ tiêu
     statusByAdmin?: 'approved' | 'rejected' | 'pending'; // Trạng thái admin duyệt cho từng chỉ tiêu
-    contentCheckStatus?: 'passed' | 'failed' | 'not_checked'; // Trạng thái kiểm tra nội dung
-    contentCheckIssues?: string[]; // Danh sách các lỗi thể thức tìm thấy
 };
 
 
