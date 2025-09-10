@@ -90,12 +90,6 @@ if (!contentType || !contentType.startsWith('application/pdf')) {
 const pathInfo = parseAssessmentPath(filePath);
 if (!pathInfo || !pathInfo.indicatorId.startsWith('CT1.')) {
     logger.log(`File ${filePath} does not match Criterion 1 evidence path structure. Skipping.`);
-    // Thêm logic báo lỗi về giao diện
-    const assessmentId = `assess_${pathInfo?.periodId}_${pathInfo?.communeId}`;
-    if (assessmentId) {
-      await db.doc(`assessments/${assessmentId}`).set({}, {merge: true}); // Đảm bảo doc tồn tại
-      // Cần một hàm update an toàn hơn, nhưng tạm thời chỉ log
-    }
     return null;
 }
 const { communeId, periodId, indicatorId, docIndex } = pathInfo;
@@ -146,25 +140,22 @@ const deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
     const bucket = admin.storage().bucket(fileBucket);
     const [fileBuffer] = await bucket.file(filePath).download();
     
-    const signatureHex = extractSignature(fileBuffer); // 'await' is good practice if it becomes async
-    if (!signatureHex) throw new Error("Không tìm thấy chữ ký số trong tệp PDF.");
-    const p7Asn1 = forge.asn1.fromDer(forge.util.hexToBytes(signatureHex));
-    const p7 = forge.pkcs7.messageFromAsn1(p7Asn1);
-    const signedData = p7 as any;
-    if (signedData.type !== forge.pki.oids.signedData) throw new Error(`Loại chữ ký không hợp lệ.`);
-    if (!signedData.signers || signedData.signers.length === 0) throw new Error("Không tìm thấy thông tin người ký.");
-    if (!signedData.certificates || signedData.certificates.length === 0) throw new Error("Không tìm thấy chứng thư số.");
-    const signer = signedData.signers[0];
-    const signerCertificate = signedData.certificates[0];
-    const signingTime = signer.signingTime;
-    
-    if (!signingTime) throw new Error("Không tìm thấy thời gian ký (signingTime).");
-    const signerName = signerCertificate.subject.getField('CN')?.value || 'Unknown Signer';
-    const isValid = signingTime <= deadline;
-    const status = isValid ? "valid" : "expired";
-    await saveCheckResult(status, undefined, signingTime, deadline, signerName);
-    await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
-    logger.info(`Successfully processed signature for ${fileName}. Status: ${status}`);
+    const signatureHex = extractSignature(fileBuffer);
+    if (!signatureHex) {
+        throw new Error("Không tìm thấy chữ ký số trong tệp PDF.");
+    } else {
+        // LOG DỮ LIỆU ĐỂ GỠ LỖI
+        logger.log(">>>>>> RAW SIGNATURE HEX EXTRACTED <<<<<<", {
+            signatureHex: signatureHex
+        });
+
+        // Tạm thời báo lỗi về giao diện và dừng xử lý để chúng ta có thể xem log
+        await updateAssessmentFileStatus('error', 'Debug: Đã trích xuất chữ ký, cần phân tích log.');
+        await saveCheckResult("error", "Debug: Đã trích xuất chữ ký, cần phân tích log.");
+        return null; // Dừng hàm tại đây
+    }
+
+    // Các dòng code xử lý signature bên dưới sẽ tạm thời không được chạy
 } catch (error: any) {
     logger.error(`Error processing ${filePath}:`, error);
     await saveCheckResult("error", error.message);
