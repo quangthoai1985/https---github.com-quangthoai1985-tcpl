@@ -4,7 +4,7 @@ import { onDocumentWritten, onDocumentUpdated } from "firebase-functions/v2/fire
 import * as admin from "firebase-admin";
 import { onObjectFinalized } from "firebase-functions/v2/storage";
 import { logger } from "firebase-functions";
-import { PDFDocument, PDFName } from 'pdf-lib'; // <-- Thư viện mới
+import { PDFDocument, PDFName, PDFDict } from 'pdf-lib'; // <-- Thư viện mới
 import { addDays, parse } from 'date-fns';
 
 admin.initializeApp();
