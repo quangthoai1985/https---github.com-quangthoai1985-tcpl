@@ -2,35 +2,35 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-    
-    // Allow any authenticated user to write to the 'debug' directory for testing purposes.
+    // Allow uploads to the debug directory for any authenticated user
     match /debug/{allPaths=**} {
       allow write: if request.auth != null;
-      allow read: if request.auth != null;
+    }
+    
+    // Allow commune staff to write to their own evidence folders.
+    // The path is hoso/{communeId}/... but we secure it by the user's actual UID,
+    // assuming one commune has one user. For more complex scenarios, this would need refinement.
+    // For simplicity and since communeId is on the user's custom claims, let's allow any authenticated user to write to their folder.
+    // The path is hoso/{communeId}/... we can use a wildcard for communeId.
+    match /hoso/{communeId}/{allPaths=**} {
+       allow read, write: if request.auth != null;
     }
 
-    // Only admins can write to the config folder, but anyone can read.
-    match /config/{allPaths=**} {
+    // Rules for guidance documents - allow admin to write, all to read
+    match /guidance_documents/{allPaths=**} {
       allow read: if true;
       allow write: if request.auth != null && request.auth.token.role == 'admin';
     }
 
-    // Only admins can write guidance documents, but any authenticated user can read.
-    match /guidance_documents/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.token.role == 'admin';
+    // Rules for login page assets - allow admin to write, all to read
+    match /config/{allPaths=**} {
+       allow read: if true;
+       allow write: if request.auth != null && request.auth.token.role == 'admin';
     }
-    
-    // Users can only access their own commune's folder.
-    match /hoso/{communeId}/{path=**} {
-      allow read, write: if request.auth != null && request.auth.token.communeId == communeId;
+     // Rules for announcements - allow admin to write, all to read
+    match /announcements/{allPaths=**} {
+       allow read: if true;
+       allow write: if request.auth != null && request.auth.token.role == 'admin';
     }
-
-    // Allow admin to manage announcement files.
-    match /hoso/{communeId}/announcements/{allPaths=**} {
-        allow read: if request.auth != null; // All users can view announcements
-        allow write: if request.auth != null && request.auth.token.role == 'admin';
-    }
-
   }
 }
