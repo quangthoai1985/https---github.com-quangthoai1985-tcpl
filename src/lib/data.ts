@@ -151,13 +151,13 @@ export type UnitAndUserImport = {
 
 export type LoginConfig = {
     id: 'loginPage'; // Singleton document
-    backgroundColor?: string;
     backgroundImageUrl?: string;
-    logoUrl?: string;
-    logoWidth?: number;
-    logoHeight?: number;
-    backgroundImageWidth?: number;
-    backgroundImageHeight?: number;
+    primaryLogoUrl?: string;
+    primaryLogoWidth?: number;
+    primaryLogoHeight?: number;
+    secondaryLogoUrl?: string;
+    secondaryLogoWidth?: number;
+    secondaryLogoHeight?: number;
 };
 
 

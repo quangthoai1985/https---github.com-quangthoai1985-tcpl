@@ -26,7 +26,6 @@ export default function LoginPageContent() {
   const [password, setPassword] = React.useState('');
   
   React.useEffect(() => {
-    // Only redirect if not loading and user is found
     if (!loading && currentUser) {
         router.push('/dashboard');
     }
@@ -46,7 +45,6 @@ export default function LoginPageContent() {
     }
   };
 
-  // While data is loading, show a spinner to prevent rendering with incomplete config
   if (loading) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -55,42 +53,52 @@ export default function LoginPageContent() {
     );
   }
 
-  const bgImageUrl = loginConfig?.backgroundImageUrl;
-  const logoUrl = loginConfig?.logoUrl || "/logo.png";
-  const logoWidth = loginConfig?.logoWidth || 100;
-  const logoHeight = loginConfig?.logoHeight || 100;
-  const backgroundColor = loginConfig?.backgroundColor;
-  const bgImageWidth = loginConfig?.backgroundImageWidth || 1200;
-  const bgImageHeight = loginConfig?.backgroundImageHeight || 800;
+  const {
+    backgroundImageUrl,
+    primaryLogoUrl = "/logo.png",
+    primaryLogoWidth = 100,
+    primaryLogoHeight = 100,
+    secondaryLogoUrl,
+    secondaryLogoWidth = 100,
+    secondaryLogoHeight = 100,
+  } = loginConfig || {};
+
 
   return (
-    <div className="w-full lg:grid lg:min-h-screen lg:grid-cols-2 xl:min-h-screen">
-      <div className="hidden bg-muted lg:flex items-center justify-center p-8" style={backgroundColor ? { backgroundColor } : {}}>
-        {bgImageUrl && (
+    <div className="w-full min-h-screen flex items-center justify-center p-4 relative">
+        {backgroundImageUrl && (
             <Image
-                src={bgImageUrl}
-                alt="Image"
-                width={bgImageWidth}
-                height={bgImageHeight}
-                className="object-contain dark:brightness-[0.8]"
+                src={backgroundImageUrl}
+                alt="Background"
+                layout="fill"
+                objectFit="cover"
+                className="z-0"
                 data-ai-hint="login background"
             />
         )}
-      </div>
-      <div className="flex items-center justify-center py-12">
-        <div className="mx-auto grid w-[350px] gap-6">
-           <div className="grid gap-2 text-center">
-             <div className="flex justify-center p-6">
-                <Image 
-                    src={logoUrl} 
-                    alt="Logo Bộ Tư pháp" 
-                    width={logoWidth} 
-                    height={logoHeight} 
-                    data-ai-hint="application logo"
-                />
-            </div>
-            <CardHeader className="text-center pt-0">
-                <h1 className="font-display-header text-[26px] uppercase tracking-wide text-header-blue whitespace-nowrap">
+        <div className="absolute inset-0 bg-black/30 z-10"/>
+
+        <Card className="w-full max-w-md z-20 bg-background/80 backdrop-blur-sm shadow-2xl">
+            <CardHeader className="text-center">
+                <div className="flex justify-center items-center gap-4 p-6">
+                    <Image 
+                        src={primaryLogoUrl} 
+                        alt="Logo Bộ Tư pháp" 
+                        width={primaryLogoWidth} 
+                        height={primaryLogoHeight} 
+                        data-ai-hint="application logo"
+                    />
+                    {secondaryLogoUrl && (
+                       <Image 
+                            src={secondaryLogoUrl} 
+                            alt="Logo Tỉnh An Giang" 
+                            width={secondaryLogoWidth} 
+                            height={secondaryLogoHeight} 
+                            data-ai-hint="secondary logo"
+                        />
+                    )}
+                </div>
+                 <h1 className="font-display-header text-[26px] uppercase tracking-wide text-header-blue whitespace-nowrap">
                     ĐÁNH GIÁ CHUẨN TIẾP CẬN PHÁP LUẬT
                 </h1>
                 <h2 className="font-display-subheader text-[26px] uppercase text-header-red whitespace-nowrap">
@@ -100,42 +108,42 @@ export default function LoginPageContent() {
                     Đăng nhập vào tài khoản của bạn để tiếp tục
                 </CardDescription>
             </CardHeader>
-           </div>
-           <form onSubmit={handleLogin} className="grid gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="admin@angiang.gov.vn"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-            <div className="grid gap-2">
-              <div className="flex items-center">
-                <Label htmlFor="password">Mật khẩu</Label>
-              </div>
-              <Input 
-                id="password" 
-                type="password" 
-                required 
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-            <div className="grid gap-2 pt-2">
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Đăng nhập
-              </Button>
-            </div>
-          </form>
-        </div>
-      </div>
+            <CardContent>
+               <form onSubmit={handleLogin} className="grid gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="admin@angiang.gov.vn"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <div className="flex items-center">
+                    <Label htmlFor="password">Mật khẩu</Label>
+                  </div>
+                  <Input 
+                    id="password" 
+                    type="password" 
+                    required 
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="grid gap-2 pt-2">
+                  <Button type="submit" className="w-full" disabled={loading}>
+                    {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Đăng nhập
+                  </Button>
+                </div>
+              </form>
+            </CardContent>
+        </Card>
     </div>
   );
 }

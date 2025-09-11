@@ -16,14 +16,13 @@ import Image from 'next/image';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { cn } from '@/lib/utils';
+import { Separator } from '@/components/ui/separator';
 
 interface ImageAsset {
     url: string;
     ref: StorageReference;
 }
 
-// Component mới để quản lý và chọn ảnh
 function ImagePicker({ triggerButton, onSelect, storagePath }: { triggerButton: React.ReactNode, onSelect: (url: string) => void, storagePath: string }) {
     const { storage } = useData();
     const { toast } = useToast();
@@ -173,10 +172,10 @@ export default function LoginConfigPage() {
     
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { id, value } = e.target;
-        setConfig(prev => ({ ...prev, [id]: id.includes('Width') || id.includes('Height') ? Number(value) : value }));
+        setConfig(prev => ({ ...prev, [id]: value ? Number(value) : undefined }));
     }
     
-    const handleImageSelect = (field: 'logoUrl' | 'backgroundImageUrl') => (url: string) => {
+    const handleImageSelect = (field: 'primaryLogoUrl' | 'secondaryLogoUrl' | 'backgroundImageUrl') => (url: string) => {
         setConfig(prev => ({ ...prev, [field]: url}));
     }
 
@@ -204,63 +203,65 @@ export default function LoginConfigPage() {
             <PageHeader title="Cấu hình trang đăng nhập" description="Tùy chỉnh giao diện của trang đăng nhập cho toàn hệ thống." />
 
             <div className="grid gap-6 md:grid-cols-2">
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Cài đặt chung</CardTitle>
-                        <CardDescription>Thay đổi màu sắc và các thông số cơ bản.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid gap-6">
-                        <div className="grid gap-2">
-                            <Label htmlFor="backgroundColor">Mã màu nền (Hex)</Label>
-                            <div className='flex items-center gap-2'>
-                                <Input 
-                                    id="backgroundColor"
-                                    type="color"
-                                    value={config.backgroundColor || '#ffffff'}
-                                    onChange={handleInputChange}
-                                    className='p-1 h-10 w-12'
-                                />
-                                <Input 
-                                    id="backgroundColor"
-                                    type="text"
-                                    value={config.backgroundColor || ''}
-                                    onChange={handleInputChange}
-                                    placeholder="#F8F9FA"
-                                />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
+                
+                <Card className="md:col-span-2">
                     <CardHeader>
                         <CardTitle>Logo</CardTitle>
-                        <CardDescription>Tải lên hoặc chọn logo và điều chỉnh kích thước hiển thị.</CardDescription>
+                        <CardDescription>Tải lên logo chính (Bộ Tư pháp) và logo phụ (Tỉnh An Giang), điều chỉnh kích thước hiển thị.</CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-6">
-                        <div className="grid gap-2">
-                             <Label>Logo hiện tại</Label>
-                             <div className='mt-2 p-4 border rounded-md min-h-[124px] flex justify-center items-center bg-muted'>
-                                {config.logoUrl ? (
-                                    <Image src={config.logoUrl} alt="logo" width={config.logoWidth || 100} height={config.logoHeight || 100} />
-                                ) : (
-                                    <p className="text-sm text-muted-foreground">Chưa có logo</p>
-                                )}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                             {/* Primary Logo */}
+                            <div className="grid gap-4">
+                                <Label className='font-semibold'>Logo chính</Label>
+                                <div className='mt-2 p-4 border rounded-md min-h-[124px] flex justify-center items-center bg-muted'>
+                                    {config.primaryLogoUrl ? (
+                                        <Image src={config.primaryLogoUrl} alt="logo" width={config.primaryLogoWidth || 100} height={config.primaryLogoHeight || 100} />
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">Chưa có logo chính</p>
+                                    )}
+                                </div>
+                                <ImagePicker 
+                                    triggerButton={<Button variant="outline" className="mt-2">Thay đổi Logo chính</Button>}
+                                    onSelect={handleImageSelect('primaryLogoUrl')}
+                                    storagePath="config/logo"
+                                />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="primaryLogoWidth">Chiều rộng (px)</Label>
+                                        <Input id="primaryLogoWidth" type="number" value={config.primaryLogoWidth || ''} onChange={handleInputChange}/>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="primaryLogoHeight">Chiều cao (px)</Label>
+                                        <Input id="primaryLogoHeight" type="number" value={config.primaryLogoHeight || ''} onChange={handleInputChange}/>
+                                    </div>
+                                </div>
                             </div>
-                            <ImagePicker 
-                                triggerButton={<Button variant="outline" className="mt-2">Thay đổi Logo</Button>}
-                                onSelect={handleImageSelect('logoUrl')}
-                                storagePath="config/logo"
-                            />
-                        </div>
-                         <div className="grid grid-cols-2 gap-4">
-                            <div className="grid gap-2">
-                                <Label htmlFor="logoWidth">Chiều rộng (px)</Label>
-                                <Input id="logoWidth" type="number" value={config.logoWidth || 100} onChange={handleInputChange}/>
-                            </div>
-                            <div className="grid gap-2">
-                                <Label htmlFor="logoHeight">Chiều cao (px)</Label>
-                                <Input id="logoHeight" type="number" value={config.logoHeight || 100} onChange={handleInputChange}/>
+                             {/* Secondary Logo */}
+                             <div className="grid gap-4">
+                                <Label className='font-semibold'>Logo phụ</Label>
+                                <div className='mt-2 p-4 border rounded-md min-h-[124px] flex justify-center items-center bg-muted'>
+                                    {config.secondaryLogoUrl ? (
+                                        <Image src={config.secondaryLogoUrl} alt="logo" width={config.secondaryLogoWidth || 100} height={config.secondaryLogoHeight || 100} />
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">Chưa có logo phụ</p>
+                                    )}
+                                </div>
+                                <ImagePicker 
+                                    triggerButton={<Button variant="outline" className="mt-2">Thay đổi Logo phụ</Button>}
+                                    onSelect={handleImageSelect('secondaryLogoUrl')}
+                                    storagePath="config/logo_secondary"
+                                />
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="secondaryLogoWidth">Chiều rộng (px)</Label>
+                                        <Input id="secondaryLogoWidth" type="number" value={config.secondaryLogoWidth || ''} onChange={handleInputChange}/>
+                                    </div>
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="secondaryLogoHeight">Chiều cao (px)</Label>
+                                        <Input id="secondaryLogoHeight" type="number" value={config.secondaryLogoHeight || ''} onChange={handleInputChange}/>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </CardContent>
@@ -269,7 +270,7 @@ export default function LoginConfigPage() {
                  <Card className="md:col-span-2">
                     <CardHeader>
                         <CardTitle>Ảnh nền</CardTitle>
-                        <CardDescription>Tải lên hoặc chọn ảnh nền cho cột bên trái.</CardDescription>
+                        <CardDescription>Tải lên hoặc chọn ảnh nền sẽ hiển thị toàn trang.</CardDescription>
                     </CardHeader>
                     <CardContent className="grid gap-6">
                         <div className="grid gap-2">

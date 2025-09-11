@@ -15,13 +15,23 @@ var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (
 }) : function(o, v) {
     o["default"] = v;
 });
-var __importStar = (this && this.__importStar) || function (mod) {
-    if (mod && mod.__esModule) return mod;
-    var result = {};
-    if (mod != null) for (var k in mod) if (k !== "default" && Object.prototype.hasOwnProperty.call(mod, k)) __createBinding(result, mod, k);
-    __setModuleDefault(result, mod);
-    return result;
-};
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.onAssessmentFileDeleted = exports.handleSignatureCheck = void 0;
 // File: functions/src/index.ts
@@ -116,6 +126,7 @@ function collectAllFileUrls(assessmentData) {
 // CLOUD FUNCTIONS
 // =================================================================================================
 exports.handleSignatureCheck = (0, storage_1.onObjectFinalized)(async (event) => {
+    var _a, _b;
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;
@@ -131,6 +142,7 @@ exports.handleSignatureCheck = (0, storage_1.onObjectFinalized)(async (event) =>
     const updateStatus = async (status, reason) => {
         try {
             await db.runTransaction(async (transaction) => {
+                var _a;
                 const doc = await transaction.get(assessmentRef);
                 if (!doc.exists) {
                     firebase_functions_1.logger.error(`Assessment document ${assessmentId} does not exist.`);
@@ -139,7 +151,7 @@ exports.handleSignatureCheck = (0, storage_1.onObjectFinalized)(async (event) =>
                 const data = doc.data();
                 if (!data || !data.assessmentData)
                     return;
-                const assessmentData = { ...data.assessmentData };
+                const assessmentData = Object.assign({}, data.assessmentData);
                 const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {}, status: 'pending', value: 0 };
                 const filesPerDocument = indicatorResult.filesPerDocument || {};
                 let fileList = filesPerDocument[docIndex] || [];
@@ -157,7 +169,7 @@ exports.handleSignatureCheck = (0, storage_1.onObjectFinalized)(async (event) =>
                 filesPerDocument[docIndex] = fileList;
                 indicatorResult.filesPerDocument = filesPerDocument;
                 const criterionDocSnap = await transaction.get(db.collection('criteria').doc('TC01'));
-                const assignedCount = criterionDocSnap.data()?.assignedDocumentsCount || 0;
+                const assignedCount = ((_a = criterionDocSnap.data()) === null || _a === void 0 ? void 0 : _a.assignedDocumentsCount) || 0;
                 const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
                 const allFilesUploaded = allFiles.length >= assignedCount;
                 const allSignaturesValid = allFiles.every((f) => f.signatureStatus === 'valid');
@@ -183,7 +195,7 @@ exports.handleSignatureCheck = (0, storage_1.onObjectFinalized)(async (event) =>
         const criterionDoc = await db.collection('criteria').doc('TC01').get();
         if (!criterionDoc.exists)
             throw new Error("Criterion document TC01 not found.");
-        const documentConfig = criterionDoc.data()?.documents?.[docIndex];
+        const documentConfig = (_b = (_a = criterionDoc.data()) === null || _a === void 0 ? void 0 : _a.documents) === null || _b === void 0 ? void 0 : _b[docIndex];
         if (!documentConfig)
             throw new Error(`Document config for index ${docIndex} not found.`);
         const issueDate = (0, date_fns_1.parse)(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
@@ -256,6 +268,4 @@ exports.onAssessmentFileDeleted = (0, firestore_1.onDocumentUpdated)("assessment
     }
     return null;
 });
-// Bạn có thể xóa hàm syncUserClaims nếu không cần nữa hoặc giữ lại nếu vẫn sử dụng
-// export const syncUserClaims = ...
 //# sourceMappingURL=index.js.map
