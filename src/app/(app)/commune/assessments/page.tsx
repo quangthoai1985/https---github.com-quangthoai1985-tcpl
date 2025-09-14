@@ -327,7 +327,7 @@ const renderInput = (
                         {isCt2_2 ? (
                              <div className="grid gap-4 pl-6 pt-2">
                                  <div className="flex items-center gap-4">
-                                     <Label htmlFor={`${indicator.id}-input`} className="shrink-0">Số văn bản được công khai:</Label>
+                                     <Label htmlFor={`${indicator.id}-input`} className="shrink-0">Số Nghị quyết của Hội đồng nhân dân, Quyết định của Uỷ ban nhân dân sau khi ban hành được công khai</Label>
                                      <Input 
                                          id={`${indicator.id}-input`} 
                                          type="number" 
