@@ -46,6 +46,12 @@ type IndicatorValue = {
     status: AssessmentStatus;
     adminNote?: string;
     communeNote?: string;
+    communeDefinedDocuments?: {
+        name: string;
+        issueDate: string;
+        excerpt: string;
+        issuanceDeadlineDays: number;
+    }[];
 };
 type AssessmentValues = Record<string, IndicatorValue>;
 
@@ -605,11 +611,98 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
                 filesPerDocument: indicatorData.filesPerDocument ? Object.fromEntries(
                     Object.entries(indicatorData.filesPerDocument).map(([idx, fileList]) => [idx, sanitizeFiles(fileList)])
                 ) : {},
+                 communeDefinedDocuments: indicatorData.communeDefinedDocuments,
             };
         }
     }
     return sanitizedData;
 };
+
+const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadComplete, onRemove, onPreview, periodId, communeId }: {
+    indicatorId: string;
+    docIndex: number;
+    evidence: FileWithStatus[];
+    onUploadComplete: (indicatorId: string, docIndex: number, file: { name: string; url: string; }) => void;
+    onRemove: (indicatorId: string, docIndex: number, file: FileWithStatus) => void;
+    onPreview: (file: { name: string; url: string; }) => void;
+    periodId: string;
+    communeId: string;
+}) => {
+    const { storage } = useData();
+    const { toast } = useToast();
+    const [isUploading, setIsUploading] = useState(false);
+
+    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file || !storage) return;
+
+        setIsUploading(true);
+        try {
+            const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
+            const storageRef = ref(storage, filePath);
+            const snapshot = await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(snapshot.ref);
+
+            onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
+            toast({ title: "Thành công", description: "Đã tải lên minh chứng." });
+        } catch (error) {
+            toast({ variant: 'destructive', title: "Lỗi tải lên", description: `Không thể tải tệp: ${error}` });
+            console.error("Upload error:", error);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+    
+    return (
+        <div className="grid gap-2">
+            <div className={cn("w-full relative border-2 border-dashed rounded-lg p-2 text-center hover:border-primary transition-colors")}>
+                <FileUp className="mx-auto h-6 w-6 text-muted-foreground" />
+                <p className="mt-1 text-xs text-muted-foreground">
+                   Nhấn để chọn tệp
+                </p>
+                <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileSelect} accept=".pdf" disabled={isUploading} />
+                 {isUploading && <div className="absolute inset-0 bg-background/50 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin" /></div>}
+            </div>
+
+            {evidence.length > 0 && (
+                <div className="space-y-1 mt-1">
+                    {evidence.map((item, index) => (
+                         <div key={index} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                            {item.signatureStatus === 'validating' && <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-amber-500" />}
+                                            {item.signatureStatus === 'valid' && <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-500" />}
+                                            {item.signatureStatus === 'invalid' && <XCircle className="h-4 w-4 flex-shrink-0 text-red-500" />}
+                                            {item.signatureStatus === 'error' && <AlertTriangle className="h-4 w-4 flex-shrink-0 text-red-500" />}
+                                            {!item.signatureStatus && <FileIcon className="h-4 w-4 flex-shrink-0" />}
+                                            <span className="truncate text-xs flex-1">{item.name}</span>
+                                        </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                        <p>{item.signatureError || (item.signatureStatus === 'valid' ? 'Chữ ký hợp lệ' : 'Trạng thái chữ ký')}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+
+                             <div className="flex items-center gap-0">
+                                { 'url' in item && item.url && (
+                                     <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onPreview(item as { name: string, url: string })}>
+                                        <Eye className="h-4 w-4" />
+                                    </Button>
+                                )}
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemove(indicatorId, docIndex, item)}>
+                                    <X className="h-4 w-4" />
+                                </Button>
+                             </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    )
+}
 
 const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, communeId, handleSaveDraft }: {
     criterion: Criterion;
@@ -623,16 +716,18 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     communeId: string;
     handleSaveDraft: () => Promise<void>;
 }) => {
-    // BƯỚC 1: Thêm "rào chắn" an toàn ngay từ đầu
     if (!criterion || !assessmentData) {
       return null; 
     }
     const firstIndicatorId = criterion.indicators[0]?.id;
-    // Thêm một "rào chắn" nữa để đảm bảo dữ liệu cho chỉ tiêu đầu tiên đã tồn tại
     if (!firstIndicatorId || !assessmentData[firstIndicatorId]) return null;
     
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
-    
+    const assignmentType = criterion.assignmentType || 'specific';
+
+    // State for quantity mode
+    const [communeDefinedDocs, setCommuneDefinedDocs] = useState(() => assessmentData[firstIndicatorId]?.communeDefinedDocuments || []);
+
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
         const notTasked = checked === true;
         criterion.indicators.forEach(indicator => {
@@ -640,16 +735,19 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
         });
     }
 
-    // BƯỚC 2: Sửa lỗi truy cập "undefined" bằng cách thêm dấu `?.` (optional chaining)
     const filesPerDocRef = React.useRef(assessmentData[firstIndicatorId]?.filesPerDocument);
     useEffect(() => {
         const firstIndicatorData = assessmentData[firstIndicatorId];
-        // Thêm kiểm tra an toàn bên trong useEffect
         if (firstIndicatorData && JSON.stringify(filesPerDocRef.current) !== JSON.stringify(firstIndicatorData.filesPerDocument)) {
             handleSaveDraft();
             filesPerDocRef.current = firstIndicatorData.filesPerDocument;
         }
     }, [assessmentData, handleSaveDraft, firstIndicatorId]);
+
+    useEffect(() => {
+        onValueChange(firstIndicatorId, { ...(assessmentData[firstIndicatorId].value || {}), communeDefinedDocuments: communeDefinedDocs });
+    }, [communeDefinedDocs]);
+
 
     const handleUploadComplete = (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => {
         const currentFiles = assessmentData[indicatorId]?.filesPerDocument?.[docIndex] || [];
@@ -660,7 +758,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
         onEvidenceChange(indicatorId, [], docIndex, fileToRemove);
     }
     
-    // Phần giao diện giữ nguyên logic nhưng giờ đã an toàn
     return (
         <div className="grid gap-6">
             <div className="flex items-center space-x-2">
@@ -684,142 +781,156 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
 
             {!isNotTasked && (
                  <div className="grid gap-8">
-                    <Card className="bg-blue-50/50 border border-blue-200">
-                        <CardHeader>
-                            <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao từ Admin</CardTitle>
-                             <CardDescription>Đây là danh sách các văn bản cụ thể bạn cần ban hành trong kỳ đánh giá này.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            {(criterion.documents || []).length > 0 ? (
-                                criterion.documents?.map((doc, index) => (
-                                    <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 p-3 border-l-4 border-blue-300 rounded bg-background text-sm">
-                                        <div className="col-span-full font-semibold text-primary">Văn bản {index + 1}: {doc.name}</div>
-                                        <div className="text-muted-foreground">Trích yếu:</div>
-                                        <div className="col-span-2 font-medium">{doc.excerpt}</div>
-                                        <div className="text-muted-foreground">Ngày ban hành (ấn định):</div>
-                                        <div className="col-span-2 font-medium">{doc.issueDate}</div>
-                                        <div className="text-muted-foreground">Thời hạn ban hành:</div>
-                                        <div className="col-span-2 font-medium">
-                                            <Badge variant="destructive">{doc.issuanceDeadlineDays} ngày</Badge>
-                                        </div>
-                                    </div>
-                                ))
-                            ) : (
-                                <p className="text-sm text-muted-foreground">Không có văn bản nào được Admin định danh cụ thể.</p>
-                            )}
-                        </CardContent>
-                    </Card>
-                    
-                    <div className="space-y-8">
-                        {criterion.indicators.map((indicator, index) => {
-                             const data = assessmentData[indicator.id];
-                             // Thêm "rào chắn" cuối cùng để đảm bảo dữ liệu cho từng chỉ tiêu đã sẵn sàng
-                             if (!data) return null;
-
-                             const assignedCount = criterion.assignedDocumentsCount || 0;
-                             const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
-                             const isAchieved = progress >= 100;
-                             const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
-                             const blockClasses = cn(
-                                 "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
-                                 data.status === 'achieved' && 'bg-green-50 border-green-200',
-                                 data.status === 'not-achieved' && 'bg-red-50 border-red-200',
-                                 data.status === 'pending' && 'bg-amber-50 border-amber-200'
-                             );
- 
-                             return (
-                                 <React.Fragment key={indicator.id}>
-                                     {index > 0 && <Separator className="my-6"/>}
-                                     <div className={blockClasses}>
-                                         <div>
-                                             <div className="flex items-center gap-2">
-                                                 <StatusBadge status={data.status} />
-                                                 <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
-                                             </div>
-                                             <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
-                                                 <div className="flex items-start gap-2 text-blue-800">
-                                                     <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                                                     <div>
-                                                         <p className="text-sm">{indicator.description}</p>
-                                                         <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
+                    {assignmentType === 'specific' ? (
+                        <>
+                            <Card className="bg-blue-50/50 border border-blue-200">
+                                <CardHeader>
+                                    <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao từ Admin</CardTitle>
+                                    <CardDescription>Đây là danh sách các văn bản cụ thể bạn cần ban hành trong kỳ đánh giá này.</CardDescription>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {(criterion.documents || []).length > 0 ? (
+                                        criterion.documents?.map((doc, index) => (
+                                            <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 p-3 border-l-4 border-blue-300 rounded bg-background text-sm">
+                                                <div className="col-span-full font-semibold text-primary">Văn bản {index + 1}: {doc.name}</div>
+                                                <div className="text-muted-foreground">Trích yếu:</div>
+                                                <div className="col-span-2 font-medium">{doc.excerpt}</div>
+                                                <div className="text-muted-foreground">Ngày ban hành (ấn định):</div>
+                                                <div className="col-span-2 font-medium">{doc.issueDate}</div>
+                                                <div className="text-muted-foreground">Thời hạn ban hành:</div>
+                                                <div className="col-span-2 font-medium">
+                                                    <Badge variant="destructive">{doc.issuanceDeadlineDays} ngày</Badge>
+                                                </div>
+                                            </div>
+                                        ))
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground">Không có văn bản nào được Admin định danh cụ thể.</p>
+                                    )}
+                                </CardContent>
+                            </Card>
+                            
+                            <div className="space-y-8">
+                                {criterion.indicators.map((indicator, index) => {
+                                     const data = assessmentData[indicator.id];
+                                     if (!data) return null;
+        
+                                     const assignedCount = criterion.assignedDocumentsCount || 0;
+                                     const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
+                                     const isAchieved = progress >= 100;
+                                     const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
+                                     const blockClasses = cn(
+                                         "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
+                                         data.status === 'achieved' && 'bg-green-50 border-green-200',
+                                         data.status === 'not-achieved' && 'bg-red-50 border-red-200',
+                                         data.status === 'pending' && 'bg-amber-50 border-amber-200'
+                                     );
+         
+                                     return (
+                                         <React.Fragment key={indicator.id}>
+                                             {index > 0 && <Separator className="my-6"/>}
+                                             <div className={blockClasses}>
+                                                 <div>
+                                                     <div className="flex items-center gap-2">
+                                                         <StatusBadge status={data.status} />
+                                                         <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
                                                      </div>
-                                                 </div>
-                                             </div>
-                                         </div>
-                                         
-                                         <div className="grid gap-4">
-                                             <div className="grid gap-2">
-                                                 <div className="flex items-center gap-4">
-                                                    <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
-                                                       {index === 0 && "Tổng số VBQPPL đã ban hành:"}
-                                                       {index === 1 && "Tổng số dự thảo NQ của HĐND, QĐ của UBND được truyền thông:"}
-                                                       {index === 2 && "Tổng số NQ của HĐND, QĐ của UBND được thực hiện tự kiểm tra:"}
-                                                    </Label>
-                                                     <Input 
-                                                         id={`${indicator.id}-input`} 
-                                                         type="number" 
-                                                         placeholder="Số lượng"
-                                                         className="w-28"
-                                                         value={data.value || ''} 
-                                                         onChange={(e) => onValueChange(indicator.id, e.target.value)}
-                                                     />
-                                                     <div className="flex-1">
-                                                         <div className="flex justify-between items-center mb-1">
-                                                             <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
-                                                             <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
+                                                     <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
+                                                         <div className="flex items-start gap-2 text-blue-800">
+                                                             <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                                                             <div>
+                                                                 <p className="text-sm">{indicator.description}</p>
+                                                                 <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
+                                                             </div>
                                                          </div>
-                                                         <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
                                                      </div>
                                                  </div>
-                                             </div>
-                                         </div>
- 
-                                         <div className="grid gap-2">
-                                            <Label className="font-medium">Hồ sơ minh chứng (tương ứng với { (criterion.documents || []).length} văn bản được giao)</Label>
-                                             {index === 0 && (
-                                                <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
-                                                    <AlertTriangle className="h-4 w-4" />
-                                                    <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
-                                                    <AlertDescription>
-                                                        Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số và ngày ký để đối chiếu với thời hạn ban hành.
-                                                    </AlertDescription>
-                                                </Alert>
-                                             )}
-                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                                                 {(criterion.documents || []).map((doc, i) => (
-                                                     <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
-                                                         <Label className="font-medium text-center text-sm">
-                                                            Minh chứng cho VB: <span className="font-bold text-primary">{doc.name}</span>
-                                                         </Label>
-                                                         <Criterion1EvidenceUploader
-                                                            indicatorId={indicator.id}
-                                                            docIndex={i}
-                                                            evidence={data.filesPerDocument?.[i] || []}
-                                                            onUploadComplete={handleUploadComplete}
-                                                            onRemove={handleRemoveFile}
-                                                            onPreview={onPreview}
-                                                            periodId={periodId}
-                                                            communeId={communeId}
-                                                         />
+                                                 
+                                                 <div className="grid gap-4">
+                                                     <div className="grid gap-2">
+                                                         <div className="flex items-center gap-4">
+                                                            <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
+                                                               {index === 0 && "Tổng số VBQPPL đã ban hành:"}
+                                                               {index === 1 && "Tổng số dự thảo NQ của HĐND, QĐ của UBND được truyền thông:"}
+                                                               {index === 2 && "Tổng số NQ của HĐND, QĐ của UBND được thực hiện tự kiểm tra:"}
+                                                            </Label>
+                                                             <Input 
+                                                                 id={`${indicator.id}-input`} 
+                                                                 type="number" 
+                                                                 placeholder="Số lượng"
+                                                                 className="w-28"
+                                                                 value={data.value || ''} 
+                                                                 onChange={(e) => onValueChange(indicator.id, e.target.value)}
+                                                             />
+                                                             <div className="flex-1">
+                                                                 <div className="flex justify-between items-center mb-1">
+                                                                     <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
+                                                                     <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
+                                                                 </div>
+                                                                 <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
+                                                             </div>
+                                                         </div>
                                                      </div>
-                                                 ))}
+                                                 </div>
+         
+                                                 <div className="grid gap-2">
+                                                    <Label className="font-medium">Hồ sơ minh chứng</Label>
+                                                     {index === 0 && (
+                                                        <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
+                                                            <AlertTriangle className="h-4 w-4" />
+                                                            <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
+                                                            <AlertDescription>
+                                                                Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số và ngày ký để đối chiếu với thời hạn ban hành.
+                                                            </AlertDescription>
+                                                        </Alert>
+                                                     )}
+                                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                                                        { (criterion.documents || []).map((doc, i) => (
+                                                             <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
+                                                                 <Label className="font-medium text-center text-sm">
+                                                                    Minh chứng cho VB: <span className="font-bold text-primary">{doc.name || `Văn bản ${i + 1}`}</span>
+                                                                 </Label>
+                                                                 <Criterion1EvidenceUploader
+                                                                    indicatorId={indicator.id}
+                                                                    docIndex={i}
+                                                                    evidence={data.filesPerDocument?.[i] || []}
+                                                                    onUploadComplete={handleUploadComplete}
+                                                                    onRemove={handleRemoveFile}
+                                                                    onPreview={onPreview}
+                                                                    periodId={periodId}
+                                                                    communeId={communeId}
+                                                                 />
+                                                             </div>
+                                                         ))}
+                                                     </div>
+                                                 </div>
+         
+                                                 <div className="grid gap-2">
+                                                     <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
+                                                     <Textarea 
+                                                         id={`note-${indicator.id}`} 
+                                                         placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
+                                                         value={data.note}
+                                                         onChange={(e) => onNoteChange(indicator.id, e.target.value)}
+                                                     />
+                                                 </div>
                                              </div>
-                                         </div>
- 
-                                         <div className="grid gap-2">
-                                             <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
-                                             <Textarea 
-                                                 id={`note-${indicator.id}`} 
-                                                 placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
-                                                 value={data.note}
-                                                 onChange={(e) => onNoteChange(indicator.id, e.target.value)}
-                                             />
-                                         </div>
-                                     </div>
-                                 </React.Fragment>
-                             )
-                        })}
-                    </div>
+                                         </React.Fragment>
+                                     )
+                                })}
+                            </div>
+                        </>
+                    ) : (
+                         <Card className="bg-blue-50/50 border border-blue-200">
+                             <CardHeader>
+                                <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Giao nhiệm vụ theo số lượng</CardTitle>
+                                {criterion.assignedDocumentsCount && criterion.assignedDocumentsCount > 0 ? (
+                                    <CardDescription>Admin đã ấn định số lượng văn bản cần ban hành là <strong>{criterion.assignedDocumentsCount}</strong>. Vui lòng nhập chi tiết thông tin và cung cấp minh chứng cho từng văn bản.</CardDescription>
+                                ) : (
+                                    <CardDescription>Admin yêu cầu xã tự nhập số lượng văn bản đã ban hành và cung cấp thông tin chi tiết.</CardDescription>
+                                )}
+                             </CardHeader>
+                         </Card>
+                    )}
                 </div>
             )}
         </div>
@@ -849,6 +960,7 @@ export default function SelfAssessmentPage() {
                       status: saved?.status ?? 'pending',
                       adminNote: saved?.adminNote ?? '',
                       communeNote: saved?.communeNote ?? '',
+                      communeDefinedDocuments: saved?.communeDefinedDocuments ?? [],
                   };
               };
               processIndicator(indicator);
@@ -1379,3 +1491,5 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
+
+    

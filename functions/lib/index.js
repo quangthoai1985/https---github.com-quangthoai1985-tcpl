@@ -126,7 +126,7 @@ function collectAllFileUrls(assessmentData) {
 // CLOUD FUNCTIONS
 // =================================================================================================
 exports.handleSignatureCheck = (0, storage_1.onObjectFinalized)(async (event) => {
-    var _a, _b;
+    var _a, _b, _c, _d;
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;
@@ -195,11 +195,33 @@ exports.handleSignatureCheck = (0, storage_1.onObjectFinalized)(async (event) =>
         const criterionDoc = await db.collection('criteria').doc('TC01').get();
         if (!criterionDoc.exists)
             throw new Error("Criterion document TC01 not found.");
-        const documentConfig = (_b = (_a = criterionDoc.data()) === null || _a === void 0 ? void 0 : _a.documents) === null || _b === void 0 ? void 0 : _b[docIndex];
-        if (!documentConfig)
-            throw new Error(`Document config for index ${docIndex} not found.`);
-        const issueDate = (0, date_fns_1.parse)(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
-        const deadline = (0, date_fns_1.addDays)(issueDate, documentConfig.issuanceDeadlineDays);
+        const criterionData = criterionDoc.data();
+        const assessmentDoc = await assessmentRef.get();
+        if (!assessmentDoc.exists)
+            throw new Error(`Assessment document ${assessmentId} does not exist.`);
+        const assessmentData = (_a = assessmentDoc.data()) === null || _a === void 0 ? void 0 : _a.assessmentData;
+        let issueDateStr;
+        let deadlineDays;
+        const assignmentType = (criterionData === null || criterionData === void 0 ? void 0 : criterionData.assignmentType) || 'specific';
+        if (assignmentType === 'specific') {
+            const documentConfig = (_b = criterionData === null || criterionData === void 0 ? void 0 : criterionData.documents) === null || _b === void 0 ? void 0 : _b[docIndex];
+            if (!documentConfig)
+                throw new Error(`Document config (specific) for index ${docIndex} not found in criteria.`);
+            issueDateStr = documentConfig.issueDate;
+            deadlineDays = documentConfig.issuanceDeadlineDays;
+        }
+        else { // 'quantity'
+            const communeDocumentConfig = (_d = (_c = assessmentData === null || assessmentData === void 0 ? void 0 : assessmentData[indicatorId]) === null || _c === void 0 ? void 0 : _c.communeDefinedDocuments) === null || _d === void 0 ? void 0 : _d[docIndex];
+            if (!communeDocumentConfig)
+                throw new Error(`Commune defined document config for index ${docIndex} not found in assessment.`);
+            issueDateStr = communeDocumentConfig.issueDate;
+            deadlineDays = communeDocumentConfig.issuanceDeadlineDays;
+        }
+        if (!issueDateStr || deadlineDays === undefined) {
+            throw new Error(`Invalid date or deadline days for docIndex ${docIndex}.`);
+        }
+        const issueDate = (0, date_fns_1.parse)(issueDateStr, 'dd/MM/yyyy', new Date());
+        const deadline = (0, date_fns_1.addDays)(issueDate, deadlineDays);
         const bucket = admin.storage().bucket(fileBucket);
         const [fileBuffer] = await bucket.file(filePath).download();
         const signatures = await extractSignatureInfo(fileBuffer);
@@ -210,7 +232,7 @@ exports.handleSignatureCheck = (0, storage_1.onObjectFinalized)(async (event) =>
         if (!signingTime)
             throw new Error("Chữ ký không chứa thông tin ngày ký hợp lệ.");
         const isValid = signingTime <= deadline;
-        const status = isValid ? "valid" : "invalid"; // Changed from 'expired' to 'invalid' for consistency
+        const status = isValid ? "valid" : "invalid";
         const reason = isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`;
         await updateStatus(status, reason);
         firebase_functions_1.logger.info(`[pdf-lib SUCCESS] Processed ${fileName}. Status: ${status}`);
