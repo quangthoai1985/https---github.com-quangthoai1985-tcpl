@@ -275,9 +275,13 @@ const renderInput = (
     onIsTaskedChange: (id: string, isTasked: boolean) => void,
     criteria: Criterion[] // Pass all criteria
 ) => {
-    const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        onValueChange(indicator.id, e.target.value);
-    }
+    const handleValueChange = (subfield: 'total' | 'provided' | null, value: string) => {
+        if (subfield) {
+            onValueChange(indicator.id, { ...(data.value || {}), [subfield]: value });
+        } else {
+            onValueChange(indicator.id, value);
+        }
+    };
     
     const handleRadioChange = (val: string) => {
         onValueChange(indicator.id, val === 'true');
@@ -306,10 +310,10 @@ const renderInput = (
     }
 
     if (specialIndicatorIds.includes(indicator.id)) {
-        // Find if this indicator is CT2.2
         const criterion1 = criteria[0];
         const criterion2 = criteria[1];
         const isCt2_2 = criterion2?.indicators && criterion2.indicators[1]?.id === indicator.id;
+        const isCt2_3 = criterion2?.indicators && criterion2.indicators[2]?.id === indicator.id;
         const assignedCount = criterion1?.assignedDocumentsCount || 0;
 
         return (
@@ -334,7 +338,7 @@ const renderInput = (
                                          placeholder="Số lượng"
                                          className="w-28"
                                          value={data.value || ''} 
-                                         onChange={handleChange}
+                                         onChange={(e) => handleValueChange(null, e.target.value)}
                                      />
                                      <div className="flex-1">
                                          <div className="flex justify-between items-center mb-1">
@@ -345,10 +349,28 @@ const renderInput = (
                                      </div>
                                  </div>
                              </div>
+                        ) : isCt2_3 ? (
+                            <div className="grid gap-4 pl-6 pt-2">
+                                <div className="flex items-center gap-4">
+                                    <Label htmlFor={`${indicator.id}-total`} className="shrink-0">Số lượng yêu cầu cung cấp thông tin</Label>
+                                    <Input id={`${indicator.id}-total`} type="number" placeholder="Tổng số" className="w-28" value={data.value?.total || ''} onChange={(e) => handleValueChange('total', e.target.value)} />
+                                </div>
+                                <div className="flex items-center gap-4">
+                                     <Label htmlFor={`${indicator.id}-provided`} className="shrink-0">Số lượng thông tin đã cung cấp theo yêu cầu</Label>
+                                    <Input id={`${indicator.id}-provided`} type="number" placeholder="Đã cung cấp" className="w-28" value={data.value?.provided || ''} onChange={(e) => handleValueChange('provided', e.target.value)} />
+                                </div>
+                                <div className="flex-1">
+                                     <div className="flex justify-between items-center mb-1">
+                                         <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tỷ lệ cung cấp thành công</Label>
+                                         <span className="text-xs font-semibold">{Math.round(((Number(data.value?.provided) || 0) / (Number(data.value?.total) || 1)) * 100)}%</span>
+                                     </div>
+                                     <Progress id={`progress-${indicator.id}`} value={((Number(data.value?.provided) || 0) / (Number(data.value?.total) || 1)) * 100} indicatorClassName={ (Number(data.value?.provided) || 0) >= (Number(data.value?.total) || 0) ? "bg-green-500" : "bg-yellow-500"} className="h-2"/>
+                                 </div>
+                            </div>
                         ) : (
                             <div className="grid gap-2 pl-6 pt-2">
                                 <Label htmlFor={`${indicator.id}-input`}>Tỷ lệ hoàn thành nhiệm vụ (%)</Label>
-                                <Input id={`${indicator.id}-input`} type="number" placeholder="Nhập tỷ lệ %" value={data.value || ''} onChange={handleChange} />
+                                <Input id={`${indicator.id}-input`} type="number" placeholder="Nhập tỷ lệ %" value={data.value || ''} onChange={(e) => handleValueChange(null, e.target.value)} />
                             </div>
                         )}
                     </>
@@ -378,7 +400,7 @@ const renderInput = (
             return (
                 <div className="grid gap-2">
                     <Label htmlFor={`${indicator.id}-input`}>Tỷ lệ (%) hoặc số lượng</Label>
-                    <Input id={`${indicator.id}-input`} type="number" placeholder="Nhập giá trị" value={data.value || ''} onChange={handleChange} />
+                    <Input id={`${indicator.id}-input`} type="number" placeholder="Nhập giá trị" value={data.value || ''} onChange={(e) => handleValueChange(null, e.target.value)} />
                 </div>
             );
         case 'select':
@@ -401,15 +423,23 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean, a
     if (isTasked === false) {
         return 'achieved';
     }
+    
+    // Logic for CT2.3
+    if (typeof value === 'object' && value !== null && value.hasOwnProperty('total') && value.hasOwnProperty('provided')) {
+        const total = Number(value.total);
+        const provided = Number(value.provided);
+        if (isNaN(total) || isNaN(provided) || total === 0) return 'achieved'; // If no requests, it's achieved.
+        return (provided / total) >= 1 ? 'achieved' : 'not-achieved';
+    }
+
 
     if (assignedCount && assignedCount > 0) {
         const enteredValue = Number(value);
         if (isNaN(enteredValue) || value === '' || value === null) return 'pending';
         
-        // If filesPerDocument is relevant, we might check it here
         if (filesPerDocument) {
              const allFilesValid = Object.values(filesPerDocument || {}).flat().every(f => 'signatureStatus' in f && f.signatureStatus === 'valid');
-            if (!allFilesValid && enteredValue >= assignedCount) return 'not-achieved'; // Even if count is met, if signatures are bad, it's a fail
+            if (!allFilesValid && enteredValue >= assignedCount) return 'not-achieved';
         }
         
         return enteredValue >= assignedCount ? 'achieved' : 'not-achieved';
@@ -579,153 +609,6 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
         }
     }
     return sanitizedData;
-};
-
-const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadComplete, onRemove, onPreview, periodId, communeId }: {
-    indicatorId: string;
-    docIndex: number;
-    evidence: FileWithStatus[];
-    onUploadComplete: (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => void;
-    onRemove: (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => void;
-    onPreview: (file: { name: string, url: string }) => void;
-    periodId: string;
-    communeId: string;
-}) => {
-    const { storage } = useData();
-    const { toast } = useToast();
-    const [uploadingFiles, setUploadingFiles] = useState<string[]>([]);
-
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const filesToUpload = Array.from(e.target.files || []);
-        if (filesToUpload.length === 0 || !storage) return;
-
-        for (const file of filesToUpload) {
-            setUploadingFiles(prev => [...prev, file.name]);
-            try {
-                const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
-                const storageRef = ref(storage, filePath);
-                const snapshot = await uploadBytes(storageRef, file);
-                const downloadURL = await getDownloadURL(snapshot.ref);
-                onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
-                toast({ title: 'Thành công', description: `Đã tải lên tệp: ${file.name}` });
-            } catch (error) {
-                console.error("Upload error:", error);
-                toast({ variant: 'destructive', title: 'Lỗi tải tệp', description: `Không thể tải lên tệp: ${file.name}` });
-            } finally {
-                setUploadingFiles(prev => prev.filter(fname => fname !== file.name));
-            }
-        }
-    };
-    
-    const isRequired = evidence.length === 0;
-
-    const SignatureStatusBadge = ({ file }: { file: FileWithStatus }) => {
-        if (!('signatureStatus' in file) || !file.signatureStatus) return null;
-
-        const statusMap = {
-            validating: { text: 'Đang kiểm tra...', className: 'bg-yellow-400', icon: <Loader2 className="h-3 w-3 animate-spin" /> },
-            valid: { text: 'Hợp lệ', className: 'bg-green-500', icon: <CheckCircle className="h-3 w-3" /> },
-            invalid: { text: 'Không hợp lệ', className: 'bg-red-500', icon: <XCircle className="h-3 w-3" /> },
-            error: { text: 'Lỗi kiểm tra', className: 'bg-gray-500', icon: <AlertTriangle className="h-3 w-3" /> }
-        };
-        const currentStatus = statusMap[file.signatureStatus];
-
-        return (
-             <TooltipProvider>
-                <Tooltip>
-                    <TooltipTrigger>
-                        <Badge className={`${currentStatus.className} text-white text-[10px] h-5`}>
-                            {currentStatus.icon}
-                            <span className="ml-1">{currentStatus.text}</span>
-                        </Badge>
-                    </TooltipTrigger>
-                     {((file.signatureStatus === 'invalid' || file.signatureStatus === 'error') && file.signatureError) && (
-                        <TooltipContent>
-                            <p>{file.signatureError}</p>
-                        </TooltipContent>
-                     )}
-                </Tooltip>
-            </TooltipProvider>
-        );
-    };
-
-    const ContentCheckBadge = ({ file }: { file: FileWithStatus }) => {
-        if (!('contentCheckStatus' in file) || !file.contentCheckStatus || file.contentCheckStatus === 'not_checked') return null;
-
-        const statusMap = {
-            passed: { text: 'Thể thức hợp lệ', className: 'bg-green-500', icon: <CheckCircle className="h-3 w-3" /> },
-            failed: { text: 'Lỗi thể thức', className: 'bg-amber-500', icon: <AlertTriangle className="h-3 w-3" /> },
-        };
-        const currentStatus = statusMap[file.contentCheckStatus];
-         if (!currentStatus) return null;
-
-
-        const badge = (
-             <Badge className={`${currentStatus.className} text-white text-[10px] h-5`}>
-                {currentStatus.icon}
-                <span className="ml-1">{currentStatus.text}</span>
-            </Badge>
-        );
-
-        if (file.contentCheckStatus === 'failed' && file.contentCheckIssues && file.contentCheckIssues.length > 0) {
-             return (
-                <TooltipProvider>
-                    <Tooltip>
-                        <TooltipTrigger>{badge}</TooltipTrigger>
-                        <TooltipContent>
-                            <ul className="list-disc pl-4">
-                                {file.contentCheckIssues.map((issue, i) => <li key={i}>{issue}</li>)}
-                            </ul>
-                        </TooltipContent>
-                    </Tooltip>
-                </TooltipProvider>
-            );
-        }
-
-        return badge;
-    }
-
-
-    return (
-        <div className="grid gap-4">
-            <div className={cn("w-full relative border-2 border-dashed rounded-lg p-4 text-center hover:border-primary transition-colors", isRequired && "border-destructive")}>
-                <FileUp className="mx-auto h-8 w-8 text-muted-foreground" />
-                <p className="mt-2 text-xs text-muted-foreground">Chỉ chấp nhận tệp PDF. Tệp sẽ được tải lên và kiểm tra ngay lập tức.</p>
-                <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" multiple onChange={handleFileSelect} accept=".pdf" disabled={uploadingFiles.length > 0}/>
-            </div>
-
-            {evidence.map((item, index) => (
-                <div key={index} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm overflow-hidden">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                        <FileIcon className="h-4 w-4 flex-shrink-0" />
-                        <span className="truncate text-xs">{item.name}</span>
-                    </div>
-                    <div className="flex items-center gap-1 flex-shrink-0">
-                        <div className="flex flex-col gap-1 items-end">
-                            <SignatureStatusBadge file={item} />
-                            <ContentCheckBadge file={item} />
-                        </div>
-                        {'url' in item && item.url && (
-                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onPreview(item as { name: string, url: string })}>
-                                <Eye className="h-4 w-4" />
-                            </Button>
-                        )}
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemove(indicatorId, docIndex, item)}>
-                            <X className="h-4 w-4" />
-                        </Button>
-                    </div>
-                </div>
-            ))}
-             {uploadingFiles.map(name => (
-                <div key={name} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm opacity-70">
-                    <div className="flex items-center gap-2 truncate flex-1 min-w-0">
-                        <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" />
-                        <span className="truncate text-xs flex-1">{name}</span>
-                    </div>
-                </div>
-            ))}
-        </div>
-    );
 };
 
 const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, communeId, handleSaveDraft }: {
@@ -1014,10 +897,9 @@ export default function SelfAssessmentPage() {
         const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
         let assignedCount: number | undefined = undefined;
 
-        // Determine assignedCount based on indicator
         if (parentCriterion?.id === 'TC01') {
             assignedCount = parentCriterion.assignedDocumentsCount;
-        } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) { // Check if it's CT2.2
+        } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) { 
             assignedCount = criteria[0]?.assignedDocumentsCount;
         }
 
@@ -1049,7 +931,7 @@ export default function SelfAssessmentPage() {
         
         if (parentCriterion?.id === 'TC01') {
             assignedCount = parentCriterion.assignedDocumentsCount;
-        } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) { // Check if it's CT2.2
+        } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
             assignedCount = criteria[0]?.assignedDocumentsCount;
         }
 
@@ -1114,10 +996,8 @@ export default function SelfAssessmentPage() {
         const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
         
         if (parentCriterion?.id === 'TC01') {
-            // For Criterion 1, files are uploaded directly and their URLs are already present.
-            // We just need to copy them over.
              uploadedFileUrls[indicatorId] = {
-                files: indicatorData.files, // This should be empty for C1
+                files: indicatorData.files, 
                 filesPerDocument: indicatorData.filesPerDocument
             };
             continue;
@@ -1248,7 +1128,7 @@ export default function SelfAssessmentPage() {
     toast({ title: 'Đang gửi hồ sơ...', description: 'Vui lòng chờ trong giây lát.' });
 
     try {
-        await handleSaveDraft(); // Save first to ensure all files are uploaded and data is consistent
+        await handleSaveDraft(); 
         const myAssessmentAfterDraft = assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId);
         
         if (!myAssessmentAfterDraft) {
