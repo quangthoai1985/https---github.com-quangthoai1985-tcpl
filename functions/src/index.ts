@@ -173,11 +173,35 @@ export const handleSignatureCheck = onObjectFinalized(async (event) => {
     try {
         const criterionDoc = await db.collection('criteria').doc('TC01').get();
         if (!criterionDoc.exists) throw new Error("Criterion document TC01 not found.");
-        const documentConfig = criterionDoc.data()?.documents?.[docIndex];
-        if (!documentConfig) throw new Error(`Document config for index ${docIndex} not found.`);
+        const criterionData = criterionDoc.data();
+
+        const assessmentDoc = await assessmentRef.get();
+        if (!assessmentDoc.exists) throw new Error(`Assessment document ${assessmentId} does not exist.`);
+        const assessmentData = assessmentDoc.data()?.assessmentData;
+
+        let issueDateStr: string | undefined;
+        let deadlineDays: number | undefined;
+
+        const assignmentType = criterionData?.assignmentType || 'specific';
+
+        if (assignmentType === 'specific') {
+            const documentConfig = criterionData?.documents?.[docIndex];
+            if (!documentConfig) throw new Error(`Document config (specific) for index ${docIndex} not found in criteria.`);
+            issueDateStr = documentConfig.issueDate;
+            deadlineDays = documentConfig.issuanceDeadlineDays;
+        } else { // 'quantity'
+            const communeDocumentConfig = assessmentData?.[indicatorId]?.communeDefinedDocuments?.[docIndex];
+            if (!communeDocumentConfig) throw new Error(`Commune defined document config for index ${docIndex} not found in assessment.`);
+            issueDateStr = communeDocumentConfig.issueDate;
+            deadlineDays = communeDocumentConfig.issuanceDeadlineDays;
+        }
         
-        const issueDate = parse(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
-        const deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
+        if (!issueDateStr || deadlineDays === undefined) {
+            throw new Error(`Invalid date or deadline days for docIndex ${docIndex}.`);
+        }
+
+        const issueDate = parse(issueDateStr, 'dd/MM/yyyy', new Date());
+        const deadline = addDays(issueDate, deadlineDays);
 
         const bucket = admin.storage().bucket(fileBucket);
         const [fileBuffer] = await bucket.file(filePath).download();
@@ -191,7 +215,7 @@ export const handleSignatureCheck = onObjectFinalized(async (event) => {
         if (!signingTime) throw new Error("Chữ ký không chứa thông tin ngày ký hợp lệ.");
         
         const isValid = signingTime <= deadline;
-        const status = isValid ? "valid" : "invalid"; // Changed from 'expired' to 'invalid' for consistency
+        const status = isValid ? "valid" : "invalid";
         const reason = isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`;
         
         await updateStatus(status, reason);
