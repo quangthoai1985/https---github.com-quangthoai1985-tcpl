@@ -25,6 +25,14 @@ export type IndicatorResult = {
     adminNote?: string; // Ghi chú của admin cho từng chỉ tiêu
     communeNote?: string; // Nội dung giải trình của xã cho từng chỉ tiêu
     statusByAdmin?: 'approved' | 'rejected' | 'pending'; // Trạng thái admin duyệt cho từng chỉ tiêu
+    
+    // Thêm trường này để lưu chi tiết văn bản do xã nhập khi admin chọn 'quantity'
+    communeDefinedDocuments?: {
+        name: string;
+        issueDate: string;
+        excerpt: string;
+        issuanceDeadlineDays: number;
+    }[];
 };
 
 
@@ -76,15 +84,20 @@ export type Criterion = {
   name: string;
   description: string;
   indicators: Indicator[];
-  // Special config fields for Criterion 1
+  
+  // --- THAY ĐỔI BẮT ĐẦU TẠI ĐÂY ---
+  assignmentType?: 'quantity' | 'specific'; // Thêm trường này
+
+  // Các trường hiện có cho loại 'specific'
   assignedDocumentsCount?: number;
   documents?: {
     name: string;
     issueDate: string;
-    excerpt: string; // New field for summary
+    excerpt: string;
     issuanceDeadlineDays: number;
   }[];
 };
+
 
 export type AssessmentPeriod = {
     id: string;
