@@ -33,10 +33,7 @@ import { Textarea } from '@/components/ui/textarea';
 import PageHeader from '@/components/layout/page-header';
 import { useData } from '@/context/DataContext';
 import type { Criterion, Indicator, SubIndicator } from '@/lib/data';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { cn } from '@/lib/utils';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 
 function CriterionForm({ criterion, onSave, onCancel }: { criterion: Partial<Criterion>, onSave: (criterion: Partial<Criterion>) => void, onCancel: () => void }) {
@@ -79,7 +76,7 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
 
     const handleCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const count = e.target.value === '' ? 0 : Number(e.target.value);
-        const newCount = Math.max(0, count); // Ensure count is not negative
+        const newCount = Math.max(0, count);
 
         setFormData(prev => {
             const currentDocuments = prev.documents || [];
@@ -109,69 +106,86 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
         toast({ title: "Thành công!", description: "Đã lưu cấu hình cho Tiêu chí 1."});
     }
 
+    const handleTypeChange = (value: 'quantity' | 'specific') => {
+        setFormData(prev => ({
+            ...prev,
+            assignmentType: value,
+            assignedDocumentsCount: value === 'quantity' ? prev.assignedDocumentsCount : prev.assignedDocumentsCount,
+            documents: value === 'specific' ? prev.documents : []
+        }));
+    };
+
+
     return (
         <div className="p-4 border rounded-lg bg-blue-50/50 border-blue-200 mb-6 space-y-6">
             <h4 className='font-semibold text-primary'>Cấu hình đặc biệt: Giao nhiệm vụ ban hành VBQPPL</h4>
-             <div className="grid gap-2">
-                <Label htmlFor="assignedDocumentsCount">Số lượng VBQPPL được giao</Label>
-                <Input id="assignedDocumentsCount" type="number" value={formData.assignedDocumentsCount || ''} onChange={handleCountChange} placeholder="Ví dụ: 5" className="w-48"/>
-                <p className="text-sm text-muted-foreground">Nhập số lượng văn bản để hệ thống tạo ra các trường tương ứng bên dưới.</p>
-            </div>
             
-            {(formData.documents || []).length > 0 && (
-                 <div className="space-y-4 pt-4 border-t">
-                    <h5 className="font-medium">Chi tiết các văn bản được giao</h5>
-                    {formData.documents?.map((doc, index) => (
-                        <div key={index} className="grid grid-cols-1 md:grid-cols-10 gap-x-4 gap-y-3 items-start p-3 border rounded-md bg-orange-50 border-orange-300">
-                             <div className="md:col-span-1 flex items-center justify-center pt-2">
-                                <div className="h-8 w-8 flex items-center justify-center rounded-full bg-orange-200 text-orange-800 font-bold text-sm border border-orange-400">
-                                    {index + 1}
+            <RadioGroup 
+                value={formData.assignmentType || 'specific'} 
+                onValueChange={handleTypeChange}
+                className="my-4 grid grid-cols-1 md:grid-cols-2 gap-4"
+            >
+                <Label className="flex items-center gap-2 p-3 border rounded-md cursor-pointer has-[:checked]:bg-blue-100 has-[:checked]:border-primary">
+                    <RadioGroupItem value="specific" id="r-specific" />
+                    Giao nhiệm vụ cụ thể
+                </Label>
+                <Label className="flex items-center gap-2 p-3 border rounded-md cursor-pointer has-[:checked]:bg-blue-100 has-[:checked]:border-primary">
+                    <RadioGroupItem value="quantity" id="r-quantity" />
+                    Giao theo số lượng
+                </Label>
+            </RadioGroup>
+
+            {/* TRƯỜNG HỢP GIAO CỤ THỂ */}
+            {(!formData.assignmentType || formData.assignmentType === 'specific') && (
+                <>
+                    <div className="grid gap-2">
+                        <Label htmlFor="assignedDocumentsCount">Số lượng VBQPPL được giao</Label>
+                        <Input id="assignedDocumentsCount" type="number" value={formData.assignedDocumentsCount || ''} onChange={handleCountChange} placeholder="Ví dụ: 5" className="w-48"/>
+                        <p className="text-sm text-muted-foreground">Nhập số lượng văn bản để hệ thống tạo ra các trường tương ứng bên dưới.</p>
+                    </div>
+                    
+                    {(formData.documents || []).length > 0 && (
+                        <div className="space-y-4 pt-4 border-t">
+                            <h5 className="font-medium">Chi tiết các văn bản được giao</h5>
+                            {formData.documents?.map((doc, index) => (
+                                <div key={index} className="grid grid-cols-1 md:grid-cols-10 gap-x-4 gap-y-3 items-start p-3 border rounded-md bg-orange-50 border-orange-300">
+                                    <div className="md:col-span-1 flex items-center justify-center pt-2">
+                                        <div className="h-8 w-8 flex items-center justify-center rounded-full bg-orange-200 text-orange-800 font-bold text-sm border border-orange-400">
+                                            {index + 1}
+                                        </div>
+                                    </div>
+                                    <div className="md:col-span-9 grid gap-1.5">
+                                        <Label htmlFor={`doc-name-${index}`} className="text-xs font-semibold text-destructive">Tên văn bản QPPL</Label>
+                                        <Input id={`doc-name-${index}`} value={doc.name} onChange={(e) => handleDocumentChange(index, 'name', e.target.value)} placeholder={`Ví dụ: Nghị quyết về việc...`} />
+                                    </div>
+                                    <div className="md:col-span-1"></div>
+                                    <div className="md:col-span-9 grid gap-1.5">
+                                        <Label htmlFor={`doc-excerpt-${index}`} className="text-xs font-semibold text-destructive">Trích yếu nội dung</Label>
+                                        <Input id={`doc-excerpt-${index}`} value={doc.excerpt} onChange={(e) => handleDocumentChange(index, 'excerpt', e.target.value)} placeholder={`Tóm tắt ngắn gọn nội dung chính...`} />
+                                    </div>
+                                    <div className="md:col-span-1"></div>
+                                    <div className="md:col-span-5 grid gap-1.5">
+                                        <Label htmlFor={`doc-issuedate-${index}`} className="text-xs font-semibold text-destructive">Ngày ban hành</Label>
+                                        <Input id={`doc-issuedate-${index}`} value={doc.issueDate} onChange={(e) => handleDocumentChange(index, 'issueDate', e.target.value)} placeholder={`DD/MM/YYYY`} />
+                                    </div>
+                                    <div className="md:col-span-4 grid gap-1.5">
+                                        <Label htmlFor={`doc-deadline-${index}`} className="text-xs font-semibold text-destructive">Thời hạn ban hành (ngày)</Label>
+                                        <Input id={`doc-deadline-${index}`} type="number" value={doc.issuanceDeadlineDays} onChange={(e) => handleDocumentChange(index, 'issuanceDeadlineDays', Number(e.target.value))} />
+                                    </div>
                                 </div>
-                            </div>
-                            
-                            <div className="md:col-span-9 grid gap-1.5">
-                                <Label htmlFor={`doc-name-${index}`} className="text-xs font-semibold text-destructive">Tên văn bản QPPL</Label>
-                                <Input 
-                                    id={`doc-name-${index}`} 
-                                    value={doc.name} 
-                                    onChange={(e) => handleDocumentChange(index, 'name', e.target.value)} 
-                                    placeholder={`Ví dụ: Nghị quyết về việc...`}
-                                />
-                            </div>
-
-                             <div className="md:col-span-1"></div>
-                            <div className="md:col-span-9 grid gap-1.5">
-                                <Label htmlFor={`doc-excerpt-${index}`} className="text-xs font-semibold text-destructive">Trích yếu nội dung</Label>
-                                <Input 
-                                    id={`doc-excerpt-${index}`} 
-                                    value={doc.excerpt} 
-                                    onChange={(e) => handleDocumentChange(index, 'excerpt', e.target.value)} 
-                                    placeholder={`Tóm tắt ngắn gọn nội dung chính...`}
-                                />
-                            </div>
-                             <div className="md:col-span-1"></div>
-
-                            <div className="md:col-span-5 grid gap-1.5">
-                                <Label htmlFor={`doc-issuedate-${index}`} className="text-xs font-semibold text-destructive">Ngày ban hành</Label>
-                                <Input 
-                                    id={`doc-issuedate-${index}`} 
-                                    value={doc.issueDate} 
-                                    onChange={(e) => handleDocumentChange(index, 'issueDate', e.target.value)} 
-                                    placeholder={`DD/MM/YYYY`}
-                                />
-                            </div>
-                             <div className="md:col-span-4 grid gap-1.5">
-                                <Label htmlFor={`doc-deadline-${index}`} className="text-xs font-semibold text-destructive">Thời hạn ban hành (ngày)</Label>
-                                <Input 
-                                    id={`doc-deadline-${index}`} 
-                                    type="number"
-                                    value={doc.issuanceDeadlineDays} 
-                                    onChange={(e) => handleDocumentChange(index, 'issuanceDeadlineDays', Number(e.target.value))} 
-                                />
-                            </div>
+                            ))}
                         </div>
-                    ))}
-                 </div>
+                    )}
+                </>
+            )}
+
+            {/* TRƯỜNG HỢP GIAO THEO SỐ LƯỢNG */}
+            {formData.assignmentType === 'quantity' && (
+                <div className="grid gap-2">
+                    <Label htmlFor="assignedDocumentsCountQty">Số lượng VBQPPL được giao ban hành trong năm</Label>
+                    <Input id="assignedDocumentsCountQty" type="number" value={formData.assignedDocumentsCount || ''} onChange={handleCountChange} placeholder="Ví dụ: 5" className="w-48"/>
+                    <p className="text-sm text-muted-foreground">Nhập số lượng văn bản được giao. Để trống nếu muốn xã tự nhập số lượng.</p>
+                </div>
             )}
 
             <div className="flex justify-end mt-4">
@@ -183,6 +197,7 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
         </div>
     );
 }
+
 
 function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: { indicator: Partial<Indicator | SubIndicator>, onSave: (indicator: Partial<Indicator | SubIndicator>) => void, onCancel: () => void, isSubIndicator?: boolean }) {
   const [formData, setFormData] = React.useState(indicator);
@@ -573,3 +588,6 @@ export default function CriteriaManagementPage() {
     </>
   );
 }
+
+
+    
