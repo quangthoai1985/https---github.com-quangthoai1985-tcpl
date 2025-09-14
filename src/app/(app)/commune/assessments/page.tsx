@@ -272,7 +272,8 @@ const renderInput = (
     checkboxOptions: string[] | null,
     data: IndicatorValue,
     onValueChange: (id: string, value: any) => void,
-    onIsTaskedChange: (id: string, isTasked: boolean) => void
+    onIsTaskedChange: (id: string, isTasked: boolean) => void,
+    criteria: Criterion[] // Pass all criteria
 ) => {
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         onValueChange(indicator.id, e.target.value);
@@ -305,6 +306,12 @@ const renderInput = (
     }
 
     if (specialIndicatorIds.includes(indicator.id)) {
+        // Find if this indicator is CT2.2
+        const criterion1 = criteria[0];
+        const criterion2 = criteria[1];
+        const isCt2_2 = criterion2?.indicators && criterion2.indicators[1]?.id === indicator.id;
+        const assignedCount = criterion1?.assignedDocumentsCount || 0;
+
         return (
             <RadioGroup onValueChange={(val) => onIsTaskedChange(indicator.id, val === 'true')} value={data.isTasked === true ? 'true' : data.isTasked === false ? 'false' : ''} className="grid gap-2">
                  <div className="flex items-center space-x-2">
@@ -316,10 +323,35 @@ const renderInput = (
                     <Label htmlFor={`${indicator.id}-hastask`}>{specialLabels.yes}</Label>
                 </div>
                 {data.isTasked === true && (
-                     <div className="grid gap-2 pl-6 pt-2">
-                        <Label htmlFor={`${indicator.id}-input`}>Tỷ lệ hoàn thành nhiệm vụ (%)</Label>
-                        <Input id={`${indicator.id}-input`} type="number" placeholder="Nhập tỷ lệ %" value={data.value || ''} onChange={handleChange} />
-                    </div>
+                     <>
+                        {isCt2_2 ? (
+                             <div className="grid gap-4 pl-6 pt-2">
+                                 <div className="flex items-center gap-4">
+                                     <Label htmlFor={`${indicator.id}-input`} className="shrink-0">Số văn bản được công khai:</Label>
+                                     <Input 
+                                         id={`${indicator.id}-input`} 
+                                         type="number" 
+                                         placeholder="Số lượng"
+                                         className="w-28"
+                                         value={data.value || ''} 
+                                         onChange={handleChange}
+                                     />
+                                     <div className="flex-1">
+                                         <div className="flex justify-between items-center mb-1">
+                                             <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
+                                             <span className="text-xs font-semibold">{Math.round(((Number(data.value) || 0) / (assignedCount || 1)) * 100)}%</span>
+                                         </div>
+                                         <Progress id={`progress-${indicator.id}`} value={((Number(data.value) || 0) / (assignedCount || 1)) * 100} indicatorClassName={ (Number(data.value) || 0) >= assignedCount ? "bg-green-500" : "bg-yellow-500"} className="h-2"/>
+                                     </div>
+                                 </div>
+                             </div>
+                        ) : (
+                            <div className="grid gap-2 pl-6 pt-2">
+                                <Label htmlFor={`${indicator.id}-input`}>Tỷ lệ hoàn thành nhiệm vụ (%)</Label>
+                                <Input id={`${indicator.id}-input`} type="number" placeholder="Nhập tỷ lệ %" value={data.value || ''} onChange={handleChange} />
+                            </div>
+                        )}
+                    </>
                 )}
             </RadioGroup>
         )
@@ -372,10 +404,13 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean, a
 
     if (assignedCount && assignedCount > 0) {
         const enteredValue = Number(value);
-        if (isNaN(enteredValue) || value === '' || value === null || enteredValue < assignedCount) return 'pending';
+        if (isNaN(enteredValue) || value === '' || value === null) return 'pending';
         
-        const allFilesValid = Object.values(filesPerDocument || {}).flat().every(f => 'signatureStatus' in f && f.signatureStatus === 'valid');
-        if (!allFilesValid) return 'not-achieved';
+        // If filesPerDocument is relevant, we might check it here
+        if (filesPerDocument) {
+             const allFilesValid = Object.values(filesPerDocument || {}).flat().every(f => 'signatureStatus' in f && f.signatureStatus === 'valid');
+            if (!allFilesValid && enteredValue >= assignedCount) return 'not-achieved'; // Even if count is met, if signatures are bad, it's a fail
+        }
         
         return enteredValue >= assignedCount ? 'achieved' : 'not-achieved';
     }
@@ -449,7 +484,7 @@ const StatusBadge = ({ status, isCriterion = false }: { status: AssessmentStatus
 };
 
 
-const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, indicator, data, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview }: { 
+const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, indicator, data, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, criteria }: { 
     specialIndicatorIds: string[],
     specialLabels: { no: string; yes: string },
     customBooleanLabels: { true: string, false: string} | null,
@@ -461,6 +496,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
     onEvidenceChange: (id: string, files: (File | { name: string; url: string; })[], docIndex?: number, fileToRemove?: FileWithStatus) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void,
     onPreview: (file: {name: string, url: string}) => void,
+    criteria: Criterion[]
 }) => {
     const isEvidenceRequired = data.status !== 'pending' && data.isTasked !== false && data.files.length === 0;
 
@@ -485,7 +521,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
             <div className="grid gap-4">
                 <div className="grid gap-2">
                   <Label>Kết quả tự đánh giá</Label>
-                  {renderInput(indicator, specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, data, onValueChange, onIsTaskedChange)}
+                  {renderInput(indicator, specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, data, onValueChange, onIsTaskedChange, criteria)}
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
@@ -974,8 +1010,17 @@ export default function SelfAssessmentPage() {
     const indicator = findIndicator(indicatorId);
     if (indicator) {
         const valueToEvaluate = isTasked ? assessmentData[indicatorId].value : null;
+        
         const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
-        const assignedCount = parentCriterion?.id === 'TC01' ? parentCriterion.assignedDocumentsCount : undefined;
+        let assignedCount: number | undefined = undefined;
+
+        // Determine assignedCount based on indicator
+        if (parentCriterion?.id === 'TC01') {
+            assignedCount = parentCriterion.assignedDocumentsCount;
+        } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) { // Check if it's CT2.2
+            assignedCount = criteria[0]?.assignedDocumentsCount;
+        }
+
         const filesPerDocument = parentCriterion?.id === 'TC01' ? assessmentData[indicatorId].filesPerDocument : undefined;
         
         const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, isTasked, assignedCount, filesPerDocument);
@@ -1000,7 +1045,14 @@ export default function SelfAssessmentPage() {
         const isTasked = assessmentData[indicatorId].isTasked;
         
         const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
-        const assignedCount = parentCriterion?.id === 'TC01' ? parentCriterion.assignedDocumentsCount : undefined;
+        let assignedCount: number | undefined = undefined;
+        
+        if (parentCriterion?.id === 'TC01') {
+            assignedCount = parentCriterion.assignedDocumentsCount;
+        } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) { // Check if it's CT2.2
+            assignedCount = criteria[0]?.assignedDocumentsCount;
+        }
+
         const filesPerDocument = parentCriterion?.id === 'TC01' ? assessmentData[indicatorId].filesPerDocument : undefined;
         
         let newStatus = evaluateStatus(value, indicator.standardLevel, isTasked, assignedCount, filesPerDocument);
@@ -1338,6 +1390,7 @@ export default function SelfAssessmentPage() {
                                                                     onEvidenceChange={handleEvidenceChange}
                                                                     onIsTaskedChange={handleIsTaskedChange}
                                                                     onPreview={setPreviewFile}
+                                                                    criteria={criteria}
                                                                 />
                                                             </div>
                                                         ) : (
@@ -1376,6 +1429,7 @@ export default function SelfAssessmentPage() {
                                                                                   onEvidenceChange={handleEvidenceChange}
                                                                                   onIsTaskedChange={handleIsTaskedChange}
                                                                                   onPreview={setPreviewFile}
+                                                                                  criteria={criteria}
                                                                               />
                                                                           </div>
                                                                         )
