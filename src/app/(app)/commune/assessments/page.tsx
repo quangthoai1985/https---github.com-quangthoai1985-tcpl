@@ -732,6 +732,16 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
         }
         return [];
     });
+    React.useEffect(() => {
+        // Chỉ chạy khi Admin ấn định số lượng và xã chưa tự nhập
+        const adminCount = criterion.assignedDocumentsCount || 0;
+        if (adminCount > 0 && communeDefinedDocs.length !== adminCount) {
+            const newDocs = Array.from({ length: adminCount }, (_, i) => {
+                return communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
+            });
+            setCommuneDefinedDocs(newDocs);
+        }
+    }, [criterion.assignedDocumentsCount]); // Phụ thuộc vào số lượng admin giao
 
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
         const notTasked = checked === true;
@@ -786,6 +796,20 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
 
             {!isNotTasked && (
                  <div className="grid gap-8">
+                    {assignmentType === 'quantity' && (
+                        <div>
+                            <Card className="bg-blue-50/50 border border-blue-200">
+                                <CardHeader>
+                                    <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Giao nhiệm vụ theo số lượng</CardTitle>
+                                    {criterion.assignedDocumentsCount && criterion.assignedDocumentsCount > 0 ? (
+                                        <CardDescription>Admin đã ấn định số lượng văn bản cần ban hành là <strong>{criterion.assignedDocumentsCount}</strong>. Vui lòng nhập chi tiết thông tin và cung cấp minh chứng cho từng văn bản.</CardDescription>
+                                    ) : (
+                                        <CardDescription>Admin yêu cầu xã tự nhập số lượng văn bản đã ban hành và cung cấp thông tin chi tiết.</CardDescription>
+                                    )}
+                                </CardHeader>
+                            </Card>
+                        </div>
+                    )}
                     {(assignmentType === 'specific' || !assignmentType) && (
                         <>
                             <Card className="bg-blue-50/50 border border-blue-200">
@@ -924,18 +948,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                 })}
                             </div>
                         </>
-                    )}
-                    {assignmentType === 'quantity' && (
-                         <Card className="bg-blue-50/50 border border-blue-200">
-                             <CardHeader>
-                                <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Giao nhiệm vụ theo số lượng</CardTitle>
-                                {criterion.assignedDocumentsCount && criterion.assignedDocumentsCount > 0 ? (
-                                    <CardDescription>Admin đã ấn định số lượng văn bản cần ban hành là <strong>{criterion.assignedDocumentsCount}</strong>. Vui lòng nhập chi tiết thông tin và cung cấp minh chứng cho từng văn bản.</CardDescription>
-                                ) : (
-                                    <CardDescription>Admin yêu cầu xã tự nhập số lượng văn bản đã ban hành và cung cấp thông tin chi tiết.</CardDescription>
-                                )}
-                             </CardHeader>
-                         </Card>
                     )}
                 </div>
             )}
