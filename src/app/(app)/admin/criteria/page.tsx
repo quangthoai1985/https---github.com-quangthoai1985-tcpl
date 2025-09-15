@@ -108,12 +108,23 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
     }
 
     const handleTypeChange = (value: 'quantity' | 'specific') => {
-        setFormData(prev => ({
-            ...prev,
-            assignmentType: value,
-            assignedDocumentsCount: value === 'quantity' ? prev.assignedDocumentsCount : prev.assignedDocumentsCount,
-            documents: value === 'specific' ? prev.documents : []
-        }));
+        setFormData(prev => {
+            const newFormData = { ...prev, assignmentType: value };
+    
+            if (value === 'specific') {
+                // Khi chuyển lại sang "Giao cụ thể", tái tạo các form dựa trên số lượng hiện có.
+                const count = prev.assignedDocumentsCount || 0;
+                const currentDocuments = prev.documents || [];
+                newFormData.documents = Array.from({ length: count }, (_, i) => {
+                    return currentDocuments[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
+                });
+            } else {
+                // Khi chuyển sang "Giao theo số lượng", không cần mảng documents chi tiết.
+                newFormData.documents = []; 
+            }
+            
+            return newFormData;
+        });
     };
 
 
