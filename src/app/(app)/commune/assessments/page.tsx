@@ -1,5 +1,3 @@
-
-
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -726,6 +724,8 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
     )
 }
 
+// --- BẮT ĐẦU KHỐI MÃ THAY THẾ TOÀN BỘ COMPONENT ---
+
 const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, communeId, handleCommuneDocsChange }: {
     criterion: Criterion;
     assessmentData: AssessmentValues;
@@ -738,31 +738,33 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     communeId: string;
     handleCommuneDocsChange: (indicatorId: string, docs: any[]) => void;
 }) => {
-    // --- PHẦN 1: QUẢN LÝ STATE VÀ LOGIC ---
+    // --- PHẦN 1: QUẢN LÝ STATE VÀ LOGIC (ĐÃ TỐI ƯU) ---
     const firstIndicatorId = criterion.indicators[0]?.id;
-    if (!firstIndicatorId) return null;
+    if (!firstIndicatorId || !assessmentData[firstIndicatorId]) return null;
 
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
     const assignmentType = criterion.assignmentType || 'specific';
 
-    // State cục bộ để quản lý văn bản do xã nhập, giúp component linh hoạt hơn
     const [communeDefinedDocs, setCommuneDefinedDocs] = React.useState(
         () => assessmentData[firstIndicatorId]?.communeDefinedDocuments || []
     );
 
-    // Đồng bộ state cục bộ với state cha khi có thay đổi
     React.useEffect(() => {
         handleCommuneDocsChange(firstIndicatorId, communeDefinedDocs);
-    }, [communeDefinedDocs]);
-
-    // Quyết định danh sách văn bản nào sẽ được hiển thị
+    }, [communeDefinedDocs, firstIndicatorId, handleCommuneDocsChange]);
+    
     const docsToRender = assignmentType === 'specific' 
         ? (criterion.documents || []) 
         : communeDefinedDocs;
     
-    // --- CÁC HÀM XỬ LÝ ---
+    // --- CÁC HÀM XỬ LÝ (ĐÃ SỬA LỖI) ---
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
-        onIsTaskedChange(firstIndicatorId, !(checked === true));
+        const notTasked = checked === true;
+        // FIX 1: Khôi phục vòng lặp forEach để cập nhật TẤT CẢ các chỉ tiêu trong Tiêu chí 1
+        // Đây là lỗi nghiêm trọng nhất cần sửa.
+        criterion.indicators.forEach(indicator => {
+            onIsTaskedChange(indicator.id, !notTasked);
+        });
     };
 
     const handleUploadComplete = (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => {
@@ -790,7 +792,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
         }
     };
 
-    // --- PHẦN 2: GIAO DIỆN (JSX) ---
+    // --- PHẦN 2: GIAO DIỆN (JSX - ĐÃ TÁI CẤU TRÚC HOÀN CHỈNH) ---
     return (
         <div className="grid gap-6">
             <div className="flex items-center space-x-2">
@@ -798,11 +800,22 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                 <Label htmlFor={`${criterion.id}-notask`} className="font-semibold">Xã không được giao nhiệm vụ ban hành VBQPPL trong năm</Label>
             </div>
             
+            {/* FIX 2: Thêm lại Alert thông báo "Đạt" khi checkbox được chọn */}
+            {isNotTasked && (
+                <Alert variant="default" className="bg-green-50 border-green-300">
+                    <CheckCircle className="h-4 w-4 text-green-600"/>
+                    <AlertTitle>Đã xác nhận</AlertTitle>
+                    <AlertDescription>
+                       Toàn bộ các chỉ tiêu của Tiêu chí 1 được đánh giá là <strong className="text-green-700">Đạt</strong>.
+                    </AlertDescription>
+                </Alert>
+            )}
+            
             {!isNotTasked && (
                  <div className="grid gap-8">
-                    {/* KHỐI 1: THÔNG TIN NHIỆM VỤ ĐƯỢC GIAO */}
+                    {/* KHỐI 1: THÔNG TIN NHIỆM VỤ ĐƯỢC GIAO (HIỂN THỊ ĐÚNG) */}
                     <Card className="bg-blue-50/50 border border-blue-200">
-                        <CardHeader>
+                         <CardHeader>
                             <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao</CardTitle>
                             <CardDescription>
                                 {assignmentType === 'specific' 
@@ -811,19 +824,19 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                 }
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            {assignmentType === 'quantity' && (!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) && (
+                        <CardContent className="space-y-4 pt-6">
+                             {assignmentType === 'quantity' && (!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) && (
                                 <div className="grid gap-2 p-3 border rounded-md bg-background">
                                     <Label htmlFor="communeDocCount">Tổng số VBQPPL đã ban hành</Label>
                                     <Input id="communeDocCount" type="number" value={communeDefinedDocs.length} onChange={handleLocalDocCountChange} placeholder="Nhập số lượng" className="w-48"/>
                                 </div>
                             )}
-                            {(docsToRender.length > 0) && (
+                            {docsToRender.length > 0 ? (
                                 <div className="space-y-3">
                                     {docsToRender.map((doc, index) => (
                                         <div key={index} className="p-3 border-l-4 border-blue-300 rounded-r-md bg-background text-sm">
-                                            <div className="font-semibold text-primary mb-2">Văn bản {index + 1}{doc.name ? `: ${doc.name}`: ''}</div>
-                                            {assignmentType === 'specific' ? (
+                                             <div className="font-semibold text-primary mb-2">Văn bản {index + 1}{doc.name ? `: ${doc.name}`: ''}</div>
+                                             {assignmentType === 'specific' ? (
                                                 <div className="grid grid-cols-[auto,1fr] gap-x-2 gap-y-1">
                                                     <span className="text-muted-foreground">Trích yếu:</span> <span className="font-medium">{doc.excerpt}</span>
                                                     <span className="text-muted-foreground">Ngày ban hành:</span> <span className="font-medium">{doc.issueDate}</span>
@@ -840,17 +853,19 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                         </div>
                                     ))}
                                 </div>
-                            )}
+                            ) : <p className="text-sm text-muted-foreground">Không có văn bản nào được Admin định danh hoặc xã chưa kê khai.</p>}
                         </CardContent>
                     </Card>
 
-                    {/* KHỐI 2: DANH SÁCH CÁC CHỈ TIÊU VÀ KHUNG UPLOAD */}
+                    {/* KHỐI 2: DANH SÁCH CÁC CHỈ TIÊU VÀ KHUNG UPLOAD (HIỂN THỊ ĐÚNG) */}
                     <div className="space-y-6">
                         {criterion.indicators.map((indicator, indicatorIndex) => {
                             const data = assessmentData[indicator.id];
-                            if (!data) return <div key={indicator.id}>Đang tải dữ liệu cho chỉ tiêu...</div>;
+                            if (!data) return <div key={indicator.id}>Đang tải...</div>;
                             const assignedCount = criterion.assignedDocumentsCount || docsToRender.length || 0;
                             const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
+                            const progressColor = progress >= 100 ? "bg-green-500" : "bg-yellow-500";
+                            
                             return (
                                 <div key={indicator.id} className="p-4 rounded-lg bg-card shadow-sm border">
                                     <div className="flex items-center gap-2">
@@ -874,7 +889,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                 <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
                                                 <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
                                             </div>
-                                            <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progress >= 100 ? "bg-green-500" : "bg-yellow-500"} className="h-2"/>
+                                            <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
                                         </div>
                                       </div>
                                     </div>
@@ -883,11 +898,12 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                         <Label className="font-medium">Hồ sơ minh chứng</Label>
                                         {indicatorIndex === 0 ? (
                                             <>
-                                                <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
+                                                 <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
                                                     <AlertTriangle className="h-4 w-4" />
                                                     <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
                                                     <AlertDescription>Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số.</AlertDescription>
                                                 </Alert>
+                                                
                                                 {docsToRender.length > 0 ? (
                                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
                                                         {docsToRender.map((doc, docIndex) => (
@@ -963,10 +979,10 @@ export default function SelfAssessmentPage() {
   const [assessmentData, setAssessmentData] = useState<AssessmentValues>(() => initializeState(criteria, myAssessment?.assessmentData));
   
   const filesPerDocRef = React.useRef<any>();
-  if (criteria.length > 0) {
-      const firstIndicatorId = criteria[0].indicators[0].id;
-      filesPerDocRef.current = assessmentData[firstIndicatorId]?.filesPerDocument;
-  }
+    if (criteria.length > 0) {
+        const firstIndicatorId = criteria[0].indicators[0].id;
+        filesPerDocRef.current = assessmentData[firstIndicatorId]?.filesPerDocument;
+    }
     
   useEffect(() => {
     if (myAssessment?.assessmentData) {
@@ -1051,14 +1067,14 @@ export default function SelfAssessmentPage() {
   };
   
     const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
-        setAssessmentData(prev => ({
-            ...prev,
-            [indicatorId]: {
-                ...prev[indicatorId],
-                communeDefinedDocuments: docs,
-            }
-        }));
-    };
+    setAssessmentData(prev => ({
+        ...prev,
+        [indicatorId]: {
+            ...prev[indicatorId],
+            communeDefinedDocuments: docs,
+        }
+    }));
+};
 
   const handleNoteChange = (indicatorId: string, note: string) => {
     setAssessmentData(prev => ({
@@ -1189,17 +1205,18 @@ export default function SelfAssessmentPage() {
   }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast, criteria]);
   
 
-  useEffect(() => {
-    if (criteria.length === 0) return;
-    const firstIndicatorId = criteria[0].indicators[0].id;
-    if (
-        assessmentData[firstIndicatorId] && 
-        JSON.stringify(filesPerDocRef.current) !== JSON.stringify(assessmentData[firstIndicatorId].filesPerDocument)
-    ) {
-        handleSaveDraft();
-        filesPerDocRef.current = assessmentData[firstIndicatorId].filesPerDocument;
-    }
-}, [assessmentData, handleSaveDraft, criteria]);
+    useEffect(() => {
+        if (criteria.length > 0) {
+            const firstIndicatorId = criteria[0].indicators[0].id;
+            if (
+                assessmentData[firstIndicatorId] && 
+                JSON.stringify(filesPerDocRef.current) !== JSON.stringify(assessmentData[firstIndicatorId].filesPerDocument)
+            ) {
+                handleSaveDraft();
+                filesPerDocRef.current = assessmentData[firstIndicatorId].filesPerDocument;
+            }
+        }
+    }, [assessmentData, handleSaveDraft, criteria]);
 
 
   const { canSubmit, submissionErrors } = useMemo(() => {
