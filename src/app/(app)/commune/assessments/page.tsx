@@ -743,7 +743,13 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
 
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
     const assignmentType = criterion.assignmentType || 'specific';
-    const docsToRender = assignmentType === 'specific' ? criterion.documents : assessmentData[firstIndicatorId]?.communeDefinedDocuments;
+
+    const docsToRender = useMemo(() => {
+        if (assignmentType === 'specific') {
+            return criterion.documents || [];
+        }
+        return assessmentData[firstIndicatorId]?.communeDefinedDocuments || [];
+    }, [assignmentType, criterion.documents, assessmentData, firstIndicatorId]);
     
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
         const notTasked = checked === true;
@@ -1239,15 +1245,20 @@ export default function SelfAssessmentPage() {
     }
   }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast, criteria]);
   
-  const filesPerDocRef = React.useRef<any>();
-  if (criteria.length > 0) {
-      filesPerDocRef.current = assessmentData[criteria[0].indicators[0].id]?.filesPerDocument;
-  }
+    const filesPerDocRef = React.useRef<any>();
+    if (criteria.length > 0) {
+        const firstIndicatorId = criteria[0].indicators[0].id;
+        if(assessmentData[firstIndicatorId]) {
+            filesPerDocRef.current = assessmentData[firstIndicatorId].filesPerDocument;
+        }
+    }
   
   useEffect(() => {
       if (criteria.length === 0) return;
       
-      const firstIndicatorData = assessmentData[criteria[0].indicators[0].id];
+      const firstIndicatorId = criteria[0].indicators[0].id;
+      const firstIndicatorData = assessmentData[firstIndicatorId];
+
       if (firstIndicatorData && JSON.stringify(filesPerDocRef.current) !== JSON.stringify(firstIndicatorData.filesPerDocument)) {
           handleSaveDraft();
           filesPerDocRef.current = firstIndicatorData.filesPerDocument;
