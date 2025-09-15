@@ -732,6 +732,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
              const newDocs = Array.from({ length: adminCount }, (_, i) => {
                 return communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
             });
+            // Only update if the length differs to avoid infinite loop
             if (newDocs.length !== communeDefinedDocs.length) {
                 setCommuneDefinedDocs(newDocs);
             }
@@ -814,7 +815,18 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
 
             {!isNotTasked && (
                  <div className="grid gap-8">
-                    {assignmentType === 'specific' ? (
+                     {assignmentType === 'quantity' ? (
+                         <Card className="bg-blue-50/50 border border-blue-200">
+                             <CardHeader>
+                                <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Giao nhiệm vụ theo số lượng</CardTitle>
+                                {criterion.assignedDocumentsCount && criterion.assignedDocumentsCount > 0 ? (
+                                    <CardDescription>Admin đã ấn định số lượng văn bản cần ban hành là <strong>{criterion.assignedDocumentsCount}</strong>. Vui lòng nhập chi tiết thông tin và cung cấp minh chứng cho từng văn bản.</CardDescription>
+                                ) : (
+                                    <CardDescription>Admin yêu cầu xã tự nhập số lượng văn bản đã ban hành và cung cấp thông tin chi tiết.</CardDescription>
+                                )}
+                             </CardHeader>
+                         </Card>
+                     ) : (
                         <Card className="bg-blue-50/50 border border-blue-200">
                             <CardHeader>
                                 <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao từ Admin</CardTitle>
@@ -840,17 +852,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                 )}
                             </CardContent>
                         </Card>
-                    ) : (
-                         <Card className="bg-blue-50/50 border border-blue-200">
-                             <CardHeader>
-                                <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Giao nhiệm vụ theo số lượng</CardTitle>
-                                {criterion.assignedDocumentsCount && criterion.assignedDocumentsCount > 0 ? (
-                                    <CardDescription>Admin đã ấn định số lượng văn bản cần ban hành là <strong>{criterion.assignedDocumentsCount}</strong>. Vui lòng nhập chi tiết thông tin và cung cấp minh chứng cho từng văn bản.</CardDescription>
-                                ) : (
-                                    <CardDescription>Admin yêu cầu xã tự nhập số lượng văn bản đã ban hành và cung cấp thông tin chi tiết.</CardDescription>
-                                )}
-                             </CardHeader>
-                         </Card>
                     )}
                     
                      {assignmentType === 'quantity' && (
@@ -934,7 +935,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                     )}
 
                     <div className="space-y-8">
-                        {criterion.indicators.map((indicator, index) => {
+                        {assignmentType === 'specific' && criterion.indicators.map((indicator, index) => {
                              const data = assessmentData[indicator.id];
                              if (!data) return null;
 
@@ -998,7 +999,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
  
                                          <div className="grid gap-2">
                                             <Label className="font-medium">Hồ sơ minh chứng</Label>
-                                             {index === 0 && assignmentType === 'specific' && (
+                                             {index === 0 && (
                                                 <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
                                                     <AlertTriangle className="h-4 w-4" />
                                                     <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
@@ -1007,28 +1008,26 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                     </AlertDescription>
                                                 </Alert>
                                              )}
-                                             {assignmentType === 'specific' && (
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                                                    { (criterion.documents || []).map((doc, i) => (
-                                                        <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
-                                                            <Label className="font-medium text-center text-sm">
-                                                                Minh chứng cho VB: <span className="font-bold text-primary">{doc.name || `Văn bản ${i + 1}`}</span>
-                                                            </Label>
-                                                            <Criterion1EvidenceUploader
-                                                                indicatorId={indicator.id}
-                                                                docIndex={i}
-                                                                evidence={data.filesPerDocument?.[i] || []}
-                                                                onUploadComplete={handleUploadComplete}
-                                                                onRemove={handleRemoveFile}
-                                                                onPreview={onPreview}
-                                                                periodId={periodId}
-                                                                communeId={communeId}
-                                                                accept=".pdf"
-                                                            />
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                             )}
+                                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                                                { (criterion.documents || []).map((doc, i) => (
+                                                     <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
+                                                         <Label className="font-medium text-center text-sm">
+                                                            Minh chứng cho VB: <span className="font-bold text-primary">{doc.name || `Văn bản ${i + 1}`}</span>
+                                                         </Label>
+                                                         <Criterion1EvidenceUploader
+                                                            indicatorId={indicator.id}
+                                                            docIndex={i}
+                                                            evidence={data.filesPerDocument?.[i] || []}
+                                                            onUploadComplete={handleUploadComplete}
+                                                            onRemove={handleRemoveFile}
+                                                            onPreview={onPreview}
+                                                            periodId={periodId}
+                                                            communeId={communeId}
+                                                            accept=".pdf"
+                                                         />
+                                                     </div>
+                                                 ))}
+                                             </div>
                                          </div>
  
                                          <div className="grid gap-2">
@@ -1616,5 +1615,3 @@ const handleCommuneDocsChange = useCallback((indicatorId: string, docs: any[]) =
     </>
   );
 }
-
-    
