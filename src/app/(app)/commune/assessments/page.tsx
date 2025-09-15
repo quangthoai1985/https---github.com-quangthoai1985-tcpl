@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -710,7 +711,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     onNoteChange: (id: string, note: string) => void;
     onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void;
-    onPreview: (file: { name: string, url: string }) => void;
+    onPreview: (file: { name: string; url: string; }) => void;
     periodId: string;
     communeId: string;
     handleSaveDraft: () => Promise<void>;
@@ -774,8 +775,14 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
         }
     }, [assessmentData, handleSaveDraft, firstIndicatorId]);
 
-    useEffect(() => {
-        onValueChange(firstIndicatorId, { ...(assessmentData[firstIndicatorId].value || {}), communeDefinedDocuments: communeDefinedDocs });
+    React.useEffect(() => {
+        // Cập nhật dữ liệu vào state cha để có thể lưu lại
+        if (firstIndicatorId) {
+            onValueChange(firstIndicatorId, {
+                ...(assessmentData[firstIndicatorId] || {}),
+                communeDefinedDocuments: communeDefinedDocs
+            });
+        }
     }, [communeDefinedDocs, firstIndicatorId, onValueChange]);
 
 
