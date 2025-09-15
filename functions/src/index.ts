@@ -6,6 +6,8 @@ import { onObjectFinalized } from "firebase-functions/v2/storage";
 import { PDFDocument, PDFName, PDFDict } from 'pdf-lib'; // <-- Thư viện mới
 import { addDays, parse } from 'date-fns';
 import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { logger } from "firebase-functions";
+
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -13,13 +15,13 @@ const db = admin.firestore();
 // ===== HÀM SYNC CLAIMS (GIỮ NGUYÊN) =====
 export const syncUserClaims = onDocumentWritten("users/{userId}", async (event) => {
   if (!event.data?.after.exists) {
-    console.log(`User document ${event.params.userId} deleted. Removing claims.`);
+    logger.log(`User document ${event.params.userId} deleted. Removing claims.`);
     return null;
   }
   const userData = event.data.after.data();
   const userId = event.params.userId;
   if (!userData) {
-    console.log(`User document ${userId} has no data. No action taken.`);
+    logger.log(`User document ${userId} has no data. No action taken.`);
     return null;
   }
   const claimsToSet: { [key: string]: any } = {};
@@ -30,11 +32,11 @@ export const syncUserClaims = onDocumentWritten("users/{userId}", async (event) 
     claimsToSet.communeId = userData.communeId;
   }
   try {
-    console.log(`Updating claims for user ${userId}:`, claimsToSet);
+    logger.log(`Updating claims for user ${userId}:`, claimsToSet);
     await admin.auth().setCustomUserClaims(userId, claimsToSet);
-    console.log(`Successfully updated claims for user ${userId}`);
+    logger.log(`Successfully updated claims for user ${userId}`);
   } catch (error) {
-    console.error(`Error updating custom claims for user ${userId}:`, error);
+    logger.error(`Error updating custom claims for user ${userId}:`, error);
   }
   return null;
 });
@@ -87,7 +89,7 @@ export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmen
     const dataAfter = event.data?.after.data();
 
     if (!dataBefore || !dataAfter) {
-        console.log("Document data is missing, cannot compare file lists.");
+        logger.log("Document data is missing, cannot compare file lists.");
         return null;
     }
 
@@ -100,7 +102,7 @@ export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmen
 
     for (const fileUrl of filesBefore) {
         if (!filesAfter.has(fileUrl) && fileUrl.includes('firebasestorage.googleapis.com')) {
-            console.info(`File ${fileUrl} was removed from assessment. Queuing for deletion from Storage.`);
+            logger.info(`File ${fileUrl} was removed from assessment. Queuing for deletion from Storage.`);
             try {
                 const url = new URL(fileUrl);
                 const filePath = decodeURIComponent(url.pathname).split('/o/')[1];
@@ -109,26 +111,28 @@ export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmen
                     throw new Error("Could not extract file path from URL.");
                 }
 
-                console.log(`Attempting to delete file from path: ${filePath}`);
+                logger.log(`Attempting to delete file from path: ${filePath}`);
                 const fileRef = bucket.file(filePath);
 
                 deletionPromises.push(fileRef.delete().catch(err => {
                     if (err.code === 404) {
-                         console.warn(`Attempted to delete ${filePath}, but it was not found. Ignoring.`);
+                         logger.warn(`Attempted to delete ${filePath}, but it was not found. Ignoring.`);
                     } else {
-                        console.error(`Failed to delete file ${filePath}:`, err);
+                        logger.error(`Failed to delete file ${filePath}:`, err);
                     }
                 }));
 
             } catch (error) {
-                 console.error(`Error processing URL for deletion: ${fileUrl}`, error);
+                 logger.error(`Error processing URL for deletion: ${fileUrl}`, error);
             }
         }
     }
 
     if (deletionPromises.length > 0) {
         await Promise.all(deletionPromises);
-        console.info(`Successfully processed ${deletionPromises.length} potential file deletion(s).`);
+        logger.info(`Successfully processed ${deletionPromises.length} potential file deletion(s).`);
+    } else {
+        logger.log("No files were removed in this update. No deletions necessary.");
     }
 
     return null;
@@ -157,7 +161,7 @@ function parsePdfDate(raw: string): Date | null {
         return dateInUTC;
 
     } catch (e) {
-        console.error("Failed to parse PDF date string:", raw, e);
+        logger.error("Failed to parse PDF date string:", raw, e);
         return null;
     }
 }
@@ -195,14 +199,14 @@ async function extractSignatureInfo(pdfBuffer: Buffer): Promise<{ name: string |
             }
         }
     } catch (error) {
-        console.error("Error extracting signature with pdf-lib:", error);
+        logger.error("Error extracting signature with pdf-lib:", error);
     }
     return signatures;
 }
 
 // HÀM MỚI: Dịch các thông báo lỗi phổ biến sang tiếng Việt
 function translateErrorMessage(englishError: string): string {
-    console.info("Original error message:", englishError); // Giúp debug về sau
+    logger.info("Original error message:", englishError); // Giúp debug về sau
 
     if (englishError.includes("cannot be parsed") || englishError.includes("Invalid PDF")) {
         return "Lỗi: Không thể phân tích cấu trúc file PDF. File có thể bị hỏng hoặc không đúng định dạng.";
@@ -244,7 +248,7 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
     
     const pathInfo = parseAssessmentPath(filePath);
     if (!pathInfo || !pathInfo.indicatorId.startsWith('CT1.')) {
-        console.log(`File ${filePath} does not match Criterion 1 structure. Skipping.`);
+        logger.log(`File ${filePath} does not match Criterion 1 structure. Skipping.`);
         return null;
     }
 
@@ -308,7 +312,7 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
 
         // 2. Xác định phương thức giao nhiệm vụ mà Admin đã chọn
         const assignmentType = criterionData?.assignmentType || 'specific';
-        console.info(`Processing file for assignment type: ${assignmentType}`);
+        logger.info(`Processing file for assignment type: ${assignmentType}`);
 
         let issueDate: Date;
         let deadline: Date;
@@ -316,7 +320,7 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
         // 3. Phân luồng logic để lấy đúng thông tin thời hạn
         if (assignmentType === 'specific') {
             // -- TRƯỜNG HỢP 1: ADMIN GIAO CỤ THỂ --
-            console.info("Handling 'specific' assignment.");
+            logger.info("Handling 'specific' assignment.");
             const documentConfig = criterionData?.documents?.[docIndex];
             if (!documentConfig || !documentConfig.issueDate || !documentConfig.issuanceDeadlineDays) {
                 throw new Error(`Không tìm thấy cấu hình văn bản cụ thể cho index ${docIndex}.`);
@@ -325,8 +329,8 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
             deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
 
         } else { // assignmentType === 'quantity'
-            // -- TRƯỜE-mailNG HỢP 2: ADMIN GIAO THEO SỐ LƯỢNG --
-            console.info("Handling 'quantity' assignment.");
+            // -- TRƯỜNG HỢP 2: ADMIN GIAO THEO SỐ LƯỢNG --
+            logger.info("Handling 'quantity' assignment.");
             const communeDocumentConfig = assessmentData?.[indicatorId]?.communeDefinedDocuments?.[docIndex];
             if (!communeDocumentConfig || !communeDocumentConfig.issueDate || !communeDocumentConfig.issuanceDeadlineDays) {
                 throw new Error(`Không tìm thấy thông tin văn bản do xã kê khai cho index ${docIndex}.`);
@@ -335,7 +339,7 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
             deadline = addDays(issueDate, communeDocumentConfig.issuanceDeadlineDays);
         }
         
-        console.info(`Calculated deadline for ${fileName}: ${deadline.toISOString()}`);
+        logger.info(`Calculated deadline for ${fileName}: ${deadline.toISOString()}`);
 
         // 4. Các bước trích xuất và so sánh chữ ký giữ nguyên
         const bucket = admin.storage().bucket(fileBucket);
@@ -351,10 +355,10 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
         const isValid = signingTime <= deadline;
         await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
         
-        console.info(`[pdf-lib] Successfully processed signature for ${fileName}. Status: ${isValid ? 'valid' : 'invalid'}`);
+        logger.info(`[pdf-lib] Successfully processed signature for ${fileName}. Status: ${isValid ? 'valid' : 'invalid'}`);
 
     } catch (error: any) {
-        console.error(`[pdf-lib] Error processing ${filePath}:`, error);
+        logger.error(`[pdf-lib] Error processing ${filePath}:`, error);
         const userFriendlyMessage = translateErrorMessage(error.message);
         await updateAssessmentFileStatus('error', userFriendlyMessage);
         return null;
@@ -398,7 +402,7 @@ export const getSignedUrlForFile = onCall(async (request) => {
         return { signedUrl: url };
 
     } catch (error) {
-        console.error("Error generating signed URL for " + filePath, error);
+        logger.error("Error generating signed URL for " + filePath, error);
         throw new HttpsError("internal", "Không thể tạo đường dẫn xem trước cho file.");
     }
 });

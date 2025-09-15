@@ -16,6 +16,7 @@ import { initializeApp, getApp, getApps, FirebaseOptions, type FirebaseApp } fro
 import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, type Firestore, deleteDoc, getDoc, onSnapshot, query, where, Unsubscribe } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser, type Auth } from 'firebase/auth';
 import { getStorage, ref, deleteObject, type FirebaseStorage } from 'firebase/storage';
+import { getFunctions, type FirebaseFunctions } from 'firebase/functions'; // Thêm vào
 
 // Hard-coded Firebase configuration as requested
 const firebaseConfig: FirebaseOptions = {
@@ -30,13 +31,14 @@ const firebaseConfig: FirebaseOptions = {
 // Helper function to initialize Firebase services safely on the client-side
 const getFirebaseServices = () => {
     if (typeof window === 'undefined') {
-        return { app: null, db: null, auth: null, storage: null };
+        return { app: null, db: null, auth: null, storage: null, functions: null };
     }
     const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
     const db = getFirestore(app);
     const auth = getAuth(app);
     const storage = getStorage(app);
-    return { app, db, auth, storage };
+    const functions = getFunctions(app); // Thêm vào
+    return { app, db, auth, storage, functions }; // Thêm functions
 };
 
 // Define a type for our dynamic notifications
@@ -75,6 +77,7 @@ interface DataContextType {
   setLoginInfo: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   storage: FirebaseStorage | null;
+  functions: FirebaseFunctions | null; // Thêm vào
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -83,6 +86,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [db, setDb] = useState<Firestore | null>(null);
   const [auth, setAuth] = useState<Auth | null>(null);
   const [storage, setStorage] = useState<FirebaseStorage | null>(null);
+  const [functions, setFunctions] = useState<FirebaseFunctions | null>(null); // Thêm vào
 
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<User[]>([]);
@@ -102,6 +106,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     if (services.db) setDb(services.db);
     if (services.auth) setAuth(services.auth);
     if (services.storage) setStorage(services.storage);
+    if (services.functions) setFunctions(services.functions); // Thêm vào
   }, []);
 
   const getUnitName = (unitId: string, allUnits: Unit[]) => {
@@ -428,6 +433,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         setLoginInfo,
         logout,
         storage,
+        functions, // Thêm vào
     }}>
       {children}
     </DataContext.Provider>
