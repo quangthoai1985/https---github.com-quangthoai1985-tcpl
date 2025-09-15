@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -733,7 +732,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
             });
             setCommuneDefinedDocs(newDocs);
         }
-    }, [criterion.assignedDocumentsCount, criterion.assignmentType]);
+    }, [criterion.assignedDocumentsCount, criterion.assignmentType, communeDefinedDocs]);
     const handleDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const count = Math.max(0, Number(e.target.value));
         const newDocs = Array.from({ length: count }, (_, i) => {
@@ -756,14 +755,11 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     // State for quantity mode
     
     React.useEffect(() => {
-    // Cập nhật dữ liệu vào state cha để có thể lưu lại
-    if (firstIndicatorId) {
-        onValueChange(firstIndicatorId, {
-            ...(assessmentData[firstIndicatorId] || {}),
-            communeDefinedDocuments: communeDefinedDocs
-        });
-    }
-}, [communeDefinedDocs]);
+        // Gọi hàm chuyên dụng để cập nhật đúng trường dữ liệu
+        if (firstIndicatorId) {
+            handleCommuneDocsChange(firstIndicatorId, communeDefinedDocs);
+        }
+    }, [communeDefinedDocs, firstIndicatorId, handleCommuneDocsChange]);
 
 
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
@@ -1606,7 +1602,5 @@ const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
     </>
   );
 }
-
-    
 
     
