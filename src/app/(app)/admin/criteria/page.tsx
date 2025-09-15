@@ -76,12 +76,13 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
     const { toast } = useToast();
 
     const handleCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const count = e.target.value === '' ? 0 : Number(e.target.value);
-        const newCount = Math.max(0, count);
+        const count = e.target.value === '' ? undefined : Number(e.target.value);
+        const newCount = count !== undefined ? Math.max(0, count) : undefined;
 
         setFormData(prev => {
             const currentDocuments = prev.documents || [];
-            const newDocuments = Array.from({ length: newCount }, (_, i) => {
+            const finalCount = newCount ?? 0;
+            const newDocuments = Array.from({ length: finalCount }, (_, i) => {
                 return currentDocuments[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
             });
             return {
@@ -112,14 +113,12 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
             const newFormData = { ...prev, assignmentType: value };
     
             if (value === 'specific') {
-                // Khi chuyển lại sang "Giao cụ thể", tái tạo các form dựa trên số lượng hiện có.
                 const count = prev.assignedDocumentsCount || 0;
                 const currentDocuments = prev.documents || [];
                 newFormData.documents = Array.from({ length: count }, (_, i) => {
                     return currentDocuments[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
                 });
             } else {
-                // Khi chuyển sang "Giao theo số lượng", không cần mảng documents chi tiết.
                 newFormData.documents = []; 
             }
             
@@ -152,7 +151,7 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
                 <>
                     <div className="grid gap-2">
                         <Label htmlFor="assignedDocumentsCount">Số lượng VBQPPL được giao</Label>
-                        <Input id="assignedDocumentsCount" type="number" value={formData.assignedDocumentsCount || ''} onChange={handleCountChange} placeholder="Ví dụ: 5" className="w-48"/>
+                        <Input id="assignedDocumentsCount" type="number" value={formData.assignedDocumentsCount ?? ''} onChange={handleCountChange} placeholder="Ví dụ: 5" className="w-48"/>
                         <p className="text-sm text-muted-foreground">Nhập số lượng văn bản để hệ thống tạo ra các trường tương ứng bên dưới.</p>
                     </div>
                     
@@ -195,8 +194,8 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
             {formData.assignmentType === 'quantity' && (
                 <div className="grid gap-2">
                     <Label htmlFor="assignedDocumentsCountQty">Số lượng VBQPPL được giao ban hành trong năm</Label>
-                    <Input id="assignedDocumentsCountQty" type="number" value={formData.assignedDocumentsCount || ''} onChange={handleCountChange} placeholder="Ví dụ: 5" className="w-48"/>
-                    <p className="text-sm text-muted-foreground">Nhập số lượng văn bản được giao. Để trống nếu muốn xã tự nhập số lượng.</p>
+                    <Input id="assignedDocumentsCountQty" type="number" value={formData.assignedDocumentsCount ?? ''} onChange={handleCountChange} placeholder="Để trống hoặc nhập 0 để xã tự điền" className="w-64"/>
+                    <p className="text-sm text-muted-foreground">Nhập số lượng văn bản được giao. Để trống hoặc nhập 0 nếu muốn xã tự nhập số lượng.</p>
                 </div>
             )}
 
