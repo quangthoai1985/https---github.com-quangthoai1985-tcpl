@@ -40,7 +40,7 @@ const admin = __importStar(require("firebase-admin"));
 const storage_1 = require("firebase-functions/v2/storage");
 const firebase_functions_1 = require("firebase-functions");
 const pdf_lib_1 = require("pdf-lib"); // <-- Thư viện mới
-//import { addDays, parse } from 'date-fns';
+const date_fns_1 = require("date-fns");
 admin.initializeApp();
 const db = admin.firestore();
 // ===== HÀM SYNC CLAIMS (GIỮ NGUYÊN) =====
@@ -158,6 +158,9 @@ exports.onAssessmentFileDeleted = (0, firestore_1.onDocumentUpdated)("assessment
     if (deletionPromises.length > 0) {
         await Promise.all(deletionPromises);
         firebase_functions_1.logger.info(`Successfully processed ${deletionPromises.length} potential file deletion(s).`);
+    }
+    else {
+        firebase_functions_1.logger.log("No files were removed in this update. No deletions necessary.");
     }
     return null;
 });
@@ -311,8 +314,8 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
         const documentConfig = (_b = (_a = criterionDoc.data()) === null || _a === void 0 ? void 0 : _a.documents) === null || _b === void 0 ? void 0 : _b[docIndex];
         if (!documentConfig)
             throw new Error(`Document config for index ${docIndex} not found.`);
-        const issueDate = parse(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
-        const deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
+        const issueDate = (0, date_fns_1.parse)(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
+        const deadline = (0, date_fns_1.addDays)(issueDate, documentConfig.issuanceDeadlineDays);
         const bucket = admin.storage().bucket(fileBucket);
         const [fileBuffer] = await bucket.file(filePath).download();
         // --- BẮT ĐẦU LOGIC MỚI ---
