@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -727,13 +728,15 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     
     React.useEffect(() => {
         const adminCount = criterion.assignedDocumentsCount || 0;
-        if (criterion.assignmentType === 'quantity' && adminCount > 0 && communeDefinedDocs.length !== adminCount) {
-            const newDocs = Array.from({ length: adminCount }, (_, i) => {
+        if (criterion.assignmentType === 'quantity' && adminCount > 0) {
+             const newDocs = Array.from({ length: adminCount }, (_, i) => {
                 return communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
             });
-            setCommuneDefinedDocs(newDocs);
+            if (newDocs.length !== communeDefinedDocs.length) {
+                setCommuneDefinedDocs(newDocs);
+            }
         }
-    }, [criterion.assignedDocumentsCount, criterion.assignmentType, communeDefinedDocs.length]);
+    }, [criterion.assignedDocumentsCount, criterion.assignmentType]);
 
     const handleDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const count = Math.max(0, Number(e.target.value));
@@ -811,15 +814,49 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
 
             {!isNotTasked && (
                  <div className="grid gap-8">
-                    {assignmentType === 'quantity' ? (
+                    {assignmentType === 'specific' ? (
+                        <Card className="bg-blue-50/50 border border-blue-200">
+                            <CardHeader>
+                                <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao từ Admin</CardTitle>
+                                <CardDescription>Đây là danh sách các văn bản cụ thể bạn cần ban hành trong kỳ đánh giá này.</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {(criterion.documents || []).length > 0 ? (
+                                    criterion.documents?.map((doc, index) => (
+                                        <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 p-3 border-l-4 border-blue-300 rounded bg-background text-sm">
+                                            <div className="col-span-full font-semibold text-primary">Văn bản {index + 1}: {doc.name}</div>
+                                            <div className="text-muted-foreground">Trích yếu:</div>
+                                            <div className="col-span-2 font-medium">{doc.excerpt}</div>
+                                            <div className="text-muted-foreground">Ngày ban hành (ấn định):</div>
+                                            <div className="col-span-2 font-medium">{doc.issueDate}</div>
+                                            <div className="text-muted-foreground">Thời hạn ban hành:</div>
+                                            <div className="col-span-2 font-medium">
+                                                <Badge variant="destructive">{doc.issuanceDeadlineDays} ngày</Badge>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">Không có văn bản nào được Admin định danh cụ thể.</p>
+                                )}
+                            </CardContent>
+                        </Card>
+                    ) : (
+                         <Card className="bg-blue-50/50 border border-blue-200">
+                             <CardHeader>
+                                <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Giao nhiệm vụ theo số lượng</CardTitle>
+                                {criterion.assignedDocumentsCount && criterion.assignedDocumentsCount > 0 ? (
+                                    <CardDescription>Admin đã ấn định số lượng văn bản cần ban hành là <strong>{criterion.assignedDocumentsCount}</strong>. Vui lòng nhập chi tiết thông tin và cung cấp minh chứng cho từng văn bản.</CardDescription>
+                                ) : (
+                                    <CardDescription>Admin yêu cầu xã tự nhập số lượng văn bản đã ban hành và cung cấp thông tin chi tiết.</CardDescription>
+                                )}
+                             </CardHeader>
+                         </Card>
+                    )}
+                    
+                     {assignmentType === 'quantity' && (
                         <Card className="bg-background border border-gray-200">
                             <CardHeader>
-                                <CardTitle className="text-base text-primary flex items-center gap-2">
-                                    <ListChecks /> Thông tin nhiệm vụ được giao
-                                </CardTitle>
-                                <CardDescription>
-                                    Vui lòng kê khai thông tin các văn bản đã được ban hành trong kỳ.
-                                </CardDescription>
+                                <CardTitle className="text-base">Kê khai thông tin văn bản</CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 {(!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) && (
@@ -833,13 +870,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                             placeholder="Nhập số lượng" 
                                             className="w-48"
                                         />
-                                    </div>
-                                )}
-                    
-                                {criterion.assignedDocumentsCount && criterion.assignedDocumentsCount > 0 && (
-                                    <div className="text-sm font-medium">
-                                        Số lượng văn bản cần kê khai theo nhiệm vụ: 
-                                        <Badge variant="secondary" className="ml-2">{criterion.assignedDocumentsCount}</Badge>
                                     </div>
                                 )}
                                 
@@ -901,146 +931,120 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                 )}
                             </CardContent>
                         </Card>
-                    ) : (
-                        <>
-                            <Card className="bg-blue-50/50 border border-blue-200">
-                                <CardHeader>
-                                    <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao từ Admin</CardTitle>
-                                    <CardDescription>Đây là danh sách các văn bản cụ thể bạn cần ban hành trong kỳ đánh giá này.</CardDescription>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    {(criterion.documents || []).length > 0 ? (
-                                        criterion.documents?.map((doc, index) => (
-                                            <div key={index} className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 p-3 border-l-4 border-blue-300 rounded bg-background text-sm">
-                                                <div className="col-span-full font-semibold text-primary">Văn bản {index + 1}: {doc.name}</div>
-                                                <div className="text-muted-foreground">Trích yếu:</div>
-                                                <div className="col-span-2 font-medium">{doc.excerpt}</div>
-                                                <div className="text-muted-foreground">Ngày ban hành (ấn định):</div>
-                                                <div className="col-span-2 font-medium">{doc.issueDate}</div>
-                                                <div className="text-muted-foreground">Thời hạn ban hành:</div>
-                                                <div className="col-span-2 font-medium">
-                                                    <Badge variant="destructive">{doc.issuanceDeadlineDays} ngày</Badge>
-                                                </div>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <p className="text-sm text-muted-foreground">Không có văn bản nào được Admin định danh cụ thể.</p>
-                                    )}
-                                </CardContent>
-                            </Card>
-                            
-                            <div className="space-y-8">
-                                {criterion.indicators.map((indicator, index) => {
-                                     const data = assessmentData[indicator.id];
-                                     if (!data) return null;
-        
-                                     const assignedCount = criterion.assignedDocumentsCount || 0;
-                                     const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
-                                     const isAchieved = progress >= 100;
-                                     const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
-                                     const blockClasses = cn(
-                                         "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
-                                         data.status === 'achieved' && 'bg-green-50 border-green-200',
-                                         data.status === 'not-achieved' && 'bg-red-50 border-red-200',
-                                         data.status === 'pending' && 'bg-amber-50 border-amber-200'
-                                     );
-         
-                                     return (
-                                         <React.Fragment key={indicator.id}>
-                                             {index > 0 && <Separator className="my-6"/>}
-                                             <div className={blockClasses}>
-                                                 <div>
-                                                     <div className="flex items-center gap-2">
-                                                         <StatusBadge status={data.status} />
-                                                         <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
+                    )}
+
+                    <div className="space-y-8">
+                        {criterion.indicators.map((indicator, index) => {
+                             const data = assessmentData[indicator.id];
+                             if (!data) return null;
+
+                             const assignedCount = criterion.assignedDocumentsCount || (assignmentType === 'quantity' ? communeDefinedDocs.length : 0);
+                             const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
+                             const isAchieved = progress >= 100;
+                             const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
+                             const blockClasses = cn(
+                                 "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
+                                 data.status === 'achieved' && 'bg-green-50 border-green-200',
+                                 data.status === 'not-achieved' && 'bg-red-50 border-red-200',
+                                 data.status === 'pending' && 'bg-amber-50 border-amber-200'
+                             );
+ 
+                             return (
+                                 <React.Fragment key={indicator.id}>
+                                     {index > 0 && <Separator className="my-6"/>}
+                                     <div className={blockClasses}>
+                                         <div>
+                                             <div className="flex items-center gap-2">
+                                                 <StatusBadge status={data.status} />
+                                                 <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
+                                             </div>
+                                             <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
+                                                 <div className="flex items-start gap-2 text-blue-800">
+                                                     <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                                                     <div>
+                                                         <p className="text-sm">{indicator.description}</p>
+                                                         <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
                                                      </div>
-                                                     <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
-                                                         <div className="flex items-start gap-2 text-blue-800">
-                                                             <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                                                             <div>
-                                                                 <p className="text-sm">{indicator.description}</p>
-                                                                 <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
-                                                             </div>
-                                                         </div>
-                                                     </div>
-                                                 </div>
-                                                 
-                                                 <div className="grid gap-4">
-                                                     <div className="grid gap-2">
-                                                         <div className="flex items-center gap-4">
-                                                            <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
-                                                               {index === 0 && "Tổng số VBQPPL đã ban hành:"}
-                                                               {index === 1 && "Tổng số dự thảo NQ của HĐND, QĐ của UBND được truyền thông:"}
-                                                               {index === 2 && "Tổng số NQ của HĐND, QĐ của UBND được thực hiện tự kiểm tra:"}
-                                                            </Label>
-                                                             <Input 
-                                                                 id={`${indicator.id}-input`} 
-                                                                 type="number" 
-                                                                 placeholder="Số lượng"
-                                                                 className="w-28"
-                                                                 value={data.value || ''} 
-                                                                 onChange={(e) => onValueChange(indicator.id, e.target.value)}
-                                                             />
-                                                             <div className="flex-1">
-                                                                 <div className="flex justify-between items-center mb-1">
-                                                                     <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
-                                                                     <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
-                                                                 </div>
-                                                                 <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
-                                                             </div>
-                                                         </div>
-                                                     </div>
-                                                 </div>
-         
-                                                 <div className="grid gap-2">
-                                                    <Label className="font-medium">Hồ sơ minh chứng</Label>
-                                                     {index === 0 && (
-                                                        <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
-                                                            <AlertTriangle className="h-4 w-4" />
-                                                            <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
-                                                            <AlertDescription>
-                                                                Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số và ngày ký để đối chiếu với thời hạn ban hành.
-                                                            </AlertDescription>
-                                                        </Alert>
-                                                     )}
-                                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                                                        { (criterion.documents || []).map((doc, i) => (
-                                                             <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
-                                                                 <Label className="font-medium text-center text-sm">
-                                                                    Minh chứng cho VB: <span className="font-bold text-primary">{doc.name || `Văn bản ${i + 1}`}</span>
-                                                                 </Label>
-                                                                 <Criterion1EvidenceUploader
-                                                                    indicatorId={indicator.id}
-                                                                    docIndex={i}
-                                                                    evidence={data.filesPerDocument?.[i] || []}
-                                                                    onUploadComplete={handleUploadComplete}
-                                                                    onRemove={handleRemoveFile}
-                                                                    onPreview={onPreview}
-                                                                    periodId={periodId}
-                                                                    communeId={communeId}
-                                                                    accept=".pdf"
-                                                                 />
-                                                             </div>
-                                                         ))}
-                                                     </div>
-                                                 </div>
-         
-                                                 <div className="grid gap-2">
-                                                     <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
-                                                     <Textarea 
-                                                         id={`note-${indicator.id}`} 
-                                                         placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
-                                                         value={data.note}
-                                                         onChange={(e) => onNoteChange(indicator.id, e.target.value)}
-                                                     />
                                                  </div>
                                              </div>
-                                         </React.Fragment>
-                                     )
-                                })}
-                            </div>
-                        </>
-                    )}
+                                         </div>
+                                         
+                                         <div className="grid gap-4">
+                                             <div className="grid gap-2">
+                                                 <div className="flex items-center gap-4">
+                                                    <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
+                                                       {index === 0 && "Tổng số VBQPPL đã ban hành:"}
+                                                       {index === 1 && "Tổng số dự thảo NQ của HĐND, QĐ của UBND được truyền thông:"}
+                                                       {index === 2 && "Tổng số NQ của HĐND, QĐ của UBND được thực hiện tự kiểm tra:"}
+                                                    </Label>
+                                                     <Input 
+                                                         id={`${indicator.id}-input`} 
+                                                         type="number" 
+                                                         placeholder="Số lượng"
+                                                         className="w-28"
+                                                         value={data.value || ''} 
+                                                         onChange={(e) => onValueChange(indicator.id, e.target.value)}
+                                                     />
+                                                     <div className="flex-1">
+                                                         <div className="flex justify-between items-center mb-1">
+                                                             <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
+                                                             <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
+                                                         </div>
+                                                         <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
+                                                     </div>
+                                                 </div>
+                                             </div>
+                                         </div>
+ 
+                                         <div className="grid gap-2">
+                                            <Label className="font-medium">Hồ sơ minh chứng</Label>
+                                             {index === 0 && assignmentType === 'specific' && (
+                                                <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
+                                                    <AlertTriangle className="h-4 w-4" />
+                                                    <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
+                                                    <AlertDescription>
+                                                        Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số và ngày ký để đối chiếu với thời hạn ban hành.
+                                                    </AlertDescription>
+                                                </Alert>
+                                             )}
+                                             {assignmentType === 'specific' && (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                                                    { (criterion.documents || []).map((doc, i) => (
+                                                        <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
+                                                            <Label className="font-medium text-center text-sm">
+                                                                Minh chứng cho VB: <span className="font-bold text-primary">{doc.name || `Văn bản ${i + 1}`}</span>
+                                                            </Label>
+                                                            <Criterion1EvidenceUploader
+                                                                indicatorId={indicator.id}
+                                                                docIndex={i}
+                                                                evidence={data.filesPerDocument?.[i] || []}
+                                                                onUploadComplete={handleUploadComplete}
+                                                                onRemove={handleRemoveFile}
+                                                                onPreview={onPreview}
+                                                                periodId={periodId}
+                                                                communeId={communeId}
+                                                                accept=".pdf"
+                                                            />
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                             )}
+                                         </div>
+ 
+                                         <div className="grid gap-2">
+                                             <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
+                                             <Textarea 
+                                                 id={`note-${indicator.id}`} 
+                                                 placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
+                                                 value={data.note}
+                                                 onChange={(e) => onNoteChange(indicator.id, e.target.value)}
+                                             />
+                                         </div>
+                                     </div>
+                                 </React.Fragment>
+                             )
+                        })}
+                    </div>
                 </div>
             )}
         </div>
@@ -1172,7 +1176,7 @@ export default function SelfAssessmentPage() {
     }
   };
   
-const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
+const handleCommuneDocsChange = useCallback((indicatorId: string, docs: any[]) => {
     setAssessmentData(prev => ({
         ...prev,
         [indicatorId]: {
@@ -1180,7 +1184,7 @@ const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
             communeDefinedDocuments: docs,
         }
     }));
-};
+}, []);
 
   const handleNoteChange = (indicatorId: string, note: string) => {
     setAssessmentData(prev => ({
