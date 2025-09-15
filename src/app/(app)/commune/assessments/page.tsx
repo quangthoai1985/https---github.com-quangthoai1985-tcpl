@@ -23,7 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Tooltip, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
@@ -910,7 +910,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
                         };
                         return (
                          <div key={index} className="flex flex-col gap-1 p-1.5 bg-muted rounded-md text-sm">
-                            <div className="flex items-center justify-between gap-2">
+                            <div className="flex items-center justify-between">
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -952,7 +952,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
 export default function SelfAssessmentPage() {
   const router = useRouter();
   const { toast } = useToast();
-  const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments, updateSingleAssessment } = useData();
+  const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments, updateSingleAssessment, deleteFileByUrl } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewFile, setPreviewFile] = useState<{name: string, url: string, isLoading: boolean, isBlob: boolean} | null>(null);
   
@@ -1095,29 +1095,52 @@ const handleNoteChange = useCallback((indicatorId: string, note: string) => {
     }));
 }, []);
 
-const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
-    setAssessmentData(prev => {
-      const newData = {...prev};
-      const currentIndicatorData = newData[indicatorId];
+const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
+    // If a file is being removed, delete it from storage first
+    if (fileToRemove) {
+        // Only attempt to delete if it's an existing file with a URL, not a local File object
+        if ('url' in fileToRemove && fileToRemove.url) {
+            try {
+                await deleteFileByUrl(fileToRemove.url);
+                toast({
+                    title: 'Đã xóa tệp',
+                    description: `Tệp "${fileToRemove.name}" đã được xóa khỏi hệ thống.`,
+                });
+            } catch (error) {
+                console.error("Failed to delete file from storage:", error);
+                toast({
+                    variant: 'destructive',
+                    title: 'Lỗi xóa tệp',
+                    description: 'Không thể xóa tệp khỏi hệ thống lưu trữ.',
+                });
+                return; // Stop the state update if deletion fails
+            }
+        }
+    }
 
-      if (docIndex !== undefined) { 
-          const newFilesPerDoc = {...currentIndicatorData.filesPerDocument};
-          if(fileToRemove) {
-               newFilesPerDoc[docIndex] = (newFilesPerDoc[docIndex] || []).filter(f => f.name !== fileToRemove.name);
-          } else {
-               newFilesPerDoc[docIndex] = [...(newFilesPerDoc[docIndex] || []), ...newFiles];
-          }
-          newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
-      } else { 
-          if (fileToRemove) {
-               newData[indicatorId] = { ...currentIndicatorData, files: currentIndicatorData.files.filter(f => f.name !== fileToRemove.name) };
-          } else {
-              newData[indicatorId] = { ...currentIndicatorData, files: [...currentIndicatorData.files, ...newFiles] };
-          }
-      }
-      return newData;
+    setAssessmentData(prev => {
+        const newData = { ...prev };
+        const currentIndicatorData = newData[indicatorId];
+
+        if (docIndex !== undefined) {
+            const newFilesPerDoc = { ...currentIndicatorData.filesPerDocument };
+            if (fileToRemove) {
+                newFilesPerDoc[docIndex] = (newFilesPerDoc[docIndex] || []).filter(f => f.name !== fileToRemove.name);
+            } else {
+                newFilesPerDoc[docIndex] = [...(newFilesPerDoc[docIndex] || []), ...newFiles];
+            }
+            newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
+        } else {
+            if (fileToRemove) {
+                newData[indicatorId] = { ...currentIndicatorData, files: currentIndicatorData.files.filter(f => f.name !== fileToRemove.name) };
+            } else {
+                newData[indicatorId] = { ...currentIndicatorData, files: [...currentIndicatorData.files, ...newFiles] };
+            }
+        }
+        return newData;
     });
-}, []);
+}, [deleteFileByUrl, toast]);
+
 
   const uploadEvidenceFiles = useCallback(async (communeId: string, periodId: string): Promise<Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }>> => {
     if (!storage) throw new Error("Firebase Storage is not initialized.");
@@ -1212,17 +1235,17 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
   }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast, uploadEvidenceFiles]);
   
     useEffect(() => {
-    if (criteria.length === 0 || !myAssessment) return;
-    const firstIndicatorId = criteria[0].indicators[0].id;
-
-    const hasChanged = assessmentData[firstIndicatorId] && 
-        JSON.stringify(filesPerDocRef.current) !== JSON.stringify(assessmentData[firstIndicatorId].filesPerDocument);
-
-    if (hasChanged) {
-        handleSaveDraft();
-        filesPerDocRef.current = assessmentData[firstIndicatorId]?.filesPerDocument;
-    }
-}, [assessmentData, criteria, myAssessment, handleSaveDraft]); 
+        if (criteria.length === 0 || !myAssessment) return;
+        const firstIndicatorId = criteria[0].indicators[0].id;
+    
+        const hasChanged = assessmentData[firstIndicatorId] && 
+            JSON.stringify(filesPerDocRef.current) !== JSON.stringify(assessmentData[firstIndicatorId].filesPerDocument);
+    
+        if (hasChanged) {
+            handleSaveDraft();
+            filesPerDocRef.current = assessmentData[firstIndicatorId]?.filesPerDocument;
+        }
+    }, [assessmentData, criteria, myAssessment, handleSaveDraft]); 
 
   const { canSubmit, submissionErrors } = useMemo(() => {
     const errors: string[] = [];
@@ -1569,5 +1592,7 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
     </>
   );
 }
+
+    
 
     
