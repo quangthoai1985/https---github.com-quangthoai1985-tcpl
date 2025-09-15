@@ -556,7 +556,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                 setCommuneDefinedDocs(newDocs);
             }
         }
-    }, [criterion.assignedDocumentsCount, assignmentType]); // Chạy lại khi số lượng admin giao thay đổi
+    }, [criterion.assignedDocumentsCount, assignmentType, communeDefinedDocs]); // Chạy lại khi số lượng admin giao thay đổi
 
     // Đồng bộ state cục bộ với state cha khi có thay đổi
     React.useEffect(() => {
@@ -1209,7 +1209,7 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
     } finally {
         setIsSubmitting(false);
     }
-  }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast, uploadEvidenceFiles]);
+  }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast, uploadEvidenceFiles, criteria]);
   
 
     useEffect(() => {
@@ -1527,7 +1527,7 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
                         src={previewFile.url}
                         className="w-full h-full border rounded-md" 
                         title={previewFile.name}
-                    />
+                    ></iframe>
                 )}
             </div>
             <DialogFooter className="p-6 pt-0 border-t">
