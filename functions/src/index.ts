@@ -6,7 +6,7 @@ import { onObjectFinalized } from "firebase-functions/v2/storage";
 import { PDFDocument, PDFName, PDFDict } from 'pdf-lib'; // <-- Thư viện mới
 import { addDays, parse } from 'date-fns';
 import { HttpsError, onCall } from "firebase-functions/v2/https";
-import { logger } from "firebase-functions";
+import { logger } from "firebase-functions/v2";
 
 
 admin.initializeApp();

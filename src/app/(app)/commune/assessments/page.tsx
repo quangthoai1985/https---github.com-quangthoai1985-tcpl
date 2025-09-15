@@ -16,6 +16,7 @@ import PageHeader from "@/components/layout/page-header";
 import type { Indicator, SubIndicator, Criterion, Assessment, IndicatorResult } from "@/lib/data";
 import { Textarea } from "@/components/ui/textarea";
 import { getDownloadURL, ref, uploadBytes, getBlob } from "firebase/storage";
+import { httpsCallable } from "firebase/functions";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -951,8 +952,8 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
 
 export default function SelfAssessmentPage() {
   const router = useRouter();
+  const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments, updateSingleAssessment, deleteFileByUrl, functions } = useData();
   const { toast } = useToast();
-  const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments, updateSingleAssessment, deleteFileByUrl } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewFile, setPreviewFile] = useState<{name: string, url: string, isLoading: boolean, isBlob: boolean} | null>(null);
   
@@ -1349,17 +1350,32 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
   };
 
   const handlePreview = async (file: { name: string, url: string }) => {
-    if (!storage) return;
+    if (!functions) {
+        toast({ variant: 'destructive', title: 'Lỗi', description: 'Dịch vụ chức năng chưa sẵn sàng.' });
+        return;
+    }
+
     setPreviewFile({ name: file.name, url: '', isLoading: true, isBlob: false });
 
     try {
-        const storageRef = ref(storage, file.url);
-        const blob = await getBlob(storageRef);
-        const blobUrl = URL.createObjectURL(blob);
-        setPreviewFile({ name: file.name, url: blobUrl, isLoading: false, isBlob: true });
+        // Trích xuất đường dẫn file từ URL đầy đủ
+        const urlObject = new URL(file.url);
+        const filePath = decodeURIComponent(urlObject.pathname).split('/o/')[1];
+
+        if (!filePath) throw new Error("Không thể trích xuất đường dẫn file từ URL.");
+        
+        // Gọi Cloud Function "người vận chuyển"
+        const getSignedUrl = httpsCallable(functions, 'getSignedUrlForFile');
+        const result = await getSignedUrl({ filePath: filePath });
+
+        const signedUrl = (result.data as { signedUrl: string }).signedUrl;
+
+        // Hiển thị file bằng URL an toàn vừa nhận được
+        setPreviewFile({ name: file.name, url: signedUrl, isLoading: false, isBlob: false });
+
     } catch (error) {
-        console.error("Error creating blob for preview:", error);
-        toast({ variant: 'destructive', title: 'Lỗi xem trước', description: 'Không thể tải file để xem trước.' });
+        console.error("Error getting signed URL for preview:", error);
+        toast({ variant: 'destructive', title: 'Lỗi xem trước', description: 'Không thể lấy đường dẫn an toàn để xem file.' });
         setPreviewFile(null);
     }
   };
@@ -1555,7 +1571,6 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         open={!!previewFile} 
         onOpenChange={(open) => {
             if (!open) {
-                // Quan trọng: Thu hồi Blob URL để tránh rò rỉ bộ nhớ khi đóng popup
                 if (previewFile?.isBlob && previewFile.url) {
                     URL.revokeObjectURL(previewFile.url);
                 }
@@ -1592,6 +1607,8 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
     </>
   );
 }
+
+    
 
     
 
