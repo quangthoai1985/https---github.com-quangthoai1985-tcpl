@@ -716,11 +716,10 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     communeId: string;
     handleSaveDraft: () => Promise<void>;
 }) => {
-    if (!criterion || !assessmentData) {
+    const firstIndicatorId = criterion.indicators[0]?.id;
+    if (!criterion || !assessmentData || !firstIndicatorId) {
       return null; 
     }
-    const firstIndicatorId = criterion.indicators[0]?.id;
-    if (!firstIndicatorId || !assessmentData[firstIndicatorId]) return null;
     
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
     const assignmentType = criterion.assignmentType || 'specific';
@@ -734,7 +733,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     });
     
     React.useEffect(() => {
-        // Chỉ chạy khi Admin ấn định số lượng và xã chưa tự nhập
+        // Only run when Admin specifies a count and the commune hasn't entered data yet
         const adminCount = criterion.assignedDocumentsCount || 0;
         if (assignmentType === 'quantity' && adminCount > 0 && communeDefinedDocs.length !== adminCount) {
             const newDocs = Array.from({ length: adminCount }, (_, i) => {
@@ -742,7 +741,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
             });
             setCommuneDefinedDocs(newDocs);
         }
-    }, [criterion.assignedDocumentsCount, assignmentType]); // Phụ thuộc vào số lượng admin giao
+    }, [criterion.assignedDocumentsCount, assignmentType]); // Dependency on admin count
 
     const handleDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const count = Math.max(0, Number(e.target.value));
@@ -776,7 +775,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     }, [assessmentData, handleSaveDraft, firstIndicatorId]);
 
     React.useEffect(() => {
-        // Cập nhật dữ liệu vào state cha để có thể lưu lại
         if (firstIndicatorId) {
             onValueChange(firstIndicatorId, {
                 ...(assessmentData[firstIndicatorId] || {}),
@@ -852,25 +850,44 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                 
                                 <div className="space-y-4 pt-4 border-t">
                                     {communeDefinedDocs.map((doc, index) => (
-                                        <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 border rounded-md bg-blue-50/50">
-                                            <div className="col-span-full font-semibold text-primary">Văn bản {index + 1}</div>
-                                            
-                                            <div className="grid gap-1.5">
-                                                <Label htmlFor={`doc-name-${index}`}>Tên văn bản QPPL</Label>
-                                                <Input id={`doc-name-${index}`} value={doc.name} onChange={(e) => handleDocDetailChange(index, 'name', e.target.value)} />
+                                        <div key={index} className="p-3 border rounded-lg grid gap-4 bg-background shadow-sm">
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                <div className="col-span-full font-semibold text-primary">Văn bản {index + 1}</div>
+                                                <div className="grid gap-1.5">
+                                                    <Label htmlFor={`doc-name-${index}`}>Tên văn bản QPPL</Label>
+                                                    <Input id={`doc-name-${index}`} value={doc.name} onChange={(e) => handleDocDetailChange(index, 'name', e.target.value)} />
+                                                </div>
+                                                <div className="grid gap-1.5">
+                                                    <Label htmlFor={`doc-excerpt-${index}`}>Trích yếu nội dung</Label>
+                                                    <Input id={`doc-excerpt-${index}`} value={doc.excerpt} onChange={(e) => handleDocDetailChange(index, 'excerpt', e.target.value)} />
+                                                </div>
+                                                <div className="grid gap-1.5">
+                                                    <Label htmlFor={`doc-issuedate-${index}`}>Ngày ban hành (DD/MM/YYYY)</Label>
+                                                    <Input id={`doc-issuedate-${index}`} value={doc.issueDate} onChange={(e) => handleDocDetailChange(index, 'issueDate', e.target.value)} />
+                                                </div>
+                                                <div className="grid gap-1.5">
+                                                    <Label htmlFor={`doc-deadline-${index}`}>Thời hạn ban hành (số ngày)</Label>
+                                                    <Input type="number" id={`doc-deadline-${index}`} value={doc.issuanceDeadlineDays} onChange={(e) => handleDocDetailChange(index, 'issuanceDeadlineDays', Number(e.target.value))} />
+                                                </div>
                                             </div>
-                                            <div className="grid gap-1.5">
-                                                <Label htmlFor={`doc-excerpt-${index}`}>Trích yếu nội dung</Label>
-                                                <Input id={`doc-excerpt-${index}`} value={doc.excerpt} onChange={(e) => handleDocDetailChange(index, 'excerpt', e.target.value)} />
-                                            </div>
-                                            <div className="grid gap-1.5">
-                                                <Label htmlFor={`doc-issuedate-${index}`}>Ngày ban hành (DD/MM/YYYY)</Label>
-                                                <Input id={`doc-issuedate-${index}`} value={doc.issueDate} onChange={(e) => handleDocDetailChange(index, 'issueDate', e.target.value)} />
-                                            </div>
-                                            <div className="grid gap-1.5">
-                                                <Label htmlFor={`doc-deadline-${index}`}>Thời hạn ban hành (số ngày)</Label>
-                                                <Input type="number" id={`doc-deadline-${index}`} value={doc.issuanceDeadlineDays} onChange={(e) => handleDocDetailChange(index, 'issuanceDeadlineDays', Number(e.target.value))} />
-                                            </div>
+
+                                            {doc.name && (
+                                                <div className="mt-2 pt-4 border-t border-dashed">
+                                                    <Label className="font-medium text-center text-sm block mb-2">
+                                                        Minh chứng cho VB: <span className="font-bold text-primary">{doc.name}</span>
+                                                    </Label>
+                                                    <Criterion1EvidenceUploader
+                                                        indicatorId={firstIndicatorId}
+                                                        docIndex={index}
+                                                        evidence={assessmentData[firstIndicatorId]?.filesPerDocument?.[index] || []}
+                                                        onUploadComplete={handleUploadComplete}
+                                                        onRemove={handleRemoveFile}
+                                                        onPreview={onPreview}
+                                                        periodId={periodId}
+                                                        communeId={communeId}
+                                                    />
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -1576,5 +1593,3 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
-
-    
