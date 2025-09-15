@@ -691,7 +691,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                            <div className="flex items-center gap-2 min-w-0 flex-1 cursor-help">
                                                 {item.signatureStatus === 'validating' && <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-amber-500" />}
                                                 {item.signatureStatus === 'valid' && <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-500" />}
                                                 {item.signatureStatus === 'invalid' && <XCircle className="h-4 w-4 flex-shrink-0 text-red-500" />}
@@ -756,7 +756,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                 setCommuneDefinedDocs(newDocs);
             }
         }
-    }, [criterion.assignedDocumentsCount, criterion.assignmentType, communeDefinedDocs]);
+    }, [criterion.assignedDocumentsCount, criterion.assignmentType]);
 
     const handleDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const count = Math.max(0, Number(e.target.value));
@@ -1306,11 +1306,10 @@ const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
     }
   }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast, criteria]);
   
-    const filesPerDocRef = React.useRef(
-      criteria.length > 0
-        ? assessmentData[criteria[0].indicators[0].id]?.filesPerDocument
-        : undefined
-    );
+    const filesPerDocRef = React.useRef<any>();
+    if (criteria.length > 0) {
+      filesPerDocRef.current = assessmentData[criteria[0].indicators[0].id]?.filesPerDocument;
+    }
     
     useEffect(() => {
         if (criteria.length > 0) {
@@ -1634,3 +1633,4 @@ const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
     </>
   );
 }
+
