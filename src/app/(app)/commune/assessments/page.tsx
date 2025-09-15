@@ -134,7 +134,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
                                 {isLink(item) ? <LinkIcon className="h-4 w-4 flex-shrink-0 text-blue-500" /> : <FileIcon className="h-4 w-4 flex-shrink-0" />}
                                 <span className="truncate text-xs flex-1">{item.name}</span>
                             </div>
-                             <div className="flex items-center gap-1">
+                             <div className="flex items-center gap-1 flex-shrink-0">
                                 { 'url' in item && item.url && (
                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onPreview(item as { name: string, url: string })}>
                                         <Eye className="h-4 w-4" />
@@ -556,7 +556,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                 setCommuneDefinedDocs(newDocs);
             }
         }
-    }, [criterion.assignedDocumentsCount, assignmentType, communeDefinedDocs]); // Chạy lại khi số lượng admin giao thay đổi
+    }, [criterion.assignedDocumentsCount, assignmentType, communeDefinedDocs.length]); // Chạy lại khi số lượng admin giao thay đổi
 
     // Đồng bộ state cục bộ với state cha khi có thay đổi
     React.useEffect(() => {
@@ -674,7 +674,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                             const progressColor = progress >= 100 ? "bg-green-500" : "bg-yellow-500";
                             
                             return (
-                                <div key={indicator.id} className="p-4 rounded-lg bg-card shadow-sm border">
+                                 <div key={indicator.id} className="p-4 rounded-lg bg-card shadow-sm border">
                                     <div className="flex items-center gap-2">
                                       <StatusBadge status={data.status} />
                                       <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
@@ -929,7 +929,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
                                     </Tooltip>
                                 </TooltipProvider>
 
-                                 <div className="flex items-center gap-0">
+                                 <div className="flex items-center gap-0 flex-shrink-0">
                                     { 'url' in item && item.url && (
                                          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onPreview(item as { name: string, url: string })}>
                                             <Eye className="h-4 w-4" />
