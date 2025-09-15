@@ -717,6 +717,33 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     handleSaveDraft: () => Promise<void>;
 }) => {
     const firstIndicatorId = criterion.indicators[0]?.id;
+    const [communeDefinedDocs, setCommuneDefinedDocs] = React.useState(() => {
+        if (firstIndicatorId && assessmentData[firstIndicatorId]?.communeDefinedDocuments) {
+            return assessmentData[firstIndicatorId].communeDefinedDocuments;
+        }
+        return [];
+    });
+    React.useEffect(() => {
+        const adminCount = criterion.assignedDocumentsCount || 0;
+        if (criterion.assignmentType === 'quantity' && adminCount > 0 && communeDefinedDocs.length !== adminCount) {
+            const newDocs = Array.from({ length: adminCount }, (_, i) => {
+                return communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
+            });
+            setCommuneDefinedDocs(newDocs);
+        }
+    }, [criterion.assignedDocumentsCount, criterion.assignmentType]);
+    const handleDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const count = Math.max(0, Number(e.target.value));
+        const newDocs = Array.from({ length: count }, (_, i) => {
+            return communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
+        });
+        setCommuneDefinedDocs(newDocs);
+    };
+    const handleDocDetailChange = (index: number, field: string, value: string | number) => {
+        const newDocs = [...communeDefinedDocs];
+        (newDocs[index] as any)[field] = value;
+        setCommuneDefinedDocs(newDocs);
+    };
     if (!criterion || !assessmentData || !firstIndicatorId) {
       return null; 
     }
@@ -725,37 +752,15 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     const assignmentType = criterion.assignmentType || 'specific';
 
     // State for quantity mode
-    const [communeDefinedDocs, setCommuneDefinedDocs] = React.useState(() => {
-        if (firstIndicatorId && assessmentData[firstIndicatorId]?.communeDefinedDocuments) {
-            return assessmentData[firstIndicatorId].communeDefinedDocuments;
-        }
-        return [];
-    });
     
     React.useEffect(() => {
-        // Only run when Admin specifies a count and the commune hasn't entered data yet
-        const adminCount = criterion.assignedDocumentsCount || 0;
-        if (assignmentType === 'quantity' && adminCount > 0 && communeDefinedDocs.length !== adminCount) {
-            const newDocs = Array.from({ length: adminCount }, (_, i) => {
-                return communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
+        if (firstIndicatorId) {
+            onValueChange(firstIndicatorId, {
+                ...(assessmentData[firstIndicatorId] || {}),
+                communeDefinedDocuments: communeDefinedDocs
             });
-            setCommuneDefinedDocs(newDocs);
         }
-    }, [criterion.assignedDocumentsCount, assignmentType]); // Dependency on admin count
-
-    const handleDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const count = Math.max(0, Number(e.target.value));
-        const newDocs = Array.from({ length: count }, (_, i) => {
-            return communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
-        });
-        setCommuneDefinedDocs(newDocs);
-    };
-
-    const handleDocDetailChange = (index: number, field: string, value: string | number) => {
-        const newDocs = [...communeDefinedDocs];
-        (newDocs[index] as any)[field] = value;
-        setCommuneDefinedDocs(newDocs);
-    };
+    }, [communeDefinedDocs]);
 
 
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
@@ -774,14 +779,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
         }
     }, [assessmentData, handleSaveDraft, firstIndicatorId]);
 
-    React.useEffect(() => {
-        if (firstIndicatorId) {
-            onValueChange(firstIndicatorId, {
-                ...(assessmentData[firstIndicatorId] || {}),
-                communeDefinedDocuments: communeDefinedDocs
-            });
-        }
-    }, [communeDefinedDocs]);
+    
 
 
     const handleUploadComplete = (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => {
@@ -1164,6 +1162,16 @@ export default function SelfAssessmentPage() {
     }
   };
   
+const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
+    setAssessmentData(prev => ({
+        ...prev,
+        [indicatorId]: {
+            ...prev[indicatorId],
+            communeDefinedDocuments: docs,
+        }
+    }));
+};
+
   const handleNoteChange = (indicatorId: string, note: string) => {
     setAssessmentData(prev => ({
         ...prev,
