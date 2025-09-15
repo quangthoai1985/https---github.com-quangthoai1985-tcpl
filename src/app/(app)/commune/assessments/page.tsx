@@ -756,7 +756,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                 setCommuneDefinedDocs(newDocs);
             }
         }
-    }, [criterion.assignedDocumentsCount, criterion.assignmentType]);
+    }, [criterion.assignedDocumentsCount, criterion.assignmentType, communeDefinedDocs]);
 
     const handleDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const count = Math.max(0, Number(e.target.value));
@@ -824,6 +824,32 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
 
             {!isNotTasked && (
                  <div className="grid gap-8">
+                     {assignmentType === 'specific' && (
+                        <Card className="bg-blue-50/50 border border-blue-200">
+                            <CardHeader>
+                                <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ đã giao từ Admin</CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {(criterion.documents || []).length > 0 ? (
+                                    criterion.documents?.map((doc, docIndex) => (
+                                        <div key={docIndex} className="grid grid-cols-1 sm:grid-cols-3 gap-x-4 gap-y-1 p-3 border-l-4 border-blue-300 rounded bg-background text-sm">
+                                            <div className="col-span-full font-semibold text-primary">Văn bản {docIndex + 1}: {doc.name}</div>
+                                            <div className="text-muted-foreground">Trích yếu:</div>
+                                            <div className="col-span-2 font-medium">{doc.excerpt}</div>
+                                            <div className="text-muted-foreground">Ngày ban hành (ấn định):</div>
+                                            <div className="col-span-2 font-medium">{doc.issueDate}</div>
+                                            <div className="text-muted-foreground">Thời hạn ban hành:</div>
+                                            <div className="col-span-2 font-medium">
+                                                <Badge variant="destructive">{doc.issuanceDeadlineDays} ngày</Badge>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <p className="text-sm text-muted-foreground">Không có văn bản nào được Admin định danh cụ thể.</p>
+                                )}
+                            </CardContent>
+                        </Card>
+                     )}
                      {assignmentType === 'quantity' && (
                          <Card className="bg-background border border-gray-200">
                             <CardHeader>
@@ -851,7 +877,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                 Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số và ngày ký để đối chiếu với thời hạn ban hành.
                                             </AlertDescription>
                                         </Alert>
-
                                         {communeDefinedDocs.map((doc, index) => (
                                             <div key={index} className="p-3 border rounded-lg grid gap-4 bg-background shadow-sm">
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1281,16 +1306,21 @@ const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
     }
   }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast, criteria]);
   
-    if (criteria.length > 0) {
-        const filesPerDocRef = React.useRef(assessmentData[criteria[0].indicators[0].id]?.filesPerDocument);
-        useEffect(() => {
+    const filesPerDocRef = React.useRef(
+      criteria.length > 0
+        ? assessmentData[criteria[0].indicators[0].id]?.filesPerDocument
+        : undefined
+    );
+    
+    useEffect(() => {
+        if (criteria.length > 0) {
             const firstIndicatorData = assessmentData[criteria[0].indicators[0].id];
             if (firstIndicatorData && JSON.stringify(filesPerDocRef.current) !== JSON.stringify(firstIndicatorData.filesPerDocument)) {
                 handleSaveDraft();
                 filesPerDocRef.current = firstIndicatorData.filesPerDocument;
             }
-        }, [assessmentData, handleSaveDraft, criteria]);
-    }
+        }
+    }, [assessmentData, handleSaveDraft, criteria]);
 
 
   const { canSubmit, submissionErrors } = useMemo(() => {
