@@ -38,7 +38,7 @@ type FileWithStatus = (File | {
 });
 
 type IndicatorValue = {
-    isTasked?: boolean;
+    isTasked?: boolean | null;
     value: any; 
     files: FileWithStatus[];
     filesPerDocument?: { [documentIndex: number]: FileWithStatus[] };
@@ -46,6 +46,12 @@ type IndicatorValue = {
     status: AssessmentStatus;
     adminNote?: string;
     communeNote?: string;
+    communeDefinedDocuments?: {
+        name: string;
+        issueDate: string;
+        excerpt: string;
+        issuanceDeadlineDays: number;
+    }[];
 };
 type AssessmentValues = Record<string, IndicatorValue>;
 
@@ -605,7 +611,7 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
                 filesPerDocument: indicatorData.filesPerDocument ? Object.fromEntries(
                     Object.entries(indicatorData.filesPerDocument).map(([idx, fileList]) => [idx, sanitizeFiles(fileList)])
                 ) : {},
-                 communeDefinedDocuments: (indicatorData as any).communeDefinedDocuments,
+                 communeDefinedDocuments: indicatorData.communeDefinedDocuments,
             };
         }
     }
@@ -737,7 +743,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
 
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
     const assignmentType = criterion.assignmentType || 'specific';
-    const docsToRender = assignmentType === 'specific' ? criterion.documents : (assessmentData[firstIndicatorId] as any)?.communeDefinedDocuments;
+    const docsToRender = assignmentType === 'specific' ? criterion.documents : assessmentData[firstIndicatorId]?.communeDefinedDocuments;
     
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
         const notTasked = checked === true;
@@ -766,7 +772,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                 <Label htmlFor={`${criterion.id}-notask`} className="font-semibold">Xã không được giao nhiệm vụ ban hành VBQPPL trong năm</Label>
             </div>
             
-            {isNotTasked && (
+            {isNotTasked ? (
                 <Alert variant="default" className="bg-green-50 border-green-300">
                     <CheckCircle className="h-4 w-4 text-green-600"/>
                     <AlertTitle>Đã xác nhận</AlertTitle>
@@ -774,9 +780,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                         Toàn bộ các chỉ tiêu của Tiêu chí 1 được đánh giá là <strong className="text-green-700">Đạt</strong>.
                     </AlertDescription>
                 </Alert>
-            )}
-
-            {!isNotTasked && (
+            ) : (
                  <div className="grid gap-8">
                      <Card className="bg-blue-50/50 border border-blue-200">
                         <CardHeader>
@@ -826,124 +830,125 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                             )}
                         </CardContent>
                     </Card>
-                     
-                    {criterion.indicators.map((indicator, index) => {
-                        const data = assessmentData[indicator.id];
-                        if (!data) return null;
 
-                        const assignedCount = criterion.assignedDocumentsCount || docsToRender?.length || 0;
-                        const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
-                        const isAchieved = progress >= 100;
-                        const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
-                        const blockClasses = cn(
-                            "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
-                            data.status === 'achieved' && 'bg-green-50 border-green-200',
-                            data.status === 'not-achieved' && 'bg-red-50 border-red-200',
-                            data.status === 'pending' && 'bg-amber-50 border-amber-200'
-                        );
+                    <div className="grid gap-8">
+                        {criterion.indicators.map((indicator, index) => {
+                            const data = assessmentData[indicator.id];
+                            if (!data) return null;
 
-                        return (
-                            <React.Fragment key={indicator.id}>
-                                {index > 0 && <Separator className="my-6"/>}
-                                <div className={blockClasses}>
-                                    <div>
-                                        <div className="flex items-center gap-2">
-                                            <StatusBadge status={data.status} />
-                                            <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
-                                        </div>
-                                        <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
-                                            <div className="flex items-start gap-2 text-blue-800">
-                                                <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                                                <div>
-                                                    <p className="text-sm">{indicator.description}</p>
-                                                    <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
+                            const assignedCount = criterion.assignedDocumentsCount || docsToRender?.length || 0;
+                            const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
+                            const isAchieved = progress >= 100;
+                            const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
+                            const blockClasses = cn(
+                                "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
+                                data.status === 'achieved' && 'bg-green-50 border-green-200',
+                                data.status === 'not-achieved' && 'bg-red-50 border-red-200',
+                                data.status === 'pending' && 'bg-amber-50 border-amber-200'
+                            );
+
+                            return (
+                                <React.Fragment key={indicator.id}>
+                                    {index > 0 && <Separator className="my-2"/>}
+                                    <div className={blockClasses}>
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <StatusBadge status={data.status} />
+                                                <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
+                                            </div>
+                                            <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
+                                                <div className="flex items-start gap-2 text-blue-800">
+                                                    <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                                                    <div>
+                                                        <p className="text-sm">{indicator.description}</p>
+                                                        <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>
-                                    </div>
-                                    
-                                    <div className="grid gap-2">
-                                        <div className="flex items-center gap-4">
-                                            <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
-                                                {index === 0 && "Tổng số VBQPPL đã ban hành:"}
-                                                {index === 1 && "Tổng số dự thảo NQ của HĐND, QĐ của UBND được truyền thông:"}
-                                                {index === 2 && "Tổng số NQ của HĐND, QĐ của UBND được thực hiện tự kiểm tra:"}
-                                            </Label>
-                                            <Input 
-                                                id={`${indicator.id}-input`} 
-                                                type="number" 
-                                                placeholder="Số lượng"
-                                                className="w-28"
-                                                value={data.value || ''} 
-                                                onChange={(e) => onValueChange(indicator.id, e.target.value)}
-                                            />
-                                            <div className="flex-1">
-                                                <div className="flex justify-between items-center mb-1">
-                                                    <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
-                                                    <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
+                                        
+                                        <div className="grid gap-2">
+                                            <div className="flex items-center gap-4">
+                                                <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
+                                                    {index === 0 && "Tổng số VBQPPL đã ban hành:"}
+                                                    {index === 1 && "Tổng số dự thảo được truyền thông:"}
+                                                    {index === 2 && "Tổng số VBQPPL được tự kiểm tra:"}
+                                                </Label>
+                                                <Input 
+                                                    id={`${indicator.id}-input`} 
+                                                    type="number" 
+                                                    placeholder="Số lượng"
+                                                    className="w-28"
+                                                    value={data.value || ''} 
+                                                    onChange={(e) => onValueChange(indicator.id, e.target.value)}
+                                                />
+                                                <div className="flex-1">
+                                                    <div className="flex justify-between items-center mb-1">
+                                                        <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
+                                                        <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
+                                                    </div>
+                                                    <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
                                                 </div>
-                                                <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
                                             </div>
                                         </div>
-                                    </div>
-                                    
-                                    {/* MINH CHỨNG */}
-                                    <div className="grid gap-2">
-                                        <Label className="font-medium">Hồ sơ minh chứng</Label>
-                                        {index === 0 ? (
-                                            <>
-                                                <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
-                                                    <AlertTriangle className="h-4 w-4" />
-                                                    <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
-                                                    <AlertDescription>
-                                                        Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số và ngày ký để đối chiếu với thời hạn ban hành.
-                                                    </AlertDescription>
-                                                </Alert>
-                                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                                                    {(docsToRender || []).map((doc: any, i: number) => (
-                                                        <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
-                                                            <Label className="font-medium text-center text-sm">
-                                                                Minh chứng cho VB: <span className="font-bold text-primary">{doc.name || `Văn bản ${i + 1}`}</span>
-                                                            </Label>
-                                                            <Criterion1EvidenceUploader
-                                                                indicatorId={indicator.id}
-                                                                docIndex={i}
-                                                                evidence={data.filesPerDocument?.[i] || []}
-                                                                onUploadComplete={handleUploadComplete}
-                                                                onRemove={handleRemoveFile}
-                                                                onPreview={onPreview}
-                                                                periodId={periodId}
-                                                                communeId={communeId}
-                                                                accept=".pdf"
-                                                            />
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </>
-                                        ) : (
-                                             <EvidenceUploaderComponent
-                                                indicatorId={indicator.id}
-                                                evidence={data.files}
-                                                onEvidenceChange={onEvidenceChange}
-                                                onPreview={onPreview}
-                                                isRequired={data.status !== 'pending' && data.isTasked !== false && data.files.length === 0}
+                                        
+                                        <div className="grid gap-2">
+                                            <Label className="font-medium">Hồ sơ minh chứng</Label>
+                                            {index === 0 ? (
+                                                <>
+                                                    <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
+                                                        <AlertTriangle className="h-4 w-4" />
+                                                        <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
+                                                        <AlertDescription>
+                                                            Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số và ngày ký để đối chiếu với thời hạn ban hành.
+                                                        </AlertDescription>
+                                                    </Alert>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                                                        {(docsToRender || []).map((doc: any, i: number) => (
+                                                            <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
+                                                                <Label className="font-medium text-center text-sm">
+                                                                    Minh chứng cho VB: <span className="font-bold text-primary">{doc.name || `Văn bản ${i + 1}`}</span>
+                                                                </Label>
+                                                                <Criterion1EvidenceUploader
+                                                                    indicatorId={indicator.id}
+                                                                    docIndex={i}
+                                                                    evidence={data.filesPerDocument?.[i] || []}
+                                                                    onUploadComplete={handleUploadComplete}
+                                                                    onRemove={handleRemoveFile}
+                                                                    onPreview={onPreview}
+                                                                    periodId={periodId}
+                                                                    communeId={communeId}
+                                                                    accept=".pdf"
+                                                                />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                </>
+                                            ) : (
+                                                 <EvidenceUploaderComponent
+                                                    indicatorId={indicator.id}
+                                                    evidence={data.files}
+                                                    onEvidenceChange={onEvidenceChange}
+                                                    onPreview={onPreview}
+                                                    isRequired={data.status !== 'pending' && data.isTasked !== false && data.files.length === 0}
+                                                />
+                                            )}
+                                        </div>
+                                        
+                                        <div className="grid gap-2">
+                                            <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
+                                            <Textarea 
+                                                id={`note-${indicator.id}`} 
+                                                placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
+                                                value={data.note}
+                                                onChange={(e) => onNoteChange(indicator.id, e.target.value)}
                                             />
-                                        )}
+                                        </div>
                                     </div>
-                                    
-                                    <div className="grid gap-2">
-                                        <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
-                                        <Textarea 
-                                            id={`note-${indicator.id}`} 
-                                            placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..." 
-                                            value={data.note}
-                                            onChange={(e) => onNoteChange(indicator.id, e.target.value)}
-                                        />
-                                    </div>
-                                </div>
-                            </React.Fragment>
-                        )
-                    })}
+                                </React.Fragment>
+                            )
+                        })}
+                    </div>
                 </div>
             )}
         </div>
@@ -973,7 +978,7 @@ export default function SelfAssessmentPage() {
                       status: saved?.status ?? 'pending',
                       adminNote: saved?.adminNote ?? '',
                       communeNote: saved?.communeNote ?? '',
-                      ...(saved?.communeDefinedDocuments && {communeDefinedDocuments: saved.communeDefinedDocuments}),
+                      communeDefinedDocuments: saved?.communeDefinedDocuments ?? [],
                   };
               };
               processIndicator(indicator);
@@ -1077,13 +1082,17 @@ export default function SelfAssessmentPage() {
   
     const handleCommuneDocsChange = (indicatorId: string, index: number, field: string, value: string | number) => {
         setAssessmentData(prev => {
-            const newDocsData = [...((prev[indicatorId] as any)?.communeDefinedDocuments || [])];
+            const currentIndicatorData = prev[indicatorId] || {};
+            const newDocsData = [...(currentIndicatorData.communeDefinedDocuments || [])];
+            
             if(field === 'count') {
                 const count = value as number;
-                while (newDocsData.length < count) {
-                    newDocsData.push({ name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
-                }
-                if (newDocsData.length > count) {
+                const currentLength = newDocsData.length;
+                if (count > currentLength) {
+                    for (let i = 0; i < count - currentLength; i++) {
+                        newDocsData.push({ name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
+                    }
+                } else if (count < currentLength) {
                     newDocsData.length = count;
                 }
             } else {
@@ -1095,10 +1104,10 @@ export default function SelfAssessmentPage() {
             return {
                 ...prev,
                 [indicatorId]: {
-                    ...prev[indicatorId],
+                    ...currentIndicatorData,
                     communeDefinedDocuments: newDocsData,
                 }
-            }
+            };
         });
     };
 
@@ -1230,21 +1239,20 @@ export default function SelfAssessmentPage() {
     }
   }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast, criteria]);
   
-    const filesPerDocRef = React.useRef<any>();
-    
-    if (criteria.length > 0) {
+  const filesPerDocRef = React.useRef<any>();
+  if (criteria.length > 0) {
       filesPerDocRef.current = assessmentData[criteria[0].indicators[0].id]?.filesPerDocument;
-    }
-    
-    useEffect(() => {
-      if (criteria.length > 0) {
-        const firstIndicatorData = assessmentData[criteria[0].indicators[0].id];
-        if (firstIndicatorData && JSON.stringify(filesPerDocRef.current) !== JSON.stringify(firstIndicatorData.filesPerDocument)) {
+  }
+  
+  useEffect(() => {
+      if (criteria.length === 0) return;
+      
+      const firstIndicatorData = assessmentData[criteria[0].indicators[0].id];
+      if (firstIndicatorData && JSON.stringify(filesPerDocRef.current) !== JSON.stringify(firstIndicatorData.filesPerDocument)) {
           handleSaveDraft();
           filesPerDocRef.current = firstIndicatorData.filesPerDocument;
-        }
       }
-    }, [assessmentData, handleSaveDraft, criteria]);
+  }, [assessmentData, handleSaveDraft, criteria]);
 
 
   const { canSubmit, submissionErrors } = useMemo(() => {
