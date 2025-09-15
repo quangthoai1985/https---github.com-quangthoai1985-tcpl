@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -557,7 +556,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                 setCommuneDefinedDocs(newDocs);
             }
         }
-    }, [criterion.assignedDocumentsCount, assignmentType, communeDefinedDocs]); // Chạy lại khi số lượng admin giao thay đổi
+    }, [criterion.assignedDocumentsCount, assignmentType]); // Chạy lại khi số lượng admin giao thay đổi
 
     // Đồng bộ state cục bộ với state cha khi có thay đổi
     React.useEffect(() => {
@@ -1017,14 +1016,13 @@ export default function SelfAssessmentPage() {
         }
     }
     return null;
-  }, [criteria]); // Hàm này chỉ phụ thuộc vào `criteria`
+}, [criteria]); // Hàm này chỉ phụ thuộc vào `criteria`
 
-  const handleIsTaskedChange = useCallback((indicatorId: string, isTasked: boolean) => {
+const handleIsTaskedChange = useCallback((indicatorId: string, isTasked: boolean) => {
     const indicator = findIndicator(indicatorId);
     if (!indicator) return;
 
     setAssessmentData(prev => {
-        // ... (Nội dung bên trong hàm giữ nguyên)
         const valueToEvaluate = isTasked ? prev[indicatorId].value : null;
         const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
         let assignedCount;
@@ -1048,14 +1046,13 @@ export default function SelfAssessmentPage() {
             }
         };
     });
-  }, [criteria, findIndicator]);
+}, [criteria, findIndicator]);
 
-  const handleValueChange = useCallback((indicatorId: string, value: any) => {
+const handleValueChange = useCallback((indicatorId: string, value: any) => {
     const indicator = findIndicator(indicatorId);
     if (!indicator) return;
 
     setAssessmentData(prev => {
-        // ... (Nội dung bên trong hàm giữ nguyên)
         const isTasked = prev[indicatorId].isTasked;
         const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
         let assignedCount;
@@ -1076,9 +1073,9 @@ export default function SelfAssessmentPage() {
             }
         };
     });
-  }, [criteria, findIndicator]);
+}, [criteria, findIndicator]);
 
-  const handleCommuneDocsChange = useCallback((indicatorId: string, docs: any[]) => {
+const handleCommuneDocsChange = useCallback((indicatorId: string, docs: any[]) => {
     setAssessmentData(prev => ({
         ...prev,
         [indicatorId]: {
@@ -1086,9 +1083,9 @@ export default function SelfAssessmentPage() {
             communeDefinedDocuments: docs,
         }
     }));
-  }, []);
+}, []);
 
-  const handleNoteChange = useCallback((indicatorId: string, note: string) => {
+const handleNoteChange = useCallback((indicatorId: string, note: string) => {
     setAssessmentData(prev => ({
         ...prev,
         [indicatorId]: {
@@ -1096,11 +1093,10 @@ export default function SelfAssessmentPage() {
             note: note,
         }
     }));
-  }, []);
+}, []);
 
-  const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
+const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
     setAssessmentData(prev => {
-      // ... (Nội dung bên trong hàm giữ nguyên)
       const newData = {...prev};
       const currentIndicatorData = newData[indicatorId];
 
@@ -1121,7 +1117,7 @@ export default function SelfAssessmentPage() {
       }
       return newData;
     });
-  }, []);
+}, []);
 
   const uploadEvidenceFiles = useCallback(async (communeId: string, periodId: string): Promise<Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }>> => {
     if (!storage) throw new Error("Firebase Storage is not initialized.");
@@ -1528,10 +1524,10 @@ export default function SelfAssessmentPage() {
             <div className="flex-1 px-6 pb-6 h-full">
                 {previewFile && (
                    <iframe 
-                        src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`} 
+                        src={previewFile.url}
                         className="w-full h-full border rounded-md" 
                         title={previewFile.name}
-                    ></iframe>
+                    />
                 )}
             </div>
             <DialogFooter className="p-6 pt-0 border-t">
