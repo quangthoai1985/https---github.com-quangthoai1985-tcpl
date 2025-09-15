@@ -704,7 +704,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
     )
 }
 
-const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, communeId, handleSaveDraft }: {
+const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, communeId, handleSaveDraft, handleCommuneDocsChange }: {
     criterion: Criterion;
     assessmentData: AssessmentValues;
     onValueChange: (id: string, value: any) => void;
@@ -715,6 +715,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     periodId: string;
     communeId: string;
     handleSaveDraft: () => Promise<void>;
+    handleCommuneDocsChange: (indicatorId: string, docs: any[]) => void;
 }) => {
     const firstIndicatorId = criterion.indicators[0]?.id;
     const [communeDefinedDocs, setCommuneDefinedDocs] = React.useState(() => {
@@ -724,6 +725,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
         return [];
     });
     React.useEffect(() => {
+        // Chỉ chạy khi Admin ấn định số lượng và xã chưa tự nhập
         const adminCount = criterion.assignedDocumentsCount || 0;
         if (criterion.assignmentType === 'quantity' && adminCount > 0 && communeDefinedDocs.length !== adminCount) {
             const newDocs = Array.from({ length: adminCount }, (_, i) => {
@@ -754,13 +756,14 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     // State for quantity mode
     
     React.useEffect(() => {
-        if (firstIndicatorId) {
-            onValueChange(firstIndicatorId, {
-                ...(assessmentData[firstIndicatorId] || {}),
-                communeDefinedDocuments: communeDefinedDocs
-            });
-        }
-    }, [communeDefinedDocs]);
+    // Cập nhật dữ liệu vào state cha để có thể lưu lại
+    if (firstIndicatorId) {
+        onValueChange(firstIndicatorId, {
+            ...(assessmentData[firstIndicatorId] || {}),
+            communeDefinedDocuments: communeDefinedDocs
+        });
+    }
+}, [communeDefinedDocs]);
 
 
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
@@ -814,7 +817,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
 
             {!isNotTasked && (
                  <div className="grid gap-8">
-                    {assignmentType === 'quantity' && (
+                    {assignmentType === 'quantity' ? (
                         <Card className="bg-background border border-gray-200">
                             <CardHeader>
                                 <CardTitle className="text-base text-primary flex items-center gap-2">
@@ -851,6 +854,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                         <div key={index} className="p-3 border rounded-lg grid gap-4 bg-background shadow-sm">
                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                                 <div className="col-span-full font-semibold text-primary">Văn bản {index + 1}</div>
+                                                
                                                 <div className="grid gap-1.5">
                                                     <Label htmlFor={`doc-name-${index}`}>Tên văn bản QPPL</Label>
                                                     <Input id={`doc-name-${index}`} value={doc.name} onChange={(e) => handleDocDetailChange(index, 'name', e.target.value)} />
@@ -874,6 +878,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                     <Label className="font-medium text-center text-sm block mb-2">
                                                         Minh chứng cho VB: <span className="font-bold text-primary">{doc.name}</span>
                                                     </Label>
+                                                    
                                                     <Criterion1EvidenceUploader
                                                         indicatorId={firstIndicatorId}
                                                         docIndex={index}
@@ -891,8 +896,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                 </div>
                             </CardContent>
                         </Card>
-                    )}
-                    {(assignmentType === 'specific' || !assignmentType) && (
+                    ) : (
                         <>
                             <Card className="bg-blue-50/50 border border-blue-200">
                                 <CardHeader>
@@ -1449,6 +1453,7 @@ const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
                                                     periodId={activePeriod.id}
                                                     communeId={currentUser.communeId}
                                                     handleSaveDraft={handleSaveDraft}
+                                                    handleCommuneDocsChange={handleCommuneDocsChange}
                                                  />
                                              </div>
                                         </AccordionContent>
@@ -1601,3 +1606,7 @@ const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
     </>
   );
 }
+
+    
+
+    
