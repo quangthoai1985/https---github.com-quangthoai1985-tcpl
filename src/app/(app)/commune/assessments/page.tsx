@@ -73,7 +73,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
     };
     
     const handleEvidenceRemove = (itemToRemove: FileWithStatus) => {
-        onEvidenceChange(indicatorId, [], docIndex, itemToRemove);
+        onEvidenceChange(indicatorId, [], docIndex, fileToRemove);
     };
 
     const handleAddLink = () => {
@@ -129,11 +129,9 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
             {evidence.length > 0 && (
                  <div className="space-y-2 mt-2">
                     {evidence.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm">
-                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                                {isLink(item) ? <LinkIcon className="h-4 w-4 flex-shrink-0 text-blue-500" /> : <FileIcon className="h-4 w-4 flex-shrink-0" />}
-                                <span className="truncate text-xs flex-1">{item.name}</span>
-                            </div>
+                        <div key={index} className="flex items-center justify-between gap-2 p-1.5 pl-2 bg-muted rounded-md text-sm">
+                            {isLink(item) ? <LinkIcon className="h-4 w-4 flex-shrink-0 text-blue-500" /> : <FileIcon className="h-4 w-4 flex-shrink-0" />}
+                            <span className="truncate text-xs flex-1 min-w-0">{item.name}</span>
                              <div className="flex items-center gap-1 flex-shrink-0">
                                 { 'url' in item && item.url && (
                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onPreview(item as { name: string, url: string })}>
@@ -556,7 +554,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                 setCommuneDefinedDocs(newDocs);
             }
         }
-    }, [criterion.assignedDocumentsCount, assignmentType, communeDefinedDocs.length]); // Chạy lại khi số lượng admin giao thay đổi
+    }, [criterion.assignedDocumentsCount, assignmentType]); // Chạy lại khi số lượng admin giao thay đổi
 
     // Đồng bộ state cục bộ với state cha khi có thay đổi
     React.useEffect(() => {
@@ -665,7 +663,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                     </Card>
 
                     {/* KHỐI 2: DANH SÁCH CÁC CHỈ TIÊU VÀ KHUNG UPLOAD */}
-                    <div className="space-y-6">
+                    <div className="space-y-12">
                         {criterion.indicators.map((indicator, indicatorIndex) => {
                             const data = assessmentData[indicator.id];
                             if (!data) return <div key={indicator.id}>Đang tải...</div>;
@@ -910,7 +908,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
                         };
                         return (
                          <div key={index} className="flex flex-col gap-1 p-1.5 bg-muted rounded-md text-sm">
-                            <div className="flex items-center justify-between">
+                            <div className="flex items-center justify-between gap-2">
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
@@ -920,7 +918,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
                                                 {item.signatureStatus === 'invalid' && <XCircle className="h-4 w-4 flex-shrink-0 text-red-500" />}
                                                 {item.signatureStatus === 'error' && <AlertTriangle className="h-4 w-4 flex-shrink-0 text-red-500" />}
                                                 {!item.signatureStatus && <FileIcon className="h-4 w-4 flex-shrink-0" />}
-                                                <span className="truncate text-xs flex-1">{item.name}</span>
+                                                <span className="truncate text-xs flex-1 min-w-0">{item.name}</span>
                                             </div>
                                         </TooltipTrigger>
                                         <TooltipContent>
@@ -1016,7 +1014,7 @@ export default function SelfAssessmentPage() {
         }
     }
     return null;
-}, [criteria]); // Hàm này chỉ phụ thuộc vào `criteria`
+}, [criteria]);
 
 const handleIsTaskedChange = useCallback((indicatorId: string, isTasked: boolean) => {
     const indicator = findIndicator(indicatorId);
@@ -1539,3 +1537,5 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
     </>
   );
 }
+
+    
