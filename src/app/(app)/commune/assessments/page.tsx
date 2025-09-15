@@ -749,11 +749,13 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     
      React.useEffect(() => {
         const adminCount = criterion.assignedDocumentsCount;
-        if (criterion.assignmentType === 'quantity' && adminCount && adminCount > 0 && communeDefinedDocs.length !== adminCount) {
+        if (criterion.assignmentType === 'quantity' && adminCount && adminCount > 0) {
              const newDocs = Array.from({ length: adminCount }, (_, i) => {
                 return communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
             });
-            setCommuneDefinedDocs(newDocs);
+            if (newDocs.length !== communeDefinedDocs.length) {
+                setCommuneDefinedDocs(newDocs);
+            }
         }
     }, [criterion.assignedDocumentsCount, criterion.assignmentType]);
 
@@ -836,7 +838,11 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                          <Card className="bg-background border border-gray-200">
                             <CardHeader>
                                 <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao</CardTitle>
-                                <CardDescription>Vui lòng kê khai thông tin các văn bản đã được ban hành trong kỳ.</CardDescription>
+                                {(!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) ? (
+                                    <CardDescription>Vui lòng kê khai số lượng và thông tin các văn bản đã được ban hành trong kỳ.</CardDescription>
+                                ) : (
+                                    <CardDescription>Admin đã ấn định số lượng văn bản cần ban hành là <strong>{criterion.assignedDocumentsCount}</strong>. Vui lòng nhập chi tiết thông tin và cung cấp minh chứng cho từng văn bản.</CardDescription>
+                                )}
                             </CardHeader>
                             <CardContent className="space-y-4">
                                 {(!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) && (
@@ -846,10 +852,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                     </div>
                                 )}
                                 
-                                {criterion.assignedDocumentsCount && criterion.assignedDocumentsCount > 0 && (
-                                    <div className="text-sm font-medium">Số lượng văn bản cần kê khai theo nhiệm vụ: <Badge variant="secondary" className="ml-2">{criterion.assignedDocumentsCount}</Badge></div>
-                                )}
-
                                 {communeDefinedDocs.length > 0 && (
                                     <div className="space-y-4 pt-4 border-t">
                                         <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
@@ -1619,3 +1621,5 @@ const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
     </>
   );
 }
+
+    
