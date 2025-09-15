@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -748,6 +749,23 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
         () => assessmentData[firstIndicatorId]?.communeDefinedDocuments || []
     );
 
+    // Hook này lắng nghe số lượng văn bản được Admin giao.
+    // Nếu Admin giao một số lượng cụ thể > 0, nó sẽ tự động tạo ra các form trống.
+    React.useEffect(() => {
+        // Chỉ chạy ở chế độ "Giao theo số lượng"
+        if (assignmentType === 'quantity') {
+            const adminCount = criterion.assignedDocumentsCount || 0;
+            // Nếu admin có giao số lượng và số form hiện tại không khớp
+            if (adminCount > 0 && communeDefinedDocs.length !== adminCount) {
+                const newDocs = Array.from({ length: adminCount }, (_, i) => 
+                    communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 }
+                );
+                setCommuneDefinedDocs(newDocs);
+            }
+        }
+    }, [criterion.assignedDocumentsCount, assignmentType]); // Chạy lại khi số lượng admin giao thay đổi
+
+    // Đồng bộ state cục bộ với state cha khi có thay đổi (giữ nguyên)
     React.useEffect(() => {
         handleCommuneDocsChange(firstIndicatorId, communeDefinedDocs);
     }, [communeDefinedDocs, firstIndicatorId, handleCommuneDocsChange]);
@@ -823,7 +841,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                 }
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-4 pt-6">
+                        <CardContent className="space-y-4">
                              {assignmentType === 'quantity' && (!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) && (
                                 <div className="grid gap-2 p-3 border rounded-md bg-background">
                                     <Label htmlFor="communeDocCount">Tổng số VBQPPL đã ban hành</Label>
@@ -933,6 +951,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     );
 };
 
+// --- KẾT THÚC KHỐI MÃ THAY THẾ ---
 
 export default function SelfAssessmentPage() {
   const router = useRouter();
@@ -976,12 +995,12 @@ export default function SelfAssessmentPage() {
 
   const [assessmentData, setAssessmentData] = useState<AssessmentValues>(() => initializeState(criteria, myAssessment?.assessmentData));
   
-    const filesPerDocRef = React.useRef<any>();
-    if (criteria.length > 0) {
-        const firstIndicatorId = criteria[0].indicators[0].id;
-        filesPerDocRef.current = assessmentData[firstIndicatorId]?.filesPerDocument;
-    }
-    
+  const filesPerDocRef = React.useRef<any>();
+  if (criteria.length > 0) {
+      const firstIndicatorId = criteria[0].indicators[0].id;
+      filesPerDocRef.current = assessmentData[firstIndicatorId]?.filesPerDocument;
+  }
+  
   useEffect(() => {
     if (myAssessment?.assessmentData) {
         setAssessmentData(initializeState(criteria, myAssessment.assessmentData));
@@ -1196,7 +1215,7 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
     } finally {
         setIsSubmitting(false);
     }
-  }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast, criteria]);
+  }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast]);
   
 
     useEffect(() => {
@@ -1524,4 +1543,3 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
     </>
   );
 }
-
