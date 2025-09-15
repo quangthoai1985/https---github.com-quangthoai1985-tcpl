@@ -736,13 +736,13 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     React.useEffect(() => {
         // Chỉ chạy khi Admin ấn định số lượng và xã chưa tự nhập
         const adminCount = criterion.assignedDocumentsCount || 0;
-        if (adminCount > 0 && communeDefinedDocs.length !== adminCount) {
+        if (assignmentType === 'quantity' && adminCount > 0 && communeDefinedDocs.length !== adminCount) {
             const newDocs = Array.from({ length: adminCount }, (_, i) => {
                 return communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
             });
             setCommuneDefinedDocs(newDocs);
         }
-    }, [criterion.assignedDocumentsCount, communeDefinedDocs]); // Phụ thuộc vào số lượng admin giao
+    }, [criterion.assignedDocumentsCount, assignmentType]); // Phụ thuộc vào số lượng admin giao
 
     const handleDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const count = Math.max(0, Number(e.target.value));
@@ -783,7 +783,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                 communeDefinedDocuments: communeDefinedDocs
             });
         }
-    }, [communeDefinedDocs, firstIndicatorId, onValueChange]);
+    }, [communeDefinedDocs]);
 
 
     const handleUploadComplete = (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => {
@@ -819,21 +819,66 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
             {!isNotTasked && (
                  <div className="grid gap-8">
                     {assignmentType === 'quantity' && (
-                        <div>
-                            <Card className="bg-blue-50/50 border border-blue-200">
-                                <CardHeader>
-                                    <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Giao nhiệm vụ theo số lượng</CardTitle>
-                                    {criterion.assignedDocumentsCount && criterion.assignedDocumentsCount > 0 ? (
-                                        <CardDescription>Admin đã ấn định số lượng văn bản cần ban hành là <strong>{criterion.assignedDocumentsCount}</strong>. Vui lòng nhập chi tiết thông tin và cung cấp minh chứng cho từng văn bản.</CardDescription>
-                                    ) : (
-                                        <CardDescription>Admin yêu cầu xã tự nhập số lượng văn bản đã ban hành và cung cấp thông tin chi tiết.</CardDescription>
-                                    )}
-                                </CardHeader>
-                            </Card>
-                        </div>
+                        <Card className="bg-background border border-gray-200">
+                            <CardHeader>
+                                <CardTitle className="text-base text-primary flex items-center gap-2">
+                                    <ListChecks /> Thông tin nhiệm vụ được giao
+                                </CardTitle>
+                                <CardDescription>
+                                    Vui lòng kê khai thông tin các văn bản đã được ban hành trong kỳ.
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {(!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) && (
+                                    <div className="grid gap-2">
+                                        <Label htmlFor="communeDocCount">Tổng số VBQPPL đã ban hành</Label>
+                                        <Input 
+                                            id="communeDocCount" 
+                                            type="number" 
+                                            value={communeDefinedDocs.length} 
+                                            onChange={handleDocCountChange}
+                                            placeholder="Nhập số lượng" 
+                                            className="w-48"
+                                        />
+                                    </div>
+                                )}
+                    
+                                {criterion.assignedDocumentsCount && criterion.assignedDocumentsCount > 0 && (
+                                    <div className="text-sm font-medium">
+                                        Số lượng văn bản cần kê khai theo nhiệm vụ: 
+                                        <Badge variant="secondary" className="ml-2">{criterion.assignedDocumentsCount}</Badge>
+                                    </div>
+                                )}
+                                
+                                <div className="space-y-4 pt-4 border-t">
+                                    {communeDefinedDocs.map((doc, index) => (
+                                        <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4 p-3 border rounded-md bg-blue-50/50">
+                                            <div className="col-span-full font-semibold text-primary">Văn bản {index + 1}</div>
+                                            
+                                            <div className="grid gap-1.5">
+                                                <Label htmlFor={`doc-name-${index}`}>Tên văn bản QPPL</Label>
+                                                <Input id={`doc-name-${index}`} value={doc.name} onChange={(e) => handleDocDetailChange(index, 'name', e.target.value)} />
+                                            </div>
+                                            <div className="grid gap-1.5">
+                                                <Label htmlFor={`doc-excerpt-${index}`}>Trích yếu nội dung</Label>
+                                                <Input id={`doc-excerpt-${index}`} value={doc.excerpt} onChange={(e) => handleDocDetailChange(index, 'excerpt', e.target.value)} />
+                                            </div>
+                                            <div className="grid gap-1.5">
+                                                <Label htmlFor={`doc-issuedate-${index}`}>Ngày ban hành (DD/MM/YYYY)</Label>
+                                                <Input id={`doc-issuedate-${index}`} value={doc.issueDate} onChange={(e) => handleDocDetailChange(index, 'issueDate', e.target.value)} />
+                                            </div>
+                                            <div className="grid gap-1.5">
+                                                <Label htmlFor={`doc-deadline-${index}`}>Thời hạn ban hành (số ngày)</Label>
+                                                <Input type="number" id={`doc-deadline-${index}`} value={doc.issuanceDeadlineDays} onChange={(e) => handleDocDetailChange(index, 'issuanceDeadlineDays', Number(e.target.value))} />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
                     )}
                     {(assignmentType === 'specific' || !assignmentType) && (
-                        <div className="space-y-8">
+                        <>
                             <Card className="bg-blue-50/50 border border-blue-200">
                                 <CardHeader>
                                     <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao từ Admin</CardTitle>
@@ -969,7 +1014,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                      )
                                 })}
                             </div>
-                        </div>
+                        </>
                     )}
                 </div>
             )}
