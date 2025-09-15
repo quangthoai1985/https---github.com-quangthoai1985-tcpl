@@ -617,7 +617,7 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
     return sanitizedData;
 };
 
-const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadComplete, onRemove, onPreview, periodId, communeId }: {
+const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadComplete, onRemove, onPreview, periodId, communeId, accept }: {
     indicatorId: string;
     docIndex: number;
     evidence: FileWithStatus[];
@@ -626,6 +626,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
     onPreview: (file: { name: string; url: string; }) => void;
     periodId: string;
     communeId: string;
+    accept?: string;
 }) => {
     const { storage } = useData();
     const { toast } = useToast();
@@ -659,7 +660,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
                 <p className="mt-1 text-xs text-muted-foreground">
                    Nhấn để chọn tệp
                 </p>
-                <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileSelect} accept=".pdf" disabled={isUploading} />
+                <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileSelect} accept={accept} disabled={isUploading} />
                  {isUploading && <div className="absolute inset-0 bg-background/50 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin" /></div>}
             </div>
 
@@ -723,8 +724,8 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
         }
         return [];
     });
+    
     React.useEffect(() => {
-        // Chỉ chạy khi Admin ấn định số lượng và xã chưa tự nhập
         const adminCount = criterion.assignedDocumentsCount || 0;
         if (criterion.assignmentType === 'quantity' && adminCount > 0 && communeDefinedDocs.length !== adminCount) {
             const newDocs = Array.from({ length: adminCount }, (_, i) => {
@@ -732,7 +733,8 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
             });
             setCommuneDefinedDocs(newDocs);
         }
-    }, [criterion.assignedDocumentsCount, criterion.assignmentType, communeDefinedDocs]);
+    }, [criterion.assignedDocumentsCount, criterion.assignmentType, communeDefinedDocs.length]);
+
     const handleDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const count = Math.max(0, Number(e.target.value));
         const newDocs = Array.from({ length: count }, (_, i) => {
@@ -740,22 +742,21 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
         });
         setCommuneDefinedDocs(newDocs);
     };
+
     const handleDocDetailChange = (index: number, field: string, value: string | number) => {
         const newDocs = [...communeDefinedDocs];
         (newDocs[index] as any)[field] = value;
         setCommuneDefinedDocs(newDocs);
     };
+
     if (!criterion || !assessmentData || !firstIndicatorId) {
       return null; 
     }
     
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
     const assignmentType = criterion.assignmentType || 'specific';
-
-    // State for quantity mode
     
     React.useEffect(() => {
-        // Gọi hàm chuyên dụng để cập nhật đúng trường dữ liệu
         if (firstIndicatorId) {
             handleCommuneDocsChange(firstIndicatorId, communeDefinedDocs);
         }
@@ -777,9 +778,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
             filesPerDocRef.current = firstIndicatorData.filesPerDocument;
         }
     }, [assessmentData, handleSaveDraft, firstIndicatorId]);
-
-    
-
 
     const handleUploadComplete = (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => {
         const currentFiles = assessmentData[indicatorId]?.filesPerDocument?.[docIndex] || [];
@@ -845,51 +843,62 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                     </div>
                                 )}
                                 
-                                <div className="space-y-4 pt-4 border-t">
-                                    {communeDefinedDocs.map((doc, index) => (
-                                        <div key={index} className="p-3 border rounded-lg grid gap-4 bg-background shadow-sm">
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div className="col-span-full font-semibold text-primary">Văn bản {index + 1}</div>
-                                                
-                                                <div className="grid gap-1.5">
-                                                    <Label htmlFor={`doc-name-${index}`}>Tên văn bản QPPL</Label>
-                                                    <Input id={`doc-name-${index}`} value={doc.name} onChange={(e) => handleDocDetailChange(index, 'name', e.target.value)} />
-                                                </div>
-                                                <div className="grid gap-1.5">
-                                                    <Label htmlFor={`doc-excerpt-${index}`}>Trích yếu nội dung</Label>
-                                                    <Input id={`doc-excerpt-${index}`} value={doc.excerpt} onChange={(e) => handleDocDetailChange(index, 'excerpt', e.target.value)} />
-                                                </div>
-                                                <div className="grid gap-1.5">
-                                                    <Label htmlFor={`doc-issuedate-${index}`}>Ngày ban hành (DD/MM/YYYY)</Label>
-                                                    <Input id={`doc-issuedate-${index}`} value={doc.issueDate} onChange={(e) => handleDocDetailChange(index, 'issueDate', e.target.value)} />
-                                                </div>
-                                                <div className="grid gap-1.5">
-                                                    <Label htmlFor={`doc-deadline-${index}`}>Thời hạn ban hành (số ngày)</Label>
-                                                    <Input type="number" id={`doc-deadline-${index}`} value={doc.issuanceDeadlineDays} onChange={(e) => handleDocDetailChange(index, 'issuanceDeadlineDays', Number(e.target.value))} />
-                                                </div>
-                                            </div>
+                                {communeDefinedDocs.length > 0 && (
+                                     <div className="space-y-4 pt-4 border-t">
+                                        <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
+                                            <AlertTriangle className="h-4 w-4" />
+                                            <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
+                                            <AlertDescription>
+                                                Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số và ngày ký để đối chiếu với thời hạn ban hành.
+                                            </AlertDescription>
+                                        </Alert>
 
-                                            {doc.name && (
-                                                <div className="mt-2 pt-4 border-t border-dashed">
-                                                    <Label className="font-medium text-center text-sm block mb-2">
-                                                        Minh chứng cho VB: <span className="font-bold text-primary">{doc.name}</span>
-                                                    </Label>
+                                        {communeDefinedDocs.map((doc, index) => (
+                                            <div key={index} className="p-3 border rounded-lg grid gap-4 bg-background shadow-sm">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                    <div className="col-span-full font-semibold text-primary">Văn bản {index + 1}</div>
                                                     
-                                                    <Criterion1EvidenceUploader
-                                                        indicatorId={firstIndicatorId}
-                                                        docIndex={index}
-                                                        evidence={assessmentData[firstIndicatorId]?.filesPerDocument?.[index] || []}
-                                                        onUploadComplete={handleUploadComplete}
-                                                        onRemove={handleRemoveFile}
-                                                        onPreview={onPreview}
-                                                        periodId={periodId}
-                                                        communeId={communeId}
-                                                    />
+                                                    <div className="grid gap-1.5">
+                                                        <Label htmlFor={`doc-name-${index}`}>Tên văn bản QPPL</Label>
+                                                        <Input id={`doc-name-${index}`} value={doc.name} onChange={(e) => handleDocDetailChange(index, 'name', e.target.value)} />
+                                                    </div>
+                                                    <div className="grid gap-1.5">
+                                                        <Label htmlFor={`doc-excerpt-${index}`}>Trích yếu nội dung</Label>
+                                                        <Input id={`doc-excerpt-${index}`} value={doc.excerpt} onChange={(e) => handleDocDetailChange(index, 'excerpt', e.target.value)} />
+                                                    </div>
+                                                    <div className="grid gap-1.5">
+                                                        <Label htmlFor={`doc-issuedate-${index}`}>Ngày ban hành (DD/MM/YYYY)</Label>
+                                                        <Input id={`doc-issuedate-${index}`} value={doc.issueDate} onChange={(e) => handleDocDetailChange(index, 'issueDate', e.target.value)} />
+                                                    </div>
+                                                    <div className="grid gap-1.5">
+                                                        <Label htmlFor={`doc-deadline-${index}`}>Thời hạn ban hành (số ngày)</Label>
+                                                        <Input type="number" id={`doc-deadline-${index}`} value={doc.issuanceDeadlineDays} onChange={(e) => handleDocDetailChange(index, 'issuanceDeadlineDays', Number(e.target.value))} />
+                                                    </div>
                                                 </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
+    
+                                                {doc.name && (
+                                                    <div className="mt-2 pt-4 border-t border-dashed">
+                                                        <Label className="font-medium text-center text-sm block mb-2">
+                                                            Minh chứng cho VB: <span className="font-bold text-primary">{doc.name}</span>
+                                                        </Label>
+                                                        
+                                                        <Criterion1EvidenceUploader
+                                                            indicatorId={firstIndicatorId}
+                                                            docIndex={index}
+                                                            evidence={assessmentData[firstIndicatorId]?.filesPerDocument?.[index] || []}
+                                                            onUploadComplete={handleUploadComplete}
+                                                            onRemove={handleRemoveFile}
+                                                            onPreview={onPreview}
+                                                            periodId={periodId}
+                                                            communeId={communeId}
+                                                            accept=".pdf"
+                                                        />
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                     </div>
+                                )}
                             </CardContent>
                         </Card>
                     ) : (
@@ -1009,6 +1018,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                                     onPreview={onPreview}
                                                                     periodId={periodId}
                                                                     communeId={communeId}
+                                                                    accept=".pdf"
                                                                  />
                                                              </div>
                                                          ))}
