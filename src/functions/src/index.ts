@@ -221,7 +221,7 @@ function translateErrorMessage(englishError: string): string {
 }
 
 
-// --- BẮT ĐẦU KHỐI MÃ THAY THẾ HÀM VERIFYPDFSIGNATURE ---
+// --- BẮT ĐẦU KHỐI MÃ THAY THẾ TOÀN BỘ HÀM VERIFYPDFSIGNATURE ---
 
 export const verifyPDFSignature = onObjectFinalized(async (event) => {
     const fileBucket = event.data.bucket;
@@ -229,7 +229,6 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
     const contentType = event.data.contentType;
     const fileName = filePath.split('/').pop() || 'unknownfile';
 
-    // Các hàm phụ trợ bên trong
     const saveCheckResult = async (status: "valid" | "expired" | "error", reason?: string, signingTime?: Date | null, deadline?: Date, signerName?: string) => {
         await db.collection('signature_checks').add({
             fileName: fileName,
@@ -243,16 +242,22 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
         });
     };
     
-    const { communeId, periodId, indicatorId, docIndex } = parseAssessmentPath(filePath) || {};
-    if (!communeId || !periodId || !indicatorId || docIndex === undefined) {
-        logger.log(`File path ${filePath} does not match required structure. Skipping.`);
+    if (!contentType || !contentType.startsWith('application/pdf')) return null;
+    
+    const pathInfo = parseAssessmentPath(filePath);
+    if (!pathInfo || !pathInfo.indicatorId.startsWith('CT1.')) {
+        logger.log(`File ${filePath} does not match Criterion 1 structure. Skipping.`);
         return null;
     }
-    
+
+    const { communeId, periodId, indicatorId, docIndex } = pathInfo;
     const assessmentId = `assess_${periodId}_${communeId}`;
     const assessmentRef = db.collection('assessments').doc(assessmentId);
 
-    const updateAssessmentFileStatus = async (fileStatus: 'validating' | 'valid' | 'invalid' | 'error', reason?: string) => {
+    const updateAssessmentFileStatus = async (
+        fileStatus: 'validating' | 'valid' | 'invalid' | 'error',
+        reason?: string
+    ) => {
         const doc = await assessmentRef.get();
         if (!doc.exists) return;
         const data = doc.data();
@@ -288,22 +293,12 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
         }
     };
 
-
-    // Bắt đầu kiểm tra
-    if (!contentType || !contentType.startsWith('application/pdf')) return null;
-    
-    if (!pathInfo || !pathInfo.indicatorId.startsWith('CT1.')) {
-        logger.log(`File ${filePath} does not match Criterion 1 structure. Skipping.`);
-        return null;
-    }
-
-    // Báo cho frontend biết là đang kiểm tra file...
     await updateAssessmentFileStatus('validating');
 
     try {
-        // --- LOGIC MỚI BẮT ĐẦU TỪ ĐÂY ---
+        // === LOGIC NÂNG CẤP BẮT ĐẦU TỪ ĐÂY ===
 
-        // 1. Lấy dữ liệu của cả Tiêu chí và Hồ sơ đánh giá
+        // 1. Lấy dữ liệu của cả Tiêu chí (từ admin) và Hồ sơ đánh giá (từ xã)
         const criterionDoc = await db.collection('criteria').doc('TC01').get();
         const assessmentDoc = await assessmentRef.get();
 
@@ -313,14 +308,14 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
         const criterionData = criterionDoc.data();
         const assessmentData = assessmentDoc.data()?.assessmentData;
 
-        // 2. Xác định phương thức giao nhiệm vụ
+        // 2. Xác định phương thức giao nhiệm vụ mà Admin đã chọn
         const assignmentType = criterionData?.assignmentType || 'specific';
         logger.info(`Processing file for assignment type: ${assignmentType}`);
 
         let issueDate: Date;
         let deadline: Date;
 
-        // 3. Bắt đầu logic phân luồng để lấy đúng thông tin thời hạn
+        // 3. Phân luồng logic để lấy đúng thông tin thời hạn
         if (assignmentType === 'specific') {
             // -- TRƯỜNG HỢP 1: ADMIN GIAO CỤ THỂ --
             logger.info("Handling 'specific' assignment.");
@@ -344,7 +339,7 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
         
         logger.info(`Calculated deadline for ${fileName}: ${deadline.toISOString()}`);
 
-        // 4. Các bước còn lại giữ nguyên
+        // 4. Các bước trích xuất và so sánh chữ ký giữ nguyên
         const bucket = admin.storage().bucket(fileBucket);
         const [fileBuffer] = await bucket.file(filePath).download();
         
