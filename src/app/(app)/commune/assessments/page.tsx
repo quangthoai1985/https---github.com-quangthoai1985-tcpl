@@ -73,7 +73,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
     };
     
     const handleEvidenceRemove = (itemToRemove: FileWithStatus) => {
-        onEvidenceChange(indicatorId, [], docIndex, fileToRemove);
+        onEvidenceChange(indicatorId, [], docIndex, itemToRemove);
     };
 
     const handleAddLink = () => {
@@ -556,7 +556,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                 setCommuneDefinedDocs(newDocs);
             }
         }
-    }, [criterion.assignedDocumentsCount, assignmentType, communeDefinedDocs]); // Chạy lại khi số lượng admin giao thay đổi
+    }, [criterion.assignedDocumentsCount, assignmentType, communeDefinedDocs.length]);
 
     // Đồng bộ state cục bộ với state cha khi có thay đổi
     React.useEffect(() => {
@@ -1528,23 +1528,27 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
         </Card>
     </div>
 
-    <Dialog open={!!previewFile} onOpenChange={(open) => {
-        if (!open) {
-            if (previewFile?.isBlob && previewFile.url) {
-                URL.revokeObjectURL(previewFile.url);
+    <Dialog 
+        open={!!previewFile} 
+        onOpenChange={(open) => {
+            if (!open) {
+                // Quan trọng: Thu hồi Blob URL để tránh rò rỉ bộ nhớ khi đóng popup
+                if (previewFile?.isBlob && previewFile.url) {
+                    URL.revokeObjectURL(previewFile.url);
+                }
+                setPreviewFile(null);
             }
-            setPreviewFile(null);
-        }
-    }}>
+        }}
+    >
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
             <DialogHeader className="p-6 pb-0">
                 <DialogTitle>Xem trước: {previewFile?.name}</DialogTitle>
             </DialogHeader>
             <div className="flex-1 px-6 pb-6 h-full flex items-center justify-center">
                 {previewFile?.isLoading ? (
-                    <div className="flex flex-col items-center gap-2">
-                        <Loader2 className="h-8 w-8 animate-spin" />
-                        <span>Đang tải dữ liệu xem trước...</span>
+                    <div className="text-center">
+                        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
+                        <p>Đang tải bản xem trước...</p>
                     </div>
                 ) : (
                    <iframe 
@@ -1555,7 +1559,9 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
                 )}
             </div>
             <DialogFooter className="p-6 pt-0 border-t">
-                 <Button variant="secondary" onClick={() => window.open(previewFile?.url, '_blank')} disabled={!previewFile || previewFile.isLoading}><Download className="mr-2 h-4 w-4"/> Tải xuống</Button>
+                 <Button variant="secondary" onClick={() => window.open(previewFile?.url, '_blank')} disabled={previewFile?.isLoading}>
+                    <Download className="mr-2 h-4 w-4"/> Tải xuống
+                 </Button>
                 <Button variant="outline" onClick={() => setPreviewFile(null)}>Đóng</Button>
             </DialogFooter>
         </DialogContent>
@@ -1564,3 +1570,4 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
   );
 }
 
+    
