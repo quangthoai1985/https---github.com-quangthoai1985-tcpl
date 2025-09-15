@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -732,6 +731,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
         }
         return [];
     });
+    
     React.useEffect(() => {
         // Chỉ chạy khi Admin ấn định số lượng và xã chưa tự nhập
         const adminCount = criterion.assignedDocumentsCount || 0;
@@ -741,7 +741,22 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
             });
             setCommuneDefinedDocs(newDocs);
         }
-    }, [criterion.assignedDocumentsCount]); // Phụ thuộc vào số lượng admin giao
+    }, [criterion.assignedDocumentsCount, communeDefinedDocs]); // Phụ thuộc vào số lượng admin giao
+
+    const handleDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const count = Math.max(0, Number(e.target.value));
+        const newDocs = Array.from({ length: count }, (_, i) => {
+            return communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
+        });
+        setCommuneDefinedDocs(newDocs);
+    };
+
+    const handleDocDetailChange = (index: number, field: string, value: string | number) => {
+        const newDocs = [...communeDefinedDocs];
+        (newDocs[index] as any)[field] = value;
+        setCommuneDefinedDocs(newDocs);
+    };
+
 
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
         const notTasked = checked === true;
@@ -761,7 +776,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
 
     useEffect(() => {
         onValueChange(firstIndicatorId, { ...(assessmentData[firstIndicatorId].value || {}), communeDefinedDocuments: communeDefinedDocs });
-    }, [communeDefinedDocs]);
+    }, [communeDefinedDocs, firstIndicatorId, onValueChange]);
 
 
     const handleUploadComplete = (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => {
@@ -811,7 +826,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                         </div>
                     )}
                     {(assignmentType === 'specific' || !assignmentType) && (
-                        <>
+                        <div className="space-y-8">
                             <Card className="bg-blue-50/50 border border-blue-200">
                                 <CardHeader>
                                     <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao từ Admin</CardTitle>
@@ -947,7 +962,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                      )
                                 })}
                             </div>
-                        </>
+                        </div>
                     )}
                 </div>
             )}
