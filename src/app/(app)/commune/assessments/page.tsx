@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -724,8 +725,6 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
     )
 }
 
-// --- BẮT ĐẦU KHỐI MÃ THAY THẾ TOÀN BỘ COMPONENT ---
-
 const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, communeId, handleCommuneDocsChange }: {
     criterion: Criterion;
     assessmentData: AssessmentValues;
@@ -934,7 +933,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     );
 };
 
-// --- KẾT THÚC KHỐI MÃ THAY THẾ ---
 
 export default function SelfAssessmentPage() {
   const router = useRouter();
@@ -978,7 +976,7 @@ export default function SelfAssessmentPage() {
 
   const [assessmentData, setAssessmentData] = useState<AssessmentValues>(() => initializeState(criteria, myAssessment?.assessmentData));
   
-  const filesPerDocRef = React.useRef<any>();
+    const filesPerDocRef = React.useRef<any>();
     if (criteria.length > 0) {
         const firstIndicatorId = criteria[0].indicators[0].id;
         filesPerDocRef.current = assessmentData[firstIndicatorId]?.filesPerDocument;
@@ -992,7 +990,7 @@ export default function SelfAssessmentPage() {
 
   const specialLogicIndicatorIds = React.useMemo(() => getSpecialLogicIndicatorIds(criteria), [criteria]);
 
-  const findIndicator = (indicatorId: string) => {
+  const findIndicator = useCallback((indicatorId: string) => {
     for (const c of criteria) {
         for (const i of (c.indicators || [])) {
             if (i.id === indicatorId) return i;
@@ -1003,26 +1001,25 @@ export default function SelfAssessmentPage() {
         }
     }
     return null;
-  }
+  }, [criteria])
 
-  const handleIsTaskedChange = (indicatorId: string, isTasked: boolean) => {
+  const handleIsTaskedChange = useCallback((indicatorId: string, isTasked: boolean) => {
     const indicator = findIndicator(indicatorId);
-    if (indicator) {
-        const valueToEvaluate = isTasked ? assessmentData[indicatorId].value : null;
-        
-        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
-        let assignedCount: number | undefined = undefined;
+    if (!indicator) return;
 
+    setAssessmentData(prev => {
+        const valueToEvaluate = isTasked ? prev[indicatorId].value : null;
+        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
+        let assignedCount;
         if (parentCriterion?.id === 'TC01') {
             assignedCount = parentCriterion.assignedDocumentsCount;
-        } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) { 
+        } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
             assignedCount = criteria[0]?.assignedDocumentsCount;
         }
-
-        const filesPerDocument = parentCriterion?.id === 'TC01' ? assessmentData[indicatorId].filesPerDocument : undefined;
-        
+        const filesPerDocument = parentCriterion?.id === 'TC01' ? prev[indicatorId].filesPerDocument : undefined;
         const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, isTasked, assignedCount, filesPerDocument);
-        setAssessmentData(prev => ({
+
+        return {
             ...prev,
             [indicatorId]: {
                 ...prev[indicatorId],
@@ -1032,41 +1029,38 @@ export default function SelfAssessmentPage() {
                 files: isTasked ? prev[indicatorId].files : [],
                 filesPerDocument: isTasked ? prev[indicatorId].filesPerDocument : {},
             }
-        }));
-    }
-  }
+        };
+    });
+}, [criteria, findIndicator]); // Phụ thuộc vào criteria và findIndicator
 
-
-  const handleValueChange = (indicatorId: string, value: any) => {
+const handleValueChange = useCallback((indicatorId: string, value: any) => {
     const indicator = findIndicator(indicatorId);
-    if (indicator) {
-        const isTasked = assessmentData[indicatorId].isTasked;
-        
+    if (!indicator) return;
+
+    setAssessmentData(prev => {
+        const isTasked = prev[indicatorId].isTasked;
         const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
-        let assignedCount: number | undefined = undefined;
-        
+        let assignedCount;
         if (parentCriterion?.id === 'TC01') {
             assignedCount = parentCriterion.assignedDocumentsCount;
         } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
             assignedCount = criteria[0]?.assignedDocumentsCount;
         }
+        const filesPerDocument = parentCriterion?.id === 'TC01' ? prev[indicatorId].filesPerDocument : undefined;
+        const newStatus = evaluateStatus(value, indicator.standardLevel, isTasked, assignedCount, filesPerDocument);
 
-        const filesPerDocument = parentCriterion?.id === 'TC01' ? assessmentData[indicatorId].filesPerDocument : undefined;
-        
-        let newStatus = evaluateStatus(value, indicator.standardLevel, isTasked, assignedCount, filesPerDocument);
-        
-        setAssessmentData(prev => ({
+        return {
             ...prev,
             [indicatorId]: {
                 ...prev[indicatorId],
                 value: value,
                 status: newStatus
             }
-        }));
-    }
-  };
-  
-    const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
+        };
+    });
+}, [criteria, findIndicator]); // Phụ thuộc vào criteria và findIndicator
+
+const handleCommuneDocsChange = useCallback((indicatorId: string, docs: any[]) => {
     setAssessmentData(prev => ({
         ...prev,
         [indicatorId]: {
@@ -1074,9 +1068,9 @@ export default function SelfAssessmentPage() {
             communeDefinedDocuments: docs,
         }
     }));
-};
+}, []); // Không có phụ thuộc ngoài
 
-  const handleNoteChange = (indicatorId: string, note: string) => {
+const handleNoteChange = useCallback((indicatorId: string, note: string) => {
     setAssessmentData(prev => ({
         ...prev,
         [indicatorId]: {
@@ -1084,32 +1078,32 @@ export default function SelfAssessmentPage() {
             note: note,
         }
     }));
-  };
+}, []); // Không có phụ thuộc ngoài
 
+const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
+    setAssessmentData(prev => {
+      const newData = {...prev};
+      const currentIndicatorData = newData[indicatorId];
 
-  const handleEvidenceChange = (indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
-      setAssessmentData(prev => {
-        const newData = {...prev};
-        const currentIndicatorData = newData[indicatorId];
+      if (docIndex !== undefined) { 
+          const newFilesPerDoc = {...currentIndicatorData.filesPerDocument};
+          if(fileToRemove) {
+               newFilesPerDoc[docIndex] = (newFilesPerDoc[docIndex] || []).filter(f => f.name !== fileToRemove.name);
+          } else {
+               newFilesPerDoc[docIndex] = [...(newFilesPerDoc[docIndex] || []), ...newFiles];
+          }
+          newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
+      } else { 
+          if (fileToRemove) {
+               newData[indicatorId] = { ...currentIndicatorData, files: currentIndicatorData.files.filter(f => f.name !== fileToRemove.name) };
+          } else {
+              newData[indicatorId] = { ...currentIndicatorData, files: [...currentIndicatorData.files, ...newFiles] };
+          }
+      }
+      return newData;
+  })
+}, []); // Không có phụ thuộc ngoài
 
-        if (docIndex !== undefined) { 
-            const newFilesPerDoc = {...currentIndicatorData.filesPerDocument};
-            if(fileToRemove) {
-                 newFilesPerDoc[docIndex] = (newFilesPerDoc[docIndex] || []).filter(f => f.name !== fileToRemove.name);
-            } else {
-                 newFilesPerDoc[docIndex] = [...(newFilesPerDoc[docIndex] || []), ...newFiles];
-            }
-            newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
-        } else { 
-            if (fileToRemove) {
-                 newData[indicatorId] = { ...currentIndicatorData, files: currentIndicatorData.files.filter(f => f.name !== fileToRemove.name) };
-            } else {
-                newData[indicatorId] = { ...currentIndicatorData, files: [...currentIndicatorData.files, ...newFiles] };
-            }
-        }
-        return newData;
-    })
-  }
 
   const uploadEvidenceFiles = async (communeId: string, periodId: string): Promise<Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }>> => {
     if (!storage) throw new Error("Firebase Storage is not initialized.");
@@ -1530,3 +1524,4 @@ export default function SelfAssessmentPage() {
     </>
   );
 }
+
