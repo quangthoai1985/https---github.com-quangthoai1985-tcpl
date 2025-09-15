@@ -726,7 +726,12 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     const assignmentType = criterion.assignmentType || 'specific';
 
     // State for quantity mode
-    const [communeDefinedDocs, setCommuneDefinedDocs] = useState(() => assessmentData[firstIndicatorId]?.communeDefinedDocuments || []);
+    const [communeDefinedDocs, setCommuneDefinedDocs] = React.useState(() => {
+        if (firstIndicatorId && assessmentData[firstIndicatorId]?.communeDefinedDocuments) {
+            return assessmentData[firstIndicatorId].communeDefinedDocuments;
+        }
+        return [];
+    });
 
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
         const notTasked = checked === true;
@@ -781,7 +786,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
 
             {!isNotTasked && (
                  <div className="grid gap-8">
-                    {assignmentType === 'specific' ? (
+                    {(assignmentType === 'specific' || !assignmentType) && (
                         <>
                             <Card className="bg-blue-50/50 border border-blue-200">
                                 <CardHeader>
@@ -919,7 +924,8 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                 })}
                             </div>
                         </>
-                    ) : (
+                    )}
+                    {assignmentType === 'quantity' && (
                          <Card className="bg-blue-50/50 border border-blue-200">
                              <CardHeader>
                                 <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Giao nhiệm vụ theo số lượng</CardTitle>
