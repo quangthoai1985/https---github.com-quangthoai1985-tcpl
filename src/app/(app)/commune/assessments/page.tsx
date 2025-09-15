@@ -736,7 +736,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     onPreview: (file: { name: string; url: string; }) => void;
     periodId: string;
     communeId: string;
-    onCommuneDocsChange: (indicatorId: string, index: number, field: string, value: string | number) => void;
+    onCommuneDocsChange: (indicatorId: string, docs: any[]) => void;
 }) => {
     const firstIndicatorId = criterion.indicators[0]?.id;
     if (!firstIndicatorId) return null;
@@ -744,13 +744,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
     const assignmentType = criterion.assignmentType || 'specific';
 
-    const docsToRender = useMemo(() => {
-        if (assignmentType === 'specific') {
-            return criterion.documents || [];
-        }
-        return assessmentData[firstIndicatorId]?.communeDefinedDocuments || [];
-    }, [assignmentType, criterion.documents, assessmentData, firstIndicatorId]);
-    
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
         const notTasked = checked === true;
         criterion.indicators.forEach(indicator => {
@@ -765,6 +758,34 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     
     const handleRemoveFile = (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => {
         onEvidenceChange(indicatorId, [], docIndex, fileToRemove);
+    }
+
+    const docsToRender = useMemo(() => {
+        if (assignmentType === 'specific') {
+            return criterion.documents || [];
+        }
+        return assessmentData[firstIndicatorId]?.communeDefinedDocuments || [];
+    }, [assignmentType, criterion.documents, assessmentData, firstIndicatorId]);
+
+    const handleDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const count = Number(e.target.value);
+        let newDocs = [...docsToRender];
+        if (count > newDocs.length) {
+            for (let i = 0; i < count - newDocs.length; i++) {
+                newDocs.push({ name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
+            }
+        } else {
+            newDocs.length = count;
+        }
+        onCommuneDocsChange(firstIndicatorId, newDocs);
+    }
+
+    const handleDocFieldChange = (index: number, field: string, value: string | number) => {
+        const newDocs = [...docsToRender];
+        if (newDocs[index]) {
+            (newDocs[index] as any)[field] = value;
+            onCommuneDocsChange(firstIndicatorId, newDocs);
+        }
     }
 
     return (
@@ -791,28 +812,30 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                      <Card className="bg-blue-50/50 border border-blue-200">
                         <CardHeader>
                             <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao</CardTitle>
-                            {assignmentType === 'quantity' && (!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) && (
-                                <CardDescription>Vui lòng kê khai số lượng và thông tin các văn bản đã được ban hành trong kỳ.</CardDescription>
-                            )}
                         </CardHeader>
                         <CardContent className="space-y-4">
-                            {assignmentType === 'quantity' && (!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) && (
-                                <div className="grid gap-2">
-                                    <Label htmlFor="communeDocCount">Tổng số VBQPPL đã ban hành</Label>
+                            {assignmentType === 'quantity' && (!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) ? (
+                                 <div className="grid gap-2">
+                                    <Label htmlFor="communeDocCount">Tổng số VBQPPL đã ban hành trong kỳ</Label>
                                     <Input 
                                         id="communeDocCount" 
                                         type="number" 
-                                        value={docsToRender?.length || ''} 
-                                        onChange={(e) => onCommuneDocsChange(firstIndicatorId, Number(e.target.value), 'count', Number(e.target.value))} 
+                                        value={docsToRender.length || ''} 
+                                        onChange={handleDocCountChange} 
                                         placeholder="Nhập số lượng" 
                                         className="w-48"
                                     />
+                                    <p className="text-xs text-muted-foreground">Nhập tổng số văn bản để kê khai chi tiết bên dưới.</p>
                                 </div>
+                            ) : (
+                                <p className="text-sm text-muted-foreground">
+                                    Admin đã giao cụ thể <strong>{criterion.assignedDocumentsCount || 0}</strong> văn bản. Vui lòng xem chi tiết bên dưới và cung cấp minh chứng tương ứng cho từng văn bản.
+                                </p>
                             )}
 
-                            {(docsToRender || []).length > 0 && (
+                            {(docsToRender.length > 0) && (
                                 <div className="space-y-4 pt-4 border-t">
-                                    {docsToRender.map((doc: any, index: number) => (
+                                    {docsToRender.map((doc, index) => (
                                         <div key={index} className="p-3 border rounded-lg grid gap-4 bg-background shadow-sm">
                                             <div className="col-span-full font-semibold text-primary">Văn bản {index + 1}</div>
                                              {assignmentType === 'specific' ? (
@@ -824,10 +847,10 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                 </div>
                                              ) : (
                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    <div className="grid gap-1.5"><Label htmlFor={`doc-name-${index}`}>Tên văn bản QPPL</Label><Input id={`doc-name-${index}`} value={doc.name} onChange={(e) => onCommuneDocsChange(firstIndicatorId, index, 'name', e.target.value)} /></div>
-                                                    <div className="grid gap-1.5"><Label htmlFor={`doc-excerpt-${index}`}>Trích yếu nội dung</Label><Input id={`doc-excerpt-${index}`} value={doc.excerpt} onChange={(e) => onCommuneDocsChange(firstIndicatorId, index, 'excerpt', e.target.value)} /></div>
-                                                    <div className="grid gap-1.5"><Label htmlFor={`doc-issuedate-${index}`}>Ngày ban hành (DD/MM/YYYY)</Label><Input id={`doc-issuedate-${index}`} value={doc.issueDate} onChange={(e) => onCommuneDocsChange(firstIndicatorId, index, 'issueDate', e.target.value)} /></div>
-                                                    <div className="grid gap-1.5"><Label htmlFor={`doc-deadline-${index}`}>Thời hạn ban hành (số ngày)</Label><Input type="number" id={`doc-deadline-${index}`} value={doc.issuanceDeadlineDays} onChange={(e) => onCommuneDocsChange(firstIndicatorId, index, 'issuanceDeadlineDays', Number(e.target.value))} /></div>
+                                                    <div className="grid gap-1.5"><Label htmlFor={`doc-name-${index}`}>Tên văn bản QPPL</Label><Input id={`doc-name-${index}`} value={doc.name} onChange={(e) => handleDocFieldChange(index, 'name', e.target.value)} /></div>
+                                                    <div className="grid gap-1.5"><Label htmlFor={`doc-excerpt-${index}`}>Trích yếu nội dung</Label><Input id={`doc-excerpt-${index}`} value={doc.excerpt} onChange={(e) => handleDocFieldChange(index, 'excerpt', e.target.value)} /></div>
+                                                    <div className="grid gap-1.5"><Label htmlFor={`doc-issuedate-${index}`}>Ngày ban hành (DD/MM/YYYY)</Label><Input id={`doc-issuedate-${index}`} value={doc.issueDate} onChange={(e) => handleDocFieldChange(index, 'issueDate', e.target.value)} /></div>
+                                                    <div className="grid gap-1.5"><Label htmlFor={`doc-deadline-${index}`}>Thời hạn ban hành (số ngày)</Label><Input type="number" id={`doc-deadline-${index}`} value={doc.issuanceDeadlineDays} onChange={(e) => handleDocFieldChange(index, 'issuanceDeadlineDays', Number(e.target.value))} /></div>
                                                 </div>
                                              )}
                                         </div>
@@ -841,8 +864,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                         {criterion.indicators.map((indicator, index) => {
                             const data = assessmentData[indicator.id];
                             if (!data) return null;
-
-                            const assignedCount = criterion.assignedDocumentsCount || docsToRender?.length || 0;
+                            const assignedCount = criterion.assignedDocumentsCount || docsToRender.length || 0;
                             const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
                             const isAchieved = progress >= 100;
                             const progressColor = isAchieved ? "bg-green-500" : "bg-yellow-500";
@@ -910,7 +932,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                         </AlertDescription>
                                                     </Alert>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                                                        {(docsToRender || []).map((doc: any, i: number) => (
+                                                        {(docsToRender).map((doc: any, i: number) => (
                                                             <div key={i} className="p-3 border rounded-lg grid gap-2 bg-background">
                                                                 <Label className="font-medium text-center text-sm">
                                                                     Minh chứng cho VB: <span className="font-bold text-primary">{doc.name || `Văn bản ${i + 1}`}</span>
@@ -1086,35 +1108,14 @@ export default function SelfAssessmentPage() {
     }
   };
   
-    const handleCommuneDocsChange = (indicatorId: string, index: number, field: string, value: string | number) => {
-        setAssessmentData(prev => {
-            const currentIndicatorData = prev[indicatorId] || {};
-            const newDocsData = [...(currentIndicatorData.communeDefinedDocuments || [])];
-            
-            if(field === 'count') {
-                const count = value as number;
-                const currentLength = newDocsData.length;
-                if (count > currentLength) {
-                    for (let i = 0; i < count - currentLength; i++) {
-                        newDocsData.push({ name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
-                    }
-                } else if (count < currentLength) {
-                    newDocsData.length = count;
-                }
-            } else {
-                if (newDocsData[index]) {
-                    (newDocsData[index] as any)[field] = value;
-                }
+    const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
+        setAssessmentData(prev => ({
+            ...prev,
+            [indicatorId]: {
+                ...prev[indicatorId],
+                communeDefinedDocuments: docs,
             }
-        
-            return {
-                ...prev,
-                [indicatorId]: {
-                    ...currentIndicatorData,
-                    communeDefinedDocuments: newDocsData,
-                }
-            };
-        });
+        }));
     };
 
   const handleNoteChange = (indicatorId: string, note: string) => {
@@ -1245,24 +1246,22 @@ export default function SelfAssessmentPage() {
     }
   }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast, criteria]);
   
-    const filesPerDocRef = React.useRef<any>();
-    if (criteria.length > 0) {
-        const firstIndicatorId = criteria[0].indicators[0].id;
-        if(assessmentData[firstIndicatorId]) {
-            filesPerDocRef.current = assessmentData[firstIndicatorId].filesPerDocument;
-        }
+  const filesPerDocRef = React.useRef<any>();
+  if (criteria.length > 0) {
+    const firstIndicatorId = criteria[0].indicators[0].id;
+    if (assessmentData[firstIndicatorId]) {
+        filesPerDocRef.current = assessmentData[firstIndicatorId].filesPerDocument;
     }
-  
-  useEffect(() => {
-      if (criteria.length === 0) return;
-      
-      const firstIndicatorId = criteria[0].indicators[0].id;
-      const firstIndicatorData = assessmentData[firstIndicatorId];
+  }
 
-      if (firstIndicatorData && JSON.stringify(filesPerDocRef.current) !== JSON.stringify(firstIndicatorData.filesPerDocument)) {
-          handleSaveDraft();
-          filesPerDocRef.current = firstIndicatorData.filesPerDocument;
-      }
+  useEffect(() => {
+    if (criteria.length === 0) return;
+    const firstIndicatorId = criteria[0].indicators[0].id;
+    const firstIndicatorData = assessmentData[firstIndicatorId];
+    if (firstIndicatorData && JSON.stringify(filesPerDocRef.current) !== JSON.stringify(firstIndicatorData.filesPerDocument)) {
+        handleSaveDraft();
+        filesPerDocRef.current = firstIndicatorData.filesPerDocument;
+    }
   }, [assessmentData, handleSaveDraft, criteria]);
 
 
