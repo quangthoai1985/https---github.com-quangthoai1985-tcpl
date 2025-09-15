@@ -15,7 +15,7 @@ import { useData } from "@/context/DataContext";
 import PageHeader from "@/components/layout/page-header";
 import type { Indicator, SubIndicator, Criterion, Assessment, IndicatorResult } from "@/lib/data";
 import { Textarea } from "@/components/ui/textarea";
-import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
+import { getDownloadURL, ref, uploadBytes, getBlob } from "firebase/storage";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -129,7 +129,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
             {evidence.length > 0 && (
                  <div className="space-y-2 mt-2">
                     {evidence.map((item, index) => (
-                        <div key={index} className="flex items-center justify-between gap-2 p-1.5 pl-2 bg-muted rounded-md text-sm">
+                        <div key={index} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm">
                             <div className="flex items-center gap-2 w-0 flex-1 min-w-0">
                                 {isLink(item) ? <LinkIcon className="h-4 w-4 flex-shrink-0 text-blue-500" /> : <FileIcon className="h-4 w-4 flex-shrink-0" />}
                                 <span className="truncate text-xs flex-1">{item.name}</span>
@@ -556,7 +556,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                 setCommuneDefinedDocs(newDocs);
             }
         }
-    }, [criterion.assignedDocumentsCount, assignmentType]); // Chạy lại khi số lượng admin giao thay đổi
+    }, [criterion.assignedDocumentsCount, assignmentType, communeDefinedDocs]); // Chạy lại khi số lượng admin giao thay đổi
 
     // Đồng bộ state cục bộ với state cha khi có thay đổi
     React.useEffect(() => {
@@ -954,7 +954,7 @@ export default function SelfAssessmentPage() {
   const { toast } = useToast();
   const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments, updateSingleAssessment } = useData();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
+  const [previewFile, setPreviewFile] = useState<{name: string, url: string, isLoading: boolean, isBlob: boolean} | null>(null);
   
   const initializeState = useCallback((criteria: Criterion[], existingData?: Record<string, IndicatorResult>): AssessmentValues => {
       const initialState: AssessmentValues = {};
@@ -1209,9 +1209,8 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
     } finally {
         setIsSubmitting(false);
     }
-  }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast, uploadEvidenceFiles, criteria]);
+  }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast, uploadEvidenceFiles]);
   
-
     useEffect(() => {
     if (criteria.length === 0 || !myAssessment) return;
     const firstIndicatorId = criteria[0].indicators[0].id;
@@ -1220,13 +1219,10 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
         JSON.stringify(filesPerDocRef.current) !== JSON.stringify(assessmentData[firstIndicatorId].filesPerDocument);
 
     if (hasChanged) {
-        // Gọi trực tiếp hàm lưu nháp mà không cần đưa vào dependency array
-        // để tránh vòng lặp khi chính hàm này thay đổi
         handleSaveDraft();
         filesPerDocRef.current = assessmentData[firstIndicatorId]?.filesPerDocument;
     }
-}, [assessmentData, criteria, myAssessment, handleSaveDraft]); // Chỉ phụ thuộc vào sự thay đổi của dữ liệu
-
+}, [assessmentData, criteria, myAssessment, handleSaveDraft]); 
 
   const { canSubmit, submissionErrors } = useMemo(() => {
     const errors: string[] = [];
@@ -1328,6 +1324,22 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
     }
     return hasPending ? 'pending' : 'achieved';
   };
+
+  const handlePreview = async (file: { name: string, url: string }) => {
+    if (!storage) return;
+    setPreviewFile({ name: file.name, url: '', isLoading: true, isBlob: false });
+
+    try {
+        const storageRef = ref(storage, file.url);
+        const blob = await getBlob(storageRef);
+        const blobUrl = URL.createObjectURL(blob);
+        setPreviewFile({ name: file.name, url: blobUrl, isLoading: false, isBlob: true });
+    } catch (error) {
+        console.error("Error creating blob for preview:", error);
+        toast({ variant: 'destructive', title: 'Lỗi xem trước', description: 'Không thể tải file để xem trước.' });
+        setPreviewFile(null);
+    }
+  };
   
   if (criteria.length === 0) {
       return (
@@ -1383,7 +1395,7 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
                                                     onNoteChange={handleNoteChange}
                                                     onEvidenceChange={handleEvidenceChange}
                                                     onIsTaskedChange={handleIsTaskedChange}
-                                                    onPreview={setPreviewFile}
+                                                    onPreview={handlePreview}
                                                     periodId={activePeriod.id}
                                                     communeId={currentUser.communeId}
                                                     handleCommuneDocsChange={handleCommuneDocsChange}
@@ -1429,7 +1441,7 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
                                                                     onNoteChange={handleNoteChange}
                                                                     onEvidenceChange={handleEvidenceChange}
                                                                     onIsTaskedChange={handleIsTaskedChange}
-                                                                    onPreview={setPreviewFile}
+                                                                    onPreview={handlePreview}
                                                                     criteria={criteria}
                                                                 />
                                                             </div>
@@ -1468,7 +1480,7 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
                                                                                   onNoteChange={handleNoteChange}
                                                                                   onEvidenceChange={handleEvidenceChange}
                                                                                   onIsTaskedChange={handleIsTaskedChange}
-                                                                                  onPreview={setPreviewFile}
+                                                                                  onPreview={handlePreview}
                                                                                   criteria={criteria}
                                                                               />
                                                                           </div>
@@ -1516,22 +1528,34 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
         </Card>
     </div>
 
-    <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
+    <Dialog open={!!previewFile} onOpenChange={(open) => {
+        if (!open) {
+            if (previewFile?.isBlob && previewFile.url) {
+                URL.revokeObjectURL(previewFile.url);
+            }
+            setPreviewFile(null);
+        }
+    }}>
         <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
             <DialogHeader className="p-6 pb-0">
                 <DialogTitle>Xem trước: {previewFile?.name}</DialogTitle>
             </DialogHeader>
-            <div className="flex-1 px-6 pb-6 h-full">
-                {previewFile && (
+            <div className="flex-1 px-6 pb-6 h-full flex items-center justify-center">
+                {previewFile?.isLoading ? (
+                    <div className="flex flex-col items-center gap-2">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                        <span>Đang tải dữ liệu xem trước...</span>
+                    </div>
+                ) : (
                    <iframe 
-                        src={previewFile.url}
+                        src={previewFile?.url}
                         className="w-full h-full border rounded-md" 
-                        title={previewFile.name}
+                        title={previewFile?.name}
                     ></iframe>
                 )}
             </div>
             <DialogFooter className="p-6 pt-0 border-t">
-                 <Button variant="secondary" onClick={() => window.open(previewFile?.url, '_blank')}><Download className="mr-2 h-4 w-4"/> Tải xuống</Button>
+                 <Button variant="secondary" onClick={() => window.open(previewFile?.url, '_blank')} disabled={!previewFile || previewFile.isLoading}><Download className="mr-2 h-4 w-4"/> Tải xuống</Button>
                 <Button variant="outline" onClick={() => setPreviewFile(null)}>Đóng</Button>
             </DialogFooter>
         </DialogContent>
@@ -1540,6 +1564,3 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
   );
 }
 
-    
-
-    
