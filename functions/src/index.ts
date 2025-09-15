@@ -5,7 +5,7 @@ import * as admin from "firebase-admin";
 import { onObjectFinalized } from "firebase-functions/v2/storage";
 import { logger } from "firebase-functions";
 import { PDFDocument, PDFName, PDFDict } from 'pdf-lib'; // <-- Thư viện mới
-//import { addDays, parse } from 'date-fns';
+import { addDays, parse } from 'date-fns';
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -129,6 +129,8 @@ export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmen
     if (deletionPromises.length > 0) {
         await Promise.all(deletionPromises);
         logger.info(`Successfully processed ${deletionPromises.length} potential file deletion(s).`);
+    } else {
+        logger.log("No files were removed in this update. No deletions necessary.");
     }
 
     return null;
