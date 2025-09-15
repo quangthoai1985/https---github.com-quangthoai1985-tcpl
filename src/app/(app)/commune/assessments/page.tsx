@@ -210,7 +210,7 @@ const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) =
     }
     
     if (indicatorId === subIndicator1_tc3_i1_id) {
-        return { no: "Không phát sinh yêu cầu thành lập", yes: "Có phát sinh yêu cầu thành lập" };
+        return { no: "Không phát sinh yêu cầu thành lập", yes: "Có phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên" };
     }
     
     if (indicatorId === subIndicator2_tc3_i1_id) {
@@ -726,7 +726,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
     )
 }
 
-const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, communeId, handleCommuneDocsChange }: {
+const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, communeId, onCommuneDocsChange }: {
     criterion: Criterion;
     assessmentData: AssessmentValues;
     onValueChange: (id: string, value: any) => void;
@@ -736,54 +736,19 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     onPreview: (file: { name: string; url: string; }) => void;
     periodId: string;
     communeId: string;
-    handleCommuneDocsChange: (indicatorId: string, docs: any[]) => void;
+    onCommuneDocsChange: (indicatorId: string, docIndex: number, field: string, value: string | number) => void;
 }) => {
-    const firstIndicatorId = criterion.indicators[0]?.id;
-    const [communeDefinedDocs, setCommuneDefinedDocs] = React.useState(() => {
-        if (firstIndicatorId && assessmentData[firstIndicatorId]?.communeDefinedDocuments) {
-            return assessmentData[firstIndicatorId].communeDefinedDocuments;
-        }
-        return [];
-    });
     
-     React.useEffect(() => {
-        const adminCount = criterion.assignedDocumentsCount;
-        if (criterion.assignmentType === 'quantity' && adminCount && adminCount > 0) {
-             const newDocs = Array.from({ length: adminCount }, (_, i) => {
-                return communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
-            });
-            if (JSON.stringify(newDocs) !== JSON.stringify(communeDefinedDocs)) {
-                setCommuneDefinedDocs(newDocs);
-            }
-        }
-    }, [criterion.assignedDocumentsCount, criterion.assignmentType]);
-
-    const handleDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const count = Math.max(0, Number(e.target.value));
-        const newDocs = Array.from({ length: count }, (_, i) => {
-            return communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
-        });
-        setCommuneDefinedDocs(newDocs);
-    };
-
-    const handleDocDetailChange = (index: number, field: string, value: string | number) => {
-        const newDocs = [...communeDefinedDocs];
-        (newDocs[index] as any)[field] = value;
-        setCommuneDefinedDocs(newDocs);
-    };
-
-    React.useEffect(() => {
-        if (firstIndicatorId) {
-            handleCommuneDocsChange(firstIndicatorId, communeDefinedDocs);
-        }
-    }, [communeDefinedDocs, firstIndicatorId, handleCommuneDocsChange]);
-
-    if (!criterion || !assessmentData || !firstIndicatorId) {
+    if (!criterion || !assessmentData ) {
       return null; 
     }
+    const firstIndicatorId = criterion.indicators[0]?.id;
+    if(!firstIndicatorId) return null;
     
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
     const assignmentType = criterion.assignmentType || 'specific';
+    
+    const communeDefinedDocs = assessmentData[firstIndicatorId]?.communeDefinedDocuments || [];
 
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
         const notTasked = checked === true;
@@ -800,6 +765,15 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     const handleRemoveFile = (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => {
         onEvidenceChange(indicatorId, [], docIndex, fileToRemove);
     }
+
+    const handleDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const count = Math.max(0, Number(e.target.value));
+        onCommuneDocsChange(firstIndicatorId, count, 'count', count);
+    };
+
+    const handleDocDetailChange = (index: number, field: string, value: string | number) => {
+        onCommuneDocsChange(firstIndicatorId, index, field, value);
+    };
     
     return (
         <div className="grid gap-6">
@@ -1168,14 +1142,32 @@ export default function SelfAssessmentPage() {
     }
   };
   
-const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
-    setAssessmentData(prev => ({
-        ...prev,
-        [indicatorId]: {
-            ...prev[indicatorId],
-            communeDefinedDocuments: docs,
+const handleCommuneDocsChange = (indicatorId: string, index: number, field: string, value: string | number) => {
+    setAssessmentData(prev => {
+        const newDocs = [...(prev[indicatorId]?.communeDefinedDocuments || [])];
+        if(field === 'count') {
+             const count = value as number;
+             // Adjust array size
+             while (newDocs.length < count) {
+                 newDocs.push({ name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
+             }
+             if (newDocs.length > count) {
+                 newDocs.length = count;
+             }
+        } else {
+            if (newDocs[index]) {
+                (newDocs[index] as any)[field] = value;
+            }
         }
-    }));
+       
+        return {
+            ...prev,
+            [indicatorId]: {
+                ...prev[indicatorId],
+                communeDefinedDocuments: newDocs,
+            }
+        }
+    });
 };
 
   const handleNoteChange = (indicatorId: string, note: string) => {
@@ -1312,13 +1304,13 @@ const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
     }
     
     useEffect(() => {
-        if (criteria.length > 0) {
-            const firstIndicatorData = assessmentData[criteria[0].indicators[0].id];
-            if (firstIndicatorData && JSON.stringify(filesPerDocRef.current) !== JSON.stringify(firstIndicatorData.filesPerDocument)) {
-                handleSaveDraft();
-                filesPerDocRef.current = firstIndicatorData.filesPerDocument;
-            }
+      if (criteria.length > 0) {
+        const firstIndicatorData = assessmentData[criteria[0].indicators[0].id];
+        if (firstIndicatorData && JSON.stringify(filesPerDocRef.current) !== JSON.stringify(firstIndicatorData.filesPerDocument)) {
+          handleSaveDraft();
+          filesPerDocRef.current = firstIndicatorData.filesPerDocument;
         }
+      }
     }, [assessmentData, handleSaveDraft, criteria]);
 
 
@@ -1480,7 +1472,7 @@ const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
                                                     onPreview={setPreviewFile}
                                                     periodId={activePeriod.id}
                                                     communeId={currentUser.communeId}
-                                                    handleCommuneDocsChange={handleCommuneDocsChange}
+                                                    onCommuneDocsChange={handleCommuneDocsChange}
                                                  />
                                              </div>
                                         </AccordionContent>
@@ -1633,4 +1625,3 @@ const handleCommuneDocsChange = (indicatorId: string, docs: any[]) => {
     </>
   );
 }
-
