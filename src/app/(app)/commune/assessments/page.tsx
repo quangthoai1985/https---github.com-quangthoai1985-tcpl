@@ -753,7 +753,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
              const newDocs = Array.from({ length: adminCount }, (_, i) => {
                 return communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 };
             });
-            if (newDocs.length !== communeDefinedDocs.length) {
+            if (JSON.stringify(newDocs) !== JSON.stringify(communeDefinedDocs)) {
                 setCommuneDefinedDocs(newDocs);
             }
         }
