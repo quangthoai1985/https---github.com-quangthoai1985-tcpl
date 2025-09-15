@@ -130,8 +130,10 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
                  <div className="space-y-2 mt-2">
                     {evidence.map((item, index) => (
                         <div key={index} className="flex items-center justify-between gap-2 p-1.5 pl-2 bg-muted rounded-md text-sm">
-                            {isLink(item) ? <LinkIcon className="h-4 w-4 flex-shrink-0 text-blue-500" /> : <FileIcon className="h-4 w-4 flex-shrink-0" />}
-                            <span className="truncate text-xs flex-1 min-w-0">{item.name}</span>
+                            <div className="flex items-center gap-2 w-0 flex-1 min-w-0">
+                                {isLink(item) ? <LinkIcon className="h-4 w-4 flex-shrink-0 text-blue-500" /> : <FileIcon className="h-4 w-4 flex-shrink-0" />}
+                                <span className="truncate text-xs flex-1">{item.name}</span>
+                            </div>
                              <div className="flex items-center gap-1 flex-shrink-0">
                                 { 'url' in item && item.url && (
                                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onPreview(item as { name: string, url: string })}>
@@ -912,13 +914,13 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
                                 <TooltipProvider>
                                     <Tooltip>
                                         <TooltipTrigger asChild>
-                                            <div className="flex items-center gap-2 min-w-0 flex-1 cursor-help">
+                                             <div className="flex items-center gap-2 w-0 flex-1 min-w-0 cursor-help">
                                                 {item.signatureStatus === 'validating' && <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-amber-500" />}
                                                 {item.signatureStatus === 'valid' && <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-500" />}
                                                 {item.signatureStatus === 'invalid' && <XCircle className="h-4 w-4 flex-shrink-0 text-red-500" />}
                                                 {item.signatureStatus === 'error' && <AlertTriangle className="h-4 w-4 flex-shrink-0 text-red-500" />}
                                                 {!item.signatureStatus && <FileIcon className="h-4 w-4 flex-shrink-0" />}
-                                                <span className="truncate text-xs flex-1 min-w-0">{item.name}</span>
+                                                <span className="truncate text-xs flex-1">{item.name}</span>
                                             </div>
                                         </TooltipTrigger>
                                         <TooltipContent>
@@ -1537,5 +1539,7 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
     </>
   );
 }
+
+    
 
     
