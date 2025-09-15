@@ -765,7 +765,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
         }
     }, [criterion.assignedDocumentsCount, assignmentType]); // Chạy lại khi số lượng admin giao thay đổi
 
-    // Đồng bộ state cục bộ với state cha khi có thay đổi (giữ nguyên)
+    // Đồng bộ state cục bộ với state cha khi có thay đổi
     React.useEffect(() => {
         handleCommuneDocsChange(firstIndicatorId, communeDefinedDocs);
     }, [communeDefinedDocs, firstIndicatorId, handleCommuneDocsChange]);
@@ -777,8 +777,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     // --- CÁC HÀM XỬ LÝ (ĐÃ SỬA LỖI) ---
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
         const notTasked = checked === true;
-        // FIX 1: Khôi phục vòng lặp forEach để cập nhật TẤT CẢ các chỉ tiêu trong Tiêu chí 1
-        // Đây là lỗi nghiêm trọng nhất cần sửa.
         criterion.indicators.forEach(indicator => {
             onIsTaskedChange(indicator.id, !notTasked);
         });
@@ -817,7 +815,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                 <Label htmlFor={`${criterion.id}-notask`} className="font-semibold">Xã không được giao nhiệm vụ ban hành VBQPPL trong năm</Label>
             </div>
             
-            {/* FIX 2: Thêm lại Alert thông báo "Đạt" khi checkbox được chọn */}
             {isNotTasked && (
                 <Alert variant="default" className="bg-green-50 border-green-300">
                     <CheckCircle className="h-4 w-4 text-green-600"/>
@@ -830,9 +827,9 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
             
             {!isNotTasked && (
                  <div className="grid gap-8">
-                    {/* KHỐI 1: THÔNG TIN NHIỆM VỤ ĐƯỢC GIAO (HIỂN THỊ ĐÚNG) */}
+                    {/* KHỐI 1: THÔNG TIN NHIỆM VỤ ĐƯỢC GIAO */}
                     <Card className="bg-blue-50/50 border border-blue-200">
-                         <CardHeader>
+                        <CardHeader>
                             <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao</CardTitle>
                             <CardDescription>
                                 {assignmentType === 'specific' 
@@ -874,7 +871,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                         </CardContent>
                     </Card>
 
-                    {/* KHỐI 2: DANH SÁCH CÁC CHỈ TIÊU VÀ KHUNG UPLOAD (HIỂN THỊ ĐÚNG) */}
+                    {/* KHỐI 2: DANH SÁCH CÁC CHỈ TIÊU VÀ KHUNG UPLOAD */}
                     <div className="space-y-6">
                         {criterion.indicators.map((indicator, indicatorIndex) => {
                             const data = assessmentData[indicator.id];
@@ -890,7 +887,10 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                       <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
                                     </div>
                                     <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
-                                      <p className="text-sm text-blue-800">{indicator.description}</p>
+                                      <div className="flex items-start gap-2 text-blue-800">
+                                          <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                                          <p className="text-sm">{indicator.description}</p>
+                                      </div>
                                     </div>
 
                                     <div className="grid gap-2 mt-4">
@@ -951,7 +951,8 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     );
 };
 
-// --- KẾT THÚC KHỐI MÃ THAY THẾ ---
+// --- KẾT THÚC KHỐI MÃ THAY THẾ TOÀN BỘ COMPONENT ---
+
 
 export default function SelfAssessmentPage() {
   const router = useRouter();
@@ -1050,7 +1051,7 @@ export default function SelfAssessmentPage() {
             }
         };
     });
-}, [criteria, findIndicator]); // Phụ thuộc vào criteria và findIndicator
+}, [criteria, findIndicator]);
 
 const handleValueChange = useCallback((indicatorId: string, value: any) => {
     const indicator = findIndicator(indicatorId);
@@ -1077,7 +1078,7 @@ const handleValueChange = useCallback((indicatorId: string, value: any) => {
             }
         };
     });
-}, [criteria, findIndicator]); // Phụ thuộc vào criteria và findIndicator
+}, [criteria, findIndicator]);
 
 const handleCommuneDocsChange = useCallback((indicatorId: string, docs: any[]) => {
     setAssessmentData(prev => ({
@@ -1087,7 +1088,7 @@ const handleCommuneDocsChange = useCallback((indicatorId: string, docs: any[]) =
             communeDefinedDocuments: docs,
         }
     }));
-}, []); // Không có phụ thuộc ngoài
+}, []);
 
 const handleNoteChange = useCallback((indicatorId: string, note: string) => {
     setAssessmentData(prev => ({
@@ -1097,7 +1098,7 @@ const handleNoteChange = useCallback((indicatorId: string, note: string) => {
             note: note,
         }
     }));
-}, []); // Không có phụ thuộc ngoài
+}, []);
 
 const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
     setAssessmentData(prev => {
@@ -1121,7 +1122,7 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
       }
       return newData;
   })
-}, []); // Không có phụ thuộc ngoài
+}, []);
 
 
   const uploadEvidenceFiles = async (communeId: string, periodId: string): Promise<Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }>> => {
