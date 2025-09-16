@@ -76,42 +76,56 @@ const Criterion1EvidenceUploader = ({
   communeId: string;
   accept?: string;
 }) => {
-    const { storage } = useData(); // <-- Chỉ lấy storage từ useData
-    const { toast } = useToast();  // <-- Lấy toast từ useToast()
+    const { storage } = useData();
+    const { toast, dismiss } = useToast();
     const [isUploading, setIsUploading] = useState(false);
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !storage) return;
-    
+
         setIsUploading(true);
-    
-        // Định nghĩa một promise cho việc tải file
-        const uploadPromise = new Promise<void>(async (resolve, reject) => {
-            try {
-                const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
-                const storageRef = ref(storage, filePath);
-                const snapshot = await uploadBytes(storageRef, file);
-                const downloadURL = await getDownloadURL(snapshot.ref);
-    
-                onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
-                resolve(); // Báo cho promise biết đã thành công
-            } catch (error) {
-                console.error("Upload error for criterion 1:", error);
-                reject(error); // Báo cho promise biết đã thất bại
-            }
-        });
-    
-        // Sử dụng toast.promise để tự động xử lý các trạng thái
-        toast.promise(uploadPromise, {
-            loading: `Đang tải lên "${file.name}"...`,
-            success: `Đã tải lên thành công "${file.name}". Hệ thống đang kiểm tra chữ ký số.`,
-            error: `Lỗi khi tải lên "${file.name}". Vui lòng thử lại.`,
-        });
-    
-        // Đợi promise hoàn thành để tắt trạng thái uploading
+
+        // Lấy thêm hàm `dismiss` từ useToast
+        
+        // 1. Tạo một thông báo "đang tải" và lưu lại ID của nó
+        const loadingToastId = toast({
+            title: 'Đang tải lên...',
+            description: `Đang xử lý tệp "${file.name}".`,
+        }).id;
+
         try {
-            await uploadPromise;
+            const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
+            const storageRef = ref(storage, filePath);
+            const snapshot = await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(snapshot.ref);
+
+            onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
+
+            // 2. Đóng thông báo "đang tải"
+            dismiss(loadingToastId);
+
+            // 3. Hiển thị thông báo "thành công" mới
+            toast({
+                title: 'Tải lên thành công!',
+                description: `Tệp "${file.name}" đã được tải lên và đang được kiểm tra.`,
+                variant: 'default',
+                duration: 5000,
+            });
+
+        } catch (error) {
+            console.error("Upload error for criterion 1:", error);
+            
+            // 2. Đóng thông báo "đang tải"
+            dismiss(loadingToastId);
+
+            // 3. Hiển thị thông báo "lỗi" mới
+            toast({
+                title: 'Lỗi tải lên',
+                description: `Đã xảy ra lỗi khi tải tệp "${file.name}".`,
+                variant: 'destructive',
+                duration: 5000,
+            });
         } finally {
             setIsUploading(false);
         }
@@ -1670,3 +1684,5 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
     </>
   );
 }
+
+    
