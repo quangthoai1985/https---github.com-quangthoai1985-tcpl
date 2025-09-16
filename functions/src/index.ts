@@ -257,29 +257,38 @@ export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl
     const assessmentId = `assess_${periodId}_${communeId}`;
     const assessmentRef = db.collection('assessments').doc(assessmentId);
 
-    // Hàm phụ trợ để cập nhật trạng thái trên giao diện
+    // --- BẮT ĐẦU KHỐI MÃ THAY THẾ HÀM UPDATEASSESSMENTFILESTATUS ---
+
     const updateAssessmentFileStatus = async (
         fileStatus: 'validating' | 'valid' | 'invalid' | 'error',
         reason?: string
     ) => {
         const doc = await assessmentRef.get();
         if (!doc.exists) return;
+
         const data = doc.data();
         if (!data) return;
+
+        // Sử dụng Object.assign để đảm bảo các cấp sâu được khởi tạo nếu chưa có
         const assessmentData = data.assessmentData || {};
+        assessmentData[indicatorId] = assessmentData[indicatorId] || {};
         const indicatorResult = assessmentData[indicatorId];
-        if (!indicatorResult || !indicatorResult.filesPerDocument) return;
-        
-        let fileList = indicatorResult.filesPerDocument[docIndex] || [];
+        indicatorResult.filesPerDocument = indicatorResult.filesPerDocument || {};
+        indicatorResult.filesPerDocument[docIndex] = indicatorResult.filesPerDocument[docIndex] || [];
+        const fileList = indicatorResult.filesPerDocument[docIndex];
+
         let fileToUpdate = fileList.find((f: any) => f.name === fileName);
 
-        // Nếu file chưa tồn tại trong danh sách (có thể do race condition), thêm nó vào
+        // *** ĐÂY LÀ PHẦN SỬA LỖI QUAN TRỌNG NHẤT ***
+        // Nếu không tìm thấy thông tin file (vì frontend chưa lưu), hãy tự tạo nó.
         if (!fileToUpdate) {
-             const downloadURL = `https://firebasestorage.googleapis.com/v0/b/${fileBucket}/o/${encodeURIComponent(filePath)}?alt=media`;
-             fileToUpdate = { name: fileName, url: downloadURL };
-             fileList.push(fileToUpdate);
+            const newFileUrl = `https://firebasestorage.googleapis.com/v0/b/${fileBucket}/o/${encodeURIComponent(filePath)}?alt=media`;
+            fileToUpdate = { name: fileName, url: newFileUrl };
+            fileList.push(fileToUpdate);
         }
+        // *** KẾT THÚC PHẦN SỬA LỖI ***
 
+        // Cập nhật trạng thái chữ ký cho file
         fileToUpdate.signatureStatus = fileStatus;
         if (reason) {
             fileToUpdate.signatureError = reason;
@@ -287,24 +296,32 @@ export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl
             delete fileToUpdate.signatureError;
         }
         
+        // Logic tính toán lại trạng thái chung của chỉ tiêu (giữ nguyên)
         const criterionDoc = await db.collection('criteria').doc('TC01').get();
-        
         const criterionData = criterionDoc.data() || {};
         const assignedCount = (criterionData.assignmentType === 'quantity' ? assessmentData[indicatorId]?.communeDefinedDocuments?.length : criterionData.assignedDocumentsCount) || 0;
 
-        const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
-        const allFilesUploaded = allFiles.length >= assignedCount;
-        const allSignaturesValid = allFiles.every((f: any) => f.signatureStatus === 'valid');
-        const quantityMet = Number(indicatorResult.value) >= assignedCount;
+        if (assignedCount > 0) { // Chỉ đánh giá nếu có nhiệm vụ được giao
+            const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
+            const allFilesUploaded = allFiles.length >= assignedCount;
+            const allSignaturesValid = allFiles.every((f: any) => f.signatureStatus === 'valid');
+            const quantityMet = Number(indicatorResult.value) >= assignedCount;
 
-        if (quantityMet && allFilesUploaded && allSignaturesValid) {
-            indicatorResult.status = 'achieved';
-        } else {
-            indicatorResult.status = 'not-achieved';
+            if (quantityMet && allFilesUploaded && allSignaturesValid) {
+                indicatorResult.status = 'achieved';
+            } else {
+                // Chỉ đánh giá là 'not-achieved' nếu đã điền đủ thông tin, nếu không thì vẫn là 'pending'
+                if (indicatorResult.value !== '' && indicatorResult.value !== undefined) {
+                     indicatorResult.status = 'not-achieved';
+                }
+            }
         }
         
+        // Ghi lại toàn bộ đối tượng chỉ tiêu đã được cập nhật vào Firestore
         await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
     };
+
+    // --- KẾT THÚC KHỐI MÃ THAY THẾ ---
     
 
     await updateAssessmentFileStatus('validating');
