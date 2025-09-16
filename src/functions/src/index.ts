@@ -3,7 +3,7 @@
 import { onDocumentWritten, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import { onObjectFinalized } from "firebase-functions/v2/storage";
-import { PDFDocument, PDFName, PDFDict } from 'pdf-lib'; // <-- Thư viện mới
+import { PDFDocument, PDFName, PDFDict } from 'pdf-lib';
 import { addDays, parse } from 'date-fns';
 import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions/v2";
@@ -181,15 +181,11 @@ async function extractSignatureInfo(pdfBuffer: Buffer): Promise<{ name: string |
             if (fieldType === '/Sig') {
                 const sigDict = field.acroField.V();
 
-                // === PHẦN SỬA LỖI QUAN TRỌNG ===
-                // Chỉ xử lý nếu sigDict là một đối tượng Dictionary
                 if (sigDict instanceof PDFDict) {
                     const nameRaw = sigDict.get(PDFName.of('Name'))?.toString();
                     const signDateRaw = sigDict.get(PDFName.of('M'))?.toString();
                     
-                    // Bỏ ký tự '/' ở đầu đối với tên
                     const name = nameRaw ? nameRaw.substring(1) : null;
-                    // Bỏ cặp dấu () ở đầu và cuối chuỗi ngày tháng
                     const signDate = signDateRaw ? parsePdfDate(signDateRaw.substring(1, signDateRaw.length - 1)) : null;
 
                     if (signDate) {
@@ -218,14 +214,11 @@ function translateErrorMessage(englishError: string): string {
         return "Lỗi: Chữ ký hợp lệ nhưng không chứa thông tin ngày ký để đối chiếu.";
     }
     
-    // Thông báo mặc định cho các lỗi không xác định
     return "Lỗi không xác định đã xảy ra trong quá trình xử lý file.";
 }
 
 
-// --- BẮT ĐẦU KHỐI MÃ THAY THẾ TOÀN BỘ HÀM VERIFYPDFSIGNATURE ---
-
-    export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl.firebasestorage.app" }, async (event) => {
+export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl.firebasestorage.app" }, async (event) => {
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;
@@ -260,47 +253,67 @@ function translateErrorMessage(englishError: string): string {
         fileStatus: 'validating' | 'valid' | 'invalid' | 'error',
         reason?: string
     ) => {
-        const doc = await assessmentRef.get();
-        if (!doc.exists) return;
-        const data = doc.data();
-        if (!data) return;
-        const assessmentData = data.assessmentData || {};
-        const indicatorResult = assessmentData[indicatorId];
-        if (!indicatorResult || !indicatorResult.filesPerDocument) return;
-        const fileList = indicatorResult.filesPerDocument[docIndex] || [];
-        const fileToUpdate = fileList.find((f: any) => f.name === fileName);
+        try {
+            await db.runTransaction(async (transaction) => {
+                const doc = await transaction.get(assessmentRef);
+                if (!doc.exists) {
+                    logger.error(`Assessment document ${assessmentId} does not exist. Cannot update file status.`);
+                    return;
+                }
 
-        if (fileToUpdate) {
-            fileToUpdate.signatureStatus = fileStatus;
-            if (reason) {
-                fileToUpdate.signatureError = reason;
-            } else {
-                 delete fileToUpdate.signatureError;
-            }
-            
-            const criterionDoc = await db.collection('criteria').doc('TC01').get();
-            const assignedCount = criterionDoc.data()?.assignedDocumentsCount || 0;
-            const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
-            const allFilesUploaded = allFiles.length >= assignedCount;
-            const allSignaturesValid = allFiles.every((f: any) => f.signatureStatus === 'valid');
-            const quantityMet = Number(indicatorResult.value) >= assignedCount;
+                const data = doc.data();
+                if (!data) return;
 
-            if (quantityMet && allFilesUploaded && allSignaturesValid) {
-                indicatorResult.status = 'achieved';
-            } else {
-                indicatorResult.status = 'not-achieved';
-            }
-            
-            await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
+                const assessmentData = data.assessmentData || {};
+                const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {}, status: 'pending', value: 0 };
+                const filesPerDocument = indicatorResult.filesPerDocument || {};
+                let fileList = filesPerDocument[docIndex] || [];
+                
+                let fileToUpdate = fileList.find((f: any) => f.name === fileName);
+
+                if (!fileToUpdate) {
+                    const newFileUrl = `https://firebasestorage.googleapis.com/v0/b/${fileBucket}/o/${encodeURIComponent(filePath)}?alt=media`;
+                    fileToUpdate = { name: fileName, url: newFileUrl };
+                    fileList.push(fileToUpdate);
+                    logger.info(`File entry for "${fileName}" not found in Firestore. Creating it.`);
+                }
+                
+                fileToUpdate.signatureStatus = fileStatus;
+                if (reason) {
+                    fileToUpdate.signatureError = reason;
+                } else {
+                    delete fileToUpdate.signatureError;
+                }
+
+                filesPerDocument[docIndex] = fileList;
+                indicatorResult.filesPerDocument = filesPerDocument;
+                
+                const criterionDocSnap = await transaction.get(db.collection('criteria').doc('TC01'));
+                const criterionData = criterionDocSnap.data();
+                const assignedCount = criterionData?.assignedDocumentsCount || 0;
+                
+                const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
+                const allFilesUploaded = allFiles.length >= assignedCount;
+                const allSignaturesValid = allFiles.every((f: any) => f.signatureStatus === 'valid');
+                const quantityMet = Number(indicatorResult.value) >= assignedCount;
+
+                if (quantityMet && allFilesUploaded && allSignaturesValid) {
+                    indicatorResult.status = 'achieved';
+                } else if (indicatorResult.value !== '' && indicatorResult.value !== undefined) {
+                    indicatorResult.status = 'not-achieved';
+                }
+                
+                transaction.set(assessmentRef, { assessmentData: { [indicatorId]: indicatorResult } }, { merge: true });
+            });
+            logger.info(`Successfully updated file status for "${fileName}" in transaction.`);
+        } catch (error) {
+            logger.error(`Transaction to update file status for "${fileName}" failed:`, error);
         }
     };
 
     await updateAssessmentFileStatus('validating');
 
     try {
-        // === LOGIC NÂNG CẤP BẮT ĐẦU TỪ ĐÂY ===
-
-        // 1. Lấy dữ liệu của cả Tiêu chí (từ admin) và Hồ sơ đánh giá (từ xã)
         const criterionDoc = await db.collection('criteria').doc('TC01').get();
         const assessmentDoc = await assessmentRef.get();
 
@@ -309,28 +322,19 @@ function translateErrorMessage(englishError: string): string {
         
         const criterionData = criterionDoc.data();
         const assessmentData = assessmentDoc.data()?.assessmentData;
-
-        // 2. Xác định phương thức giao nhiệm vụ mà Admin đã chọn
         const assignmentType = criterionData?.assignmentType || 'specific';
-        logger.info(`Processing file for assignment type: ${assignmentType}`);
-
+        
         let issueDate: Date;
         let deadline: Date;
 
-        // 3. Phân luồng logic để lấy đúng thông tin thời hạn
         if (assignmentType === 'specific') {
-            // -- TRƯỜNG HỢP 1: ADMIN GIAO CỤ THỂ --
-            logger.info("Handling 'specific' assignment.");
             const documentConfig = criterionData?.documents?.[docIndex];
             if (!documentConfig || !documentConfig.issueDate || !documentConfig.issuanceDeadlineDays) {
                 throw new Error(`Không tìm thấy cấu hình văn bản cụ thể cho index ${docIndex}.`);
             }
             issueDate = parse(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
             deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
-
-        } else { // assignmentType === 'quantity'
-            // -- TRƯỜNG HỢP 2: ADMIN GIAO THEO SỐ LƯỢNG --
-            logger.info("Handling 'quantity' assignment.");
+        } else {
             const communeDocumentConfig = assessmentData?.[indicatorId]?.communeDefinedDocuments?.[docIndex];
             if (!communeDocumentConfig || !communeDocumentConfig.issueDate || !communeDocumentConfig.issuanceDeadlineDays) {
                 throw new Error(`Không tìm thấy thông tin văn bản do xã kê khai cho index ${docIndex}.`);
@@ -339,12 +343,8 @@ function translateErrorMessage(englishError: string): string {
             deadline = addDays(issueDate, communeDocumentConfig.issuanceDeadlineDays);
         }
         
-        logger.info(`Calculated deadline for ${fileName}: ${deadline.toISOString()}`);
-
-        // 4. Các bước trích xuất và so sánh chữ ký giữ nguyên
         const bucket = admin.storage().bucket(fileBucket);
         const [fileBuffer] = await bucket.file(filePath).download();
-        
         const signatures = await extractSignatureInfo(fileBuffer);
         if (signatures.length === 0) throw new Error("Không tìm thấy chữ ký nào trong tài liệu bằng pdf-lib.");
 
@@ -358,44 +358,29 @@ function translateErrorMessage(englishError: string): string {
         
         await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
         
-        logger.info(`[pdf-lib] Successfully processed signature for ${fileName}. Status: ${isValid ? 'valid' : 'invalid'}`);
-
     } catch (error: any) {
         logger.error(`[pdf-lib] Error processing ${filePath}:`, error);
         const userFriendlyMessage = translateErrorMessage(error.message);
-        
+
         await saveCheckResult('error', userFriendlyMessage);
-        
+
         await updateAssessmentFileStatus('error', userFriendlyMessage);
         return null;
     }
     return null;
 });
 
-// --- KẾT THÚC KHỐI MÃ THAY THẾ ---
-
-// --- BẮT ĐẦU ĐOẠN CODE MỚI CẦN THÊM ---
 
 export const getSignedUrlForFile = onCall(async (request) => {
-    // 1. Kiểm tra xem người dùng đã đăng nhập chưa
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Người dùng phải đăng nhập để thực hiện.");
     }
 
-    // 2. Lấy đường dẫn file từ frontend
     const filePath = request.data.filePath;
     if (!filePath || typeof filePath !== 'string') {
         throw new HttpsError("invalid-argument", "Phải cung cấp đường dẫn file (filePath).");
     }
-
-    // 3. (Tùy chọn) Thêm kiểm tra bảo mật ở đây nếu cần, ví dụ:
-    // const communeId = request.auth.token.communeId;
-    // if (!filePath.startsWith(`hoso/${communeId}/`)) {
-    //     throw new HttpsError("permission-denied", "Bạn không có quyền xem file này.");
-    // }
-
     try {
-        // 4. Tạo URL có chữ ký, hết hạn sau 15 phút
         const options = {
             version: 'v4' as const,
             action: 'read' as const,
@@ -404,7 +389,6 @@ export const getSignedUrlForFile = onCall(async (request) => {
 
         const [url] = await admin.storage().bucket().file(filePath).getSignedUrl(options);
         
-        // 5. Trả URL về cho frontend
         return { signedUrl: url };
 
     } catch (error) {
@@ -412,5 +396,3 @@ export const getSignedUrlForFile = onCall(async (request) => {
         throw new HttpsError("internal", "Không thể tạo đường dẫn xem trước cho file.");
     }
 });
-
-// --- KẾT THÚC ĐOẠN CODE MỚI ---

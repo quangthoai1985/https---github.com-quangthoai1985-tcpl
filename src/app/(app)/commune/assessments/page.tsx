@@ -408,7 +408,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
 function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, isRequired, onPreview, docIndex, accept }: { 
     indicatorId: string; 
     evidence: FileWithStatus[]; 
-    onEvidenceChange: (id: string, evidence: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => void; 
+    onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => void; 
     isRequired: boolean;
     onPreview: (file: { name: string, url: string }) => void;
     docIndex?: number;
@@ -781,11 +781,10 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean | 
         return 'achieved';
     }
     
-    // Logic for CT2.3
     if (typeof value === 'object' && value !== null && value.hasOwnProperty('total') && value.hasOwnProperty('provided')) {
         const total = Number(value.total);
         const provided = Number(value.provided);
-        if (isNaN(total) || isNaN(provided) || total === 0) return 'achieved'; // If no requests, it's achieved.
+        if (isNaN(total) || isNaN(provided) || total === 0) return 'achieved';
         return (provided / total) >= 1 ? 'achieved' : 'not-achieved';
     }
 
@@ -1132,7 +1131,6 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
     if (fileToRemove) {
         if ('url' in fileToRemove && fileToRemove.url) {
             try {
-                // Ensure url is a string before proceeding
                 if (typeof fileToRemove.url === 'string' && fileToRemove.url) {
                     await deleteFileByUrl(fileToRemove.url);
                     toast({
@@ -1170,21 +1168,19 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         });
 
     } else { // Adding files
-        // Immediately add files to state for UI update
         setAssessmentData(prev => {
             const newData = { ...prev };
             const currentIndicatorData = newData[indicatorId];
-            if (docIndex !== undefined) { // For Criterion 1
+            if (docIndex !== undefined) {
                 const newFilesPerDoc = { ...currentIndicatorData.filesPerDocument };
                 newFilesPerDoc[docIndex] = [...(newFilesPerDoc[docIndex] || []), ...newFiles];
                 newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
-            } else { // For other criteria
+            } else {
                 newData[indicatorId] = { ...currentIndicatorData, files: [...currentIndicatorData.files, ...newFiles] };
             }
             return newData;
         });
 
-        // Then, upload them and update state with the final URL
         newFiles.forEach(file => {
             if (file instanceof File) {
                 const promise = (async () => {
@@ -1687,4 +1683,3 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
     </>
   );
 }
-
