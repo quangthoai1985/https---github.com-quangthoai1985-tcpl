@@ -78,15 +78,19 @@ const Criterion1EvidenceUploader = ({
   accept?: string;
 }) => {
     const { storage } = useData();
-    const { toast, dismiss } = useToast();
+    const { toast } = useToast();
     const [isUploading, setIsUploading] = useState(false);
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !storage) return;
-
+    
         setIsUploading(true);
+    
+        // Lấy thêm hàm `dismiss` từ useToast
+        const { dismiss } = toast;
         
+        // 1. Tạo một thông báo "đang tải" và lưu lại ID của nó
         const loadingToastId = toast({
             title: 'Đang tải lên...',
             description: `Đang xử lý tệp "${file.name}".`,
@@ -100,8 +104,10 @@ const Criterion1EvidenceUploader = ({
     
             onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
     
+            // 2. Đóng thông báo "đang tải"
             dismiss(loadingToastId);
     
+            // 3. Hiển thị thông báo "thành công" mới
             toast({
                 title: 'Tải lên thành công!',
                 description: `Tệp "${file.name}" đã được tải lên và đang được kiểm tra.`,
@@ -112,9 +118,9 @@ const Criterion1EvidenceUploader = ({
         } catch (error) {
             console.error("Upload error for criterion 1:", error);
             
-            dismiss(loadingToastId);
+            dismiss(loadingToastId); // Đóng thông báo đang tải
             
-            toast({
+            toast({ // Hiển thị thông báo lỗi mới
                 title: 'Lỗi tải lên',
                 description: `Đã xảy ra lỗi khi tải tệp "${file.name}".`,
                 variant: 'destructive',
@@ -149,6 +155,7 @@ const Criterion1EvidenceUploader = ({
 
     const renderStatusBadge = (file: FileWithStatus) => {
         if (!('signatureStatus' in file) || file.signatureStatus === 'validating') {
+            // Không hiển thị badge khi đang kiểm tra hoặc chưa có trạng thái
             return null;
         }
     
@@ -197,6 +204,7 @@ const Criterion1EvidenceUploader = ({
                             </Button>
                         </div>
                     </div>
+                    {/* DÒNG MỚI: Gọi hàm để hiển thị Badge trạng thái */}
                     {renderStatusBadge(file)}
                 </div>
             ))}
@@ -1001,7 +1009,7 @@ export default function SelfAssessmentPage() {
   const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments, updateSingleAssessment, deleteFileByUrl, functions } = useData();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [previewFile, setPreviewFile] = useState<{name: string, url: string, isLoading: boolean, isBlob: boolean} | null>(null);
+  const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
   
   const unsavedFilesRef = useRef<string[]>([]);
   
@@ -1177,6 +1185,9 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
             return newData;
         });
         
+        // QUAN TRỌNG: Không còn lệnh gọi xóa file trực tiếp khỏi Storage ở đây.
+        // Backend sẽ tự động lo việc này.
+
     } else { // Luồng xử lý khi THÊM một file
         setAssessmentData(prev => {
              const newData = { ...prev };
@@ -1413,33 +1424,9 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
     return hasPending ? 'pending' : 'achieved';
   };
 
-  const handlePreview = async (file: { name: string, url: string }) => {
-    if (!functions) {
-        toast({ variant: 'destructive', title: 'Lỗi', description: 'Dịch vụ chức năng chưa sẵn sàng.' });
-        return;
-    }
-
-    setPreviewFile({ name: file.name, url: '', isLoading: true, isBlob: false });
-
-    try {
-        const urlObject = new URL(file.url);
-        const filePath = decodeURIComponent(urlObject.pathname).split('/o/')[1];
-
-        if (!filePath) throw new Error("Không thể trích xuất đường dẫn file từ URL.");
-        
-        const getSignedUrl = httpsCallable(functions, 'getSignedUrlForFile');
-        const result = await getSignedUrl({ filePath: filePath });
-
-        const signedUrl = (result.data as { signedUrl: string }).signedUrl;
-
-        setPreviewFile({ name: file.name, url: signedUrl, isLoading: false, isBlob: false });
-
-    } catch (error) {
-        console.error("Error getting signed URL for preview:", error);
-        toast({ variant: 'destructive', title: 'Lỗi xem trước', description: 'Không thể lấy đường dẫn an toàn để xem file.' });
-        setPreviewFile(null);
-    }
-  };
+  const handlePreview = (file: { name: string, url: string }) => {
+    setPreviewFile(file);
+};
   
   if (criteria.length === 0) {
       return (
@@ -1628,46 +1615,28 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
         </Card>
     </div>
 
-    <Dialog 
-        open={!!previewFile} 
-        onOpenChange={(open) => {
-            if (!open) {
-                if (previewFile?.isBlob && previewFile.url) {
-                    URL.revokeObjectURL(previewFile.url);
-                }
-                setPreviewFile(null);
-            }
-        }}
-    >
-        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
-            <DialogHeader className="p-6 pb-0">
-                <DialogTitle>Xem trước: {previewFile?.name}</DialogTitle>
-            </DialogHeader>
-            <div className="flex-1 px-6 pb-6 h-full flex items-center justify-center">
-                {previewFile?.isLoading ? (
-                    <div className="text-center">
-                        <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-                        <p>Đang tải bản xem trước...</p>
-                    </div>
-                ) : (
-                   <iframe 
-                        src={previewFile?.url.startsWith('https://docs.google.com/gview') ? previewFile.url : `https://docs.google.com/gview?url=${encodeURIComponent(previewFile?.url || '')}&embedded=true`}
-                        className="w-full h-full border rounded-md" 
-                        title={previewFile?.name}
-                    ></iframe>
-                )}
-            </div>
-            <DialogFooter className="p-6 pt-0 border-t">
-                 <Button variant="secondary" onClick={() => window.open(previewFile?.url, '_blank')} disabled={previewFile?.isLoading}>
-                    <Download className="mr-2 h-4 w-4"/> Tải xuống
-                 </Button>
-                <Button variant="outline" onClick={() => setPreviewFile(null)}>Đóng</Button>
-            </DialogFooter>
-        </DialogContent>
-    </Dialog>
+    <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
+    <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-0">
+            <DialogTitle>Xem trước: {previewFile?.name}</DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 px-6 pb-6 h-full">
+            {previewFile && (
+                <iframe 
+                    src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`} 
+                    className="w-full h-full border rounded-md" 
+                    title={previewFile.name}
+                ></iframe>
+            )}
+        </div>
+        <DialogFooter className="p-6 pt-0 border-t">
+             <Button variant="secondary" onClick={() => window.open(previewFile?.url, '_blank')}>
+                <Download className="mr-2 h-4 w-4"/> Tải xuống
+             </Button>
+            <Button variant="outline" onClick={() => setPreviewFile(null)}>Đóng</Button>
+        </DialogFooter>
+    </DialogContent>
+</Dialog>
     </>
   );
 }
-
-
-
