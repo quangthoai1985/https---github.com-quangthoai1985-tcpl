@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -327,8 +328,15 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                             const progress = assignedCount > 0 && !isNaN(valueAsNumber) ? Math.round((valueAsNumber / assignedCount) * 100) : 0;
                             const progressColor = progress >= 100 ? "bg-green-500" : "bg-yellow-500";
                             
+                            const blockClasses = cn(
+                                "p-4 rounded-lg bg-card shadow-sm border",
+                                data.status === 'achieved' && 'bg-green-50 border-green-200',
+                                data.status === 'not-achieved' && 'bg-red-50 border-red-200',
+                                data.status === 'pending' && 'bg-amber-50 border-amber-200'
+                            );
+
                             return (
-                                 <div key={indicator.id} className="p-4 rounded-lg bg-card shadow-sm border">
+                                 <div key={indicator.id} className={blockClasses}>
                                     <div className="flex items-center gap-2">
                                       <StatusBadge status={data.status} />
                                       <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
@@ -405,7 +413,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     );
 };
 
-function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, isRequired, onPreview, docIndex, accept }: { 
+const EvidenceUploaderComponent = ({ indicatorId, evidence, onEvidenceChange, isRequired, onPreview, docIndex, accept }: { 
     indicatorId: string; 
     evidence: FileWithStatus[]; 
     onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => void; 
@@ -413,7 +421,7 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange, is
     onPreview: (file: { name: string, url: string }) => void;
     docIndex?: number;
     accept?: string;
-}) {
+}) => {
     const [linkInput, setLinkInput] = useState('');
     const { toast } = useToast();
 
