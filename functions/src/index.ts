@@ -225,7 +225,7 @@ function translateErrorMessage(englishError: string): string {
 
 // --- BẮT ĐẦU KHỐI MÃ THAY THẾ TOÀN BỘ HÀM VERIFYPDFSIGNATURE ---
 
-export const verifyPDFSignature = onObjectFinalized(async (event) => {
+    export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl.firebasestorage.app" }, async (event) => {
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;

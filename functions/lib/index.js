@@ -34,26 +34,27 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifyPDFSignature = exports.onAssessmentFileDeleted = exports.syncUserClaims = void 0;
+exports.getSignedUrlForFile = exports.verifyPDFSignature = exports.onAssessmentFileDeleted = exports.syncUserClaims = void 0;
 const firestore_1 = require("firebase-functions/v2/firestore");
 const admin = __importStar(require("firebase-admin"));
 const storage_1 = require("firebase-functions/v2/storage");
-const firebase_functions_1 = require("firebase-functions");
 const pdf_lib_1 = require("pdf-lib"); // <-- Thư viện mới
 const date_fns_1 = require("date-fns");
+const https_1 = require("firebase-functions/v2/https");
+const v2_1 = require("firebase-functions/v2");
 admin.initializeApp();
 const db = admin.firestore();
 // ===== HÀM SYNC CLAIMS (GIỮ NGUYÊN) =====
 exports.syncUserClaims = (0, firestore_1.onDocumentWritten)("users/{userId}", async (event) => {
     var _a;
     if (!((_a = event.data) === null || _a === void 0 ? void 0 : _a.after.exists)) {
-        console.log(`User document ${event.params.userId} deleted. Removing claims.`);
+        v2_1.logger.log(`User document ${event.params.userId} deleted. Removing claims.`);
         return null;
     }
     const userData = event.data.after.data();
     const userId = event.params.userId;
     if (!userData) {
-        console.log(`User document ${userId} has no data. No action taken.`);
+        v2_1.logger.log(`User document ${userId} has no data. No action taken.`);
         return null;
     }
     const claimsToSet = {};
@@ -64,12 +65,12 @@ exports.syncUserClaims = (0, firestore_1.onDocumentWritten)("users/{userId}", as
         claimsToSet.communeId = userData.communeId;
     }
     try {
-        console.log(`Updating claims for user ${userId}:`, claimsToSet);
+        v2_1.logger.log(`Updating claims for user ${userId}:`, claimsToSet);
         await admin.auth().setCustomUserClaims(userId, claimsToSet);
-        console.log(`Successfully updated claims for user ${userId}`);
+        v2_1.logger.log(`Successfully updated claims for user ${userId}`);
     }
     catch (error) {
-        console.error(`Error updating custom claims for user ${userId}:`, error);
+        v2_1.logger.error(`Error updating custom claims for user ${userId}:`, error);
     }
     return null;
 });
@@ -122,7 +123,7 @@ exports.onAssessmentFileDeleted = (0, firestore_1.onDocumentUpdated)("assessment
     const dataBefore = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
     const dataAfter = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
     if (!dataBefore || !dataAfter) {
-        firebase_functions_1.logger.log("Document data is missing, cannot compare file lists.");
+        v2_1.logger.log("Document data is missing, cannot compare file lists.");
         return null;
     }
     const filesBefore = collectAllFileUrls(dataBefore.assessmentData);
@@ -132,35 +133,35 @@ exports.onAssessmentFileDeleted = (0, firestore_1.onDocumentUpdated)("assessment
     const bucket = storage.bucket();
     for (const fileUrl of filesBefore) {
         if (!filesAfter.has(fileUrl) && fileUrl.includes('firebasestorage.googleapis.com')) {
-            firebase_functions_1.logger.info(`File ${fileUrl} was removed from assessment. Queuing for deletion from Storage.`);
+            v2_1.logger.info(`File ${fileUrl} was removed from assessment. Queuing for deletion from Storage.`);
             try {
                 const url = new URL(fileUrl);
                 const filePath = decodeURIComponent(url.pathname).split('/o/')[1];
                 if (!filePath) {
                     throw new Error("Could not extract file path from URL.");
                 }
-                firebase_functions_1.logger.log(`Attempting to delete file from path: ${filePath}`);
+                v2_1.logger.log(`Attempting to delete file from path: ${filePath}`);
                 const fileRef = bucket.file(filePath);
                 deletionPromises.push(fileRef.delete().catch(err => {
                     if (err.code === 404) {
-                        firebase_functions_1.logger.warn(`Attempted to delete ${filePath}, but it was not found. Ignoring.`);
+                        v2_1.logger.warn(`Attempted to delete ${filePath}, but it was not found. Ignoring.`);
                     }
                     else {
-                        firebase_functions_1.logger.error(`Failed to delete file ${filePath}:`, err);
+                        v2_1.logger.error(`Failed to delete file ${filePath}:`, err);
                     }
                 }));
             }
             catch (error) {
-                firebase_functions_1.logger.error(`Error processing URL for deletion: ${fileUrl}`, error);
+                v2_1.logger.error(`Error processing URL for deletion: ${fileUrl}`, error);
             }
         }
     }
     if (deletionPromises.length > 0) {
         await Promise.all(deletionPromises);
-        firebase_functions_1.logger.info(`Successfully processed ${deletionPromises.length} potential file deletion(s).`);
+        v2_1.logger.info(`Successfully processed ${deletionPromises.length} potential file deletion(s).`);
     }
     else {
-        firebase_functions_1.logger.log("No files were removed in this update. No deletions necessary.");
+        v2_1.logger.log("No files were removed in this update. No deletions necessary.");
     }
     return null;
 });
@@ -186,7 +187,7 @@ function parsePdfDate(raw) {
         return dateInUTC;
     }
     catch (e) {
-        firebase_functions_1.logger.error("Failed to parse PDF date string:", raw, e);
+        v2_1.logger.error("Failed to parse PDF date string:", raw, e);
         return null;
     }
 }
@@ -221,13 +222,13 @@ async function extractSignatureInfo(pdfBuffer) {
         }
     }
     catch (error) {
-        firebase_functions_1.logger.error("Error extracting signature with pdf-lib:", error);
+        v2_1.logger.error("Error extracting signature with pdf-lib:", error);
     }
     return signatures;
 }
 // HÀM MỚI: Dịch các thông báo lỗi phổ biến sang tiếng Việt
 function translateErrorMessage(englishError) {
-    firebase_functions_1.logger.info("Original error message:", englishError); // Giúp debug về sau
+    v2_1.logger.info("Original error message:", englishError); // Giúp debug về sau
     if (englishError.includes("cannot be parsed") || englishError.includes("Invalid PDF")) {
         return "Lỗi: Không thể phân tích cấu trúc file PDF. File có thể bị hỏng hoặc không đúng định dạng.";
     }
@@ -240,9 +241,9 @@ function translateErrorMessage(englishError) {
     // Thông báo mặc định cho các lỗi không xác định
     return "Lỗi không xác định đã xảy ra trong quá trình xử lý file.";
 }
-// ===== CLOUD FUNCTION CHÍNH ĐƯỢC NÂNG CẤP =====
-exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
-    var _a, _b;
+// --- BẮT ĐẦU KHỐI MÃ THAY THẾ TOÀN BỘ HÀM VERIFYPDFSIGNATURE ---
+exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-tiep-can-pl.firebasestorage.app" }, async (event) => {
+    var _a, _b, _c, _d;
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;
@@ -263,7 +264,7 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
         return null;
     const pathInfo = parseAssessmentPath(filePath);
     if (!pathInfo || !pathInfo.indicatorId.startsWith('CT1.')) {
-        firebase_functions_1.logger.log(`File ${filePath} does not match Criterion 1 structure. Skipping.`);
+        v2_1.logger.log(`File ${filePath} does not match Criterion 1 structure. Skipping.`);
         return null;
     }
     const { communeId, periodId, indicatorId, docIndex } = pathInfo;
@@ -308,41 +309,97 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)(async (event) => {
     };
     await updateAssessmentFileStatus('validating');
     try {
+        // === LOGIC NÂNG CẤP BẮT ĐẦU TỪ ĐÂY ===
+        // 1. Lấy dữ liệu của cả Tiêu chí (từ admin) và Hồ sơ đánh giá (từ xã)
         const criterionDoc = await db.collection('criteria').doc('TC01').get();
+        const assessmentDoc = await assessmentRef.get();
         if (!criterionDoc.exists)
-            throw new Error("Criterion document TC01 not found.");
-        const documentConfig = (_b = (_a = criterionDoc.data()) === null || _a === void 0 ? void 0 : _a.documents) === null || _b === void 0 ? void 0 : _b[docIndex];
-        if (!documentConfig)
-            throw new Error(`Document config for index ${docIndex} not found.`);
-        const issueDate = (0, date_fns_1.parse)(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
-        const deadline = (0, date_fns_1.addDays)(issueDate, documentConfig.issuanceDeadlineDays);
+            throw new Error("Không tìm thấy cấu hình Tiêu chí 1.");
+        if (!assessmentDoc.exists)
+            throw new Error(`Không tìm thấy hồ sơ đánh giá: ${assessmentId}`);
+        const criterionData = criterionDoc.data();
+        const assessmentData = (_a = assessmentDoc.data()) === null || _a === void 0 ? void 0 : _a.assessmentData;
+        // 2. Xác định phương thức giao nhiệm vụ mà Admin đã chọn
+        const assignmentType = (criterionData === null || criterionData === void 0 ? void 0 : criterionData.assignmentType) || 'specific';
+        v2_1.logger.info(`Processing file for assignment type: ${assignmentType}`);
+        let issueDate;
+        let deadline;
+        // 3. Phân luồng logic để lấy đúng thông tin thời hạn
+        if (assignmentType === 'specific') {
+            // -- TRƯỜNG HỢP 1: ADMIN GIAO CỤ THỂ --
+            v2_1.logger.info("Handling 'specific' assignment.");
+            const documentConfig = (_b = criterionData === null || criterionData === void 0 ? void 0 : criterionData.documents) === null || _b === void 0 ? void 0 : _b[docIndex];
+            if (!documentConfig || !documentConfig.issueDate || !documentConfig.issuanceDeadlineDays) {
+                throw new Error(`Không tìm thấy cấu hình văn bản cụ thể cho index ${docIndex}.`);
+            }
+            issueDate = (0, date_fns_1.parse)(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
+            deadline = (0, date_fns_1.addDays)(issueDate, documentConfig.issuanceDeadlineDays);
+        }
+        else { // assignmentType === 'quantity'
+            // -- TRƯỜNG HỢP 2: ADMIN GIAO THEO SỐ LƯỢNG --
+            v2_1.logger.info("Handling 'quantity' assignment.");
+            const communeDocumentConfig = (_d = (_c = assessmentData === null || assessmentData === void 0 ? void 0 : assessmentData[indicatorId]) === null || _c === void 0 ? void 0 : _c.communeDefinedDocuments) === null || _d === void 0 ? void 0 : _d[docIndex];
+            if (!communeDocumentConfig || !communeDocumentConfig.issueDate || !communeDocumentConfig.issuanceDeadlineDays) {
+                throw new Error(`Không tìm thấy thông tin văn bản do xã kê khai cho index ${docIndex}.`);
+            }
+            issueDate = (0, date_fns_1.parse)(communeDocumentConfig.issueDate, 'dd/MM/yyyy', new Date());
+            deadline = (0, date_fns_1.addDays)(issueDate, communeDocumentConfig.issuanceDeadlineDays);
+        }
+        v2_1.logger.info(`Calculated deadline for ${fileName}: ${deadline.toISOString()}`);
+        // 4. Các bước trích xuất và so sánh chữ ký giữ nguyên
         const bucket = admin.storage().bucket(fileBucket);
         const [fileBuffer] = await bucket.file(filePath).download();
-        // --- BẮT ĐẦU LOGIC MỚI ---
         const signatures = await extractSignatureInfo(fileBuffer);
-        if (signatures.length === 0) {
+        if (signatures.length === 0)
             throw new Error("Không tìm thấy chữ ký nào trong tài liệu bằng pdf-lib.");
-        }
-        // Lấy chữ ký đầu tiên tìm thấy để kiểm tra
         const firstSignature = signatures[0];
         const signingTime = firstSignature.signDate;
-        const signerName = firstSignature.name;
-        if (!signingTime) {
+        if (!signingTime)
             throw new Error("Chữ ký không chứa thông tin ngày ký (M).");
-        }
         const isValid = signingTime <= deadline;
-        const status = isValid ? "valid" : "expired";
-        await saveCheckResult(status, undefined, signingTime, deadline, signerName || undefined);
         await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
-        firebase_functions_1.logger.info(`[pdf-lib] Successfully processed signature for ${fileName}. Status: ${status}`);
+        v2_1.logger.info(`[pdf-lib] Successfully processed signature for ${fileName}. Status: ${isValid ? 'valid' : 'invalid'}`);
     }
     catch (error) {
-        firebase_functions_1.logger.error(`[pdf-lib] Error processing ${filePath}:`, error);
+        v2_1.logger.error(`[pdf-lib] Error processing ${filePath}:`, error);
         const userFriendlyMessage = translateErrorMessage(error.message);
-        await saveCheckResult("error", userFriendlyMessage);
         await updateAssessmentFileStatus('error', userFriendlyMessage);
         return null;
     }
     return null;
 });
+// --- KẾT THÚC KHỐI MÃ THAY THẾ ---
+// --- BẮT ĐẦU ĐOẠN CODE MỚI CẦN THÊM ---
+exports.getSignedUrlForFile = (0, https_1.onCall)(async (request) => {
+    // 1. Kiểm tra xem người dùng đã đăng nhập chưa
+    if (!request.auth) {
+        throw new https_1.HttpsError("unauthenticated", "Người dùng phải đăng nhập để thực hiện.");
+    }
+    // 2. Lấy đường dẫn file từ frontend
+    const filePath = request.data.filePath;
+    if (!filePath || typeof filePath !== 'string') {
+        throw new https_1.HttpsError("invalid-argument", "Phải cung cấp đường dẫn file (filePath).");
+    }
+    // 3. (Tùy chọn) Thêm kiểm tra bảo mật ở đây nếu cần, ví dụ:
+    // const communeId = request.auth.token.communeId;
+    // if (!filePath.startsWith(`hoso/${communeId}/`)) {
+    //     throw new HttpsError("permission-denied", "Bạn không có quyền xem file này.");
+    // }
+    try {
+        // 4. Tạo URL có chữ ký, hết hạn sau 15 phút
+        const options = {
+            version: 'v4',
+            action: 'read',
+            expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+        };
+        const [url] = await admin.storage().bucket().file(filePath).getSignedUrl(options);
+        // 5. Trả URL về cho frontend
+        return { signedUrl: url };
+    }
+    catch (error) {
+        v2_1.logger.error("Error generating signed URL for " + filePath, error);
+        throw new https_1.HttpsError("internal", "Không thể tạo đường dẫn xem trước cho file.");
+    }
+});
+// --- KẾT THÚC ĐOẠN CODE MỚI ---
 //# sourceMappingURL=index.js.map

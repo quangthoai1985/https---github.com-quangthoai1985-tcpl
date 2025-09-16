@@ -3,9 +3,11 @@
 import { onDocumentWritten, onDocumentUpdated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import { onObjectFinalized } from "firebase-functions/v2/storage";
-import { logger } from "firebase-functions";
 import { PDFDocument, PDFName, PDFDict } from 'pdf-lib'; // <-- Thư viện mới
 import { addDays, parse } from 'date-fns';
+import { HttpsError, onCall } from "firebase-functions/v2/https";
+import { logger } from "firebase-functions/v2";
+
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -13,13 +15,13 @@ const db = admin.firestore();
 // ===== HÀM SYNC CLAIMS (GIỮ NGUYÊN) =====
 export const syncUserClaims = onDocumentWritten("users/{userId}", async (event) => {
   if (!event.data?.after.exists) {
-    console.log(`User document ${event.params.userId} deleted. Removing claims.`);
+    logger.log(`User document ${event.params.userId} deleted. Removing claims.`);
     return null;
   }
   const userData = event.data.after.data();
   const userId = event.params.userId;
   if (!userData) {
-    console.log(`User document ${userId} has no data. No action taken.`);
+    logger.log(`User document ${userId} has no data. No action taken.`);
     return null;
   }
   const claimsToSet: { [key: string]: any } = {};
@@ -30,11 +32,11 @@ export const syncUserClaims = onDocumentWritten("users/{userId}", async (event) 
     claimsToSet.communeId = userData.communeId;
   }
   try {
-    console.log(`Updating claims for user ${userId}:`, claimsToSet);
+    logger.log(`Updating claims for user ${userId}:`, claimsToSet);
     await admin.auth().setCustomUserClaims(userId, claimsToSet);
-    console.log(`Successfully updated claims for user ${userId}`);
+    logger.log(`Successfully updated claims for user ${userId}`);
   } catch (error) {
-    console.error(`Error updating custom claims for user ${userId}:`, error);
+    logger.error(`Error updating custom claims for user ${userId}:`, error);
   }
   return null;
 });
@@ -223,13 +225,13 @@ function translateErrorMessage(englishError: string): string {
 
 // --- BẮT ĐẦU KHỐI MÃ THAY THẾ TOÀN BỘ HÀM VERIFYPDFSIGNATURE ---
 
-export const verifyPDFSignature = onObjectFinalized(async (event) => {
+    export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl.firebasestorage.app" }, async (event) => {
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;
     const fileName = filePath.split('/').pop() || 'unknownfile';
 
-    const saveCheckResult = async (status: "valid" | "expired" | "error", reason?: string, signingTime?: Date | null, deadline?: Date, signerName?: string) => {
+    const saveCheckResult = async (status: "valid" | "expired" | "error", reason?: string, signingTime?: Date | null, deadline?: Date, signerName?: string | null) => {
         await db.collection('signature_checks').add({
             fileName: fileName,
             filePath: filePath,
@@ -351,6 +353,9 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
         if (!signingTime) throw new Error("Chữ ký không chứa thông tin ngày ký (M).");
         
         const isValid = signingTime <= deadline;
+        
+        await saveCheckResult(isValid ? 'valid' : 'expired', isValid ? 'Chữ ký hợp lệ' : `Ký sau thời hạn`, signingTime, deadline, firstSignature.name);
+        
         await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
         
         logger.info(`[pdf-lib] Successfully processed signature for ${fileName}. Status: ${isValid ? 'valid' : 'invalid'}`);
@@ -358,6 +363,9 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
     } catch (error: any) {
         logger.error(`[pdf-lib] Error processing ${filePath}:`, error);
         const userFriendlyMessage = translateErrorMessage(error.message);
+        
+        await saveCheckResult('error', userFriendlyMessage);
+        
         await updateAssessmentFileStatus('error', userFriendlyMessage);
         return null;
     }
@@ -365,3 +373,44 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
 });
 
 // --- KẾT THÚC KHỐI MÃ THAY THẾ ---
+
+// --- BẮT ĐẦU ĐOẠN CODE MỚI CẦN THÊM ---
+
+export const getSignedUrlForFile = onCall(async (request) => {
+    // 1. Kiểm tra xem người dùng đã đăng nhập chưa
+    if (!request.auth) {
+        throw new HttpsError("unauthenticated", "Người dùng phải đăng nhập để thực hiện.");
+    }
+
+    // 2. Lấy đường dẫn file từ frontend
+    const filePath = request.data.filePath;
+    if (!filePath || typeof filePath !== 'string') {
+        throw new HttpsError("invalid-argument", "Phải cung cấp đường dẫn file (filePath).");
+    }
+
+    // 3. (Tùy chọn) Thêm kiểm tra bảo mật ở đây nếu cần, ví dụ:
+    // const communeId = request.auth.token.communeId;
+    // if (!filePath.startsWith(`hoso/${communeId}/`)) {
+    //     throw new HttpsError("permission-denied", "Bạn không có quyền xem file này.");
+    // }
+
+    try {
+        // 4. Tạo URL có chữ ký, hết hạn sau 15 phút
+        const options = {
+            version: 'v4' as const,
+            action: 'read' as const,
+            expires: Date.now() + 15 * 60 * 1000, // 15 minutes
+        };
+
+        const [url] = await admin.storage().bucket().file(filePath).getSignedUrl(options);
+        
+        // 5. Trả URL về cho frontend
+        return { signedUrl: url };
+
+    } catch (error) {
+        logger.error("Error generating signed URL for " + filePath, error);
+        throw new HttpsError("internal", "Không thể tạo đường dẫn xem trước cho file.");
+    }
+});
+
+// --- KẾT THÚC ĐOẠN CODE MỚI ---
