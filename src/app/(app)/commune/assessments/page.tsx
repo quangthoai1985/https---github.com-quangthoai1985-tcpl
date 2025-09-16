@@ -81,48 +81,48 @@ const Criterion1EvidenceUploader = ({
     const [isUploading, setIsUploading] = useState(false);
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !storage) return;
+        const file = e.target.files?.[0];
+        if (!file || !storage) return;
 
-    setIsUploading(true);
-    
-    const loadingToastId = toast({
-        title: 'Đang tải lên...',
-        description: `Đang xử lý tệp "${file.name}".`,
-    }).id;
-
-    try {
-        const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
-        const storageRef = ref(storage, filePath);
-        const snapshot = await uploadBytes(storageRef, file);
-        const downloadURL = await getDownloadURL(snapshot.ref);
-
-        onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
-
-        dismiss(loadingToastId);
-
-        toast({
-            title: 'Tải lên thành công!',
-            description: `Tệp "${file.name}" đã được tải lên và đang được kiểm tra.`,
-            variant: 'default',
-            duration: 5000,
-        });
-
-    } catch (error) {
-        console.error("Upload error for criterion 1:", error);
+        setIsUploading(true);
         
-        dismiss(loadingToastId);
-        
-        toast({
-            title: 'Lỗi tải lên',
-            description: `Đã xảy ra lỗi khi tải tệp "${file.name}".`,
-            variant: 'destructive',
-            duration: 5000,
-        });
-    } finally {
-        setIsUploading(false);
-    }
-};
+        const loadingToastId = toast({
+            title: 'Đang tải lên...',
+            description: `Đang xử lý tệp "${file.name}".`,
+        }).id;
+
+        try {
+            const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
+            const storageRef = ref(storage, filePath);
+            const snapshot = await uploadBytes(storageRef, file);
+            const downloadURL = await getDownloadURL(snapshot.ref);
+
+            onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
+
+            dismiss(loadingToastId);
+
+            toast({
+                title: 'Tải lên thành công!',
+                description: `Tệp "${file.name}" đã được tải lên và đang được kiểm tra.`,
+                variant: 'default',
+                duration: 5000,
+            });
+
+        } catch (error) {
+            console.error("Upload error for criterion 1:", error);
+            
+            dismiss(loadingToastId);
+            
+            toast({
+                title: 'Lỗi tải lên',
+                description: `Đã xảy ra lỗi khi tải tệp "${file.name}".`,
+                variant: 'destructive',
+                duration: 5000,
+            });
+        } finally {
+            setIsUploading(false);
+        }
+    };
     
     const getStatusIcon = (file: FileWithStatus) => {
         if (!('signatureStatus' in file)) return null;
@@ -352,7 +352,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                             type="number"
                                             placeholder="Số lượng"
                                             className="w-28"
-                                            value={typeof data.value === 'object' ? '' : (data.value || '')}
+                                            value={typeof data.value === 'object' ? '' : (data.value || '')} 
                                             onChange={(e) => onValueChange(indicator.id, e.target.value)}
                                         />
                                         <div className="flex-1">
@@ -1132,19 +1132,19 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
     if (fileToRemove) {
         if ('url' in fileToRemove && fileToRemove.url) {
             try {
-                await deleteFileByUrl(fileToRemove.url);
-                toast({
-                    title: 'Đã xóa tệp',
-                    description: `Tệp "${fileToRemove.name}" đã được xóa khỏi hệ thống.`,
-                });
-                
-                if (fileToRemove.url) {
+                // Ensure url is a string before proceeding
+                if (typeof fileToRemove.url === 'string' && fileToRemove.url) {
+                    await deleteFileByUrl(fileToRemove.url);
+                    toast({
+                        title: 'Đã xóa tệp',
+                        description: `Tệp "${fileToRemove.name}" đã được xóa khỏi hệ thống.`,
+                    });
+                    
                     const fileIndexInUnsaved = unsavedFilesRef.current.indexOf(fileToRemove.url);
                     if(fileIndexInUnsaved > -1){
                         unsavedFilesRef.current.splice(fileIndexInUnsaved, 1);
                     }
                 }
-
             } catch (error) {
                 console.error("Failed to delete file from storage:", error);
                 toast({
@@ -1170,19 +1170,21 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         });
 
     } else { // Adding files
+        // Immediately add files to state for UI update
         setAssessmentData(prev => {
-             const newData = { ...prev };
-             const currentIndicatorData = newData[indicatorId];
-             if (docIndex !== undefined) {
-                 const newFilesPerDoc = { ...currentIndicatorData.filesPerDocument };
-                 newFilesPerDoc[docIndex] = newFiles;
-                 newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
-             } else {
-                 newData[indicatorId] = { ...currentIndicatorData, files: newFiles };
-             }
-             return newData;
+            const newData = { ...prev };
+            const currentIndicatorData = newData[indicatorId];
+            if (docIndex !== undefined) { // For Criterion 1
+                const newFilesPerDoc = { ...currentIndicatorData.filesPerDocument };
+                newFilesPerDoc[docIndex] = [...(newFilesPerDoc[docIndex] || []), ...newFiles];
+                newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
+            } else { // For other criteria
+                newData[indicatorId] = { ...currentIndicatorData, files: [...currentIndicatorData.files, ...newFiles] };
+            }
+            return newData;
         });
 
+        // Then, upload them and update state with the final URL
         newFiles.forEach(file => {
             if (file instanceof File) {
                 const promise = (async () => {
@@ -1235,6 +1237,7 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         
         const localFiles = indicatorData.files.filter((f): f is File => f instanceof File);
         const existingFiles = indicatorData.files.filter((f): f is {name: string, url: string} => !(f instanceof File));
+        if(!uploadedFileUrls[indicatorId]) uploadedFileUrls[indicatorId] = {};
         uploadedFileUrls[indicatorId].files = existingFiles;
         
         localFiles.forEach(file => {
@@ -1277,11 +1280,16 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         
         const sanitizedData = sanitizeDataForFirestore(assessmentData);
         const assessmentDataForFirestore = Object.entries(sanitizedData).reduce((acc, [key, value]) => {
-            acc[key] = {
-                ...value,
-                files: fileUrlsByIndicator[key]?.files || value.files,
-                filesPerDocument: fileUrlsByIndicator[key]?.filesPerDocument || value.filesPerDocument,
-            };
+            const fileInfo = fileUrlsByIndicator[key];
+            if (fileInfo) {
+                acc[key] = {
+                    ...value,
+                    files: fileInfo.files || value.files,
+                    filesPerDocument: fileInfo.filesPerDocument || value.filesPerDocument,
+                };
+            } else {
+                acc[key] = value;
+            }
             return acc;
         }, {} as Record<string, IndicatorResult>);
 
@@ -1679,3 +1687,4 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
     </>
   );
 }
+
