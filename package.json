@@ -1,3 +1,4 @@
+
 {
   "name": "nextn",
   "version": "0.1.0",
@@ -15,7 +16,8 @@
     "update:phones": "tsx src/scripts/update-phone-numbers.ts",
     "update:names": "tsx src/scripts/update-display-names.ts",
     "migrate:status": "tsx src/scripts/migrate-assessment-status.ts",
-    "cleanup:formulas": "tsx src/scripts/remove-formula-field.ts"
+    "cleanup:formulas": "tsx src/scripts/remove-formula-field.ts",
+    "cleanup:signatures": "tsx src/scripts/cleanup-signature-fields.ts"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.14.1",
