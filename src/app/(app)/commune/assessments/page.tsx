@@ -1127,88 +1127,48 @@ const handleNoteChange = useCallback((indicatorId: string, note: string) => {
     }));
 }, []);
 
-const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
+const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
+    // Luồng xử lý khi XÓA một file
     if (fileToRemove) {
-        if ('url' in fileToRemove && fileToRemove.url) {
-            try {
-                if (typeof fileToRemove.url === 'string' && fileToRemove.url) {
-                    await deleteFileByUrl(fileToRemove.url);
-                    toast({
-                        title: 'Đã xóa tệp',
-                        description: `Tệp "${fileToRemove.name}" đã được xóa khỏi hệ thống.`,
-                    });
-                    
-                    const fileIndexInUnsaved = unsavedFilesRef.current.indexOf(fileToRemove.url);
-                    if(fileIndexInUnsaved > -1){
-                        unsavedFilesRef.current.splice(fileIndexInUnsaved, 1);
-                    }
-                }
-            } catch (error) {
-                console.error("Failed to delete file from storage:", error);
-                toast({
-                    variant: 'destructive',
-                    title: 'Lỗi xóa tệp',
-                    description: 'Không thể xóa tệp khỏi hệ thống lưu trữ.',
-                });
-                return;
-            }
-        }
-        
         setAssessmentData(prev => {
             const newData = { ...prev };
             const currentIndicatorData = newData[indicatorId];
-            if (docIndex !== undefined) {
+            if (!currentIndicatorData) return prev;
+
+            // Xóa file khỏi danh sách trong trạng thái tạm thời (React state)
+            if (docIndex !== undefined) { // Dành cho Tiêu chí 1
                 const newFilesPerDoc = { ...currentIndicatorData.filesPerDocument };
-                newFilesPerDoc[docIndex] = (newFilesPerDoc[docIndex] || []).filter(f => f.name !== fileToRemove.name);
+                newFilesPerDoc[docIndex] = (newFilesPerDoc[docIndex] || []).filter(f => 
+                    (f instanceof File && fileToRemove instanceof File && f.name !== fileToRemove.name) ||
+                    (! (f instanceof File) && ! (fileToRemove instanceof File) && f.url !== fileToRemove.url)
+                );
                 newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
-            } else {
+            } else { // Dành cho các chỉ tiêu khác
                  newData[indicatorId] = { ...currentIndicatorData, files: currentIndicatorData.files.filter(f => f.name !== fileToRemove.name) };
             }
             return newData;
         });
+        
+        // QUAN TRỌNG: Không còn lệnh gọi xóa file trực tiếp khỏi Storage ở đây.
+        // Backend sẽ tự động lo việc này.
 
-    } else { // Adding files
+    } else { // Luồng xử lý khi THÊM một file
         setAssessmentData(prev => {
-            const newData = { ...prev };
-            const currentIndicatorData = newData[indicatorId];
-            if (docIndex !== undefined) {
-                const newFilesPerDoc = { ...currentIndicatorData.filesPerDocument };
-                newFilesPerDoc[docIndex] = [...(newFilesPerDoc[docIndex] || []), ...newFiles];
-                newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
-            } else {
-                newData[indicatorId] = { ...currentIndicatorData, files: [...currentIndicatorData.files, ...newFiles] };
-            }
-            return newData;
-        });
+             const newData = { ...prev };
+             const currentIndicatorData = newData[indicatorId];
+             if (!currentIndicatorData) return prev;
 
-        newFiles.forEach(file => {
-            if (file instanceof File) {
-                const promise = (async () => {
-                    if (!storage || !currentUser || !activePeriod) return;
-                    const filePath = `hoso/${currentUser.communeId}/evidence/${activePeriod.id}/${indicatorId}/${file.name}`;
-                    const storageRef = ref(storage, filePath);
-                    const snapshot = await uploadBytes(storageRef, file);
-                    const downloadURL = await getDownloadURL(snapshot.ref);
-                    
-                    unsavedFilesRef.current.push(downloadURL);
-
-                    setAssessmentData(prev => {
-                        const newData = { ...prev };
-                        const currentIndicator = newData[indicatorId];
-                        const updatedFiles = currentIndicator.files.map(f => f.name === file.name ? { name: file.name, url: downloadURL } : f);
-                        newData[indicatorId] = { ...currentIndicator, files: updatedFiles };
-                        return newData;
-                    });
-                })();
-                toast.promise(promise, {
-                    loading: `Đang tải lên ${file.name}...`,
-                    success: `Đã tải lên ${file.name}`,
-                    error: `Lỗi khi tải lên ${file.name}`
-                });
-            }
+             if (docIndex !== undefined) {
+                 const newFilesPerDoc = { ...currentIndicatorData.filesPerDocument };
+                 newFilesPerDoc[docIndex] = [...(newFilesPerDoc[docIndex] || []), ...newFiles];
+                 newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
+             } else {
+                 newData[indicatorId] = { ...currentIndicatorData, files: [...(currentIndicatorData.files || []), ...newFiles] };
+             }
+             return newData;
         });
     }
-}, [deleteFileByUrl, toast, storage, currentUser, activePeriod]);
+}, []);
 
 
   const uploadEvidenceFiles = useCallback(async (communeId: string, periodId: string): Promise<Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }>> => {
@@ -1221,7 +1181,7 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         const indicatorData = assessmentData[indicatorId];
         const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
         
-        uploadedFileUrls[indicatorId] = {};
+        if(!uploadedFileUrls[indicatorId]) uploadedFileUrls[indicatorId] = {};
         
         if (parentCriterion?.id === 'TC01') {
              uploadedFileUrls[indicatorId] = {
@@ -1233,7 +1193,7 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         
         const localFiles = indicatorData.files.filter((f): f is File => f instanceof File);
         const existingFiles = indicatorData.files.filter((f): f is {name: string, url: string} => !(f instanceof File));
-        if(!uploadedFileUrls[indicatorId]) uploadedFileUrls[indicatorId] = {};
+
         uploadedFileUrls[indicatorId].files = existingFiles;
         
         localFiles.forEach(file => {

@@ -38,7 +38,7 @@ exports.getSignedUrlForFile = exports.verifyPDFSignature = exports.onAssessmentF
 const firestore_1 = require("firebase-functions/v2/firestore");
 const admin = __importStar(require("firebase-admin"));
 const storage_1 = require("firebase-functions/v2/storage");
-const pdf_lib_1 = require("pdf-lib"); // <-- Thư viện mới
+const pdf_lib_1 = require("pdf-lib");
 const date_fns_1 = require("date-fns");
 const https_1 = require("firebase-functions/v2/https");
 const v2_1 = require("firebase-functions/v2");
@@ -205,14 +205,10 @@ async function extractSignatureInfo(pdfBuffer) {
             const fieldType = (_a = field.acroField.FT()) === null || _a === void 0 ? void 0 : _a.toString();
             if (fieldType === '/Sig') {
                 const sigDict = field.acroField.V();
-                // === PHẦN SỬA LỖI QUAN TRỌNG ===
-                // Chỉ xử lý nếu sigDict là một đối tượng Dictionary
                 if (sigDict instanceof pdf_lib_1.PDFDict) {
                     const nameRaw = (_b = sigDict.get(pdf_lib_1.PDFName.of('Name'))) === null || _b === void 0 ? void 0 : _b.toString();
                     const signDateRaw = (_c = sigDict.get(pdf_lib_1.PDFName.of('M'))) === null || _c === void 0 ? void 0 : _c.toString();
-                    // Bỏ ký tự '/' ở đầu đối với tên
                     const name = nameRaw ? nameRaw.substring(1) : null;
-                    // Bỏ cặp dấu () ở đầu và cuối chuỗi ngày tháng
                     const signDate = signDateRaw ? parsePdfDate(signDateRaw.substring(1, signDateRaw.length - 1)) : null;
                     if (signDate) {
                         signatures.push({ name, signDate });
@@ -238,17 +234,14 @@ function translateErrorMessage(englishError) {
     if (englishError.includes("Chữ ký không chứa thông tin ngày ký")) {
         return "Lỗi: Chữ ký hợp lệ nhưng không chứa thông tin ngày ký để đối chiếu.";
     }
-    // Thông báo mặc định cho các lỗi không xác định
     return "Lỗi không xác định đã xảy ra trong quá trình xử lý file.";
 }
-// --- BẮT ĐẦU KHỐI MÃ THAY THẾ TOÀN BỘ HÀM VERIFYPDFSIGNATURE ---
 exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-tiep-can-pl.firebasestorage.app" }, async (event) => {
     var _a, _b, _c, _d;
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;
     const fileName = filePath.split('/').pop() || 'unknownfile';
-    // Hàm phụ trợ để ghi log kiểm tra
     const saveCheckResult = async (status, reason, signingTime, deadline, signerName) => {
         await db.collection('signature_checks').add({
             fileName: fileName,
@@ -271,48 +264,57 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-t
     const { communeId, periodId, indicatorId, docIndex } = pathInfo;
     const assessmentId = `assess_${periodId}_${communeId}`;
     const assessmentRef = db.collection('assessments').doc(assessmentId);
-    // Hàm phụ trợ để cập nhật trạng thái trên giao diện
     const updateAssessmentFileStatus = async (fileStatus, reason) => {
-        var _a, _b;
-        const doc = await assessmentRef.get();
-        if (!doc.exists)
-            return;
-        const data = doc.data();
-        if (!data)
-            return;
-        const assessmentData = data.assessmentData || {};
-        const indicatorResult = assessmentData[indicatorId];
-        if (!indicatorResult || !indicatorResult.filesPerDocument)
-            return;
-        let fileList = indicatorResult.filesPerDocument[docIndex] || [];
-        let fileToUpdate = fileList.find((f) => f.name === fileName);
-        // Nếu file chưa tồn tại trong danh sách (có thể do race condition), thêm nó vào
-        if (!fileToUpdate) {
-            const downloadURL = `https://firebasestorage.googleapis.com/v0/b/${fileBucket}/o/${encodeURIComponent(filePath)}?alt=media`;
-            fileToUpdate = { name: fileName, url: downloadURL };
-            fileList.push(fileToUpdate);
+        try {
+            await db.runTransaction(async (transaction) => {
+                const doc = await transaction.get(assessmentRef);
+                if (!doc.exists) {
+                    v2_1.logger.error(`Assessment document ${assessmentId} does not exist. Cannot update file status.`);
+                    return;
+                }
+                const data = doc.data();
+                if (!data)
+                    return;
+                const assessmentData = data.assessmentData || {};
+                const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {}, status: 'pending', value: 0 };
+                const filesPerDocument = indicatorResult.filesPerDocument || {};
+                let fileList = filesPerDocument[docIndex] || [];
+                let fileToUpdate = fileList.find((f) => f.name === fileName);
+                if (!fileToUpdate) {
+                    const newFileUrl = `https://firebasestorage.googleapis.com/v0/b/${fileBucket}/o/${encodeURIComponent(filePath)}?alt=media`;
+                    fileToUpdate = { name: fileName, url: newFileUrl };
+                    fileList.push(fileToUpdate);
+                    v2_1.logger.info(`File entry for "${fileName}" not found in Firestore. Creating it.`);
+                }
+                fileToUpdate.signatureStatus = fileStatus;
+                if (reason) {
+                    fileToUpdate.signatureError = reason;
+                }
+                else {
+                    delete fileToUpdate.signatureError;
+                }
+                filesPerDocument[docIndex] = fileList;
+                indicatorResult.filesPerDocument = filesPerDocument;
+                const criterionDocSnap = await transaction.get(db.collection('criteria').doc('TC01'));
+                const criterionData = criterionDocSnap.data();
+                const assignedCount = (criterionData === null || criterionData === void 0 ? void 0 : criterionData.assignedDocumentsCount) || 0;
+                const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
+                const allFilesUploaded = allFiles.length >= assignedCount;
+                const allSignaturesValid = allFiles.every((f) => f.signatureStatus === 'valid');
+                const quantityMet = Number(indicatorResult.value) >= assignedCount;
+                if (quantityMet && allFilesUploaded && allSignaturesValid) {
+                    indicatorResult.status = 'achieved';
+                }
+                else if (indicatorResult.value !== '' && indicatorResult.value !== undefined) {
+                    indicatorResult.status = 'not-achieved';
+                }
+                transaction.set(assessmentRef, { assessmentData: { [indicatorId]: indicatorResult } }, { merge: true });
+            });
+            v2_1.logger.info(`Successfully updated file status for "${fileName}" in transaction.`);
         }
-        fileToUpdate.signatureStatus = fileStatus;
-        if (reason) {
-            fileToUpdate.signatureError = reason;
+        catch (error) {
+            v2_1.logger.error(`Transaction to update file status for "${fileName}" failed:`, error);
         }
-        else {
-            delete fileToUpdate.signatureError;
-        }
-        const criterionDoc = await db.collection('criteria').doc('TC01').get();
-        const criterionData = criterionDoc.data() || {};
-        const assignedCount = (criterionData.assignmentType === 'quantity' ? (_b = (_a = assessmentData[indicatorId]) === null || _a === void 0 ? void 0 : _a.communeDefinedDocuments) === null || _b === void 0 ? void 0 : _b.length : criterionData.assignedDocumentsCount) || 0;
-        const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
-        const allFilesUploaded = allFiles.length >= assignedCount;
-        const allSignaturesValid = allFiles.every((f) => f.signatureStatus === 'valid');
-        const quantityMet = Number(indicatorResult.value) >= assignedCount;
-        if (quantityMet && allFilesUploaded && allSignaturesValid) {
-            indicatorResult.status = 'achieved';
-        }
-        else {
-            indicatorResult.status = 'not-achieved';
-        }
-        await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
     };
     await updateAssessmentFileStatus('validating');
     try {
@@ -365,32 +367,21 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-t
     }
     return null;
 });
-// --- KẾT THÚC KHỐI MÃ THAY THẾ ---
-// --- BẮT ĐẦU ĐOẠN CODE MỚI CẦN THÊM ---
 exports.getSignedUrlForFile = (0, https_1.onCall)(async (request) => {
-    // 1. Kiểm tra xem người dùng đã đăng nhập chưa
     if (!request.auth) {
         throw new https_1.HttpsError("unauthenticated", "Người dùng phải đăng nhập để thực hiện.");
     }
-    // 2. Lấy đường dẫn file từ frontend
     const filePath = request.data.filePath;
     if (!filePath || typeof filePath !== 'string') {
         throw new https_1.HttpsError("invalid-argument", "Phải cung cấp đường dẫn file (filePath).");
     }
-    // 3. (Tùy chọn) Thêm kiểm tra bảo mật ở đây nếu cần, ví dụ:
-    // const communeId = request.auth.token.communeId;
-    // if (!filePath.startsWith(`hoso/${communeId}/`)) {
-    //     throw new HttpsError("permission-denied", "Bạn không có quyền xem file này.");
-    // }
     try {
-        // 4. Tạo URL có chữ ký, hết hạn sau 15 phút
         const options = {
             version: 'v4',
             action: 'read',
             expires: Date.now() + 15 * 60 * 1000, // 15 minutes
         };
         const [url] = await admin.storage().bucket().file(filePath).getSignedUrl(options);
-        // 5. Trả URL về cho frontend
         return { signedUrl: url };
     }
     catch (error) {
@@ -398,5 +389,4 @@ exports.getSignedUrlForFile = (0, https_1.onCall)(async (request) => {
         throw new https_1.HttpsError("internal", "Không thể tạo đường dẫn xem trước cho file.");
     }
 });
-// --- KẾT THÚC ĐOẠN CODE MỚI ---
 //# sourceMappingURL=index.js.map
