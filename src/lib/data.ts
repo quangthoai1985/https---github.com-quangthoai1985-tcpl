@@ -6,7 +6,7 @@ export type IndicatorResult = {
     value: any;
     files: { 
         name: string, 
-        url: string,
+        url?: string,
         signatureStatus?: 'validating' | 'valid' | 'invalid' | 'error';
         signatureError?: string;
         contentCheckStatus?: 'passed' | 'failed' | 'not_checked';
@@ -14,7 +14,7 @@ export type IndicatorResult = {
     }[];
     filesPerDocument?: { [documentIndex: number]: { 
         name: string, 
-        url: string,
+        url?: string,
         signatureStatus?: 'validating' | 'valid' | 'invalid' | 'error';
         signatureError?: string;
         contentCheckStatus?: 'passed' | 'failed' | 'not_checked';

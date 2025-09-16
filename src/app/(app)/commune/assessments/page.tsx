@@ -81,55 +81,53 @@ const Criterion1EvidenceUploader = ({
     const [isUploading, setIsUploading] = useState(false);
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !storage) return;
+    const file = e.target.files?.[0];
+    if (!file || !storage) return;
 
-        setIsUploading(true);
+    setIsUploading(true);
 
-        // Lấy thêm hàm `dismiss` từ useToast
+    // Lấy thêm hàm `dismiss` từ useToast
+    
+    // 1. Tạo một thông báo "đang tải" và lưu lại ID của nó
+    const loadingToastId = toast({
+        title: 'Đang tải lên...',
+        description: `Đang xử lý tệp "${file.name}".`,
+    }).id;
+
+    try {
+        const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
+        const storageRef = ref(storage, filePath);
+        const snapshot = await uploadBytes(storageRef, file);
+        const downloadURL = await getDownloadURL(snapshot.ref);
+
+        onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
+
+        // 2. Đóng thông báo "đang tải"
+        dismiss(loadingToastId);
+
+        // 3. Hiển thị thông báo "thành công" mới
+        toast({
+            title: 'Tải lên thành công!',
+            description: `Tệp "${file.name}" đã được tải lên và đang được kiểm tra.`,
+            variant: 'default',
+            duration: 5000,
+        });
+
+    } catch (error) {
+        console.error("Upload error for criterion 1:", error);
         
-        // 1. Tạo một thông báo "đang tải" và lưu lại ID của nó
-        const loadingToastId = toast({
-            title: 'Đang tải lên...',
-            description: `Đang xử lý tệp "${file.name}".`,
-        }).id;
-
-        try {
-            const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
-            const storageRef = ref(storage, filePath);
-            const snapshot = await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(snapshot.ref);
-
-            onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
-
-            // 2. Đóng thông báo "đang tải"
-            dismiss(loadingToastId);
-
-            // 3. Hiển thị thông báo "thành công" mới
-            toast({
-                title: 'Tải lên thành công!',
-                description: `Tệp "${file.name}" đã được tải lên và đang được kiểm tra.`,
-                variant: 'default',
-                duration: 5000,
-            });
-
-        } catch (error) {
-            console.error("Upload error for criterion 1:", error);
-            
-            // 2. Đóng thông báo "đang tải"
-            dismiss(loadingToastId);
-
-            // 3. Hiển thị thông báo "lỗi" mới
-            toast({
-                title: 'Lỗi tải lên',
-                description: `Đã xảy ra lỗi khi tải tệp "${file.name}".`,
-                variant: 'destructive',
-                duration: 5000,
-            });
-        } finally {
-            setIsUploading(false);
-        }
-    };
+        dismiss(loadingToastId); // Đóng thông báo đang tải
+        
+        toast({ // Hiển thị thông báo lỗi mới
+            title: 'Lỗi tải lên',
+            description: `Đã xảy ra lỗi khi tải tệp "${file.name}".`,
+            variant: 'destructive',
+            duration: 5000,
+        });
+    } finally {
+        setIsUploading(false);
+    }
+};
     
     const getStatusIcon = (file: FileWithStatus) => {
         if (!('signatureStatus' in file)) return null;
