@@ -17,7 +17,8 @@
     "update:names": "tsx src/scripts/update-display-names.ts",
     "migrate:status": "tsx src/scripts/migrate-assessment-status.ts",
     "cleanup:formulas": "tsx src/scripts/remove-formula-field.ts",
-    "cleanup:signatures": "tsx src/scripts/cleanup-signature-fields.ts"
+    "cleanup:signatures": "tsx src/scripts/cleanup-signature-fields.ts",
+    "backup": "bash backup.sh"
   },
   "dependencies": {
     "@genkit-ai/googleai": "^1.14.1",
