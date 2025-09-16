@@ -84,7 +84,7 @@ const Criterion1EvidenceUploader = ({
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !storage) return;
-    
+
         setIsUploading(true);
         
         const loadingToastId = toast({
@@ -173,7 +173,7 @@ const Criterion1EvidenceUploader = ({
                  {isUploading && <Loader2 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-5 w-5 animate-spin" />}
             </div>
              {evidence.map((file, index) => (
-                <div key={index} className="p-1.5 bg-muted rounded-md text-sm grid gap-1">
+                <div key={index} className="flex flex-col gap-1 p-1.5 bg-muted rounded-md text-sm">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 w-0 flex-1 min-w-0">
                             <TooltipProvider>
@@ -1156,26 +1156,28 @@ const handleNoteChange = useCallback((indicatorId: string, note: string) => {
 }, []);
 
 const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
+    // Luồng xử lý khi XÓA một file
     if (fileToRemove) {
         setAssessmentData(prev => {
             const newData = { ...prev };
             const currentIndicatorData = newData[indicatorId];
             if (!currentIndicatorData) return prev;
 
-            if (docIndex !== undefined) {
+            // Xóa file khỏi danh sách trong trạng thái tạm thời (React state)
+            if (docIndex !== undefined) { // Dành cho Tiêu chí 1
                 const newFilesPerDoc = { ...currentIndicatorData.filesPerDocument };
                 newFilesPerDoc[docIndex] = (newFilesPerDoc[docIndex] || []).filter(f => 
                     (f instanceof File && fileToRemove instanceof File && f.name !== fileToRemove.name) ||
                     (! (f instanceof File) && ! (fileToRemove instanceof File) && f.url !== fileToRemove.url)
                 );
                 newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
-            } else { 
+            } else { // Dành cho các chỉ tiêu khác
                  newData[indicatorId] = { ...currentIndicatorData, files: currentIndicatorData.files.filter(f => f.name !== fileToRemove.name) };
             }
             return newData;
         });
         
-    } else { 
+    } else { // Luồng xử lý khi THÊM một file
         setAssessmentData(prev => {
              const newData = { ...prev };
              const currentIndicatorData = newData[indicatorId];
@@ -1666,5 +1668,6 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
     </>
   );
 }
+
 
 
