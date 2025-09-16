@@ -269,32 +269,41 @@ export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl
         const assessmentData = data.assessmentData || {};
         const indicatorResult = assessmentData[indicatorId];
         if (!indicatorResult || !indicatorResult.filesPerDocument) return;
-        const fileList = indicatorResult.filesPerDocument[docIndex] || [];
-        const fileToUpdate = fileList.find((f: any) => f.name === fileName);
+        
+        let fileList = indicatorResult.filesPerDocument[docIndex] || [];
+        let fileToUpdate = fileList.find((f: any) => f.name === fileName);
 
-        if (fileToUpdate) {
-            fileToUpdate.signatureStatus = fileStatus;
-            if (reason) {
-                fileToUpdate.signatureError = reason;
-            } else {
-                 delete fileToUpdate.signatureError;
-            }
-            
-            const criterionDoc = await db.collection('criteria').doc('TC01').get();
-            const assignedCount = criterionDoc.data()?.assignedDocumentsCount || 0;
-            const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
-            const allFilesUploaded = allFiles.length >= assignedCount;
-            const allSignaturesValid = allFiles.every((f: any) => f.signatureStatus === 'valid');
-            const quantityMet = Number(indicatorResult.value) >= assignedCount;
-
-            if (quantityMet && allFilesUploaded && allSignaturesValid) {
-                indicatorResult.status = 'achieved';
-            } else {
-                indicatorResult.status = 'not-achieved';
-            }
-            
-            await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
+        // Nếu file chưa tồn tại trong danh sách (có thể do race condition), thêm nó vào
+        if (!fileToUpdate) {
+             const downloadURL = `https://firebasestorage.googleapis.com/v0/b/${fileBucket}/o/${encodeURIComponent(filePath)}?alt=media`;
+             fileToUpdate = { name: fileName, url: downloadURL };
+             fileList.push(fileToUpdate);
         }
+
+        fileToUpdate.signatureStatus = fileStatus;
+        if (reason) {
+            fileToUpdate.signatureError = reason;
+        } else {
+            delete fileToUpdate.signatureError;
+        }
+        
+        const criterionDoc = await db.collection('criteria').doc('TC01').get();
+        
+        const criterionData = criterionDoc.data() || {};
+        const assignedCount = (criterionData.assignmentType === 'quantity' ? assessmentData[indicatorId]?.communeDefinedDocuments?.length : criterionData.assignedDocumentsCount) || 0;
+
+        const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
+        const allFilesUploaded = allFiles.length >= assignedCount;
+        const allSignaturesValid = allFiles.every((f: any) => f.signatureStatus === 'valid');
+        const quantityMet = Number(indicatorResult.value) >= assignedCount;
+
+        if (quantityMet && allFilesUploaded && allSignaturesValid) {
+            indicatorResult.status = 'achieved';
+        } else {
+            indicatorResult.status = 'not-achieved';
+        }
+        
+        await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
     };
     
 
@@ -341,7 +350,6 @@ export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl
         
         const isValid = signingTime <= deadline;
         
-        // FIX: ĐÃ GỌI HÀM SAVECHECKRESULT KHI THÀNH CÔNG
         await saveCheckResult(isValid ? 'valid' : 'expired', isValid ? 'Chữ ký hợp lệ' : `Ký sau thời hạn`, signingTime, deadline, firstSignature.name);
         
         await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
@@ -350,7 +358,6 @@ export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl
         logger.error(`[pdf-lib] Error processing ${filePath}:`, error);
         const userFriendlyMessage = translateErrorMessage(error.message);
 
-        // FIX: ĐÃ GỌI HÀM SAVECHECKRESULT KHI BỊ LỖI
         await saveCheckResult('error', userFriendlyMessage);
 
         await updateAssessmentFileStatus('error', userFriendlyMessage);
