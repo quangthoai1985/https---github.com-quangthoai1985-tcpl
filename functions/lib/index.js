@@ -248,6 +248,7 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-t
     const filePath = event.data.name;
     const contentType = event.data.contentType;
     const fileName = filePath.split('/').pop() || 'unknownfile';
+    // Hàm phụ trợ để ghi log kiểm tra
     const saveCheckResult = async (status, reason, signingTime, deadline, signerName) => {
         await db.collection('signature_checks').add({
             fileName: fileName,
@@ -270,6 +271,7 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-t
     const { communeId, periodId, indicatorId, docIndex } = pathInfo;
     const assessmentId = `assess_${periodId}_${communeId}`;
     const assessmentRef = db.collection('assessments').doc(assessmentId);
+    // Hàm phụ trợ để cập nhật trạng thái trên giao diện
     const updateAssessmentFileStatus = async (fileStatus, reason) => {
         var _a;
         const doc = await assessmentRef.get();
@@ -309,8 +311,6 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-t
     };
     await updateAssessmentFileStatus('validating');
     try {
-        // === LOGIC NÂNG CẤP BẮT ĐẦU TỪ ĐÂY ===
-        // 1. Lấy dữ liệu của cả Tiêu chí (từ admin) và Hồ sơ đánh giá (từ xã)
         const criterionDoc = await db.collection('criteria').doc('TC01').get();
         const assessmentDoc = await assessmentRef.get();
         if (!criterionDoc.exists)
@@ -319,15 +319,10 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-t
             throw new Error(`Không tìm thấy hồ sơ đánh giá: ${assessmentId}`);
         const criterionData = criterionDoc.data();
         const assessmentData = (_a = assessmentDoc.data()) === null || _a === void 0 ? void 0 : _a.assessmentData;
-        // 2. Xác định phương thức giao nhiệm vụ mà Admin đã chọn
         const assignmentType = (criterionData === null || criterionData === void 0 ? void 0 : criterionData.assignmentType) || 'specific';
-        v2_1.logger.info(`Processing file for assignment type: ${assignmentType}`);
         let issueDate;
         let deadline;
-        // 3. Phân luồng logic để lấy đúng thông tin thời hạn
         if (assignmentType === 'specific') {
-            // -- TRƯỜNG HỢP 1: ADMIN GIAO CỤ THỂ --
-            v2_1.logger.info("Handling 'specific' assignment.");
             const documentConfig = (_b = criterionData === null || criterionData === void 0 ? void 0 : criterionData.documents) === null || _b === void 0 ? void 0 : _b[docIndex];
             if (!documentConfig || !documentConfig.issueDate || !documentConfig.issuanceDeadlineDays) {
                 throw new Error(`Không tìm thấy cấu hình văn bản cụ thể cho index ${docIndex}.`);
@@ -335,9 +330,7 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-t
             issueDate = (0, date_fns_1.parse)(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
             deadline = (0, date_fns_1.addDays)(issueDate, documentConfig.issuanceDeadlineDays);
         }
-        else { // assignmentType === 'quantity'
-            // -- TRƯỜNG HỢP 2: ADMIN GIAO THEO SỐ LƯỢNG --
-            v2_1.logger.info("Handling 'quantity' assignment.");
+        else {
             const communeDocumentConfig = (_d = (_c = assessmentData === null || assessmentData === void 0 ? void 0 : assessmentData[indicatorId]) === null || _c === void 0 ? void 0 : _c.communeDefinedDocuments) === null || _d === void 0 ? void 0 : _d[docIndex];
             if (!communeDocumentConfig || !communeDocumentConfig.issueDate || !communeDocumentConfig.issuanceDeadlineDays) {
                 throw new Error(`Không tìm thấy thông tin văn bản do xã kê khai cho index ${docIndex}.`);
@@ -345,8 +338,6 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-t
             issueDate = (0, date_fns_1.parse)(communeDocumentConfig.issueDate, 'dd/MM/yyyy', new Date());
             deadline = (0, date_fns_1.addDays)(issueDate, communeDocumentConfig.issuanceDeadlineDays);
         }
-        v2_1.logger.info(`Calculated deadline for ${fileName}: ${deadline.toISOString()}`);
-        // 4. Các bước trích xuất và so sánh chữ ký giữ nguyên
         const bucket = admin.storage().bucket(fileBucket);
         const [fileBuffer] = await bucket.file(filePath).download();
         const signatures = await extractSignatureInfo(fileBuffer);
@@ -357,12 +348,15 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-t
         if (!signingTime)
             throw new Error("Chữ ký không chứa thông tin ngày ký (M).");
         const isValid = signingTime <= deadline;
+        // FIX: ĐÃ GỌI HÀM SAVECHECKRESULT KHI THÀNH CÔNG
+        await saveCheckResult(isValid ? 'valid' : 'expired', isValid ? 'Chữ ký hợp lệ' : `Ký sau thời hạn`, signingTime, deadline, firstSignature.name);
         await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
-        v2_1.logger.info(`[pdf-lib] Successfully processed signature for ${fileName}. Status: ${isValid ? 'valid' : 'invalid'}`);
     }
     catch (error) {
         v2_1.logger.error(`[pdf-lib] Error processing ${filePath}:`, error);
         const userFriendlyMessage = translateErrorMessage(error.message);
+        // FIX: ĐÃ GỌI HÀM SAVECHECKRESULT KHI BỊ LỖI
+        await saveCheckResult('error', userFriendlyMessage);
         await updateAssessmentFileStatus('error', userFriendlyMessage);
         return null;
     }

@@ -9,7 +9,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/componen
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle, Download, File as FileIcon, ThumbsDown, ThumbsUp, XCircle, AlertTriangle, Eye, MessageSquareQuote, UploadCloud, X, Clock, Award, Undo2, CornerDownRight, Edit, CircleSlash, LinkIcon, Info, ListChecks } from "lucide-react";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -52,7 +52,7 @@ const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) =
     const subIndicator1_tc3_i2_id = criteria[2].indicators?.length > 1 && criteria[2].indicators[1].subIndicators?.length > 0 ? criteria[2].indicators[1].subIndicators[0].id : null;
     if (indicatorId === indicator3_tc2_id) { return { no: "Không yêu cầu cung cấp", yes: "Có yêu cầu cung cấp" }; }
     if (indicatorId === subIndicator3_tc2_i4_id) { return { no: "Không phát sinh nhiệm vụ ngoài kế hoạch", yes: "Có phát sinh nhiệm vụ ngoài kế hoạch" }; }
-    if (indicatorId === subIndicator1_tc3_i1_id) { return { no: "Không phát sinh yêu cầu thành lập", yes: "Có phát sinh yêu cầu thành lập" }; }
+    if (indicatorId === subIndicator1_tc3_i1_id) { return { no: "Không phát sinh yêu cầu thành lập", yes: "Có phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên" }; }
     if (indicatorId === subIndicator2_tc3_i1_id) { return { no: "Không phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên", yes: "Có phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên" }; }
     if (indicatorId === subIndicator1_tc3_i2_id) { return { no: "Không phát sinh vụ, việc hòa giải", yes: "Có phát sinh vụ, việc hòa giải" }; }
     return { no: 'Không được giao nhiệm vụ', yes: 'Được giao nhiệm vụ' };
@@ -72,51 +72,6 @@ const getCheckboxOptions = (indicatorId: string, criteria: Criterion[]) => {
     if (criterion2.indicators?.length > 4 && indicatorId === criterion2.indicators[4].id) { return ["Tổ chức cuộc thi tìm hiểu pháp luật trực tuyến", "Tổ chức tập huấn phổ biến kiến thức pháp luật và kỹ năng phổ biến, giáo dục pháp luật cho đội ngũ nhân lực làm công tác phổ biến, giáo dục pháp luật bằng hình thức trực tuyến", "Phổ biến, giáo dục pháp luật trên Cổng Thông tin điện tử/Trang Thông tin điện tử của Hội đồng nhân dân, Uỷ ban nhân dân cấp xã và có sự kết nối với Cổng Pháp luật Quốc gia (đối với cấp xã đã có Cổng/Trang thông tin điện tử)", "Sử dụng mạng xã hội và các nền tảng cộng đồng trực tuyến khác để thực hiện phổ biến, giáo dục pháp luật", "Xây dựng, số hoá các tài liệu, sản phẩm truyền thông, phổ biến, giáo dục pháp luật như video clip, podcast, audio...", "Xây dựng chatbox giải đáp pháp luật", "Phổ biến, giáo dục pháp luật thông qua tin nhắn điện thoại", "Hoạt động khác về chuyển đổi số, ứng dụng công nghệ số bảo đảm phù hợp"]; }
     if(criterion3.indicators?.length > 2 && indicatorId === criterion3.indicators[2].id) { return ["Huy động đội ngũ luật sư, luật gia, Hội thẩm nhân dân, lực lượng Công an nhân dân, Bộ đội Biên phòng, báo cáo viên pháp luật, tuyên truyền viên pháp luật, lực lượng tham gia bảo vệ an ninh, trật tự ở cơ sở, người đã từng là Thẩm phán, Kiểm sát viên, Điều tra viên, người đã hoặc đang công tác trong lĩnh vực pháp luật tham gia làm hòa giải viên ở cơ sở.", "Huy động đội ngũ nêu trên hỗ trợ pháp lý, tư vấn cho tổ hoà giải để giải quyết vụ, việc thuộc phạm vi hoà giải ở cơ sở.", "Huy động đội ngũ nêu trên tham gia tập huấn, bồi dưỡng cho hoà giải viên.", "Các hoạt động phối hợp, hỗ trợ hiệu quả của cá nhân, tổ chức khác trong triển khai công tác hòa giải ở cơ sở."]; }
     return null;
-}
-
-// Dialog for commune staff to revise an indicator
-function RevisionDialog({ indicator, data, onSave, onCancel, criteria }: { indicator: Indicator | SubIndicator, data: IndicatorResult, onSave: (id: string, newData: IndicatorResult) => void, onCancel: () => void, criteria: Criterion[] }) {
-    const [value, setValue] = useState(data.value);
-    const [isTasked, setIsTasked] = useState(data.isTasked);
-    const [note, setNote] = useState(data.communeNote || ''); // Use the new communeNote field
-    const [files, setFiles] = useState<(File | { name: string, url: string })[]>(data.files || []);
-
-    const specialLogicIndicatorIds = getSpecialLogicIndicatorIds(criteria);
-    
-    const handleSave = () => {
-        onSave(indicator.id, { ...data, value, isTasked, communeNote: note, files });
-        onCancel();
-    };
-
-    return (
-        <DialogContent className="max-w-2xl">
-            <DialogHeader>
-                <DialogTitle>Bổ sung &amp; Giải trình: {indicator.name}</DialogTitle>
-                <DialogDescription>Cập nhật lại kết quả tự đánh giá, tệp minh chứng và giải trình lý do.</DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-6">
-                {/* Re-render the input component from self-assessment */}
-                <div className="grid gap-2">
-                    <Label>Kết quả tự đánh giá mới</Label>
-                    {renderInput(indicator, specialLogicIndicatorIds, getSpecialIndicatorLabels(indicator.id, criteria), getCustomBooleanLabels(indicator.id, criteria), getCheckboxOptions(indicator.id, criteria), { ...data, value, isTasked }, (id, val) => setValue(val), (id, tasked) => setIsTasked(tasked))}
-                </div>
-                {/* File Upload */}
-                <div className="grid gap-2">
-                    <Label>Hồ sơ minh chứng mới (nếu có)</Label>
-                    <EvidenceUploaderComponent indicatorId={indicator.id} evidence={files} onEvidenceChange={(id, newFiles) => setFiles(newFiles)} />
-                </div>
-                {/* Commune's Explanation */}
-                <div className="grid gap-2">
-                    <Label htmlFor={`commune-note-${indicator.id}`}>Nội dung giải trình của bạn</Label>
-                    <Textarea id={`commune-note-${indicator.id}`} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Giải trình về sự thay đổi, bổ sung..." />
-                </div>
-            </div>
-            <DialogFooter>
-                <Button variant="outline" onClick={onCancel}>Hủy</Button>
-                <Button onClick={handleSave}>Lưu thay đổi</Button>
-            </DialogFooter>
-        </DialogContent>
-    );
 }
 
 // Input rendering logic copied from self-assessment page
@@ -194,6 +149,55 @@ function EvidenceUploaderComponent({ indicatorId, evidence, onEvidenceChange }: 
                  </div>
             )}
         </div>
+    );
+}
+
+// Dialog for commune staff to revise an indicator
+function RevisionDialog({ indicator, data, onSave, onCancel, criteria }: { indicator: Indicator | SubIndicator, data: IndicatorResult, onSave: (id: string, newData: IndicatorResult) => void, onCancel: () => void, criteria: Criterion[] }) {
+    const [value, setValue] = useState(data.value);
+    const [isTasked, setIsTasked] = useState(data.isTasked);
+    const [note, setNote] = useState(data.communeNote || ''); // Use the new communeNote field
+    const [files, setFiles] = useState<(File | { name: string, url: string })[]>(data.files || []);
+
+    const specialLogicIndicatorIds = getSpecialLogicIndicatorIds(criteria);
+    
+    const handleSave = () => {
+        onSave(indicator.id, { ...data, value, isTasked, communeNote: note, files });
+        onCancel();
+    };
+
+    const handleEvidenceChange = useCallback((id: string, newFiles: any[]) => {
+        setFiles(newFiles);
+    }, []);
+
+    return (
+        <DialogContent className="max-w-2xl">
+            <DialogHeader>
+                <DialogTitle>Bổ sung &amp; Giải trình: {indicator.name}</DialogTitle>
+                <DialogDescription>Cập nhật lại kết quả tự đánh giá, tệp minh chứng và giải trình lý do.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-6">
+                {/* Re-render the input component from self-assessment */}
+                <div className="grid gap-2">
+                    <Label>Kết quả tự đánh giá mới</Label>
+                    {renderInput(indicator, specialLogicIndicatorIds, getSpecialIndicatorLabels(indicator.id, criteria), getCustomBooleanLabels(indicator.id, criteria), getCheckboxOptions(indicator.id, criteria), { ...data, value, isTasked }, (id, val) => setValue(val), (id, tasked) => setIsTasked(tasked))}
+                </div>
+                {/* File Upload */}
+                <div className="grid gap-2">
+                    <Label>Hồ sơ minh chứng mới (nếu có)</Label>
+                    <EvidenceUploaderComponent indicatorId={indicator.id} evidence={files} onEvidenceChange={handleEvidenceChange} />
+                </div>
+                {/* Commune's Explanation */}
+                <div className="grid gap-2">
+                    <Label htmlFor={`commune-note-${indicator.id}`}>Nội dung giải trình của bạn</Label>
+                    <Textarea id={`commune-note-${indicator.id}`} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Giải trình về sự thay đổi, bổ sung..." />
+                </div>
+            </div>
+            <DialogFooter>
+                <Button variant="outline" onClick={onCancel}>Hủy</Button>
+                <Button onClick={handleSave}>Lưu thay đổi</Button>
+            </DialogFooter>
+        </DialogContent>
     );
 }
 
@@ -335,10 +339,10 @@ export default function AssessmentDetailPage() {
     return assessment.assessmentData[indicatorId];
   };
 
-  const handleSaveRevision = (indicatorId: string, newData: IndicatorResult) => {
+  const handleSaveRevision = useCallback((indicatorId: string, newData: IndicatorResult) => {
       setRevisionData(prev => ({...prev, [indicatorId]: newData}));
       toast({ title: "Đã lưu", description: `Đã cập nhật thay đổi cho chỉ tiêu.` });
-  }
+  }, [toast]);
 
   
    const handleReturnForRevision = async () => {
