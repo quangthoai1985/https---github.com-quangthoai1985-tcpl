@@ -620,114 +620,6 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
     return sanitizedData;
 };
 
-const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadComplete, onRemove, onPreview, periodId, communeId, accept }: {
-    indicatorId: string;
-    docIndex: number;
-    evidence: FileWithStatus[];
-    onUploadComplete: (indicatorId: string, docIndex: number, file: { name: string; url: string; }) => void;
-    onRemove: (indicatorId: string, docIndex: number, file: FileWithStatus) => void;
-    onPreview: (file: { name: string; url: string; }) => void;
-    periodId: string;
-    communeId: string;
-    accept?: string;
-}) => {
-    const { storage, deleteFileByUrl } = useData();
-    const { toast } = useToast();
-    const [isUploading, setIsUploading] = useState(false);
-    
-    const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file || !storage) return;
-
-        setIsUploading(true);
-        try {
-            const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
-            const storageRef = ref(storage, filePath);
-            const snapshot = await uploadBytes(storageRef, file);
-            const downloadURL = await getDownloadURL(snapshot.ref);
-
-            onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
-            toast({ title: "Thành công", description: "Đã tải lên minh chứng." });
-        } catch (error) {
-            toast({ variant: 'destructive', title: "Lỗi tải lên", description: `Không thể tải tệp: ${error}` });
-            console.error("Upload error:", error);
-        } finally {
-            setIsUploading(false);
-        }
-    };
-    
-    return (
-        <div className="grid gap-2">
-            <div className={cn("w-full relative border-2 border-dashed rounded-lg p-2 text-center hover:border-primary transition-colors")}>
-                <FileUp className="mx-auto h-6 w-6 text-muted-foreground" />
-                <p className="mt-1 text-xs text-muted-foreground">
-                   Nhấn để chọn tệp
-                </p>
-                <Input type="file" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileSelect} accept={accept} disabled={isUploading} />
-                 {isUploading && <div className="absolute inset-0 bg-background/50 flex items-center justify-center"><Loader2 className="h-5 w-5 animate-spin" /></div>}
-            </div>
-
-            {evidence.length > 0 && (
-                <div className="space-y-1 mt-1">
-                    {evidence.map((item, index) => {
-                        const getStatusBadge = () => {
-                            if (!('signatureStatus' in item) || !item.signatureStatus) {
-                                return null;
-                            }
-                            switch (item.signatureStatus) {
-                                case 'validating':
-                                    return <Badge variant="secondary" className="bg-amber-100 text-amber-800">Đang kiểm tra...</Badge>;
-                                case 'valid':
-                                    return <Badge variant="default" className="bg-green-100 text-green-800">Hợp lệ</Badge>;
-                                case 'invalid':
-                                    return <Badge variant="destructive">{item.signatureError || 'Không hợp lệ'}</Badge>;
-                                case 'error':
-                                     return <Badge variant="destructive">Lỗi: {item.signatureError}</Badge>;
-                                default:
-                                    return null;
-                            }
-                        };
-                        return (
-                         <div key={index} className="flex flex-col gap-1 p-1.5 bg-muted rounded-md text-sm">
-                            <div className="flex items-center justify-between">
-                                <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                             <div className="flex items-center gap-2 w-0 flex-1 min-w-0 cursor-help">
-                                                {item.signatureStatus === 'validating' && <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin text-amber-500" />}
-                                                {item.signatureStatus === 'valid' && <CheckCircle className="h-4 w-4 flex-shrink-0 text-green-500" />}
-                                                {item.signatureStatus === 'invalid' && <XCircle className="h-4 w-4 flex-shrink-0 text-red-500" />}
-                                                {item.signatureStatus === 'error' && <AlertTriangle className="h-4 w-4 flex-shrink-0 text-red-500" />}
-                                                {!item.signatureStatus && <FileIcon className="h-4 w-4 flex-shrink-0" />}
-                                                <span className="truncate text-xs flex-1">{item.name}</span>
-                                            </div>
-                                        </TooltipTrigger>
-                                        <TooltipContent>
-                                            <p>{item.signatureError || (item.signatureStatus === 'valid' ? 'Chữ ký hợp lệ' : 'Trạng thái chữ ký')}</p>
-                                        </TooltipContent>
-                                    </Tooltip>
-                                </TooltipProvider>
-
-                                 <div className="flex items-center gap-0 flex-shrink-0">
-                                    { 'url' in item && item.url && (
-                                         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onPreview(item as { name: string, url: string })}>
-                                            <Eye className="h-4 w-4" />
-                                        </Button>
-                                    )}
-                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemove(indicatorId, docIndex, item)}>
-                                        <X className="h-4 w-4" />
-                                    </Button>
-                                 </div>
-                            </div>
-                            {getStatusBadge() && <div className="ml-6">{getStatusBadge()}</div>}
-                        </div>
-                    )})}
-                </div>
-            )}
-        </div>
-    )
-}
-
 const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, communeId, handleCommuneDocsChange }: {
     criterion: Criterion;
     assessmentData: AssessmentValues;
@@ -1004,8 +896,6 @@ export default function SelfAssessmentPage() {
 
   const [assessmentData, setAssessmentData] = useState<AssessmentValues>(() => initializeState(criteria, myAssessment?.assessmentData));
   
-  const isInitialRender = useRef(true);
-
   useEffect(() => {
     if (myAssessment?.assessmentData) {
         const newState = initializeState(criteria, myAssessment.assessmentData);
@@ -1282,25 +1172,26 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
   }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast, uploadEvidenceFiles]);
   
     useEffect(() => {
-        if (criteria.length > 0 && !isInitialRender.current) {
-            const firstIndicatorId = criteria[0].indicators[0].id;
-            const autoSaveCriterion1 = (prevData: AssessmentValues) => {
-                const currentFiles = JSON.stringify(assessmentData[firstIndicatorId]?.filesPerDocument);
-                const prevFiles = JSON.stringify(prevData[firstIndicatorId]?.filesPerDocument);
-                 if (currentFiles !== prevFiles) {
+        const isCriterion1Updated = (prevData: AssessmentValues, currentData: AssessmentValues): boolean => {
+            const firstIndicatorId = criteria[0]?.indicators[0]?.id;
+            if (!firstIndicatorId) return false;
+            
+            const prevFiles = JSON.stringify(prevData[firstIndicatorId]?.filesPerDocument);
+            const currentFiles = JSON.stringify(currentData[firstIndicatorId]?.filesPerDocument);
+            
+            return prevFiles !== currentFiles;
+        };
+
+        const handler = setTimeout(() => {
+            setAssessmentData(prev => {
+                if (isCriterion1Updated(prev, assessmentData)) {
                     handleSaveDraft();
                 }
-            };
-            const handler = setTimeout(() => {
-                setAssessmentData(prev => {
-                    autoSaveCriterion1(prev);
-                    return prev;
-                })
-            }, 2000);
-            return () => clearTimeout(handler);
-        } else {
-             isInitialRender.current = false;
-        }
+                return prev; // Keep the current state if no update needed
+            });
+        }, 3000); // 3-second debounce
+
+        return () => clearTimeout(handler);
     }, [assessmentData, criteria, handleSaveDraft]);
 
   const { canSubmit, submissionErrors } = useMemo(() => {
@@ -1661,4 +1552,3 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
     </>
   );
 }
-
