@@ -1,6 +1,6 @@
 
 /* eslint-disable no-console */
-import * as admin from 'firebase-admin';
+import { adminDb as db } from '@/lib/firebase-admin';
 import type { Assessment } from '../lib/data';
 
 // ========================================================================================
@@ -19,23 +19,6 @@ import type { Assessment } from '../lib/data';
 // 1. Đảm bảo file `service-account-credentials.json` tồn tại ở thư mục gốc.
 // 2. Mở terminal và chạy lệnh: `npm run cleanup:signatures`
 // ========================================================================================
-
-
-// Khởi tạo Firebase Admin SDK
-if (!admin.apps.length) {
-    try {
-        const serviceAccount = require('../../service-account-credentials.json');
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-        });
-        console.log("Firebase Admin SDK được khởi tạo thành công.");
-    } catch (error: any) {
-        console.error("Lỗi: Không thể khởi tạo Firebase Admin SDK.", error.message);
-        process.exit(1);
-    }
-}
-
-const db = admin.firestore();
 
 async function main() {
     try {

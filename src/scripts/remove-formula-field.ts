@@ -1,6 +1,6 @@
 
 /* eslint-disable no-console */
-import * as admin from 'firebase-admin';
+import { adminDb as db } from '@/lib/firebase-admin';
 
 // ========================================================================================
 // SCRIPT XÓA TRƯỜNG "calculationFormula"
@@ -16,23 +16,6 @@ import * as admin from 'firebase-admin';
 // 2. Mở terminal và chạy lệnh: `npm run cleanup:formulas`
 // ========================================================================================
 
-
-// Khởi tạo Firebase Admin SDK
-if (!admin.apps.length) {
-    try {
-        const serviceAccount = require('../../service-account-credentials.json');
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-        });
-        console.log("Firebase Admin SDK được khởi tạo thành công.");
-    } catch (error) {
-        console.error("Lỗi: Không thể khởi tạo Firebase Admin SDK.");
-        console.error("Hãy chắc chắn rằng file `service-account-credentials.json` nằm ở thư mục gốc của dự án.");
-        process.exit(1);
-    }
-}
-
-const db = admin.firestore();
 
 async function main() {
     try {

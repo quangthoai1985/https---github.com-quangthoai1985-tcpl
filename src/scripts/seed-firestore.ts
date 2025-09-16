@@ -1,6 +1,6 @@
 
 /* eslint-disable no-console */
-import * as admin from 'firebase-admin';
+import { adminDb as db, adminAuth as auth } from '@/lib/firebase-admin';
 import type { User, Unit, AssessmentPeriod, Assessment, Criterion, Document } from '../lib/data';
 
 // ========================================================================================
@@ -20,24 +20,6 @@ import type { User, Unit, AssessmentPeriod, Assessment, Criterion, Document } fr
 // 3.  RUN THE SCRIPT:
 //     - Open your terminal and run the command: `npm run seed:firestore`
 // ========================================================================================
-
-// Initialize Firebase Admin SDK if not already initialized
-if (!admin.apps.length) {
-    try {
-        const serviceAccount = require('../../service-account-credentials.json');
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-        });
-        console.log("Firebase Admin SDK initialized successfully for seeding script.");
-    } catch (error) {
-        console.error("Could not initialize Firebase Admin SDK. Make sure service-account-credentials.json is in the root directory.");
-        process.exit(1);
-    }
-}
-
-
-const db = admin.firestore();
-const auth = admin.auth();
 
 // ----------------------------------------------------------------------------------------
 // --- MOCK DATA TO SEED ---
@@ -59,7 +41,7 @@ let assessments: Omit<Assessment, 'submittedBy' | 'approverId'>[] = [
     // Data has been uploaded by user, keep this empty
 ];
 
-const criteria: Omit<Criterion, 'indicators'> & { indicators: Indicator[] }[] = [
+const criteria: Omit<Criterion, 'indicators'> & { indicators: any[] }[] = [
   // Data has been uploaded by user, keep this empty
 ];
 
@@ -102,7 +84,7 @@ async function deleteCollection(collectionPath: string, batchSize: number = 50) 
         deleteQueryBatch(query, resolve).catch(reject);
     });
 
-    async function deleteQueryBatch(query: admin.firestore.Query, resolve: () => void) {
+    async function deleteQueryBatch(query: FirebaseFirestore.Query, resolve: () => void) {
         const snapshot = await query.get();
 
         if (snapshot.size === 0) {

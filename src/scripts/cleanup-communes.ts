@@ -1,6 +1,6 @@
 
 /* eslint-disable no-console */
-import * as admin from 'firebase-admin';
+import { adminDb as db, adminAuth as auth } from '@/lib/firebase-admin';
 
 // ========================================================================================
 // SCRIPT XÓA DỮ LIỆU CẤP XÃ
@@ -15,31 +15,12 @@ import * as admin from 'firebase-admin';
 // 2. Mở terminal và chạy lệnh: `npm run cleanup`
 // ========================================================================================
 
-
-// Khởi tạo Firebase Admin SDK
-if (!admin.apps.length) {
-    try {
-        const serviceAccount = require('../../service-account-credentials.json');
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-        });
-        console.log("Firebase Admin SDK được khởi tạo thành công.");
-    } catch (error) {
-        console.error("Lỗi: Không thể khởi tạo Firebase Admin SDK.");
-        console.error("Hãy chắc chắn rằng file `service-account-credentials.json` nằm ở thư mục gốc của dự án.");
-        process.exit(1);
-    }
-}
-
-const db = admin.firestore();
-const auth = admin.auth();
-
 /**
  * Xóa tất cả các document trong một collection con theo một query.
  * @param query - Query để lấy các document cần xóa.
  * @param batchSize - Số lượng document xóa trong một lần.
  */
-async function deleteQueryBatch(query: admin.firestore.Query, batchSize: number) {
+async function deleteQueryBatch(query: FirebaseFirestore.Query, batchSize: number) {
     const snapshot = await query.limit(batchSize).get();
 
     if (snapshot.size === 0) {

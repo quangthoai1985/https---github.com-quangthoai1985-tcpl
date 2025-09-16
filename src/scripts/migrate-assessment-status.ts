@@ -1,6 +1,6 @@
 
 /* eslint-disable no-console */
-import * as admin from 'firebase-admin';
+import { adminDb as db, admin } from '@/lib/firebase-admin';
 
 // ========================================================================================
 // SCRIPT DI CHUYỂN TRẠNG THÁI HỒ SƠ ĐÁNH GIÁ
@@ -16,24 +16,6 @@ import * as admin from 'firebase-admin';
 // 1. Đảm bảo file `service-account-credentials.json` tồn tại ở thư mục gốc.
 // 2. Mở terminal và chạy lệnh: `npm run migrate:status`
 // ========================================================================================
-
-
-// Khởi tạo Firebase Admin SDK
-if (!admin.apps.length) {
-    try {
-        const serviceAccount = require('../../service-account-credentials.json');
-        admin.initializeApp({
-          credential: admin.credential.cert(serviceAccount),
-        });
-        console.log("Firebase Admin SDK được khởi tạo thành công.");
-    } catch (error) {
-        console.error("Lỗi: Không thể khởi tạo Firebase Admin SDK.");
-        console.error("Hãy chắc chắn rằng file `service-account-credentials.json` nằm ở thư mục gốc của dự án.");
-        process.exit(1);
-    }
-}
-
-const db = admin.firestore();
 
 type OldStatus = 'pending_registration' | 'registration_rejected' | 'registration_approved' | 'draft' | 'pending_review' | 'approved' | 'rejected';
 type RegistrationStatus = 'pending' | 'approved' | 'rejected';
