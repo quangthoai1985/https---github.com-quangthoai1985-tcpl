@@ -84,31 +84,31 @@ const Criterion1EvidenceUploader = ({
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !storage) return;
-
+    
         setIsUploading(true);
         
         const loadingToastId = toast({
             title: 'Đang tải lên...',
             description: `Đang xử lý tệp "${file.name}".`,
         }).id;
-
+    
         try {
             const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
             const storageRef = ref(storage, filePath);
             const snapshot = await uploadBytes(storageRef, file);
             const downloadURL = await getDownloadURL(snapshot.ref);
-
+    
             onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
-
+    
             dismiss(loadingToastId);
-
+    
             toast({
                 title: 'Tải lên thành công!',
                 description: `Tệp "${file.name}" đã được tải lên và đang được kiểm tra.`,
                 variant: 'default',
                 duration: 5000,
             });
-
+    
         } catch (error) {
             console.error("Upload error for criterion 1:", error);
             
@@ -147,6 +147,23 @@ const Criterion1EvidenceUploader = ({
         }
     };
 
+    const renderStatusBadge = (file: FileWithStatus) => {
+        if (!('signatureStatus' in file) || file.signatureStatus === 'validating') {
+            return null;
+        }
+    
+        switch (file.signatureStatus) {
+            case 'valid':
+                return <Badge variant="default" className="bg-green-600 hover:bg-green-700 text-white mt-1.5 w-fit">Hợp lệ</Badge>;
+            case 'invalid':
+                return <Badge variant="destructive" className="mt-1.5 w-fit">{file.signatureError || 'Không hợp lệ'}</Badge>;
+            case 'error':
+                return <Badge variant="destructive" className="mt-1.5 w-fit">{file.signatureError || 'Lỗi xử lý'}</Badge>;
+            default:
+                return null;
+        }
+    };
+
     return (
         <div className="space-y-2">
             <div className="w-full relative border border-dashed rounded-lg p-2 text-center hover:border-primary transition-colors">
@@ -156,28 +173,31 @@ const Criterion1EvidenceUploader = ({
                  {isUploading && <Loader2 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-5 w-5 animate-spin" />}
             </div>
              {evidence.map((file, index) => (
-                <div key={index} className="flex items-center justify-between p-1.5 pl-2 bg-muted rounded-md text-sm">
-                    <div className="flex items-center gap-2 w-0 flex-1 min-w-0">
-                         <TooltipProvider>
-                            <Tooltip>
-                                {getStatusIcon(file)}
-                                <TooltipContent>
-                                    <p>{getStatusTooltip(file)}</p>
-                                </TooltipContent>
-                            </Tooltip>
-                         </TooltipProvider>
-                         <span className="truncate text-xs flex-1">{file.name}</span>
-                    </div>
-                     <div className="flex items-center gap-1 flex-shrink-0">
-                        { 'url' in file && file.url && (
-                             <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onPreview(file as { name: string, url: string })}>
-                                <Eye className="h-4 w-4" />
+                <div key={index} className="p-1.5 bg-muted rounded-md text-sm grid gap-1">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 w-0 flex-1 min-w-0">
+                            <TooltipProvider>
+                                <Tooltip>
+                                    {getStatusIcon(file)}
+                                    <TooltipContent>
+                                        <p>{getStatusTooltip(file)}</p>
+                                    </TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                            <span className="truncate text-xs flex-1">{file.name}</span>
+                        </div>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                            { 'url' in file && file.url && (
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onPreview(file as { name: string, url: string })}>
+                                    <Eye className="h-4 w-4" />
+                                </Button>
+                            )}
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemove(indicatorId, docIndex, file)}>
+                                <X className="h-4 w-4" />
                             </Button>
-                        )}
-                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemove(indicatorId, docIndex, file)}>
-                            <X className="h-4 w-4" />
-                        </Button>
-                     </div>
+                        </div>
+                    </div>
+                    {renderStatusBadge(file)}
                 </div>
             ))}
         </div>
@@ -1136,31 +1156,26 @@ const handleNoteChange = useCallback((indicatorId: string, note: string) => {
 }, []);
 
 const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
-    // Luồng xử lý khi XÓA một file
     if (fileToRemove) {
         setAssessmentData(prev => {
             const newData = { ...prev };
             const currentIndicatorData = newData[indicatorId];
             if (!currentIndicatorData) return prev;
 
-            // Xóa file khỏi danh sách trong trạng thái tạm thời (React state)
-            if (docIndex !== undefined) { // Dành cho Tiêu chí 1
+            if (docIndex !== undefined) {
                 const newFilesPerDoc = { ...currentIndicatorData.filesPerDocument };
                 newFilesPerDoc[docIndex] = (newFilesPerDoc[docIndex] || []).filter(f => 
                     (f instanceof File && fileToRemove instanceof File && f.name !== fileToRemove.name) ||
                     (! (f instanceof File) && ! (fileToRemove instanceof File) && f.url !== fileToRemove.url)
                 );
                 newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
-            } else { // Dành cho các chỉ tiêu khác
+            } else { 
                  newData[indicatorId] = { ...currentIndicatorData, files: currentIndicatorData.files.filter(f => f.name !== fileToRemove.name) };
             }
             return newData;
         });
         
-        // QUAN TRỌNG: Không còn lệnh gọi xóa file trực tiếp khỏi Storage ở đây.
-        // Backend sẽ tự động lo việc này.
-
-    } else { // Luồng xử lý khi THÊM một file
+    } else { 
         setAssessmentData(prev => {
              const newData = { ...prev };
              const currentIndicatorData = newData[indicatorId];
@@ -1651,4 +1666,5 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
     </>
   );
 }
+
 

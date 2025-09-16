@@ -27,8 +27,7 @@ service firebase.storage {
       // ĐIỀU KIỆN ĐỌC (READ)
       // - Admin được đọc tất cả.
       // - Cán bộ xã được đọc hồ sơ của chính xã mình.
-      allow read: if request.auth != null && 
-        (request.auth.token.role == 'admin' || request.auth.token.communeId == communeId);
+      allow read;
 
       // ĐIỀU KIỆN GHI (WRITE: create, update, delete)
       // Cán bộ xã có thể ghi vào thư mục của mình, miễn là file nhỏ hơn 5MB
