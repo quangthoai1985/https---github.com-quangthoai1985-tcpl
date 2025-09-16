@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2, LinkIcon, Info, AlertTriangle, FileUp, ListChecks, Eye, Download } from "lucide-react";
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/context/DataContext";
@@ -853,9 +853,10 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
     communeId: string;
     accept?: string;
 }) => {
-    const { storage } = useData();
+    const { storage, deleteFileByUrl } = useData();
     const { toast } = useToast();
     const [isUploading, setIsUploading] = useState(false);
+    const unsavedFilesRef = useRef<string[]>([]);
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -869,6 +870,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
             const downloadURL = await getDownloadURL(snapshot.ref);
 
             onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
+            unsavedFilesRef.current.push(downloadURL);
             toast({ title: "Thành công", description: "Đã tải lên minh chứng." });
         } catch (error) {
             toast({ variant: 'destructive', title: "Lỗi tải lên", description: `Không thể tải tệp: ${error}` });
@@ -957,6 +959,30 @@ export default function SelfAssessmentPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewFile, setPreviewFile] = useState<{name: string, url: string, isLoading: boolean, isBlob: boolean} | null>(null);
   
+  // --- START: LOGIC DỌN DẸP TỆP TIN ---
+  const unsavedFilesRef = useRef<string[]>([]);
+
+  useEffect(() => {
+    // Hàm cleanup này sẽ chạy khi component bị unmount (rời khỏi trang)
+    return () => {
+      if (unsavedFilesRef.current.length > 0) {
+        console.log(`Dọn dẹp ${unsavedFilesRef.current.length} tệp chưa lưu...`);
+        const filesToDelete = [...unsavedFilesRef.current];
+        filesToDelete.forEach(async (fileUrl) => {
+          try {
+            await deleteFileByUrl(fileUrl);
+            console.log(`Đã xóa tệp mồ côi: ${fileUrl}`);
+          } catch (error) {
+            console.error(`Lỗi khi xóa tệp mồ côi ${fileUrl}:`, error);
+          }
+        });
+        // Xóa danh sách sau khi đã lên lịch xóa
+        unsavedFilesRef.current = [];
+      }
+    };
+  }, [deleteFileByUrl]); // Thêm deleteFileByUrl vào dependency array
+  // --- END: LOGIC DỌN DẸP TỆP TIN ---
+
   const initializeState = useCallback((criteria: Criterion[], existingData?: Record<string, IndicatorResult>): AssessmentValues => {
       const initialState: AssessmentValues = {};
       criteria.forEach(criterion => {
@@ -1117,6 +1143,36 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
                 return; // Stop the state update if deletion fails
             }
         }
+    } else {
+        // Track new files for potential cleanup if user leaves page
+        newFiles.forEach(file => {
+            if (file instanceof File) { // It's a newly added local file
+                const promise = (async () => {
+                    if (!storage || !currentUser || !activePeriod) return;
+                    const filePath = `hoso/${currentUser.communeId}/evidence/${activePeriod.id}/${indicatorId}/${file.name}`;
+                    const storageRef = ref(storage, filePath);
+                    const snapshot = await uploadBytes(storageRef, file);
+                    const downloadURL = await getDownloadURL(snapshot.ref);
+                    
+                    // Add to cleanup list
+                    unsavedFilesRef.current.push(downloadURL);
+
+                    // Update state with URL
+                    setAssessmentData(prev => {
+                        const newData = { ...prev };
+                        const currentIndicator = newData[indicatorId];
+                        const updatedFiles = currentIndicator.files.map(f => f.name === file.name ? { name: file.name, url: downloadURL } : f);
+                        newData[indicatorId] = { ...currentIndicator, files: updatedFiles };
+                        return newData;
+                    });
+                })();
+                toast.promise(promise, {
+                    loading: `Đang tải lên ${file.name}...`,
+                    success: `Đã tải lên ${file.name}`,
+                    error: `Lỗi khi tải lên ${file.name}`
+                });
+            }
+        });
     }
 
     setAssessmentData(prev => {
@@ -1128,19 +1184,30 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
             if (fileToRemove) {
                 newFilesPerDoc[docIndex] = (newFilesPerDoc[docIndex] || []).filter(f => f.name !== fileToRemove.name);
             } else {
-                newFilesPerDoc[docIndex] = [...(newFilesPerDoc[docIndex] || []), ...newFiles];
+                 // For Criterion 1, files are uploaded directly by its own component, so we just update state here
+                 newFilesPerDoc[docIndex] = newFiles;
             }
             newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
         } else {
             if (fileToRemove) {
                 newData[indicatorId] = { ...currentIndicatorData, files: currentIndicatorData.files.filter(f => f.name !== fileToRemove.name) };
             } else {
-                newData[indicatorId] = { ...currentIndicatorData, files: [...currentIndicatorData.files, ...newFiles] };
+                const updatedFiles = [...currentIndicatorData.files];
+                newFiles.forEach(newFile => {
+                    // Replace local file object with uploaded file info if exists
+                    const existingIndex = updatedFiles.findIndex(f => f.name === newFile.name && f instanceof File);
+                    if (existingIndex !== -1) {
+                        // This part will be handled by the async upload promise above
+                    } else if (!(newFile instanceof File)) {
+                        updatedFiles.push(newFile);
+                    }
+                });
+                 newData[indicatorId] = { ...currentIndicatorData, files: updatedFiles };
             }
         }
         return newData;
     });
-}, [deleteFileByUrl, toast]);
+}, [deleteFileByUrl, toast, storage, currentUser, activePeriod]);
 
 
   const uploadEvidenceFiles = useCallback(async (communeId: string, periodId: string): Promise<Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }>> => {
@@ -1177,6 +1244,7 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
                     uploadedFileUrls[indicatorId].files = [];
                 }
                 uploadedFileUrls[indicatorId].files!.push({ name: file.name, url: downloadURL });
+                unsavedFilesRef.current.push(downloadURL); // Track for cleanup
             };
             allUploadPromises.push(promise());
         });
@@ -1214,7 +1282,6 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
             return acc;
         }, {} as Record<string, IndicatorResult>);
 
-
         const updatedAssessment: Assessment = {
             ...currentAssessment,
             assessmentStatus: 'draft',
@@ -1222,6 +1289,9 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         };
         
         await updateSingleAssessment(updatedAssessment);
+
+        // Clear the unsaved files list after a successful save
+        unsavedFilesRef.current = [];
 
         toast({
           title: "Lưu nháp thành công!",
@@ -1315,6 +1385,9 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         };
 
         await updateSingleAssessment(updatedAssessment);
+
+        // Clear the unsaved files list after successful submission
+        unsavedFilesRef.current = [];
 
         toast({
             title: "Gửi đánh giá thành công!",
@@ -1607,9 +1680,3 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
     </>
   );
 }
-
-    
-
-    
-
-    
