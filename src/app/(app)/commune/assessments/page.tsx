@@ -347,13 +347,13 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                             {indicatorIndex === 1 && "Tổng số dự thảo được truyền thông:"}
                                             {indicatorIndex === 2 && "Tổng số VBQPPL được tự kiểm tra:"}
                                         </Label>
-                                        <Input 
-                                            id={`${indicator.id}-input`} 
-                                            type="number" 
-                                            placeholder="Số lượng" 
-                                            className="w-28" 
-                                            value={typeof data.value === 'object' ? '' : (data.value || '')} 
-                                            onChange={(e) => onValueChange(indicator.id, e.target.value)} 
+                                        <Input
+                                            id={`${indicator.id}-input`}
+                                            type="number"
+                                            placeholder="Số lượng"
+                                            className="w-28"
+                                            value={typeof data.value === 'object' ? '' : (data.value || '')}
+                                            onChange={(e) => onValueChange(indicator.id, e.target.value)}
                                         />
                                         <div className="flex-1">
                                             <div className="flex justify-between items-center mb-1">
@@ -1662,7 +1662,7 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
                     </div>
                 ) : (
                    <iframe 
-                        src={previewFile?.url}
+                        src={previewFile?.url.startsWith('https://docs.google.com/gview') ? previewFile.url : `https://docs.google.com/gview?url=${encodeURIComponent(previewFile?.url || '')}&embedded=true`}
                         className="w-full h-full border rounded-md" 
                         title={previewFile?.name}
                     ></iframe>
@@ -1679,5 +1679,3 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
     </>
   );
 }
-
-    
