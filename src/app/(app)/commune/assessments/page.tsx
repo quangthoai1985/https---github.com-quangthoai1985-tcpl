@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -523,231 +522,6 @@ const StatusBadge = ({ status, isCriterion = false }: { status: AssessmentStatus
 };
 
 
-const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, communeId, handleCommuneDocsChange }: {
-    criterion: Criterion;
-    assessmentData: AssessmentValues;
-    onValueChange: (id: string, value: any) => void;
-    onNoteChange: (id: string, note: string) => void;
-    onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => void,
-    onIsTaskedChange: (id: string, isTasked: boolean) => void;
-    onPreview: (file: { name: string; url: string; }) => void;
-    periodId: string;
-    communeId: string;
-    handleCommuneDocsChange: (indicatorId: string, docs: any[]) => void;
-}) => {
-    // --- PHẦN 1: QUẢN LÝ STATE VÀ LOGIC (ĐÃ TỐI ƯU) ---
-    const firstIndicatorId = criterion.indicators[0]?.id;
-    if (!firstIndicatorId || !assessmentData[firstIndicatorId]) return null;
-
-    const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
-    const assignmentType = criterion.assignmentType || 'specific';
-
-    const [communeDefinedDocs, setCommuneDefinedDocs] = React.useState(
-        () => assessmentData[firstIndicatorId]?.communeDefinedDocuments || []
-    );
-
-    // Hook này lắng nghe số lượng văn bản được Admin giao.
-    // Nếu Admin giao một số lượng cụ thể > 0, nó sẽ tự động tạo ra các form trống.
-    React.useEffect(() => {
-        // Chỉ chạy ở chế độ "Giao theo số lượng"
-        if (assignmentType === 'quantity') {
-            const adminCount = criterion.assignedDocumentsCount || 0;
-            // Nếu admin có giao số lượng và số form hiện tại không khớp
-            if (adminCount > 0 && communeDefinedDocs.length !== adminCount) {
-                const newDocs = Array.from({ length: adminCount }, (_, i) => 
-                    communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 }
-                );
-                setCommuneDefinedDocs(newDocs);
-            }
-        }
-    }, [criterion.assignedDocumentsCount, assignmentType, communeDefinedDocs.length]);
-
-    // Đồng bộ state cục bộ với state cha khi có thay đổi
-    React.useEffect(() => {
-        handleCommuneDocsChange(firstIndicatorId, communeDefinedDocs);
-    }, [communeDefinedDocs, firstIndicatorId, handleCommuneDocsChange]);
-    
-    const docsToRender = assignmentType === 'specific' 
-        ? (criterion.documents || []) 
-        : communeDefinedDocs;
-    
-    // --- CÁC HÀM XỬ LÝ (ĐÃ SỬA LỖI) ---
-    const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
-        const notTasked = checked === true;
-        criterion.indicators.forEach(indicator => {
-            onIsTaskedChange(indicator.id, !notTasked);
-        });
-    };
-
-    const handleUploadComplete = (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => {
-        const currentFiles = assessmentData[indicatorId]?.filesPerDocument?.[docIndex] || [];
-        onEvidenceChange(indicatorId, [...currentFiles, newFile], docIndex);
-    };
-    
-    const handleRemoveFile = (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => {
-        onEvidenceChange(indicatorId, [], docIndex, fileToRemove);
-    };
-
-    const handleLocalDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const count = Math.max(0, Number(e.target.value));
-        const newDocs = Array.from({ length: count }, (_, i) => 
-            communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 }
-        );
-        setCommuneDefinedDocs(newDocs);
-    };
-
-    const handleLocalDocDetailChange = (index: number, field: string, value: string | number) => {
-        const newDocs = [...communeDefinedDocs];
-        if(newDocs[index]) {
-            (newDocs[index] as any)[field] = value;
-            setCommuneDefinedDocs(newDocs);
-        }
-    };
-
-    // --- PHẦN 2: GIAO DIỆN (JSX - ĐÃ TÁI CẤU TRÚC HOÀN CHỈNH) ---
-    return (
-        <div className="grid gap-6">
-            <div className="flex items-center space-x-2">
-                <Checkbox id={`${criterion.id}-notask`} checked={isNotTasked} onCheckedChange={handleNoTaskChange} />
-                <Label htmlFor={`${criterion.id}-notask`} className="font-semibold">Xã không được giao nhiệm vụ ban hành VBQPPL trong năm</Label>
-            </div>
-            
-            {isNotTasked && (
-                <Alert variant="default" className="bg-green-50 border-green-300">
-                    <CheckCircle className="h-4 w-4 text-green-600"/>
-                    <AlertTitle>Đã xác nhận</AlertTitle>
-                    <AlertDescription>
-                       Toàn bộ các chỉ tiêu của Tiêu chí 1 được đánh giá là <strong className="text-green-700">Đạt</strong>.
-                    </AlertDescription>
-                </Alert>
-            )}
-            
-            {!isNotTasked && (
-                 <div className="grid gap-8">
-                    {/* KHỐI 1: THÔNG TIN NHIỆM VỤ ĐƯỢC GIAO */}
-                    <Card className="bg-blue-50/50 border border-blue-200">
-                        <CardHeader>
-                            <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao</CardTitle>
-                            <CardDescription>
-                                {assignmentType === 'specific' 
-                                    ? "Đây là danh sách các văn bản cụ thể bạn cần ban hành trong kỳ đánh giá này."
-                                    : "Vui lòng kê khai thông tin các văn bản đã được ban hành trong kỳ."
-                                }
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                             {assignmentType === 'quantity' && (!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) && (
-                                <div className="grid gap-2 p-3 border rounded-md bg-background">
-                                    <Label htmlFor="communeDocCount">Tổng số VBQPPL đã ban hành</Label>
-                                    <Input id="communeDocCount" type="number" value={communeDefinedDocs.length} onChange={handleLocalDocCountChange} placeholder="Nhập số lượng" className="w-48"/>
-                                </div>
-                            )}
-                            {docsToRender.length > 0 ? (
-                                <div className="space-y-3">
-                                    {docsToRender.map((doc, index) => (
-                                        <div key={index} className="p-3 border-l-4 border-blue-300 rounded-r-md bg-background text-sm">
-                                             <div className="font-semibold text-primary mb-2">Văn bản {index + 1}{doc.name ? `: ${doc.name}`: ''}</div>
-                                             {assignmentType === 'specific' ? (
-                                                <div className="grid grid-cols-[auto,1fr] gap-x-2 gap-y-1">
-                                                    <span className="text-muted-foreground">Trích yếu:</span> <span className="font-medium">{doc.excerpt}</span>
-                                                    <span className="text-muted-foreground">Ngày ban hành:</span> <span className="font-medium">{doc.issueDate}</span>
-                                                    <span className="text-muted-foreground">Thời hạn:</span> <span className="font-medium"><Badge variant="destructive">{doc.issuanceDeadlineDays} ngày</Badge></span>
-                                                </div>
-                                            ) : (
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                    <div className="grid gap-1.5"><Label htmlFor={`doc-name-${index}`}>Tên VBQPPL</Label><Input id={`doc-name-${index}`} value={doc.name} onChange={(e) => handleLocalDocDetailChange(index, 'name', e.target.value)} /></div>
-                                                    <div className="grid gap-1.5"><Label htmlFor={`doc-excerpt-${index}`}>Trích yếu</Label><Input id={`doc-excerpt-${index}`} value={doc.excerpt} onChange={(e) => handleLocalDocDetailChange(index, 'excerpt', e.target.value)} /></div>
-                                                    <div className="grid gap-1.5"><Label htmlFor={`doc-issuedate-${index}`}>Ngày ban hành (DD/MM/YYYY)</Label><Input id={`doc-issuedate-${index}`} value={doc.issueDate} onChange={(e) => handleLocalDocDetailChange(index, 'issueDate', e.target.value)} /></div>
-                                                    <div className="grid gap-1.5"><Label htmlFor={`doc-deadline-${index}`}>Thời hạn (ngày)</Label><Input type="number" id={`doc-deadline-${index}`} value={doc.issuanceDeadlineDays} onChange={(e) => handleLocalDocDetailChange(index, 'issuanceDeadlineDays', Number(e.target.value))} /></div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : <p className="text-sm text-muted-foreground">Không có văn bản nào được Admin định danh hoặc xã chưa kê khai.</p>}
-                        </CardContent>
-                    </Card>
-
-                    {/* KHỐI 2: DANH SÁCH CÁC CHỈ TIÊU VÀ KHUNG UPLOAD */}
-                    <div className="space-y-12">
-                        {criterion.indicators.map((indicator, indicatorIndex) => {
-                            const data = assessmentData[indicator.id];
-                            if (!data) return <div key={indicator.id}>Đang tải...</div>;
-                            const assignedCount = criterion.assignedDocumentsCount || docsToRender.length || 0;
-                            const valueAsNumber = Number(data.value);
-                            const progress = assignedCount > 0 && !isNaN(valueAsNumber) ? Math.round((valueAsNumber / assignedCount) * 100) : 0;
-                            const progressColor = progress >= 100 ? "bg-green-500" : "bg-yellow-500";
-                            
-                            return (
-                                 <div key={indicator.id} className="p-4 rounded-lg bg-card shadow-sm border">
-                                    <div className="flex items-center gap-2">
-                                      <StatusBadge status={data.status} />
-                                      <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
-                                    </div>
-                                    <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
-                                      <div className="flex items-start gap-2 text-blue-800">
-                                          <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                                          <p className="text-sm">{indicator.description}</p>
-                                      </div>
-                                    </div>
-
-                                    <div className="grid gap-2 mt-4">
-                                      <div className="flex items-center gap-4">
-                                        <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
-                                            {indicatorIndex === 0 && "Tổng số VBQPPL đã ban hành:"}
-                                            {indicatorIndex === 1 && "Tổng số dự thảo được truyền thông:"}
-                                            {indicatorIndex === 2 && "Tổng số VBQPPL được tự kiểm tra:"}
-                                        </Label>
-                                        <Input id={`${indicator.id}-input`} type="number" placeholder="Số lượng" className="w-28" value={valueAsNumber || ''} onChange={(e) => onValueChange(indicator.id, e.target.value)} />
-                                        <div className="flex-1">
-                                            <div className="flex justify-between items-center mb-1">
-                                                <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
-                                                <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
-                                            </div>
-                                            <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
-                                        </div>
-                                      </div>
-                                    </div>
-                                    
-                                    <div className="grid gap-2 mt-4">
-                                        <Label className="font-medium">Hồ sơ minh chứng</Label>
-                                        {indicatorIndex === 0 ? (
-                                            <>
-                                                 <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
-                                                    <AlertTriangle className="h-4 w-4" />
-                                                    <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
-                                                    <AlertDescription>Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số.</AlertDescription>
-                                                </Alert>
-                                                
-                                                {docsToRender.length > 0 ? (
-                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                                                        {docsToRender.map((doc, docIndex) => (
-                                                            <div key={docIndex} className="p-3 border rounded-lg grid gap-2 bg-background">
-                                                                <Label className="font-medium text-center text-sm truncate">Minh chứng cho: <span className="font-bold text-primary">{doc.name || `Văn bản ${docIndex + 1}`}</span></Label>
-                                                                <Criterion1EvidenceUploader indicatorId={indicator.id} docIndex={docIndex} evidence={data.filesPerDocument?.[docIndex] || []} onUploadComplete={handleUploadComplete} onRemove={handleRemoveFile} onPreview={onPreview} periodId={periodId} communeId={communeId} accept=".pdf"/>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : <p className="text-sm text-muted-foreground">Vui lòng kê khai thông tin văn bản ở trên để tải lên minh chứng.</p>}
-                                            </>
-                                        ) : (
-                                            <EvidenceUploaderComponent indicatorId={indicator.id} evidence={data.files} onEvidenceChange={onEvidenceChange} onPreview={onPreview} isRequired={data.status !== 'pending' && data.isTasked !== false && data.files.length === 0}/>
-                                        )}
-                                    </div>
-                                    
-                                    <div className="grid gap-2 mt-4">
-                                        <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
-                                        <Textarea id={`note-${indicator.id}`} placeholder="Giải trình thêm..." value={data.note} onChange={(e) => onNoteChange(indicator.id, e.target.value)}/>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
 const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, indicator, data, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, criteria }: { 
     specialIndicatorIds: string[],
     specialLabels: { no: string; yes: string },
@@ -860,24 +634,7 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
     const { storage, deleteFileByUrl } = useData();
     const { toast } = useToast();
     const [isUploading, setIsUploading] = useState(false);
-    const unsavedFilesRef = useRef<string[]>([]);
     
-    useEffect(() => {
-        return () => {
-            if (unsavedFilesRef.current.length > 0) {
-                const filesToDelete = [...unsavedFilesRef.current];
-                filesToDelete.forEach(async (fileUrl) => {
-                    try {
-                        await deleteFileByUrl(fileUrl);
-                    } catch (error) {
-                        console.error(`Lỗi khi dọn dẹp tệp mồ côi ${fileUrl}:`, error);
-                    }
-                });
-                unsavedFilesRef.current = [];
-            }
-        };
-    }, [deleteFileByUrl]);
-
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file || !storage) return;
@@ -890,7 +647,6 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
             const downloadURL = await getDownloadURL(snapshot.ref);
 
             onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
-            unsavedFilesRef.current.push(downloadURL);
             toast({ title: "Thành công", description: "Đã tải lên minh chứng." });
         } catch (error) {
             toast({ variant: 'destructive', title: "Lỗi tải lên", description: `Không thể tải tệp: ${error}` });
@@ -972,6 +728,222 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
     )
 }
 
+const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, periodId, communeId, handleCommuneDocsChange }: {
+    criterion: Criterion;
+    assessmentData: AssessmentValues;
+    onValueChange: (id: string, value: any) => void;
+    onNoteChange: (id: string, note: string) => void;
+    onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => void,
+    onIsTaskedChange: (id: string, isTasked: boolean) => void;
+    onPreview: (file: { name: string; url: string; }) => void;
+    periodId: string;
+    communeId: string;
+    handleCommuneDocsChange: (indicatorId: string, docs: any[]) => void;
+}) => {
+    const firstIndicatorId = criterion.indicators[0]?.id;
+    if (!firstIndicatorId || !assessmentData[firstIndicatorId]) return null;
+
+    const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
+    const assignmentType = criterion.assignmentType || 'specific';
+
+    const [communeDefinedDocs, setCommuneDefinedDocs] = React.useState(
+        () => assessmentData[firstIndicatorId]?.communeDefinedDocuments || []
+    );
+
+    React.useEffect(() => {
+        if (assignmentType === 'quantity') {
+            const adminCount = criterion.assignedDocumentsCount || 0;
+            if (adminCount > 0 && communeDefinedDocs.length !== adminCount) {
+                const newDocs = Array.from({ length: adminCount }, (_, i) => 
+                    communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 }
+                );
+                setCommuneDefinedDocs(newDocs);
+            }
+        }
+    }, [criterion.assignedDocumentsCount, assignmentType, communeDefinedDocs.length]);
+
+    React.useEffect(() => {
+        handleCommuneDocsChange(firstIndicatorId, communeDefinedDocs);
+    }, [communeDefinedDocs, firstIndicatorId, handleCommuneDocsChange]);
+    
+    const docsToRender = assignmentType === 'specific' 
+        ? (criterion.documents || []) 
+        : communeDefinedDocs;
+    
+    const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
+        const notTasked = checked === true;
+        criterion.indicators.forEach(indicator => {
+            onIsTaskedChange(indicator.id, !notTasked);
+        });
+    };
+
+    const handleUploadComplete = (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => {
+        const currentFiles = assessmentData[indicatorId]?.filesPerDocument?.[docIndex] || [];
+        onEvidenceChange(indicatorId, [...currentFiles, newFile], docIndex);
+    };
+    
+    const handleRemoveFile = (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => {
+        onEvidenceChange(indicatorId, [], docIndex, fileToRemove);
+    };
+
+    const handleLocalDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const count = Math.max(0, Number(e.target.value));
+        const newDocs = Array.from({ length: count }, (_, i) => 
+            communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 }
+        );
+        setCommuneDefinedDocs(newDocs);
+    };
+
+    const handleLocalDocDetailChange = (index: number, field: string, value: string | number) => {
+        const newDocs = [...communeDefinedDocs];
+        if(newDocs[index]) {
+            (newDocs[index] as any)[field] = value;
+            setCommuneDefinedDocs(newDocs);
+        }
+    };
+    
+    return (
+        <div className="grid gap-6">
+            <div className="flex items-center space-x-2">
+                <Checkbox id={`${criterion.id}-notask`} checked={isNotTasked} onCheckedChange={handleNoTaskChange} />
+                <Label htmlFor={`${criterion.id}-notask`} className="font-semibold">Xã không được giao nhiệm vụ ban hành VBQPPL trong năm</Label>
+            </div>
+            
+            {isNotTasked && (
+                <Alert variant="default" className="bg-green-50 border-green-300">
+                    <CheckCircle className="h-4 w-4 text-green-600"/>
+                    <AlertTitle>Đã xác nhận</AlertTitle>
+                    <AlertDescription>
+                       Toàn bộ các chỉ tiêu của Tiêu chí 1 được đánh giá là <strong className="text-green-700">Đạt</strong>.
+                    </AlertDescription>
+                </Alert>
+            )}
+            
+            {!isNotTasked && (
+                 <div className="grid gap-8">
+                    <Card className="bg-blue-50/50 border border-blue-200">
+                        <CardHeader>
+                            <CardTitle className="text-base text-primary flex items-center gap-2"><ListChecks /> Thông tin nhiệm vụ được giao</CardTitle>
+                            <CardDescription>
+                                {assignmentType === 'specific' 
+                                    ? "Đây là danh sách các văn bản cụ thể bạn cần ban hành trong kỳ đánh giá này."
+                                    : "Vui lòng kê khai thông tin các văn bản đã được ban hành trong kỳ."
+                                }
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                             {assignmentType === 'quantity' && (!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) && (
+                                <div className="grid gap-2 p-3 border rounded-md bg-background">
+                                    <Label htmlFor="communeDocCount">Tổng số VBQPPL đã ban hành</Label>
+                                    <Input id="communeDocCount" type="number" value={communeDefinedDocs.length} onChange={handleLocalDocCountChange} placeholder="Nhập số lượng" className="w-48"/>
+                                </div>
+                            )}
+                            {docsToRender.length > 0 ? (
+                                <div className="space-y-3">
+                                    {docsToRender.map((doc, index) => (
+                                        <div key={index} className="p-3 border-l-4 border-blue-300 rounded-r-md bg-background text-sm">
+                                             <div className="font-semibold text-primary mb-2">Văn bản {index + 1}{doc.name ? `: ${doc.name}`: ''}</div>
+                                             {assignmentType === 'specific' ? (
+                                                <div className="grid grid-cols-[auto,1fr] gap-x-2 gap-y-1">
+                                                    <span className="text-muted-foreground">Trích yếu:</span> <span className="font-medium">{doc.excerpt}</span>
+                                                    <span className="text-muted-foreground">Ngày ban hành:</span> <span className="font-medium">{doc.issueDate}</span>
+                                                    <span className="text-muted-foreground">Thời hạn:</span> <span className="font-medium"><Badge variant="destructive">{doc.issuanceDeadlineDays} ngày</Badge></span>
+                                                </div>
+                                            ) : (
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                                    <div className="grid gap-1.5"><Label htmlFor={`doc-name-${index}`}>Tên VBQPPL</Label><Input id={`doc-name-${index}`} value={doc.name} onChange={(e) => handleLocalDocDetailChange(index, 'name', e.target.value)} /></div>
+                                                    <div className="grid gap-1.5"><Label htmlFor={`doc-excerpt-${index}`}>Trích yếu</Label><Input id={`doc-excerpt-${index}`} value={doc.excerpt} onChange={(e) => handleLocalDocDetailChange(index, 'excerpt', e.target.value)} /></div>
+                                                    <div className="grid gap-1.5"><Label htmlFor={`doc-issuedate-${index}`}>Ngày ban hành (DD/MM/YYYY)</Label><Input id={`doc-issuedate-${index}`} value={doc.issueDate} onChange={(e) => handleLocalDocDetailChange(index, 'issueDate', e.target.value)} /></div>
+                                                    <div className="grid gap-1.5"><Label htmlFor={`doc-deadline-${index}`}>Thời hạn (ngày)</Label><Input type="number" id={`doc-deadline-${index}`} value={doc.issuanceDeadlineDays} onChange={(e) => handleLocalDocDetailChange(index, 'issuanceDeadlineDays', Number(e.target.value))} /></div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : <p className="text-sm text-muted-foreground">Không có văn bản nào được Admin định danh hoặc xã chưa kê khai.</p>}
+                        </CardContent>
+                    </Card>
+
+                    <div className="space-y-12">
+                        {criterion.indicators.map((indicator, indicatorIndex) => {
+                            const data = assessmentData[indicator.id];
+                            if (!data) return <div key={indicator.id}>Đang tải...</div>;
+                            const assignedCount = criterion.assignedDocumentsCount || docsToRender.length || 0;
+                            const valueAsNumber = Number(data.value);
+                            const progress = assignedCount > 0 && !isNaN(valueAsNumber) ? Math.round((valueAsNumber / assignedCount) * 100) : 0;
+                            const progressColor = progress >= 100 ? "bg-green-500" : "bg-yellow-500";
+                            
+                            return (
+                                 <div key={indicator.id} className="p-4 rounded-lg bg-card shadow-sm border">
+                                    <div className="flex items-center gap-2">
+                                      <StatusBadge status={data.status} />
+                                      <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
+                                    </div>
+                                    <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
+                                      <div className="flex items-start gap-2 text-blue-800">
+                                          <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                                          <p className="text-sm">{indicator.description}</p>
+                                      </div>
+                                    </div>
+
+                                    <div className="grid gap-2 mt-4">
+                                      <div className="flex items-center gap-4">
+                                        <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
+                                            {indicatorIndex === 0 && "Tổng số VBQPPL đã ban hành:"}
+                                            {indicatorIndex === 1 && "Tổng số dự thảo được truyền thông:"}
+                                            {indicatorIndex === 2 && "Tổng số VBQPPL được tự kiểm tra:"}
+                                        </Label>
+                                        <Input id={`${indicator.id}-input`} type="number" placeholder="Số lượng" className="w-28" value={data.value || ''} onChange={(e) => onValueChange(indicator.id, e.target.value)} />
+                                        <div className="flex-1">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
+                                                <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
+                                            </div>
+                                            <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    
+                                    <div className="grid gap-2 mt-4">
+                                        <Label className="font-medium">Hồ sơ minh chứng</Label>
+                                        {indicatorIndex === 0 ? (
+                                            <>
+                                                 <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
+                                                    <AlertTriangle className="h-4 w-4" />
+                                                    <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
+                                                    <AlertDescription>Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số.</AlertDescription>
+                                                </Alert>
+                                                
+                                                {docsToRender.length > 0 ? (
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                                                        {docsToRender.map((doc, docIndex) => (
+                                                            <div key={docIndex} className="p-3 border rounded-lg grid gap-2 bg-background">
+                                                                <Label className="font-medium text-center text-sm truncate">Minh chứng cho: <span className="font-bold text-primary">{doc.name || `Văn bản ${docIndex + 1}`}</span></Label>
+                                                                <Criterion1EvidenceUploader indicatorId={indicator.id} docIndex={docIndex} evidence={data.filesPerDocument?.[docIndex] || []} onUploadComplete={handleUploadComplete} onRemove={handleRemoveFile} onPreview={onPreview} periodId={periodId} communeId={communeId} accept=".pdf"/>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : <p className="text-sm text-muted-foreground">Vui lòng kê khai thông tin văn bản ở trên để tải lên minh chứng.</p>}
+                                            </>
+                                        ) : (
+                                            <EvidenceUploaderComponent indicatorId={indicator.id} evidence={data.files} onEvidenceChange={onEvidenceChange} onPreview={onPreview} isRequired={data.status !== 'pending' && data.isTasked !== false && data.files.length === 0}/>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="grid gap-2 mt-4">
+                                        <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
+                                        <Textarea id={`note-${indicator.id}`} placeholder="Giải trình thêm..." value={data.note} onChange={(e) => onNoteChange(indicator.id, e.target.value)}/>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 export default function SelfAssessmentPage() {
   const router = useRouter();
   const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments, updateSingleAssessment, deleteFileByUrl, functions } = useData();
@@ -979,29 +951,23 @@ export default function SelfAssessmentPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewFile, setPreviewFile] = useState<{name: string, url: string, isLoading: boolean, isBlob: boolean} | null>(null);
   
-  // --- START: LOGIC DỌN DẸP TỆP TIN ---
   const unsavedFilesRef = useRef<string[]>([]);
-
+  
   useEffect(() => {
-    // Hàm cleanup này sẽ chạy khi component bị unmount (rời khỏi trang)
     return () => {
       if (unsavedFilesRef.current.length > 0) {
-        console.log(`Dọn dẹp ${unsavedFilesRef.current.length} tệp chưa lưu...`);
         const filesToDelete = [...unsavedFilesRef.current];
         filesToDelete.forEach(async (fileUrl) => {
           try {
             await deleteFileByUrl(fileUrl);
-            console.log(`Đã xóa tệp mồ côi: ${fileUrl}`);
           } catch (error) {
-            console.error(`Lỗi khi xóa tệp mồ côi ${fileUrl}:`, error);
+            console.error(`Lỗi khi dọn dẹp tệp mồ côi ${fileUrl}:`, error);
           }
         });
-        // Xóa danh sách sau khi đã lên lịch xóa
         unsavedFilesRef.current = [];
       }
     };
-  }, [deleteFileByUrl]); // Thêm deleteFileByUrl vào dependency array
-  // --- END: LOGIC DỌN DẸP TỆP TIN ---
+  }, [deleteFileByUrl]);
 
   const initializeState = useCallback((criteria: Criterion[], existingData?: Record<string, IndicatorResult>): AssessmentValues => {
       const initialState: AssessmentValues = {};
@@ -1038,15 +1004,12 @@ export default function SelfAssessmentPage() {
 
   const [assessmentData, setAssessmentData] = useState<AssessmentValues>(() => initializeState(criteria, myAssessment?.assessmentData));
   
-  const filesPerDocRef = React.useRef<any>();
-  if (criteria.length > 0) {
-      const firstIndicatorId = criteria[0].indicators[0].id;
-      filesPerDocRef.current = assessmentData[firstIndicatorId]?.filesPerDocument;
-  }
-  
+  const isInitialRender = useRef(true);
+
   useEffect(() => {
     if (myAssessment?.assessmentData) {
-        setAssessmentData(initializeState(criteria, myAssessment.assessmentData));
+        const newState = initializeState(criteria, myAssessment.assessmentData);
+        setAssessmentData(newState);
     }
   }, [myAssessment, criteria, initializeState]);
 
@@ -1143,9 +1106,7 @@ const handleNoteChange = useCallback((indicatorId: string, note: string) => {
 }, []);
 
 const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
-    // If a file is being removed, delete it from storage first
     if (fileToRemove) {
-        // Only attempt to delete if it's an existing file with a URL, not a local File object
         if ('url' in fileToRemove && fileToRemove.url) {
             try {
                 await deleteFileByUrl(fileToRemove.url);
@@ -1153,6 +1114,12 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
                     title: 'Đã xóa tệp',
                     description: `Tệp "${fileToRemove.name}" đã được xóa khỏi hệ thống.`,
                 });
+                
+                const fileIndexInUnsaved = unsavedFilesRef.current.indexOf(fileToRemove.url);
+                if(fileIndexInUnsaved > -1){
+                    unsavedFilesRef.current.splice(fileIndexInUnsaved, 1);
+                }
+
             } catch (error) {
                 console.error("Failed to delete file from storage:", error);
                 toast({
@@ -1160,13 +1127,39 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
                     title: 'Lỗi xóa tệp',
                     description: 'Không thể xóa tệp khỏi hệ thống lưu trữ.',
                 });
-                return; // Stop the state update if deletion fails
+                return;
             }
         }
-    } else {
-        // Track new files for potential cleanup if user leaves page
+        
+        setAssessmentData(prev => {
+            const newData = { ...prev };
+            const currentIndicatorData = newData[indicatorId];
+            if (docIndex !== undefined) {
+                const newFilesPerDoc = { ...currentIndicatorData.filesPerDocument };
+                newFilesPerDoc[docIndex] = (newFilesPerDoc[docIndex] || []).filter(f => f.name !== fileToRemove.name);
+                newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
+            } else {
+                 newData[indicatorId] = { ...currentIndicatorData, files: currentIndicatorData.files.filter(f => f.name !== fileToRemove.name) };
+            }
+            return newData;
+        });
+
+    } else { // Adding files
+        setAssessmentData(prev => {
+             const newData = { ...prev };
+             const currentIndicatorData = newData[indicatorId];
+             if (docIndex !== undefined) {
+                 const newFilesPerDoc = { ...currentIndicatorData.filesPerDocument };
+                 newFilesPerDoc[docIndex] = newFiles;
+                 newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
+             } else {
+                 newData[indicatorId] = { ...currentIndicatorData, files: newFiles };
+             }
+             return newData;
+        });
+
         newFiles.forEach(file => {
-            if (file instanceof File) { // It's a newly added local file
+            if (file instanceof File) {
                 const promise = (async () => {
                     if (!storage || !currentUser || !activePeriod) return;
                     const filePath = `hoso/${currentUser.communeId}/evidence/${activePeriod.id}/${indicatorId}/${file.name}`;
@@ -1174,10 +1167,8 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
                     const snapshot = await uploadBytes(storageRef, file);
                     const downloadURL = await getDownloadURL(snapshot.ref);
                     
-                    // Add to cleanup list
                     unsavedFilesRef.current.push(downloadURL);
 
-                    // Update state with URL
                     setAssessmentData(prev => {
                         const newData = { ...prev };
                         const currentIndicator = newData[indicatorId];
@@ -1194,39 +1185,6 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
             }
         });
     }
-
-    setAssessmentData(prev => {
-        const newData = { ...prev };
-        const currentIndicatorData = newData[indicatorId];
-
-        if (docIndex !== undefined) {
-            const newFilesPerDoc = { ...currentIndicatorData.filesPerDocument };
-            if (fileToRemove) {
-                newFilesPerDoc[docIndex] = (newFilesPerDoc[docIndex] || []).filter(f => f.name !== fileToRemove.name);
-            } else {
-                 // For Criterion 1, files are uploaded directly by its own component, so we just update state here
-                 newFilesPerDoc[docIndex] = newFiles;
-            }
-            newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
-        } else {
-            if (fileToRemove) {
-                newData[indicatorId] = { ...currentIndicatorData, files: currentIndicatorData.files.filter(f => f.name !== fileToRemove.name) };
-            } else {
-                const updatedFiles = [...currentIndicatorData.files];
-                newFiles.forEach(newFile => {
-                    // Replace local file object with uploaded file info if exists
-                    const existingIndex = updatedFiles.findIndex(f => f.name === newFile.name && f instanceof File);
-                    if (existingIndex !== -1) {
-                        // This part will be handled by the async upload promise above
-                    } else if (!(newFile instanceof File)) {
-                        updatedFiles.push(newFile);
-                    }
-                });
-                 newData[indicatorId] = { ...currentIndicatorData, files: updatedFiles };
-            }
-        }
-        return newData;
-    });
 }, [deleteFileByUrl, toast, storage, currentUser, activePeriod]);
 
 
@@ -1264,7 +1222,7 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
                     uploadedFileUrls[indicatorId].files = [];
                 }
                 uploadedFileUrls[indicatorId].files!.push({ name: file.name, url: downloadURL });
-                unsavedFilesRef.current.push(downloadURL); // Track for cleanup
+                unsavedFilesRef.current.push(downloadURL);
             };
             allUploadPromises.push(promise());
         });
@@ -1309,8 +1267,6 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         };
         
         await updateSingleAssessment(updatedAssessment);
-
-        // Clear the unsaved files list after a successful save
         unsavedFilesRef.current = [];
 
         toast({
@@ -1326,17 +1282,26 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
   }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast, uploadEvidenceFiles]);
   
     useEffect(() => {
-        if (criteria.length === 0 || !myAssessment) return;
-        const firstIndicatorId = criteria[0].indicators[0].id;
-    
-        const hasChanged = assessmentData[firstIndicatorId] && 
-            JSON.stringify(filesPerDocRef.current) !== JSON.stringify(assessmentData[firstIndicatorId].filesPerDocument);
-    
-        if (hasChanged) {
-            handleSaveDraft();
-            filesPerDocRef.current = assessmentData[firstIndicatorId]?.filesPerDocument;
+        if (criteria.length > 0 && !isInitialRender.current) {
+            const firstIndicatorId = criteria[0].indicators[0].id;
+            const autoSaveCriterion1 = (prevData: AssessmentValues) => {
+                const currentFiles = JSON.stringify(assessmentData[firstIndicatorId]?.filesPerDocument);
+                const prevFiles = JSON.stringify(prevData[firstIndicatorId]?.filesPerDocument);
+                 if (currentFiles !== prevFiles) {
+                    handleSaveDraft();
+                }
+            };
+            const handler = setTimeout(() => {
+                setAssessmentData(prev => {
+                    autoSaveCriterion1(prev);
+                    return prev;
+                })
+            }, 2000);
+            return () => clearTimeout(handler);
+        } else {
+             isInitialRender.current = false;
         }
-    }, [assessmentData, criteria, myAssessment, handleSaveDraft]); 
+    }, [assessmentData, criteria, handleSaveDraft]);
 
   const { canSubmit, submissionErrors } = useMemo(() => {
     const errors: string[] = [];
@@ -1356,9 +1321,10 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
             const isCriterion1 = parentCriterion?.id === 'TC01';
 
             if (isCriterion1) {
-                 const assignedDocs = parentCriterion.documents || [];
-                 if (assignedDocs.length > 0 && Number(data.value) > 0) { 
-                     const docIndicesWithMissingFiles = assignedDocs.map((_,i) => i).filter(i => (data.filesPerDocument?.[i] || []).length === 0);
+                 const assignedDocsCount = parentCriterion.assignedDocumentsCount || data.communeDefinedDocuments?.length || 0;
+                 if (assignedDocsCount > 0 && Number(data.value) > 0) { 
+                     const docIndicesWithMissingFiles = Array.from({length: assignedDocsCount}, (_, i) => i)
+                        .filter(i => (data.filesPerDocument?.[i] || []).length === 0);
                      if (docIndicesWithMissingFiles.length > 0) {
                          errors.push(`Chỉ tiêu "${indicator.name}" yêu cầu minh chứng cho mỗi văn bản được giao.`);
                      }
@@ -1405,8 +1371,6 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         };
 
         await updateSingleAssessment(updatedAssessment);
-
-        // Clear the unsaved files list after successful submission
         unsavedFilesRef.current = [];
 
         toast({
@@ -1451,19 +1415,16 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
     setPreviewFile({ name: file.name, url: '', isLoading: true, isBlob: false });
 
     try {
-        // Trích xuất đường dẫn file từ URL đầy đủ
         const urlObject = new URL(file.url);
         const filePath = decodeURIComponent(urlObject.pathname).split('/o/')[1];
 
         if (!filePath) throw new Error("Không thể trích xuất đường dẫn file từ URL.");
         
-        // Gọi Cloud Function "người vận chuyển"
         const getSignedUrl = httpsCallable(functions, 'getSignedUrlForFile');
         const result = await getSignedUrl({ filePath: filePath });
 
         const signedUrl = (result.data as { signedUrl: string }).signedUrl;
 
-        // Hiển thị file bằng URL an toàn vừa nhận được
         setPreviewFile({ name: file.name, url: signedUrl, isLoading: false, isBlob: false });
 
     } catch (error) {
@@ -1664,7 +1625,6 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         open={!!previewFile} 
         onOpenChange={(open) => {
             if (!open) {
-                // Quan trọng: Thu hồi Blob URL để tránh rò rỉ bộ nhớ khi đóng popup
                 if (previewFile?.isBlob && previewFile.url) {
                     URL.revokeObjectURL(previewFile.url);
                 }
