@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -321,6 +322,8 @@ const renderInput = (
         const isCt2_2 = criterion2?.indicators && criterion2.indicators[1]?.id === indicator.id;
         const isCt2_3 = criterion2?.indicators && criterion2.indicators[2]?.id === indicator.id;
         const assignedCount = criterion1?.assignedDocumentsCount || 0;
+        
+        const valueAsObject = typeof data.value === 'object' && data.value !== null ? data.value : {};
 
         return (
             <RadioGroup onValueChange={(val) => onIsTaskedChange(indicator.id, val === 'true')} value={data.isTasked === true ? 'true' : data.isTasked === false ? 'false' : ''} className="grid gap-2">
@@ -359,18 +362,18 @@ const renderInput = (
                             <div className="grid gap-4 pl-6 pt-2">
                                 <div className="flex items-center gap-4">
                                     <Label htmlFor={`${indicator.id}-total`} className="shrink-0">Số lượng yêu cầu cung cấp thông tin</Label>
-                                    <Input id={`${indicator.id}-total`} type="number" placeholder="Tổng số" className="w-28" value={data.value?.total || ''} onChange={(e) => handleValueChange('total', e.target.value)} />
+                                    <Input id={`${indicator.id}-total`} type="number" placeholder="Tổng số" className="w-28" value={valueAsObject.total || ''} onChange={(e) => handleValueChange('total', e.target.value)} />
                                 </div>
                                 <div className="flex items-center gap-4">
                                      <Label htmlFor={`${indicator.id}-provided`} className="shrink-0">Số lượng thông tin đã cung cấp theo yêu cầu</Label>
-                                    <Input id={`${indicator.id}-provided`} type="number" placeholder="Đã cung cấp" className="w-28" value={data.value?.provided || ''} onChange={(e) => handleValueChange('provided', e.target.value)} />
+                                    <Input id={`${indicator.id}-provided`} type="number" placeholder="Đã cung cấp" className="w-28" value={valueAsObject.provided || ''} onChange={(e) => handleValueChange('provided', e.target.value)} />
                                 </div>
                                 <div className="flex-1">
                                      <div className="flex justify-between items-center mb-1">
                                          <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tỷ lệ cung cấp thành công</Label>
-                                         <span className="text-xs font-semibold">{Math.round(((Number(data.value?.provided) || 0) / (Number(data.value?.total) || 1)) * 100)}%</span>
+                                         <span className="text-xs font-semibold">{Math.round(((Number(valueAsObject.provided) || 0) / (Number(valueAsObject.total) || 1)) * 100)}%</span>
                                      </div>
-                                     <Progress id={`progress-${indicator.id}`} value={((Number(data.value?.provided) || 0) / (Number(data.value?.total) || 1)) * 100} indicatorClassName={ (Number(data.value?.provided) || 0) >= (Number(data.value?.total) || 0) ? "bg-green-500" : "bg-yellow-500"} className="h-2"/>
+                                     <Progress id={`progress-${indicator.id}`} value={((Number(valueAsObject.provided) || 0) / (Number(valueAsObject.total) || 1)) * 100} indicatorClassName={ (Number(valueAsObject.provided) || 0) >= (Number(valueAsObject.total) || 0) ? "bg-green-500" : "bg-yellow-500"} className="h-2"/>
                                  </div>
                             </div>
                         ) : (
@@ -671,7 +674,8 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                             const data = assessmentData[indicator.id];
                             if (!data) return <div key={indicator.id}>Đang tải...</div>;
                             const assignedCount = criterion.assignedDocumentsCount || docsToRender.length || 0;
-                            const progress = assignedCount > 0 ? Math.round(((Number(data.value) || 0) / assignedCount) * 100) : 0;
+                            const valueAsNumber = Number(data.value);
+                            const progress = assignedCount > 0 && !isNaN(valueAsNumber) ? Math.round((valueAsNumber / assignedCount) * 100) : 0;
                             const progressColor = progress >= 100 ? "bg-green-500" : "bg-yellow-500";
                             
                             return (
@@ -694,7 +698,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                             {indicatorIndex === 1 && "Tổng số dự thảo được truyền thông:"}
                                             {indicatorIndex === 2 && "Tổng số VBQPPL được tự kiểm tra:"}
                                         </Label>
-                                        <Input id={`${indicator.id}-input`} type="number" placeholder="Số lượng" className="w-28" value={data.value || ''} onChange={(e) => onValueChange(indicator.id, e.target.value)} />
+                                        <Input id={`${indicator.id}-input`} type="number" placeholder="Số lượng" className="w-28" value={valueAsNumber || ''} onChange={(e) => onValueChange(indicator.id, e.target.value)} />
                                         <div className="flex-1">
                                             <div className="flex justify-between items-center mb-1">
                                                 <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount} được giao)</Label>
@@ -857,6 +861,22 @@ const Criterion1EvidenceUploader = ({ indicatorId, docIndex, evidence, onUploadC
     const { toast } = useToast();
     const [isUploading, setIsUploading] = useState(false);
     const unsavedFilesRef = useRef<string[]>([]);
+    
+    useEffect(() => {
+        return () => {
+            if (unsavedFilesRef.current.length > 0) {
+                const filesToDelete = [...unsavedFilesRef.current];
+                filesToDelete.forEach(async (fileUrl) => {
+                    try {
+                        await deleteFileByUrl(fileUrl);
+                    } catch (error) {
+                        console.error(`Lỗi khi dọn dẹp tệp mồ côi ${fileUrl}:`, error);
+                    }
+                });
+                unsavedFilesRef.current = [];
+            }
+        };
+    }, [deleteFileByUrl]);
 
     const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
@@ -1644,6 +1664,7 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         open={!!previewFile} 
         onOpenChange={(open) => {
             if (!open) {
+                // Quan trọng: Thu hồi Blob URL để tránh rò rỉ bộ nhớ khi đóng popup
                 if (previewFile?.isBlob && previewFile.url) {
                     URL.revokeObjectURL(previewFile.url);
                 }
@@ -1680,3 +1701,4 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
     </>
   );
 }
+
