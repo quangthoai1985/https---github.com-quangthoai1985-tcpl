@@ -85,10 +85,7 @@ const Criterion1EvidenceUploader = ({
     if (!file || !storage) return;
 
     setIsUploading(true);
-
-    // Lấy thêm hàm `dismiss` từ useToast
     
-    // 1. Tạo một thông báo "đang tải" và lưu lại ID của nó
     const loadingToastId = toast({
         title: 'Đang tải lên...',
         description: `Đang xử lý tệp "${file.name}".`,
@@ -102,10 +99,8 @@ const Criterion1EvidenceUploader = ({
 
         onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
 
-        // 2. Đóng thông báo "đang tải"
         dismiss(loadingToastId);
 
-        // 3. Hiển thị thông báo "thành công" mới
         toast({
             title: 'Tải lên thành công!',
             description: `Tệp "${file.name}" đã được tải lên và đang được kiểm tra.`,
@@ -116,9 +111,9 @@ const Criterion1EvidenceUploader = ({
     } catch (error) {
         console.error("Upload error for criterion 1:", error);
         
-        dismiss(loadingToastId); // Đóng thông báo đang tải
+        dismiss(loadingToastId);
         
-        toast({ // Hiển thị thông báo lỗi mới
+        toast({
             title: 'Lỗi tải lên',
             description: `Đã xảy ra lỗi khi tải tệp "${file.name}".`,
             variant: 'destructive',
@@ -1143,9 +1138,11 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
                     description: `Tệp "${fileToRemove.name}" đã được xóa khỏi hệ thống.`,
                 });
                 
-                const fileIndexInUnsaved = unsavedFilesRef.current.indexOf(fileToRemove.url);
-                if(fileIndexInUnsaved > -1){
-                    unsavedFilesRef.current.splice(fileIndexInUnsaved, 1);
+                if (fileToRemove.url) {
+                    const fileIndexInUnsaved = unsavedFilesRef.current.indexOf(fileToRemove.url);
+                    if(fileIndexInUnsaved > -1){
+                        unsavedFilesRef.current.splice(fileIndexInUnsaved, 1);
+                    }
                 }
 
             } catch (error) {
@@ -1226,6 +1223,8 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         const indicatorData = assessmentData[indicatorId];
         const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
         
+        uploadedFileUrls[indicatorId] = {};
+        
         if (parentCriterion?.id === 'TC01') {
              uploadedFileUrls[indicatorId] = {
                 files: indicatorData.files, 
@@ -1234,8 +1233,6 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
             continue;
         }
         
-        uploadedFileUrls[indicatorId] = {};
-
         const localFiles = indicatorData.files.filter((f): f is File => f instanceof File);
         const existingFiles = indicatorData.files.filter((f): f is {name: string, url: string} => !(f instanceof File));
         uploadedFileUrls[indicatorId].files = existingFiles;
