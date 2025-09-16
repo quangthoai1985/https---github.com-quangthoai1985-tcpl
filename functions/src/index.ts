@@ -225,13 +225,14 @@ function translateErrorMessage(englishError: string): string {
 
 // --- BẮT ĐẦU KHỐI MÃ THAY THẾ TOÀN BỘ HÀM VERIFYPDFSIGNATURE ---
 
-    export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl.firebasestorage.app" }, async (event) => {
+export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl.firebasestorage.app" }, async (event) => {
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;
     const fileName = filePath.split('/').pop() || 'unknownfile';
 
-    const saveCheckResult = async (status: "valid" | "expired" | "error", reason?: string, signingTime?: Date | null, deadline?: Date, signerName?: string) => {
+    // Hàm phụ trợ để ghi log kiểm tra
+    const saveCheckResult = async (status: "valid" | "expired" | "error", reason?: string, signingTime?: Date | null, deadline?: Date, signerName?: string | null) => {
         await db.collection('signature_checks').add({
             fileName: fileName,
             filePath: filePath,
@@ -256,6 +257,7 @@ function translateErrorMessage(englishError: string): string {
     const assessmentId = `assess_${periodId}_${communeId}`;
     const assessmentRef = db.collection('assessments').doc(assessmentId);
 
+    // Hàm phụ trợ để cập nhật trạng thái trên giao diện
     const updateAssessmentFileStatus = async (
         fileStatus: 'validating' | 'valid' | 'invalid' | 'error',
         reason?: string
@@ -294,13 +296,11 @@ function translateErrorMessage(englishError: string): string {
             await assessmentRef.update({ [`assessmentData.${indicatorId}`]: indicatorResult });
         }
     };
+    
 
     await updateAssessmentFileStatus('validating');
 
     try {
-        // === LOGIC NÂNG CẤP BẮT ĐẦU TỪ ĐÂY ===
-
-        // 1. Lấy dữ liệu của cả Tiêu chí (từ admin) và Hồ sơ đánh giá (từ xã)
         const criterionDoc = await db.collection('criteria').doc('TC01').get();
         const assessmentDoc = await assessmentRef.get();
 
@@ -309,28 +309,19 @@ function translateErrorMessage(englishError: string): string {
         
         const criterionData = criterionDoc.data();
         const assessmentData = assessmentDoc.data()?.assessmentData;
-
-        // 2. Xác định phương thức giao nhiệm vụ mà Admin đã chọn
         const assignmentType = criterionData?.assignmentType || 'specific';
-        logger.info(`Processing file for assignment type: ${assignmentType}`);
-
+        
         let issueDate: Date;
         let deadline: Date;
 
-        // 3. Phân luồng logic để lấy đúng thông tin thời hạn
         if (assignmentType === 'specific') {
-            // -- TRƯỜNG HỢP 1: ADMIN GIAO CỤ THỂ --
-            logger.info("Handling 'specific' assignment.");
             const documentConfig = criterionData?.documents?.[docIndex];
             if (!documentConfig || !documentConfig.issueDate || !documentConfig.issuanceDeadlineDays) {
                 throw new Error(`Không tìm thấy cấu hình văn bản cụ thể cho index ${docIndex}.`);
             }
             issueDate = parse(documentConfig.issueDate, 'dd/MM/yyyy', new Date());
             deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
-
-        } else { // assignmentType === 'quantity'
-            // -- TRƯỜNG HỢP 2: ADMIN GIAO THEO SỐ LƯỢNG --
-            logger.info("Handling 'quantity' assignment.");
+        } else {
             const communeDocumentConfig = assessmentData?.[indicatorId]?.communeDefinedDocuments?.[docIndex];
             if (!communeDocumentConfig || !communeDocumentConfig.issueDate || !communeDocumentConfig.issuanceDeadlineDays) {
                 throw new Error(`Không tìm thấy thông tin văn bản do xã kê khai cho index ${docIndex}.`);
@@ -339,12 +330,8 @@ function translateErrorMessage(englishError: string): string {
             deadline = addDays(issueDate, communeDocumentConfig.issuanceDeadlineDays);
         }
         
-        logger.info(`Calculated deadline for ${fileName}: ${deadline.toISOString()}`);
-
-        // 4. Các bước trích xuất và so sánh chữ ký giữ nguyên
         const bucket = admin.storage().bucket(fileBucket);
         const [fileBuffer] = await bucket.file(filePath).download();
-        
         const signatures = await extractSignatureInfo(fileBuffer);
         if (signatures.length === 0) throw new Error("Không tìm thấy chữ ký nào trong tài liệu bằng pdf-lib.");
 
@@ -353,18 +340,25 @@ function translateErrorMessage(englishError: string): string {
         if (!signingTime) throw new Error("Chữ ký không chứa thông tin ngày ký (M).");
         
         const isValid = signingTime <= deadline;
+        
+        // FIX: ĐÃ GỌI HÀM SAVECHECKRESULT KHI THÀNH CÔNG
+        await saveCheckResult(isValid ? 'valid' : 'expired', isValid ? 'Chữ ký hợp lệ' : `Ký sau thời hạn`, signingTime, deadline, firstSignature.name);
+        
         await updateAssessmentFileStatus(isValid ? 'valid' : 'invalid', isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString('vi-VN')})`);
         
-        logger.info(`[pdf-lib] Successfully processed signature for ${fileName}. Status: ${isValid ? 'valid' : 'invalid'}`);
-
     } catch (error: any) {
         logger.error(`[pdf-lib] Error processing ${filePath}:`, error);
         const userFriendlyMessage = translateErrorMessage(error.message);
+
+        // FIX: ĐÃ GỌI HÀM SAVECHECKRESULT KHI BỊ LỖI
+        await saveCheckResult('error', userFriendlyMessage);
+
         await updateAssessmentFileStatus('error', userFriendlyMessage);
         return null;
     }
     return null;
 });
+
 
 // --- KẾT THÚC KHỐI MÃ THAY THẾ ---
 
