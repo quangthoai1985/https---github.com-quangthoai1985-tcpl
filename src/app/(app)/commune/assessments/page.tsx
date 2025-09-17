@@ -285,6 +285,11 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
         }
     };
     
+    const assignedCount = useMemo(() => {
+        return criterion.assignedDocumentsCount || docsToRender.length || 0;
+    }, [criterion.assignedDocumentsCount, docsToRender.length]);
+
+
     return (
         <div className="grid gap-6">
             <div className="flex items-center space-x-2">
@@ -351,7 +356,7 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                         {criterion.indicators.map((indicator, indicatorIndex) => {
                             const data = assessmentData[indicator.id];
                             if (!data) return <div key={indicator.id}>Đang tải...</div>;
-                            const assignedCount = criterion.assignedDocumentsCount || docsToRender.length || 0;
+                            
                             const valueAsNumber = Number(data.value);
                             const progress = assignedCount > 0 && !isNaN(valueAsNumber) ? Math.round((valueAsNumber / assignedCount) * 100) : 0;
                             const progressColor = progress >= 100 ? "bg-green-500" : "bg-yellow-500";
@@ -664,7 +669,8 @@ const renderInput = (
     data: IndicatorValue,
     onValueChange: (id: string, value: any) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void,
-    criteria: Criterion[] // Pass all criteria
+    criteria: Criterion[],
+    assessmentData: AssessmentValues
 ) => {
     const handleValueChange = (subfield: 'total' | 'provided' | null, value: string) => {
         if (subfield) {
@@ -705,7 +711,9 @@ const renderInput = (
         const criterion2 = criteria[1];
         const isCt2_2 = criterion2?.indicators && criterion2.indicators[1]?.id === indicator.id;
         const isCt2_3 = criterion2?.indicators && criterion2.indicators[2]?.id === indicator.id;
-        const assignedCount = criterion1?.assignedDocumentsCount || 0;
+        
+        const tc1Data = assessmentData[criterion1.indicators[0].id];
+        const assignedCount = criterion1?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
         
         const valueAsObject = typeof data.value === 'object' && data.value !== null ? data.value : {};
 
@@ -906,7 +914,7 @@ const StatusBadge = ({ status, isCriterion = false }: { status: AssessmentStatus
 };
 
 
-const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, indicator, data, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, criteria }: { 
+const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, indicator, data, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, criteria, assessmentData }: { 
     specialIndicatorIds: string[],
     specialLabels: { no: string; yes: string },
     customBooleanLabels: { true: string, false: string} | null,
@@ -918,7 +926,8 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
     onEvidenceChange: (id: string, files: (File | { name: string; url: string; })[], docIndex?: number, fileToRemove?: FileWithStatus) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void,
     onPreview: (file: {name: string, url: string}) => void,
-    criteria: Criterion[]
+    criteria: Criterion[],
+    assessmentData: AssessmentValues
 }) => {
     const isEvidenceRequired = data.status !== 'pending' && data.isTasked !== false && data.files.length === 0;
 
@@ -943,7 +952,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
             <div className="grid gap-4">
                 <div className="grid gap-2">
                   <Label>Kết quả tự đánh giá</Label>
-                  {renderInput(indicator, specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, data, onValueChange, onIsTaskedChange, criteria)}
+                  {renderInput(indicator, specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, data, onValueChange, onIsTaskedChange, criteria, assessmentData)}
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
@@ -1093,12 +1102,16 @@ const handleIsTaskedChange = useCallback((indicatorId: string, isTasked: boolean
 
         const valueToEvaluate = isTasked ? prev[indicatorId].value : null;
         const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
+        
         let assignedCount;
         if (parentCriterion?.id === 'TC01') {
-            assignedCount = parentCriterion.assignedDocumentsCount;
+            const tc1Data = prev[parentCriterion.indicators[0].id];
+            assignedCount = parentCriterion.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
         } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
-            assignedCount = criteria[0]?.assignedDocumentsCount;
+            const tc1Data = prev[criteria[0].indicators[0].id];
+            assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
         }
+        
         const filesPerDocument = parentCriterion?.id === 'TC01' ? prev[indicatorId].filesPerDocument : undefined;
         const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, isTasked, assignedCount, filesPerDocument);
 
@@ -1123,6 +1136,7 @@ const handleValueChange = useCallback((indicatorId: string, value: any) => {
         
         const isTasked = prev[indicatorId].isTasked;
         const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
+        
         let assignedCount;
         if (parentCriterion?.id === 'TC01') {
             const tc1Data = prev[parentCriterion.indicators[0].id];
@@ -1131,6 +1145,7 @@ const handleValueChange = useCallback((indicatorId: string, value: any) => {
              const tc1Data = prev[criteria[0].indicators[0].id];
              assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
         }
+
         const filesPerDocument = parentCriterion?.id === 'TC01' ? prev[indicatorId].filesPerDocument : undefined;
         const newStatus = evaluateStatus(value, indicator.standardLevel, isTasked, assignedCount, filesPerDocument);
 
@@ -1532,6 +1547,7 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
                                                                     onIsTaskedChange={handleIsTaskedChange}
                                                                     onPreview={handlePreview}
                                                                     criteria={criteria}
+                                                                    assessmentData={assessmentData}
                                                                 />
                                                             </div>
                                                         ) : (
@@ -1571,6 +1587,7 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
                                                                                   onIsTaskedChange={handleIsTaskedChange}
                                                                                   onPreview={handlePreview}
                                                                                   criteria={criteria}
+                                                                                  assessmentData={assessmentData}
                                                                               />
                                                                           </div>
                                                                         )
