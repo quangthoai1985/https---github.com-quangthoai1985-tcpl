@@ -832,22 +832,21 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean | 
         const enteredValue = Number(value);
         if (isNaN(enteredValue) || value === '' || value === null) return 'pending';
         
-        // Check if all uploaded files for this indicator are valid
+        const quantityMet = enteredValue >= assignedCount;
+
         if (filesPerDocument) {
             const allFiles = Object.values(filesPerDocument).flat();
-            // Điều kiện mới: chỉ đạt khi đủ số lượng VÀ tất cả file đều hợp lệ.
-            const quantityMet = enteredValue >= assignedCount;
-            const allFilesValid = allFiles.length > 0 && allFiles.every(f => 'signatureStatus' in f && f.signatureStatus === 'valid');
-            
-            if (quantityMet && allFilesValid) {
+            // FIX: Check if the number of uploaded files is GREATER THAN OR EQUAL to the required quantity
+            const allRequiredFilesUploaded = allFiles.length >= assignedCount;
+            const allSignaturesValid = allFiles.every(f => 'signatureStatus' in f && f.signatureStatus === 'valid');
+
+            // New, stricter "Achieved" condition
+            if (quantityMet && allRequiredFilesUploaded && allSignaturesValid) {
                 return 'achieved';
             }
-             if (quantityMet && !allFilesValid) {
-                // Đủ số lượng nhưng file không hợp lệ -> không đạt
-                return 'not-achieved';
-            }
         }
-        // Nếu không đủ số lượng
+
+        // If any of the conditions for 'achieved' are not met, it's 'not-achieved'
         return 'not-achieved';
     }
     
