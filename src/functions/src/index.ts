@@ -13,7 +13,7 @@ admin.initializeApp();
 const db = admin.firestore();
 
 // ===== HÀM SYNC CLAIMS (GIỮ NGUYÊN) =====
-export const syncUserClaims = onDocumentWritten("users/{userId}", async (event) => {
+export const syncUserClaims = onDocumentWritten({ document: "users/{userId}", region: "asia-east1" }, async (event) => {
   if (!event.data?.after.exists) {
     logger.log(`User document ${event.params.userId} deleted. Removing claims.`);
     return null;
@@ -84,7 +84,7 @@ function collectAllFileUrls(assessmentData: any): Set<string> {
     return urls;
 }
 
-export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmentId}", async (event) => {
+export const onAssessmentFileDeleted = onDocumentUpdated({ document: "assessments/{assessmentId}", region: "asia-east1" }, async (event) => {
     const dataBefore = event.data?.before.data();
     const dataAfter = event.data?.after.data();
 
@@ -218,7 +218,7 @@ function translateErrorMessage(englishError: string): string {
 }
 
 
-export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl.firebasestorage.app" }, async (event) => {
+export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl.firebasestorage.app", region: "asia-east1" }, async (event) => {
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;
@@ -371,7 +371,7 @@ export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl
 });
 
 
-export const getSignedUrlForFile = onCall(async (request) => {
+export const getSignedUrlForFile = onCall({ region: "asia-east1" }, async (request) => {
     if (!request.auth) {
         throw new HttpsError("unauthenticated", "Người dùng phải đăng nhập để thực hiện.");
     }
