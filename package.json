@@ -18,6 +18,7 @@
     "migrate:status": "tsx src/scripts/migrate-assessment-status.ts",
     "cleanup:formulas": "tsx src/scripts/remove-formula-field.ts",
     "cleanup:signatures": "tsx src/scripts/cleanup-signature-fields.ts",
+    "cleanup:ct1": "tsx src/scripts/cleanup-assessment-ct1.ts",
     "backup": "bash backup.sh",
     "backup:firestore": "tsx src/scripts/backup-firestore.ts"
   },
