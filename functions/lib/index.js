@@ -236,7 +236,7 @@ function translateErrorMessage(englishError) {
     }
     return "Lỗi không xác định đã xảy ra trong quá trình xử lý file.";
 }
-exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-tiep-can-pl.firebasestorage.app" }, async (event) => {
+exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-tiep-can-pl.appspot.com" }, async (event) => {
     var _a, _b, _c, _d;
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;

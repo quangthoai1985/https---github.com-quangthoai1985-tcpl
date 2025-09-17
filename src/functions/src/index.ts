@@ -131,8 +131,6 @@ export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmen
     if (deletionPromises.length > 0) {
         await Promise.all(deletionPromises);
         logger.info(`Successfully processed ${deletionPromises.length} potential file deletion(s).`);
-    } else {
-        logger.log("No files were removed in this update. No deletions necessary.");
     }
 
     return null;
@@ -218,7 +216,7 @@ function translateErrorMessage(englishError: string): string {
 }
 
 
-export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl.firebasestorage.app" }, async (event) => {
+export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl.appspot.com" }, async (event) => {
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;
