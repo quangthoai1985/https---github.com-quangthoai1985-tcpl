@@ -1315,60 +1315,9 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
 }, []);
 
 
-  const uploadEvidenceFiles = useCallback(async (communeId: string, periodId: string): Promise<Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }>> => {
-    if (!storage) throw new Error("Firebase Storage is not initialized.");
-
-    const uploadedFileUrls: Record<string, { files?: FileWithStatus[], filesPerDocument?: Record<number, FileWithStatus[]> }> = {};
-    const allUploadPromises: Promise<void>[] = [];
-
-    for (const indicatorId in assessmentData) {
-        const indicatorData = assessmentData[indicatorId];
-        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
-        
-        if(!uploadedFileUrls[indicatorId]) uploadedFileUrls[indicatorId] = {};
-        
-        if (parentCriterion?.id === 'TC01') {
-             uploadedFileUrls[indicatorId] = {
-                files: indicatorData.files, 
-                filesPerDocument: indicatorData.filesPerDocument
-            };
-            continue;
-        }
-        
-        const localFiles = indicatorData.files.filter((f): f is File => f instanceof File);
-        const existingFiles = indicatorData.files.filter((f): f is {name: string, url: string} => !(f instanceof File));
-
-        uploadedFileUrls[indicatorId].files = existingFiles;
-        
-        localFiles.forEach(file => {
-            const promise = async () => {
-                const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${file.name}`;
-                const storageRef = ref(storage, filePath);
-                const snapshot = await uploadBytes(storageRef, file);
-                const downloadURL = await getDownloadURL(snapshot.ref);
-                if (!uploadedFileUrls[indicatorId].files) {
-                    uploadedFileUrls[indicatorId].files = [];
-                }
-                uploadedFileUrls[indicatorId].files!.push({ name: file.name, url: downloadURL });
-                unsavedFilesRef.current.push(downloadURL);
-            };
-            allUploadPromises.push(promise());
-        });
-    }
-
-    await Promise.all(allUploadPromises);
-    return uploadedFileUrls;
-  }, [storage, criteria, assessmentData]);
-
-  const handleSaveDraft = useCallback(async () => {
+const handleSaveDraft = useCallback(async () => {
     if (!activePeriod || !currentUser || !storage) {
         toast({ variant: 'destructive', title: 'Lỗi', description: 'Không tìm thấy kỳ đánh giá hoặc người dùng.' });
-        return;
-    }
-
-    const currentAssessment = assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId);
-    if (!currentAssessment) {
-        toast({ variant: 'destructive', title: 'Lỗi', description: 'Không tìm thấy hồ sơ đăng ký hợp lệ để lưu nháp.' });
         return;
     }
 
@@ -1376,31 +1325,74 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
     toast({ title: 'Đang lưu nháp...' });
     
     try {
-        const fileUrlsByIndicator = await uploadEvidenceFiles(currentUser.communeId, activePeriod.id);
-        
-        const sanitizedData = sanitizeDataForFirestore(assessmentData);
-        const assessmentDataForFirestore = Object.entries(sanitizedData).reduce((acc, [key, value]) => {
-            const fileInfo = fileUrlsByIndicator[key];
-            if (fileInfo) {
-                acc[key] = {
-                    ...value,
-                    files: fileInfo.files || value.files,
-                    filesPerDocument: fileInfo.filesPerDocument || value.filesPerDocument,
-                };
-            } else {
-                acc[key] = value;
+        // TẠO MỘT BẢN SAO SẠCH CỦA DỮ LIỆU ĐỂ XỬ LÝ
+        let dataToSave = JSON.parse(JSON.stringify(assessmentData));
+
+        // BƯỚC A: Tải lên tất cả các file còn ở dạng 'File' và cập nhật URL
+        const uploadPromises: Promise<void>[] = [];
+
+        for (const indicatorId in dataToSave) {
+            const indicator = dataToSave[indicatorId];
+            
+            const processFileList = (files: any[], pathPrefix: string, updateFn: (url: string, index: number) => void) => {
+                 for (let i = 0; i < files.length; i++) {
+                    const originalFile = (assessmentData as any)[indicatorId][pathPrefix.split('.')[0]][i];
+                     if (originalFile && originalFile instanceof File) {
+                         const promise = async () => {
+                             const filePath = `hoso/${currentUser.communeId}/evidence/${activePeriod.id}/${indicatorId}/${originalFile.name}`;
+                             const storageRef = ref(storage, filePath);
+                             const snapshot = await uploadBytes(storageRef, originalFile);
+                             const downloadURL = await getDownloadURL(snapshot.ref);
+                             updateFn(downloadURL, i);
+                         };
+                         uploadPromises.push(promise());
+                     }
+                 }
             }
-            return acc;
-        }, {} as Record<string, IndicatorResult>);
+            
+            // Xử lý mảng files chính
+            if (indicator.files) {
+                 processFileList(indicator.files, 'files', (url, index) => {
+                     dataToSave[indicatorId].files[index] = { name: (assessmentData[indicatorId].files[index] as File).name, url: url };
+                 });
+            }
+
+            // Xử lý filesPerDocument (Tiêu chí 1)
+            if (indicator.filesPerDocument) {
+                for (const docIndex in indicator.filesPerDocument) {
+                    const fileList = indicator.filesPerDocument[docIndex];
+                    for (let i = 0; i < fileList.length; i++) {
+                        const fileInfo = assessmentData[indicatorId].filesPerDocument?.[docIndex]?.[i];
+                        if (fileInfo && fileInfo instanceof File) {
+                            const promise = async () => {
+                                const filePath = `hoso/${currentUser.communeId}/evidence/${activePeriod.id}/${indicatorId}/${docIndex}/${fileInfo.name}`;
+                                const storageRef = ref(storage, filePath);
+                                const snapshot = await uploadBytes(storageRef, fileInfo);
+                                const downloadURL = await getDownloadURL(snapshot.ref);
+                                // Cập nhật URL vào bản sao dữ liệu
+                                dataToSave[indicatorId].filesPerDocument[docIndex][i] = { name: fileInfo.name, url: downloadURL };
+                            };
+                            uploadPromises.push(promise());
+                        }
+                    }
+                }
+            }
+        }
+
+        // Đợi tất cả các file tải lên hoàn tất
+        await Promise.all(uploadPromises);
+
+        // BƯỚC B: Bây giờ dataToSave đã sạch (không còn đối tượng File), tiến hành lưu
+        const currentAssessment = assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId);
+        if (!currentAssessment) throw new Error("Không tìm thấy hồ sơ đăng ký hợp lệ.");
 
         const updatedAssessment: Assessment = {
             ...currentAssessment,
             assessmentStatus: 'draft',
-            assessmentData: assessmentDataForFirestore,
+            assessmentData: sanitizeDataForFirestore(dataToSave), // Dùng dữ liệu đã sạch
         };
-        
+
         await updateSingleAssessment(updatedAssessment);
-        unsavedFilesRef.current = [];
 
         toast({
           title: "Lưu nháp thành công!",
@@ -1412,7 +1404,7 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
     } finally {
         setIsSubmitting(false);
     }
-  }, [activePeriod, currentUser, storage, assessments, assessmentData, updateSingleAssessment, toast, uploadEvidenceFiles]);
+}, [activePeriod, currentUser, storage, assessmentData, assessments, updateSingleAssessment, toast]);
   
   useEffect(() => {
     const hasUnsavedFiles = Object.values(assessmentData).some(indicator =>
@@ -1650,6 +1642,29 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
                                                     assessmentData[indicator.id]?.status === 'not-achieved' && 'bg-red-50 border-red-200',
                                                     assessmentData[indicator.id]?.status === 'pending' && 'bg-amber-50 border-amber-200'
                                                 );
+
+                                                if (indicator.id === 'CT2.1') {
+                                                    return (
+                                                         <div key={indicator.id} className={indicatorBlockClasses}>
+                                                             <IndicatorAssessment 
+                                                                specialIndicatorIds={specialLogicIndicatorIds}
+                                                                specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
+                                                                customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
+                                                                checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
+                                                                indicator={indicator} 
+                                                                data={assessmentData[indicator.id]} 
+                                                                onValueChange={handleValueChange}
+                                                                onNoteChange={handleNoteChange}
+                                                                onEvidenceChange={handleEvidenceChange}
+                                                                onIsTaskedChange={handleIsTaskedChange}
+                                                                onPreview={handlePreview}
+                                                                criteria={criteria}
+                                                                assessmentData={assessmentData}
+                                                            />
+                                                         </div>
+                                                    )
+                                                }
+
 
                                                 return (
                                                     <div key={indicator.id} className={indicatorBlockClasses}>

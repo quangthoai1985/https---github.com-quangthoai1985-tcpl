@@ -85,7 +85,7 @@ function collectAllFileUrls(assessmentData: any): Set<string> {
     return urls;
 }
 
-export const onAssessmentFileDeleted = onDocumentUpdated({ document: "assessments/{assessmentId}", region: "asia-east1" }, async (event) => {
+export const onAssessmentFileDeleted = onDocumentUpdated({ document: "assessments/{assessmentId}", region: "asia-southeast1" }, async (event) => {
     const dataBefore = event.data?.before.data();
     const dataAfter = event.data?.after.data();
 
@@ -219,7 +219,7 @@ function translateErrorMessage(englishError: string): string {
 }
 
 
-export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl", region: "asia-east1" }, async (event) => {
+export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl", region: "asia-southeast1" }, async (event) => {
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;
