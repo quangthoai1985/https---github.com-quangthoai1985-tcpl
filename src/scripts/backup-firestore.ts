@@ -1,3 +1,4 @@
+
 /* eslint-disable no-console */
 import { adminDb as db, admin } from '@/lib/firebase-admin';
 
@@ -19,16 +20,19 @@ import { adminDb as db, admin } from '@/lib/firebase-admin';
 
 async function main() {
   const firestoreClient = new admin.firestore.v1.FirestoreAdminClient();
-  const bucket = `gs://${process.env.GCLOUD_PROJECT}.appspot.com`; // Bucket mặc định của Firebase
-  const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '');
-  const path = `${bucket}/firestore-backups/${timestamp}`;
   
-  const projectId = process.env.GCLOUD_PROJECT;
+  // Lấy project ID từ cấu hình đã khởi tạo của admin SDK
+  const projectId = admin.instanceId().app.options.projectId;
+  
   if (!projectId) {
-      console.error("🔥 Lỗi: Không thể xác định Project ID. Hãy đảm bảo biến môi trường GCLOUD_PROJECT đã được đặt.");
+      console.error("🔥 Lỗi: Không thể xác định Project ID từ cấu hình Firebase Admin SDK.");
       process.exit(1);
   }
 
+  const bucket = `gs://${projectId}.appspot.com`; // Bucket mặc định của Firebase
+  const timestamp = new Date().toISOString().replace(/:/g, '-').replace(/\..+/, '');
+  const path = `${bucket}/firestore-backups/${timestamp}`;
+  
   const databaseName = firestoreClient.databasePath(projectId, '(default)');
 
   console.log(`Bắt đầu quá trình xuất dữ liệu Firestore...`);
