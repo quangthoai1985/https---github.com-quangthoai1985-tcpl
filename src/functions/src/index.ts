@@ -294,11 +294,11 @@ export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl
                 const assignedCount = criterionData?.assignedDocumentsCount || 0;
                 
                 const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
-                const allFilesUploaded = allFiles.length > 0;
-                const allSignaturesValid = allFilesUploaded && allFiles.every((f: any) => f.signatureStatus === 'valid');
+                const allRequiredFilesUploaded = allFiles.length >= assignedCount;
+                const allSignaturesValid = allFiles.every((f: any) => f.signatureStatus === 'valid');
                 const quantityMet = Number(indicatorResult.value) >= assignedCount;
 
-                if (quantityMet && allFilesUploaded && allSignaturesValid) {
+                if (quantityMet && allRequiredFilesUploaded && allSignaturesValid) {
                     indicatorResult.status = 'achieved';
                 } else {
                     // Nếu chưa đủ số lượng, hoặc chưa tải file, hoặc có file không hợp lệ, thì đều là 'not-achieved'
