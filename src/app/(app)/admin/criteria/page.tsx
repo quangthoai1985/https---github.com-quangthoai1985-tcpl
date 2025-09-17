@@ -426,12 +426,7 @@ export default function CriteriaManagementPage() {
     <PageHeader title="Bộ Tiêu chí Đánh giá" description="Quản lý các tiêu chí và chỉ tiêu để đánh giá xã đạt chuẩn tiếp cận pháp luật."/>
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-end">
-          <Button onClick={() => setAddingCriterion(true)}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            Thêm Tiêu chí mới
-          </Button>
-        </div>
+        {/* The "Add New Criterion" button has been removed as per the user's request. */}
       </CardHeader>
       <CardContent>
         <Accordion type="multiple" defaultValue={criteria.map((c) => c.id)} className="w-full">
@@ -456,7 +451,7 @@ export default function CriteriaManagementPage() {
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Hành động</DropdownMenuLabel>
                       <DropdownMenuItem onClick={() => handleEditCriterion(criterion)}>Sửa tiêu chí</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleAddIndicator(criterion.id)}>Thêm chỉ tiêu</DropdownMenuItem>
+                      {/* "Add Indicator" option removed as per request */}
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-destructive">
                         Xóa tiêu chí
@@ -489,7 +484,7 @@ export default function CriteriaManagementPage() {
                                 <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>Hành động</DropdownMenuLabel>
                                 <DropdownMenuItem onClick={() => handleEditIndicator(criterion.id, indicator)}>Sửa chỉ tiêu</DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleAddSubIndicator(criterion.id, indicator.id)}>Thêm chỉ tiêu con</DropdownMenuItem>
+                                {/* "Add Sub-indicator" option removed as per request */}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem className="text-destructive">
                                     Xóa chỉ tiêu
