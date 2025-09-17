@@ -288,19 +288,26 @@ export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl
                 filesPerDocument[docIndex] = fileList;
                 indicatorResult.filesPerDocument = filesPerDocument;
                 
+                // Logic to re-evaluate indicator status
                 const criterionDocSnap = await transaction.get(db.collection('criteria').doc('TC01'));
                 const criterionData = criterionDocSnap.data();
                 const assignedCount = criterionData?.assignedDocumentsCount || 0;
                 
                 const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
-                const allFilesUploaded = allFiles.length >= assignedCount;
-                const allSignaturesValid = allFiles.every((f: any) => f.signatureStatus === 'valid');
+                const allFilesUploaded = allFiles.length > 0;
+                const allSignaturesValid = allFilesUploaded && allFiles.every((f: any) => f.signatureStatus === 'valid');
                 const quantityMet = Number(indicatorResult.value) >= assignedCount;
 
                 if (quantityMet && allFilesUploaded && allSignaturesValid) {
                     indicatorResult.status = 'achieved';
-                } else if (indicatorResult.value !== '' && indicatorResult.value !== undefined) {
-                    indicatorResult.status = 'not-achieved';
+                } else {
+                    // Nếu chưa đủ số lượng, hoặc chưa tải file, hoặc có file không hợp lệ, thì đều là 'not-achieved'
+                    // (miễn là xã đã nhập giá trị)
+                    if (indicatorResult.value !== '' && indicatorResult.value !== null && indicatorResult.value !== undefined) {
+                       indicatorResult.status = 'not-achieved';
+                    } else {
+                       indicatorResult.status = 'pending';
+                    }
                 }
                 
                 transaction.set(assessmentRef, { assessmentData: { [indicatorId]: indicatorResult } }, { merge: true });

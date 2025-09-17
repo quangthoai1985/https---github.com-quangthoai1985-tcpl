@@ -824,36 +824,55 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean | 
     if (isTasked === false) {
         return 'achieved';
     }
-    
-    if (typeof value === 'object' && value !== null && value.hasOwnProperty('total') && value.hasOwnProperty('provided')) {
-        const total = Number(value.total);
-        const provided = Number(value.provided);
-        if (isNaN(total) || isNaN(provided) || total === 0) return 'achieved';
-        return (provided / total) >= 1 ? 'achieved' : 'not-achieved';
-    }
 
+    if (value === undefined || value === null || value === '') return 'pending';
 
+    // Logic for Criterion 1 indicators
     if (assignedCount && assignedCount > 0) {
         const enteredValue = Number(value);
         if (isNaN(enteredValue) || value === '' || value === null) return 'pending';
         
+        // Check if all uploaded files for this indicator are valid
         if (filesPerDocument) {
-             const allFilesValid = Object.values(filesPerDocument || {}).flat().every(f => 'signatureStatus' in f && f.signatureStatus === 'valid');
-            if (!allFilesValid && enteredValue >= assignedCount) return 'not-achieved';
+            const allFiles = Object.values(filesPerDocument).flat();
+            // Điều kiện mới: chỉ đạt khi đủ số lượng VÀ tất cả file đều hợp lệ.
+            const quantityMet = enteredValue >= assignedCount;
+            const allFilesValid = allFiles.length > 0 && allFiles.every(f => 'signatureStatus' in f && f.signatureStatus === 'valid');
+            
+            if (quantityMet && allFilesValid) {
+                return 'achieved';
+            }
+             if (quantityMet && !allFilesValid) {
+                // Đủ số lượng nhưng file không hợp lệ -> không đạt
+                return 'not-achieved';
+            }
         }
-        
-        return enteredValue >= assignedCount ? 'achieved' : 'not-achieved';
+        // Nếu không đủ số lượng
+        return 'not-achieved';
     }
     
+    // Logic for checkbox groups
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        // Special case for CT2.3 (Yêu cầu cung cấp thông tin)
+        if (value.hasOwnProperty('total') && value.hasOwnProperty('provided')) {
+            const total = Number(value.total);
+            const provided = Number(value.provided);
+            if (isNaN(total) || total === 0) return 'achieved'; // Không có yêu cầu thì coi như đạt
+            if (isNaN(provided)) return 'pending';
+            return (provided / total) >= 1 ? 'achieved' : 'not-achieved';
+        }
+        
+        // General checkbox logic
         const checkedCount = Object.values(value).filter(v => v === true).length;
-        const requiredCount = parseInt(standardLevel.match(/(\d+)/)?.[0] || '2', 10);
-        return checkedCount >= requiredCount ? 'achieved' : 'not-achieved';
+        const requiredCountMatch = standardLevel.match(/(\d+)/);
+        if (requiredCountMatch) {
+            const requiredCount = parseInt(requiredCountMatch[0], 10);
+            return checkedCount >= requiredCount ? 'achieved' : 'not-achieved';
+        }
+        return 'pending';
     }
 
-
-    if (value === undefined || value === null || value === '') return 'pending';
-
+    // General logic for boolean and number/string comparison
     const standard = standardLevel.toLowerCase();
 
     if (typeof value === 'boolean') {
