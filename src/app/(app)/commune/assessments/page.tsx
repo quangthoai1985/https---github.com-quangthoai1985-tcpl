@@ -1442,33 +1442,51 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
   };
   
   const calculateCriterionStatus = (criterion: Criterion): AssessmentStatus => {
-    if (Object.keys(assessmentData).length === 0) return 'pending';
+    // Điều kiện an toàn: Nếu chưa có dữ liệu hoặc tiêu chí không có chỉ tiêu, trả về 'pending'
+    if (!assessmentData || Object.keys(assessmentData).length === 0 || !criterion.indicators || criterion.indicators.length === 0) {
+        return 'pending';
+    }
 
-    const firstIndicatorId = criterion.indicators[0]?.id;
-    if (criterion.id === 'TC01' && assessmentData[firstIndicatorId]?.isTasked === false) {
-        return 'achieved';
+    // Xử lý trường hợp đặc biệt: Xã không được giao nhiệm vụ cho Tiêu chí 1
+    if (criterion.id === 'TC01') {
+        const firstIndicatorId = criterion.indicators[0]?.id;
+        if (firstIndicatorId && assessmentData[firstIndicatorId]?.isTasked === false) {
+            return 'achieved';
+        }
     }
 
     let hasPending = false;
-    for (const indicator of criterion.indicators) {
-        const processIndicator = (ind: Indicator | SubIndicator) => {
-            const status = assessmentData[ind.id]?.status;
-            if (status === 'not-achieved') return 'not-achieved';
-            if (status === 'pending') hasPending = true;
-            return 'continue';
-        };
 
-        if (indicator.subIndicators && indicator.subIndicators.length > 0) {
-            for (const sub of indicator.subIndicators) {
-                const result = processIndicator(sub);
-                if (result === 'not-achieved') return 'not-achieved';
+    // Duyệt qua tất cả các chỉ tiêu và chỉ tiêu con để tìm trạng thái ưu tiên cao nhất
+    for (const indicator of criterion.indicators) {
+        const indicatorsToCheck = indicator.subIndicators?.length > 0 ? indicator.subIndicators : [indicator];
+
+        for (const sub of indicatorsToCheck) {
+            // Nếu một chỉ tiêu chưa có dữ liệu, toàn bộ tiêu chí là 'pending'
+            if (!assessmentData[sub.id] || !assessmentData[sub.id].status) {
+                return 'pending';
             }
-        } else {
-            const result = processIndicator(indicator);
-            if (result === 'not-achieved') return 'not-achieved';
+            
+            const status = assessmentData[sub.id].status;
+
+            // Nếu có bất kỳ chỉ tiêu nào 'không đạt', toàn bộ tiêu chí sẽ 'không đạt' ngay lập tức
+            if (status === 'not-achieved') {
+                return 'not-achieved';
+            }
+
+            if (status === 'pending') {
+                hasPending = true;
+            }
         }
     }
-    return hasPending ? 'pending' : 'achieved';
+
+    // Nếu có bất kỳ chỉ tiêu nào 'chưa chấm', toàn bộ tiêu chí là 'chưa hoàn thành'
+    if (hasPending) {
+        return 'pending';
+    }
+
+    // Nếu không có chỉ tiêu nào 'không đạt' hoặc 'chưa chấm', thì tiêu chí đó là 'đạt'
+    return 'achieved';
 };
 
   const handlePreview = (file: { name: string, url: string }) => {
