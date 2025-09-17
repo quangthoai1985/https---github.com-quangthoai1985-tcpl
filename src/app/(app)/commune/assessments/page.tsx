@@ -840,7 +840,7 @@ const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean | 
     // Logic for Criterion 1 indicators
     if (assignedCount && assignedCount > 0) {
         const enteredValue = Number(value);
-        if (isNaN(enteredValue) || value === '' || value === null) return 'pending';
+        if (isNaN(enteredValue)) return 'pending';
         
         const quantityMet = enteredValue >= assignedCount;
 
@@ -1084,10 +1084,23 @@ export default function SelfAssessmentPage() {
                       communeDefinedDocuments: saved?.communeDefinedDocuments ?? [],
                   };
               };
-              processIndicator(indicator);
-              
+
               if (indicator.subIndicators && indicator.subIndicators.length > 0) {
+                  // For parent indicators, status should be calculated, not stored.
+                  // Initialize it as pending, it will be recalculated.
+                  const savedParent = existingData?.[indicator.id];
+                   initialState[indicator.id] = { 
+                      isTasked: null, // Parent indicators don't have isTasked
+                      value: '', // Or some aggregated value if needed, but likely not
+                      files: [], // Parent indicators don't have files directly
+                      note: savedParent?.note ?? '', 
+                      status: 'pending', // Will be recalculated
+                      adminNote: savedParent?.adminNote ?? '',
+                      communeNote: savedParent?.communeNote ?? '',
+                   };
                   indicator.subIndicators.forEach(processIndicator);
+              } else {
+                  processIndicator(indicator);
               }
           });
       });
@@ -1110,7 +1123,7 @@ export default function SelfAssessmentPage() {
 
   const specialLogicIndicatorIds = React.useMemo(() => getSpecialLogicIndicatorIds(criteria), [criteria]);
 
-  const findIndicator = useCallback((indicatorId: string) => {
+  const findIndicator = useCallback((indicatorId: string): Indicator | SubIndicator | null => {
     for (const c of criteria) {
         for (const i of (c.indicators || [])) {
             if (i.id === indicatorId) return i;
@@ -1122,6 +1135,32 @@ export default function SelfAssessmentPage() {
     }
     return null;
 }, [criteria]);
+
+// Function to calculate parent indicator status
+const calculateParentIndicatorStatus = (parentIndicator: Indicator, currentData: AssessmentValues): AssessmentStatus => {
+    if (!parentIndicator.subIndicators || parentIndicator.subIndicators.length === 0) {
+        // This should not happen if called correctly, but as a safeguard:
+        return currentData[parentIndicator.id]?.status || 'pending';
+    }
+
+    let hasPending = false;
+    for (const sub of parentIndicator.subIndicators) {
+        const subStatus = currentData[sub.id]?.status;
+        if (subStatus === 'not-achieved') {
+            return 'not-achieved'; // Immediate failure
+        }
+        if (subStatus === 'pending') {
+            hasPending = true;
+        }
+    }
+
+    if (hasPending) {
+        return 'pending';
+    }
+
+    return 'achieved';
+};
+
 
 const handleIsTaskedChange = useCallback((indicatorId: string, isTasked: boolean) => {
     setAssessmentData(prev => {
@@ -1142,8 +1181,8 @@ const handleIsTaskedChange = useCallback((indicatorId: string, isTasked: boolean
         
         const filesPerDocument = parentCriterion?.id === 'TC01' ? prev[indicatorId].filesPerDocument : undefined;
         const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, isTasked, assignedCount, filesPerDocument);
-
-        return {
+        
+        const newData = {
             ...prev,
             [indicatorId]: {
                 ...prev[indicatorId],
@@ -1154,6 +1193,18 @@ const handleIsTaskedChange = useCallback((indicatorId: string, isTasked: boolean
                 filesPerDocument: isTasked ? prev[indicatorId].filesPerDocument : {},
             }
         };
+
+        // After updating the sub-indicator, check if we need to update the parent
+        const parentIndicator = criteria.flatMap(c => c.indicators).find(i => i.subIndicators?.some(si => si.id === indicatorId));
+        if (parentIndicator) {
+            const newParentStatus = calculateParentIndicatorStatus(parentIndicator, newData);
+            newData[parentIndicator.id] = {
+                ...newData[parentIndicator.id],
+                status: newParentStatus,
+            };
+        }
+
+        return newData;
     });
 }, [criteria, findIndicator]);
 
@@ -1177,7 +1228,7 @@ const handleValueChange = useCallback((indicatorId: string, value: any) => {
         const filesPerDocument = parentCriterion?.id === 'TC01' ? prev[indicatorId].filesPerDocument : undefined;
         const newStatus = evaluateStatus(value, indicator.standardLevel, isTasked, assignedCount, filesPerDocument);
 
-        return {
+        const newData = {
             ...prev,
             [indicatorId]: {
                 ...prev[indicatorId],
@@ -1185,6 +1236,18 @@ const handleValueChange = useCallback((indicatorId: string, value: any) => {
                 status: newStatus
             }
         };
+
+        // After updating the sub-indicator, check if we need to update the parent
+        const parentIndicator = criteria.flatMap(c => c.indicators).find(i => i.subIndicators?.some(si => si.id === indicatorId));
+        if (parentIndicator) {
+            const newParentStatus = calculateParentIndicatorStatus(parentIndicator, newData);
+            newData[parentIndicator.id] = {
+                ...newData[parentIndicator.id],
+                status: newParentStatus,
+            };
+        }
+
+        return newData;
     });
 }, [criteria, findIndicator]);
 
@@ -1589,27 +1652,25 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
                                                 );
 
                                                 return (
-                                                    <div key={indicator.id}>
+                                                    <div key={indicator.id} className={indicatorBlockClasses}>
                                                         {(!indicator.subIndicators || indicator.subIndicators.length === 0) ? (
-                                                            <div className={indicatorBlockClasses}>
-                                                                <IndicatorAssessment 
-                                                                    specialIndicatorIds={specialLogicIndicatorIds}
-                                                                    specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
-                                                                    customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
-                                                                    checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
-                                                                    indicator={indicator} 
-                                                                    data={assessmentData[indicator.id]} 
-                                                                    onValueChange={handleValueChange}
-                                                                    onNoteChange={handleNoteChange}
-                                                                    onEvidenceChange={handleEvidenceChange}
-                                                                    onIsTaskedChange={handleIsTaskedChange}
-                                                                    onPreview={handlePreview}
-                                                                    criteria={criteria}
-                                                                    assessmentData={assessmentData}
-                                                                />
-                                                            </div>
+                                                            <IndicatorAssessment 
+                                                                specialIndicatorIds={specialLogicIndicatorIds}
+                                                                specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
+                                                                customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
+                                                                checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
+                                                                indicator={indicator} 
+                                                                data={assessmentData[indicator.id]} 
+                                                                onValueChange={handleValueChange}
+                                                                onNoteChange={handleNoteChange}
+                                                                onEvidenceChange={handleEvidenceChange}
+                                                                onIsTaskedChange={handleIsTaskedChange}
+                                                                onPreview={handlePreview}
+                                                                criteria={criteria}
+                                                                assessmentData={assessmentData}
+                                                            />
                                                         ) : (
-                                                            <div className={indicatorBlockClasses}>
+                                                            <>
                                                                 <div className="flex items-center gap-2">
                                                                     <StatusBadge status={assessmentData[indicator.id]?.status} />
                                                                     <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
@@ -1652,7 +1713,7 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
                                                                         )
                                                                   })}
                                                                 </div>
-                                                            </div>
+                                                            </>
                                                         )}
                                                     </div>
                                                 );
