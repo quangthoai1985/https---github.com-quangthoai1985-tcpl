@@ -45,7 +45,7 @@ const v2_1 = require("firebase-functions/v2");
 admin.initializeApp();
 const db = admin.firestore();
 // ===== HÀM SYNC CLAIMS (GIỮ NGUYÊN) =====
-exports.syncUserClaims = (0, firestore_1.onDocumentWritten)("users/{userId}", async (event) => {
+exports.syncUserClaims = (0, firestore_1.onDocumentWritten)({ document: "users/{userId}", region: "asia-east1" }, async (event) => {
     var _a;
     if (!((_a = event.data) === null || _a === void 0 ? void 0 : _a.after.exists)) {
         v2_1.logger.log(`User document ${event.params.userId} deleted. Removing claims.`);
@@ -118,7 +118,7 @@ function collectAllFileUrls(assessmentData) {
     }
     return urls;
 }
-exports.onAssessmentFileDeleted = (0, firestore_1.onDocumentUpdated)("assessments/{assessmentId}", async (event) => {
+exports.onAssessmentFileDeleted = (0, firestore_1.onDocumentUpdated)({ document: "assessments/{assessmentId}", region: "asia-east1" }, async (event) => {
     var _a, _b;
     const dataBefore = (_a = event.data) === null || _a === void 0 ? void 0 : _a.before.data();
     const dataAfter = (_b = event.data) === null || _b === void 0 ? void 0 : _b.after.data();
@@ -236,7 +236,7 @@ function translateErrorMessage(englishError) {
     }
     return "Lỗi không xác định đã xảy ra trong quá trình xử lý file.";
 }
-exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-tiep-can-pl.appspot.com" }, async (event) => {
+exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-tiep-can-pl.firebasestorage.app", region: "asia-east1" }, async (event) => {
     var _a, _b, _c, _d;
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
@@ -299,10 +299,10 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-t
                 const criterionData = criterionDocSnap.data();
                 const assignedCount = (criterionData === null || criterionData === void 0 ? void 0 : criterionData.assignedDocumentsCount) || 0;
                 const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
-                const allFilesUploaded = allFiles.length >= assignedCount;
+                const allRequiredFilesUploaded = allFiles.length >= assignedCount;
                 const allSignaturesValid = allFiles.every((f) => f.signatureStatus === 'valid');
                 const quantityMet = Number(indicatorResult.value) >= assignedCount;
-                if (quantityMet && allFilesUploaded && allSignaturesValid) {
+                if (quantityMet && allRequiredFilesUploaded && allSignaturesValid) {
                     indicatorResult.status = 'achieved';
                 }
                 else if (indicatorResult.value !== '' && indicatorResult.value !== undefined) {
@@ -367,7 +367,7 @@ exports.verifyPDFSignature = (0, storage_1.onObjectFinalized)({ bucket: "chuan-t
     }
     return null;
 });
-exports.getSignedUrlForFile = (0, https_1.onCall)(async (request) => {
+exports.getSignedUrlForFile = (0, https_1.onCall)({ region: "asia-east1" }, async (request) => {
     if (!request.auth) {
         throw new https_1.HttpsError("unauthenticated", "Người dùng phải đăng nhập để thực hiện.");
     }

@@ -1442,22 +1442,34 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
   };
   
   const calculateCriterionStatus = (criterion: Criterion): AssessmentStatus => {
+    if (Object.keys(assessmentData).length === 0) return 'pending';
+
+    const firstIndicatorId = criterion.indicators[0]?.id;
+    if (criterion.id === 'TC01' && assessmentData[firstIndicatorId]?.isTasked === false) {
+        return 'achieved';
+    }
+
     let hasPending = false;
     for (const indicator of criterion.indicators) {
-        if (indicator.subIndicators && indicator.subIndicators.length > 0) {
-            for (const sub of indicator.subIndicators) {
-                const status = assessmentData[sub.id]?.status;
-                if (status === 'not-achieved') return 'not-achieved';
-                if (status === 'pending') hasPending = true;
-            }
-        } else {
-            const status = assessmentData[indicator.id]?.status;
+        const processIndicator = (ind: Indicator | SubIndicator) => {
+            const status = assessmentData[ind.id]?.status;
             if (status === 'not-achieved') return 'not-achieved';
             if (status === 'pending') hasPending = true;
+            return 'continue';
+        };
+
+        if (indicator.subIndicators && indicator.subIndicators.length > 0) {
+            for (const sub of indicator.subIndicators) {
+                const result = processIndicator(sub);
+                if (result === 'not-achieved') return 'not-achieved';
+            }
+        } else {
+            const result = processIndicator(indicator);
+            if (result === 'not-achieved') return 'not-achieved';
         }
     }
     return hasPending ? 'pending' : 'achieved';
-  };
+};
 
   const handlePreview = (file: { name: string, url: string }) => {
     setPreviewFile(file);
