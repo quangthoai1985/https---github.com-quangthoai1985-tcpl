@@ -13,7 +13,7 @@ admin.initializeApp();
 const db = admin.firestore();
 
 // ===== HÀM SYNC CLAIMS (GIỮ NGUYÊN) =====
-export const syncUserClaims = onDocumentWritten({ document: "users/{userId}", region: "asia-east1" }, async (event) => {
+export const syncUserClaims = onDocumentWritten({ document: "users/{userId}", region: "asia-southeast1" }, async (event) => {
   if (!event.data?.after.exists) {
     logger.log(`User document ${event.params.userId} deleted. Removing claims.`);
     return null;
@@ -131,6 +131,8 @@ export const onAssessmentFileDeleted = onDocumentUpdated({ document: "assessment
     if (deletionPromises.length > 0) {
         await Promise.all(deletionPromises);
         logger.info(`Successfully processed ${deletionPromises.length} potential file deletion(s).`);
+    } else {
+        logger.log("No files were removed in this update. No deletions necessary.");
     }
 
     return null;
