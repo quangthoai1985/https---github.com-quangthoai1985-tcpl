@@ -84,7 +84,7 @@ function collectAllFileUrls(assessmentData: any): Set<string> {
     return urls;
 }
 
-export const onAssessmentFileDeleted = onDocumentUpdated({ document: "assessments/{assessmentId}", region: "asia-east1" }, async (event) => {
+export const onAssessmentFileDeleted = onDocumentUpdated({ document: "assessments/{assessmentId}", region: "asia-southeast1" }, async (event) => {
     const dataBefore = event.data?.before.data();
     const dataAfter = event.data?.after.data();
 
