@@ -30,8 +30,10 @@
       ".git",
       "firebase-debug.log",
       "firebase-debug.*.log",
-      "functions"
+      "functions",
+      "backups"
     ],
     "alwaysDeployFromSource": true
   }
 }
+
