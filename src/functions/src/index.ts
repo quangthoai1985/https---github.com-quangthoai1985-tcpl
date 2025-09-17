@@ -131,6 +131,8 @@ export const onAssessmentFileDeleted = onDocumentUpdated("assessments/{assessmen
     if (deletionPromises.length > 0) {
         await Promise.all(deletionPromises);
         logger.info(`Successfully processed ${deletionPromises.length} potential file deletion(s).`);
+    } else {
+        logger.log("No files were removed in this update. No deletions necessary.");
     }
 
     return null;
@@ -216,7 +218,7 @@ function translateErrorMessage(englishError: string): string {
 }
 
 
-export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl.appspot.com" }, async (event) => {
+export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl.firebasestorage.app" }, async (event) => {
     const fileBucket = event.data.bucket;
     const filePath = event.data.name;
     const contentType = event.data.contentType;
@@ -286,7 +288,6 @@ export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl
                 filesPerDocument[docIndex] = fileList;
                 indicatorResult.filesPerDocument = filesPerDocument;
                 
-                // Logic to re-evaluate indicator status
                 const criterionDocSnap = await transaction.get(db.collection('criteria').doc('TC01'));
                 const criterionData = criterionDocSnap.data();
                 const assignedCount = criterionData?.assignedDocumentsCount || 0;
@@ -298,14 +299,8 @@ export const verifyPDFSignature = onObjectFinalized({ bucket: "chuan-tiep-can-pl
 
                 if (quantityMet && allRequiredFilesUploaded && allSignaturesValid) {
                     indicatorResult.status = 'achieved';
-                } else {
-                    // Nếu chưa đủ số lượng, hoặc chưa tải file, hoặc có file không hợp lệ, thì đều là 'not-achieved'
-                    // (miễn là xã đã nhập giá trị)
-                    if (indicatorResult.value !== '' && indicatorResult.value !== null && indicatorResult.value !== undefined) {
-                       indicatorResult.status = 'not-achieved';
-                    } else {
-                       indicatorResult.status = 'pending';
-                    }
+                } else if (indicatorResult.value !== '' && indicatorResult.value !== undefined) {
+                    indicatorResult.status = 'not-achieved';
                 }
                 
                 transaction.set(assessmentRef, { assessmentData: { [indicatorId]: indicatorResult } }, { merge: true });
