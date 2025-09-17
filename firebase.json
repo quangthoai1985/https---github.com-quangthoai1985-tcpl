@@ -5,7 +5,7 @@
   },
   "storage": {
     "rules": "storage.rules",
-    "bucket": "chuan-tiep-can-pl.firebasestorage.app"
+    "bucket": "chuan-tiep-can-pl"
   },
   "functions": [
     {
