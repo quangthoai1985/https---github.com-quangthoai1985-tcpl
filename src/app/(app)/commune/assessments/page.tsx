@@ -418,12 +418,22 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                                 
                                                 {docsToRender.length > 0 ? (
                                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                                                        {docsToRender.map((doc, docIndex) => (
-                                                            <div key={docIndex} className="p-3 border rounded-lg grid gap-2 bg-background">
-                                                                <Label className="font-medium text-center text-sm truncate">Minh chứng cho: <span className="font-bold text-primary">{doc.name || `Văn bản ${docIndex + 1}`}</span></Label>
-                                                                <Criterion1EvidenceUploader indicatorId={indicator.id} docIndex={docIndex} evidence={data.filesPerDocument?.[docIndex] || []} onUploadComplete={handleUploadComplete} onRemove={handleRemoveFile} onPreview={onPreview} periodId={periodId} communeId={communeId} accept=".pdf"/>
-                                                            </div>
-                                                        ))}
+                                                        {docsToRender.map((doc, docIndex) => {
+                                                            const evidence = data.filesPerDocument?.[docIndex] || [];
+                                                            const isRequired = data.status !== 'pending' && data.isTasked !== false && evidence.length === 0 && Number(data.value) > docIndex;
+                                                            
+                                                            return (
+                                                                <div key={docIndex} className="p-3 border rounded-lg grid gap-2 bg-background">
+                                                                    <Label className="font-medium text-center text-sm truncate">Minh chứng cho: <span className="font-bold text-primary">{doc.name || `Văn bản ${docIndex + 1}`}</span></Label>
+                                                                    <Criterion1EvidenceUploader indicatorId={indicator.id} docIndex={docIndex} evidence={evidence} onUploadComplete={handleUploadComplete} onRemove={handleRemoveFile} onPreview={onPreview} periodId={periodId} communeId={communeId} accept=".pdf"/>
+                                                                    {isRequired && (
+                                                                        <p className="text-sm font-medium text-destructive mt-1">
+                                                                            Yêu cầu ít nhất một minh chứng.
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            )
+                                                        })}
                                                     </div>
                                                 ) : <p className="text-sm text-muted-foreground">Vui lòng kê khai thông tin văn bản ở trên để tải lên minh chứng.</p>}
                                             </>
