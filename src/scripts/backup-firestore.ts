@@ -1,6 +1,8 @@
 
 /* eslint-disable no-console */
-import { adminDb as db, admin } from '@/lib/firebase-admin';
+import { admin } from '@/lib/firebase-admin';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // ========================================================================================
 // SCRIPT SAO LƯU DỮ LIỆU FIRESTORE
@@ -18,14 +20,46 @@ import { adminDb as db, admin } from '@/lib/firebase-admin';
 // 2. Mở terminal và chạy lệnh: `npm run backup:firestore`
 // ========================================================================================
 
+function getProjectId(): string | undefined {
+    // 1. Ưu tiên lấy từ biến môi trường (thường có sẵn trên Cloud Run/Functions)
+    const envProjectId = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT;
+    if (envProjectId) {
+        console.log(`Project ID found from environment variable: ${envProjectId}`);
+        return envProjectId;
+    }
+
+    // 2. Lấy từ file service account credentials
+    const serviceAccountPath = path.join(process.cwd(), 'service-account-credentials.json');
+    if (fs.existsSync(serviceAccountPath)) {
+        try {
+            const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+            if (serviceAccount.project_id) {
+                console.log(`Project ID found from service-account-credentials.json: ${serviceAccount.project_id}`);
+                return serviceAccount.project_id;
+            }
+        } catch (e) {
+            console.warn("Could not read or parse service-account-credentials.json");
+        }
+    }
+
+    // 3. Lấy từ cấu hình khởi tạo của Admin SDK (ít tin cậy hơn khi chạy script local)
+    const sdkProjectId = admin.instanceId?.().app.options.projectId;
+     if (sdkProjectId) {
+        console.log(`Project ID found from initialized Admin SDK: ${sdkProjectId}`);
+        return sdkProjectId;
+    }
+    
+    return undefined;
+}
+
+
 async function main() {
   const firestoreClient = new admin.firestore.v1.FirestoreAdminClient();
   
-  // Lấy project ID từ cấu hình đã khởi tạo của admin SDK
-  const projectId = admin.instanceId().app.options.projectId;
+  const projectId = getProjectId();
   
   if (!projectId) {
-      console.error("🔥 Lỗi: Không thể xác định Project ID từ cấu hình Firebase Admin SDK.");
+      console.error("🔥 Lỗi: Không thể xác định Project ID. Hãy đảm bảo file 'service-account-credentials.json' có trường 'project_id' hoặc biến môi trường GCLOUD_PROJECT đã được đặt.");
       process.exit(1);
   }
 
