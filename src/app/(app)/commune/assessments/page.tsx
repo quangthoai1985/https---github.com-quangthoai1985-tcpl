@@ -1386,10 +1386,10 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
             if (isCriterion1) {
                  const assignedDocsCount = parentCriterion.assignedDocumentsCount || data.communeDefinedDocuments?.length || 0;
                  if (assignedDocsCount > 0 && Number(data.value) > 0) { 
-                     const docIndicesWithMissingFiles = Array.from({length: assignedDocsCount}, (_, i) => i)
+                     const docIndicesWithMissingFiles = Array.from({length: Number(data.value)}, (_, i) => i)
                         .filter(i => (data.filesPerDocument?.[i] || []).length === 0);
                      if (docIndicesWithMissingFiles.length > 0) {
-                         errors.push(`Chỉ tiêu "${indicator.name}" yêu cầu minh chứng cho mỗi văn bản được giao.`);
+                         errors.push(`Chỉ tiêu "${indicator.name}" yêu cầu minh chứng cho mỗi văn bản đã ban hành.`);
                      }
                  }
             } else {
@@ -1610,14 +1610,15 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
                                                             </div>
                                                         ) : (
                                                             <div className={indicatorBlockClasses}>
-                                                                <div>
-                                                                  <h4 className="font-semibold text-base">{indicator.name}</h4>
-                                                                  <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
-                                                                      <div className="flex items-start gap-2 text-blue-800">
-                                                                          <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                                                                          <p className="text-sm">{indicator.description}</p>
-                                                                      </div>
-                                                                  </div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <StatusBadge status={assessmentData[indicator.id]?.status} />
+                                                                    <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
+                                                                </div>
+                                                                 <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
+                                                                    <div className="flex items-start gap-2 text-blue-800">
+                                                                        <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                                                                        <p className="text-sm">{indicator.description}</p>
+                                                                    </div>
                                                                 </div>
                                                                 <div className="mt-4 pl-6 space-y-6 border-l-2 border-dashed">
                                                                   {(indicator.subIndicators || []).map(sub => {
