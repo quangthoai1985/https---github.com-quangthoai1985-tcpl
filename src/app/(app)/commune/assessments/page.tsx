@@ -1125,9 +1125,11 @@ const handleValueChange = useCallback((indicatorId: string, value: any) => {
         const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
         let assignedCount;
         if (parentCriterion?.id === 'TC01') {
-            assignedCount = parentCriterion.assignedDocumentsCount;
+            const tc1Data = prev[parentCriterion.indicators[0].id];
+            assignedCount = parentCriterion.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
         } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
-            assignedCount = criteria[0]?.assignedDocumentsCount;
+             const tc1Data = prev[criteria[0].indicators[0].id];
+             assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
         }
         const filesPerDocument = parentCriterion?.id === 'TC01' ? prev[indicatorId].filesPerDocument : undefined;
         const newStatus = evaluateStatus(value, indicator.standardLevel, isTasked, assignedCount, filesPerDocument);
