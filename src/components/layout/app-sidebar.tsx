@@ -82,7 +82,7 @@ export default function AppSidebar({ isCollapsed, toggleSidebar }: AppSidebarPro
                     'flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all',
                     isDisabled 
                       ? 'cursor-not-allowed opacity-50' 
-                      : 'hover:text-primary',
+                      : 'hover:text-primary hover:bg-muted',
                     pathname === item.href && !isDisabled ? 'bg-muted text-primary' : 
                     (pathname.startsWith(item.href) && item.href !== '/dashboard' && !isDisabled) ? 'bg-muted text-primary' : '',
                     isCollapsed && 'justify-center'
