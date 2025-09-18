@@ -1,5 +1,7 @@
 # Settings for Backend (on Cloud Run).
 # See https://firebase.google.com/docs/app-hosting/configure#cloud-run
+location: asia-east1
+
 runConfig:
   minInstances: 0
   MaxInstances: 1

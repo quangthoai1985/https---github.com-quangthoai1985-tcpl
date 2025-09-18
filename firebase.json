@@ -1,4 +1,3 @@
-
 {
   "firestore": {
     "rules": "firestore.rules"
@@ -9,18 +8,20 @@
   },
   "functions": [
     {
-      "source": "functions",
       "codebase": "default",
       "ignore": [
         "node_modules",
         ".git",
         "firebase-debug.log",
-        "firebase-debug.*.log"
+        "firebase-debug.*.log",
+        "*.local"
       ],
-      "runtime": "nodejs20",
       "predeploy": [
-        "npm --prefix functions run build"
-      ]
+        "npm --prefix \"$RESOURCE_DIR\" run lint",
+        "npm --prefix \"$RESOURCE_DIR\" run build"
+      ],
+      "source": "functions",
+      "runtime": "nodejs20"
     }
   ],
   "apphosting": {
@@ -35,5 +36,13 @@
       "backups"
     ],
     "alwaysDeployFromSource": true
+  },
+  "hosting": {
+    "public": "public",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ]
   }
 }
