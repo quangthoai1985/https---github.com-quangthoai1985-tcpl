@@ -59,11 +59,11 @@ function parseAssessmentPath(filePath: string):
   return null;
 }
 
-function collectAllFileUrls(assessmentData: any): Set<string> {
+function collectAllFileUrls(assessmentData: unknown): Set<string> {
   const urls = new Set<string>();
   if (!assessmentData || typeof assessmentData !== "object") return urls;
-  for (const indicatorId in assessmentData) {
-    const indicator = assessmentData[indicatorId];
+  for (const indicatorId in (assessmentData as Record<string, unknown>)) {
+    const indicator = (assessmentData as Record<string, any>)[indicatorId];
     if (indicator) {
       if (Array.isArray(indicator.files)) {
         indicator.files.forEach((file: { url: string }) => {
@@ -99,7 +99,7 @@ export const onAssessmentFileDeleted = onDocumentUpdated({
   const filesBefore = collectAllFileUrls(dataBefore.assessmentData);
   const filesAfter = collectAllFileUrls(dataAfter.assessmentData);
 
-  const deletionPromises: Promise<any>[] = [];
+  const deletionPromises: Promise<void>[] = [];
   const storage = admin.storage();
   const bucket = storage.bucket();
 
@@ -276,9 +276,9 @@ export const verifyPDFSignature = onObjectFinalized({
         const assessmentData = data.assessmentData || {};
         const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {}, status: "pending", value: 0 };
         const filesPerDocument = indicatorResult.filesPerDocument || {};
-        const fileList = filesPerDocument[docIndex] || [];
+        const fileList: {name: string, url: string, signatureStatus?: string, signatureError?: string}[] = filesPerDocument[docIndex] || [];
 
-        let fileToUpdate = fileList.find((f: any) => f.name === fileName);
+        let fileToUpdate = fileList.find((f) => f.name === fileName);
 
         if (!fileToUpdate) {
           const newFileUrl = `
@@ -304,7 +304,7 @@ export const verifyPDFSignature = onObjectFinalized({
 
         const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
         const allRequiredFilesUploaded = allFiles.length >= assignedCount;
-        const allSignaturesValid = allFiles.every((f: any) => f.signatureStatus === "valid");
+        const allSignaturesValid = allFiles.every((f: {signatureStatus?: string}) => f.signatureStatus === "valid");
         const quantityMet = Number(indicatorResult.value) >= assignedCount;
 
         if (quantityMet && allRequiredFilesUploaded && allSignaturesValid) {
