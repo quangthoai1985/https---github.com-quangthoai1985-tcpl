@@ -24,7 +24,7 @@ export const syncUserClaims = onDocumentWritten({ document: "users/{userId}", re
     logger.log(`User document ${userId} has no data. No action taken.`);
     return null;
   }
-  const claimsToSet: { [key: string]: any } = {};
+  const claimsToSet: { [key: string]: string | boolean } = {};
   if (userData.role) {
     claimsToSet.role = userData.role;
   }
@@ -35,7 +35,7 @@ export const syncUserClaims = onDocumentWritten({ document: "users/{userId}", re
     logger.log(`Updating claims for user ${userId}:`, claimsToSet);
     await admin.auth().setCustomUserClaims(userId, claimsToSet);
     logger.log(`Successfully updated claims for user ${userId}`);
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error(`Error updating custom claims for user ${userId}:`, error);
   }
   return null;
@@ -124,7 +124,7 @@ export const onAssessmentFileDeleted = onDocumentUpdated({
             logger.error(`Failed to delete file ${filePath}:`, err);
           }
         }));
-      } catch (error) {
+      } catch (error: unknown) {
         logger.error(`Error processing URL for deletion: ${fileUrl}`, error);
       }
     }
@@ -161,7 +161,7 @@ function parsePdfDate(raw: string): Date | null {
     const dateInUTC = new Date(Date.UTC(year, month, day, hour, minute, second));
     dateInUTC.setHours(dateInUTC.getHours() - 7);
     return dateInUTC;
-  } catch (e) {
+  } catch (e: unknown) {
     logger.error("Failed to parse PDF date string:", raw, e);
     return null;
   }
@@ -195,7 +195,7 @@ async function extractSignatureInfo(pdfBuffer: Buffer): Promise<{ name: string |
         }
       }
     }
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("Error extracting signature with pdf-lib:", error);
   }
   return signatures;
@@ -316,7 +316,7 @@ export const verifyPDFSignature = onObjectFinalized({
         transaction.set(assessmentRef, { assessmentData: { [indicatorId]: indicatorResult } }, { merge: true });
       });
       logger.info(`Successfully updated file status for "${fileName}" in transaction.`);
-    } catch (error) {
+    } catch (error: unknown) {
       logger.error(`Transaction to update file status for "${fileName}" failed:`, error);
     }
   };
@@ -370,9 +370,10 @@ export const verifyPDFSignature = onObjectFinalized({
     await updateAssessmentFileStatus(
       isValid ? "valid" : "invalid",
       isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString("vi-VN")})`);
-  } catch (error: any) {
+  } catch (error: unknown) {
     logger.error(`[pdf-lib] Error processing ${filePath}:`, error);
-    const userFriendlyMessage = translateErrorMessage(error.message);
+    const message = error instanceof Error ? error.message : String(error);
+    const userFriendlyMessage = translateErrorMessage(message);
 
     await saveCheckResult("error", userFriendlyMessage);
 
@@ -402,7 +403,7 @@ export const getSignedUrlForFile = onCall({ region: "asia-east1" }, async (reque
     const [url] = await admin.storage().bucket().file(filePath).getSignedUrl(options);
 
     return { signedUrl: url };
-  } catch (error) {
+  } catch (error: unknown) {
     logger.error("Error generating signed URL for " + filePath, error);
     throw new HttpsError("internal", "Không thể tạo đường dẫn xem trước cho file.");
   }
