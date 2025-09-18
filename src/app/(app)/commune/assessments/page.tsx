@@ -1322,85 +1322,89 @@ const handleSaveDraft = useCallback(async () => {
     }
 
     setIsSubmitting(true);
-    toast({ title: 'Đang lưu nháp...' });
-    
-    try {
-        // TẠO MỘT BẢN SAO SẠCH CỦA DỮ LIỆU ĐỂ XỬ LÝ
-        let dataToSave = JSON.parse(JSON.stringify(assessmentData));
+    const savingToast = toast({ title: 'Đang lưu nháp...' });
 
-        // BƯỚC A: Tải lên tất cả các file còn ở dạng 'File' và cập nhật URL
+    try {
+        const dataToSave = JSON.parse(JSON.stringify(assessmentData));
         const uploadPromises: Promise<void>[] = [];
 
-        for (const indicatorId in dataToSave) {
-            const indicator = dataToSave[indicatorId];
+        for (const indicatorId in assessmentData) {
+            const indicatorState = assessmentData[indicatorId];
             
-            const processFileList = (files: any[], pathPrefix: string, updateFn: (url: string, index: number) => void) => {
-                 for (let i = 0; i < files.length; i++) {
-                    const originalFile = (assessmentData as any)[indicatorId][pathPrefix.split('.')[0]][i];
-                     if (originalFile && originalFile instanceof File) {
-                         const promise = async () => {
-                             const filePath = `hoso/${currentUser.communeId}/evidence/${activePeriod.id}/${indicatorId}/${originalFile.name}`;
-                             const storageRef = ref(storage, filePath);
-                             const snapshot = await uploadBytes(storageRef, originalFile);
-                             const downloadURL = await getDownloadURL(snapshot.ref);
-                             updateFn(downloadURL, i);
-                         };
-                         uploadPromises.push(promise());
-                     }
-                 }
-            }
-            
+            // Hàm xử lý chung cho một danh sách file
+            const processFileList = (files: any[], docIndex?: number) => {
+                files.forEach((file, fileIndex) => {
+                    // Chỉ xử lý những file thực sự là đối tượng File (chưa được tải lên)
+                    if (file instanceof File) {
+                        const promise = async () => {
+                            try {
+                                const filePath = docIndex !== undefined
+                                    ? `hoso/${currentUser.communeId}/evidence/${activePeriod.id}/${indicatorId}/${docIndex}/${file.name}`
+                                    : `hoso/${currentUser.communeId}/evidence/${activePeriod.id}/${indicatorId}/${file.name}`;
+                                
+                                const storageRef = ref(storage, filePath);
+                                const snapshot = await uploadBytes(storageRef, file);
+                                const downloadURL = await getDownloadURL(snapshot.ref);
+
+                                // Cập nhật URL vào bản sao dữ liệu
+                                if (docIndex !== undefined) {
+                                    dataToSave[indicatorId].filesPerDocument[docIndex][fileIndex] = { name: file.name, url: downloadURL };
+                                } else {
+                                    dataToSave[indicatorId].files[fileIndex] = { name: file.name, url: downloadURL };
+                                }
+                            } catch (uploadError) {
+                                console.error(`Lỗi khi tải lên file ${file.name}:`, uploadError);
+                                // Ném lỗi ra ngoài để Promise.all có thể bắt được
+                                throw new Error(`Failed to upload ${file.name}`);
+                            }
+                        };
+                        uploadPromises.push(promise());
+                    }
+                });
+            };
+
             // Xử lý mảng files chính
-            if (indicator.files) {
-                 processFileList(indicator.files, 'files', (url, index) => {
-                     dataToSave[indicatorId].files[index] = { name: (assessmentData[indicatorId].files[index] as File).name, url: url };
-                 });
+            if (indicatorState.files) {
+                processFileList(indicatorState.files);
             }
 
             // Xử lý filesPerDocument (Tiêu chí 1)
-            if (indicator.filesPerDocument) {
-                for (const docIndex in indicator.filesPerDocument) {
-                    const fileList = indicator.filesPerDocument[docIndex];
-                    for (let i = 0; i < fileList.length; i++) {
-                        const fileInfo = assessmentData[indicatorId].filesPerDocument?.[docIndex]?.[i];
-                        if (fileInfo && fileInfo instanceof File) {
-                            const promise = async () => {
-                                const filePath = `hoso/${currentUser.communeId}/evidence/${activePeriod.id}/${indicatorId}/${docIndex}/${fileInfo.name}`;
-                                const storageRef = ref(storage, filePath);
-                                const snapshot = await uploadBytes(storageRef, fileInfo);
-                                const downloadURL = await getDownloadURL(snapshot.ref);
-                                // Cập nhật URL vào bản sao dữ liệu
-                                dataToSave[indicatorId].filesPerDocument[docIndex][i] = { name: fileInfo.name, url: downloadURL };
-                            };
-                            uploadPromises.push(promise());
-                        }
-                    }
+            if (indicatorState.filesPerDocument) {
+                for (const docIndex in indicatorState.filesPerDocument) {
+                    processFileList(indicatorState.filesPerDocument[docIndex], Number(docIndex));
                 }
             }
         }
 
-        // Đợi tất cả các file tải lên hoàn tất
+        // Đợi tất cả các file mới tải lên hoàn tất
         await Promise.all(uploadPromises);
 
-        // BƯỚC B: Bây giờ dataToSave đã sạch (không còn đối tượng File), tiến hành lưu
+        // Bây giờ dataToSave đã sạch, tiến hành lưu vào Firestore
         const currentAssessment = assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId);
         if (!currentAssessment) throw new Error("Không tìm thấy hồ sơ đăng ký hợp lệ.");
 
         const updatedAssessment: Assessment = {
             ...currentAssessment,
             assessmentStatus: 'draft',
-            assessmentData: sanitizeDataForFirestore(dataToSave), // Dùng dữ liệu đã sạch
+            assessmentData: sanitizeDataForFirestore(dataToSave),
         };
 
         await updateSingleAssessment(updatedAssessment);
 
+        savingToast.dismiss(); // Đóng thông báo đang lưu
         toast({
           title: "Lưu nháp thành công!",
           description: "Bạn có thể tiếp tục chỉnh sửa sau.",
         });
+
     } catch (error) {
-        console.error("Draft saving error:", error);
-        toast({ variant: 'destructive', title: 'Lỗi khi lưu nháp', description: 'Đã xảy ra lỗi khi tải tệp hoặc lưu dữ liệu.' });
+        console.error("Lỗi khi lưu nháp:", error);
+        savingToast.dismiss(); // Đóng thông báo đang lưu
+        toast({ 
+            variant: 'destructive', 
+            title: 'Lỗi khi lưu nháp', 
+            description: 'Đã xảy ra lỗi khi tải tệp hoặc lưu dữ liệu.' 
+        });
     } finally {
         setIsSubmitting(false);
     }
