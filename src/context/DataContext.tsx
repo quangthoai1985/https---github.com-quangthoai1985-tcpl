@@ -23,7 +23,7 @@ const firebaseConfig: FirebaseOptions = {
   apiKey: "AIzaSyCj0H_a8O7znR_M1bFim9Lzt5MfnsptxH4",
   authDomain: "chuan-tiep-can-pl.firebaseapp.com",
   projectId: "chuan-tiep-can-pl",
-  storageBucket: "chuan-tiep-can-pl",
+  storageBucket: "chuan-tiep-can-pl.appspot.com",
   messagingSenderId: "851876581009",
   appId: "1:851876581009:web:60bfbcc40055f76f607930"
 };
@@ -321,7 +321,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const createFirestoreUpdater = <T extends {id: string}>(
+  const createFirestoreUpdater = <T extends { id: string }>(
     collectionName: string
   ) => {
     return async (newData: T[]) => {
@@ -447,3 +447,5 @@ export const useData = () => {
   }
   return context;
 };
+
+    
