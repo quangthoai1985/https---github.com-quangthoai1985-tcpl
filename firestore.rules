@@ -3,69 +3,78 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user is an admin
-    function isAdmin() {
-      return request.auth.token.role == 'admin';
+    // Helper function to check if a user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // Helper function to check if the user is a staff of the commune they are trying to access
-    // IMPORTANT: Use request.resource.data for create/update, and resource.data for read/delete
-    function isOwner(communeId) {
-      return request.auth.token.role == 'commune_staff' && request.auth.token.communeId == communeId;
+    // Helper function to get user's role from custom claims
+    function getRole() {
+      return request.auth.token.role;
+    }
+
+    // Helper function to check if a user is an admin
+    function isAdmin() {
+      return isSignedIn() && getRole() == 'admin';
+    }
+
+    // Helper function to check if a user is a commune staff member
+    function isCommuneStaff() {
+      return isSignedIn() && getRole() == 'commune_staff';
     }
     
-    // Default deny all
-    match /{document=**} {
-      allow read, write: if false;
+    // Check if the request is from a user associated with a specific communeId
+    function isOwner(communeId) {
+      return isCommuneStaff() && request.auth.token.communeId == communeId;
     }
 
-    // Public configuration is readable by anyone
-    match /configurations/{docId} {
-      allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // Users can read their own profile, admins can read all
+    // =====================================================================
+    // Rule for 'users' collection
+    // =====================================================================
     match /users/{userId} {
-      allow read: if isAdmin() || request.auth.uid == userId;
-      allow write: if isAdmin(); // Only admin can create/update user roles from server-side
+      // Admins can read and write any user profile
+      allow read, write: if isAdmin();
+      // Users can read and update their own profile
+      allow get, update: if isSignedIn() && request.auth.uid == userId;
     }
-
-    // Units, Criteria, Periods, Documents are managed by Admins
-    // Any authenticated user can read them
-    match /units/{unitId} {
-      allow read: if request.auth != null;
+    
+    // =====================================================================
+    // Rule for 'units', 'assessmentPeriods', 'criteria', 'guidanceDocuments'
+    // These are considered public and readable by any authenticated user.
+    // Only admins can modify them.
+    // =====================================================================
+    match /{collectionName}/{docId} where collectionName in ['units', 'assessmentPeriods', 'criteria', 'guidanceDocuments', 'configurations'] {
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
-    match /criteria/{criterionId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    match /assessmentPeriods/{periodId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    match /guidanceDocuments/{docId} {
-      allow read: if request.auth != null;
-      allow write: if isAdmin();
-    }
-    match /signature_checks/{checkId} {
-        allow read, write: if isAdmin(); // Only backend/admin can access this
-    }
-
-    // Main collection: assessments
+    
+    // =====================================================================
+    // Rule for 'assessments' collection
+    // =====================================================================
     match /assessments/{assessmentId} {
-      // READ: Admin can read all. Commune staff can read their own assessment.
-      allow read: if isAdmin() || (resource.data.communeId != null && isOwner(resource.data.communeId));
-      
-      // CREATE: Admin can create any. Commune staff can create for their own commune.
-      allow create: if isAdmin() || isOwner(request.resource.data.communeId);
-      
-      // UPDATE: Admin can update any. Commune staff can update their own assessment.
-      allow update: if isAdmin() || isOwner(request.resource.data.communeId);
+        // Admins can read/write any assessment
+        allow read, write: if isAdmin();
 
-      // DELETE: Only admin can delete.
-      allow delete: if isAdmin();
+        // Commune staff can read their own assessment
+        allow get: if isCommuneStaff() && resource.data.communeId == request.auth.token.communeId;
+        
+        // Commune staff can list only their own assessments
+        allow list: if isCommuneStaff() && request.query.where.communeId == request.auth.token.communeId;
+
+        // Commune staff can create an assessment for their own commune
+        allow create: if isOwner(request.resource.data.communeId);
+        
+        // Commune staff can update their own assessment
+        allow update: if isOwner(resource.data.communeId);
+    }
+    
+    // =====================================================================
+    // Rule for 'signature_checks' collection (written by Cloud Function)
+    // =====================================================================
+    match /signature_checks/{checkId} {
+      // Only backend (Cloud Functions) can write. Admins can read.
+      allow read: if isAdmin();
+      allow write: if false; // No client-side writes
     }
   }
 }
