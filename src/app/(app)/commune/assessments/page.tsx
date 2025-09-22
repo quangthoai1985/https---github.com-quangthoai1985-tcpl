@@ -99,10 +99,7 @@ const Criterion1EvidenceUploader = ({
 
         setIsUploading(true);
 
-        // Lấy thêm hàm `dismiss` từ useToast
         const { dismiss } = toast;
-
-        // 1. Tạo một thông báo "đang tải" và lưu lại ID của nó
         const loadingToastId = toast({
             title: 'Đang tải lên...',
             description: `Đang xử lý tệp "${file.name}".`,
@@ -115,11 +112,9 @@ const Criterion1EvidenceUploader = ({
             const downloadURL = await getDownloadURL(snapshot.ref);
 
             onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
-
-            // 2. Đóng thông báo "đang tải"
+            
             dismiss(loadingToastId);
 
-            // 3. Hiển thị thông báo "thành công" mới
             toast({
                 title: 'Tải lên thành công!',
                 description: `Tệp "${file.name}" đã được tải lên và đang được kiểm tra.`,
@@ -130,9 +125,9 @@ const Criterion1EvidenceUploader = ({
         } catch (error) {
             console.error("Upload error for criterion 1:", error);
 
-            dismiss(loadingToastId); // Đóng thông báo đang tải
+            dismiss(loadingToastId);
 
-            toast({ // Hiển thị thông báo lỗi mới
+            toast({
                 title: 'Lỗi tải lên',
                 description: `Đã xảy ra lỗi khi tải tệp "${file.name}".`,
                 variant: 'destructive',
@@ -164,10 +159,9 @@ const Criterion1EvidenceUploader = ({
             default: return null;
         }
     };
-
+    
     const renderStatusBadge = (file: FileWithStatus) => {
         if (!('signatureStatus' in file) || file.signatureStatus === 'validating') {
-            // Không hiển thị badge khi đang kiểm tra hoặc chưa có trạng thái
             return null;
         }
 
@@ -183,6 +177,7 @@ const Criterion1EvidenceUploader = ({
         }
     };
 
+
     return (
         <div className="space-y-2">
             <div className="w-full relative border border-dashed rounded-lg p-2 text-center hover:border-primary transition-colors">
@@ -195,7 +190,7 @@ const Criterion1EvidenceUploader = ({
                 <div key={index} className="flex flex-col gap-1 p-1.5 bg-muted rounded-md text-sm">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2 w-0 flex-1 min-w-0">
-                            <TooltipProvider>
+                             <TooltipProvider>
                                 <Tooltip>
                                     {getStatusIcon(file)}
                                     <TooltipContent>
@@ -216,7 +211,6 @@ const Criterion1EvidenceUploader = ({
                             </Button>
                         </div>
                     </div>
-                    {/* DÒNG MỚI: Gọi hàm để hiển thị Badge trạng thái */}
                     {renderStatusBadge(file)}
                 </div>
             ))}
@@ -1030,10 +1024,8 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
             const indicatorData = data[key];
             const sanitizeFiles = (files: FileWithStatus[]) => (files || []).map(f => {
                 if (f instanceof File) {
-                    // Trong trường hợp file chưa kịp upload, trả về một object rỗng
                     return { name: f.name, url: '' };
                 }
-                // Giữ lại các trường signature đã có
                 return {
                     name: f.name,
                     url: f.url,
@@ -1047,15 +1039,14 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
             sanitizedData[key] = {
                 isTasked: indicatorData.isTasked === undefined ? null : indicatorData.isTasked,
                 value: indicatorData.value === undefined ? null : indicatorData.value,
-                note: indicatorData.note || '', // Đảm bảo note luôn là chuỗi
+                note: indicatorData.note || '',
                 status: indicatorData.status,
                 adminNote: indicatorData.adminNote || '',
                 communeNote: indicatorData.communeNote || '',
-                files: sanitizeFiles(indicatorData.files || []), // Đảm bảo files là mảng
+                files: sanitizeFiles(indicatorData.files || []),
                 filesPerDocument: indicatorData.filesPerDocument ? Object.fromEntries(
                     Object.entries(indicatorData.filesPerDocument).map(([idx, fileList]) => [idx, sanitizeFiles(fileList || [])])
                 ) : {},
-                 // SỬA LỖI Ở ĐÂY: Chuyển undefined thành null
                  communeDefinedDocuments: indicatorData.communeDefinedDocuments || null,
                  contentResults: indicatorData.contentResults || {},
                  meta: indicatorData.meta || {}
@@ -1067,7 +1058,7 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
 
 export default function SelfAssessmentPage() {
   const router = useRouter();
-  const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments, updateSingleAssessment, deleteFileByUrl, functions } = useData();
+  const { storage, currentUser, assessmentPeriods, criteria, assessments, updateAssessments, updateSingleAssessment, deleteFileByUrl } = useData();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
@@ -1128,7 +1119,6 @@ export default function SelfAssessmentPage() {
               
               processIndicator(indicator);
 
-              // Initialize sub-indicators (legacy)
               if (indicator.subIndicators && indicator.subIndicators.length > 0) {
                   indicator.subIndicators.forEach(processIndicator);
               }
@@ -1172,7 +1162,7 @@ export default function SelfAssessmentPage() {
 
     const evaluateIndicatorByPassRule = (indicator: Indicator, contentResults: AssessmentValues[string]['contentResults']): AssessmentStatus => {
         if (!indicator.contents || indicator.contents.length === 0 || !contentResults) {
-            return 'pending'; // Should not happen if called correctly
+            return 'pending';
         }
 
         const passRule = indicator.passRule || { type: 'all' };
@@ -1414,10 +1404,8 @@ const handleSaveDraft = useCallback(async () => {
         for (const indicatorId in assessmentData) {
             const indicatorState = assessmentData[indicatorId];
 
-            // Hàm xử lý chung cho một danh sách file
             const processFileList = (files: any[], docIndex?: number, contentId?: string) => {
                 files.forEach((file, fileIndex) => {
-                    // Chỉ xử lý những file thực sự là đối tượng File (chưa được tải lên)
                     if (file instanceof File) {
                         const promise = async () => {
                             try {
@@ -1431,7 +1419,6 @@ const handleSaveDraft = useCallback(async () => {
                                 const snapshot = await uploadBytes(storageRef, file);
                                 const downloadURL = await getDownloadURL(snapshot.ref);
 
-                                // Cập nhật URL vào bản sao dữ liệu
                                 if (contentId) {
                                     dataToSave[indicatorId].contentResults[contentId].files[fileIndex] = { name: file.name, url: downloadURL };
                                 } else if (docIndex !== undefined) {
@@ -1441,7 +1428,6 @@ const handleSaveDraft = useCallback(async () => {
                                 }
                             } catch (uploadError) {
                                 console.error(`Lỗi khi tải lên file ${file.name}:`, uploadError);
-                                // Ném lỗi ra ngoài để Promise.all có thể bắt được
                                 throw new Error(`Failed to upload ${file.name}`);
                             }
                         };
@@ -1450,31 +1436,26 @@ const handleSaveDraft = useCallback(async () => {
                 });
             };
             
-            // Xử lý filesPerDocument (Tiêu chí 1)
             if (indicatorState.filesPerDocument) {
                 for (const docIndex in indicatorState.filesPerDocument) {
                     processFileList(indicatorState.filesPerDocument[docIndex], Number(docIndex));
                 }
             }
             
-            // Xử lý contentResults
             if (indicatorState.contentResults) {
                 for (const contentId in indicatorState.contentResults) {
                      processFileList(indicatorState.contentResults[contentId].files, undefined, contentId);
                 }
             }
 
-            // Xử lý mảng files chính (cho các chỉ tiêu đơn giản)
             if (indicatorState.files && !indicatorState.contentResults) {
                 processFileList(indicatorState.files);
             }
 
         }
 
-        // Đợi tất cả các file mới tải lên hoàn tất
         await Promise.all(uploadPromises);
 
-        // Bây giờ dataToSave đã sạch, tiến hành lưu vào Firestore
         const currentAssessment = assessments.find(a => a.assessmentPeriodId === activePeriod.id && a.communeId === currentUser.communeId);
         if (!currentAssessment) throw new Error("Không tìm thấy hồ sơ đăng ký hợp lệ.");
 
@@ -1486,7 +1467,7 @@ const handleSaveDraft = useCallback(async () => {
 
         await updateSingleAssessment(updatedAssessment);
 
-        savingToast.dismiss(); // Đóng thông báo đang lưu
+        savingToast.dismiss();
         toast({
           title: "Lưu nháp thành công!",
           description: "Bạn có thể tiếp tục chỉnh sửa sau.",
@@ -1494,7 +1475,7 @@ const handleSaveDraft = useCallback(async () => {
 
     } catch (error) {
         console.error("Lỗi khi lưu nháp:", error);
-        savingToast.dismiss(); // Đóng thông báo đang lưu
+        savingToast.dismiss();
         toast({ 
             variant: 'destructive', 
             title: 'Lỗi khi lưu nháp', 
@@ -1530,7 +1511,6 @@ const handleSaveDraft = useCallback(async () => {
         const indicator = findIndicator(id) as Indicator;
         if (!indicator) continue;
         
-        // Function to check evidence for a given item (indicator or content)
         const checkEvidence = (itemData: any, itemName: string, isCriterion1: boolean) => {
             if (itemData.status !== 'pending' && itemData.isTasked !== false) {
                  if (isCriterion1) {
@@ -1549,7 +1529,6 @@ const handleSaveDraft = useCallback(async () => {
         };
         
         if (indicator.contents && indicator.contents.length > 0) {
-            // Indicator with contents
             if(data.status === 'pending') allItemsAssessed = false;
             
             for(const content of indicator.contents) {
@@ -1560,7 +1539,6 @@ const handleSaveDraft = useCallback(async () => {
                 checkEvidence(contentResult || { status: 'pending'}, content.name, false);
             }
         } else {
-             // Simple indicator or sub-indicator
             if (data.status === 'pending') allItemsAssessed = false;
             const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === id || (i.subIndicators && i.subIndicators.some(si => si.id === id))));
             const isCriterion1 = parentCriterion?.id === 'TC01';
@@ -1620,12 +1598,10 @@ const handleSaveDraft = useCallback(async () => {
   };
 
   const calculateCriterionStatus = (criterion: Criterion): AssessmentStatus => {
-    // Điều kiện an toàn: Nếu chưa có dữ liệu hoặc tiêu chí không có chỉ tiêu, trả về 'pending'
     if (!assessmentData || Object.keys(assessmentData).length === 0 || !criterion.indicators || criterion.indicators.length === 0) {
         return 'pending';
     }
 
-    // Xử lý trường hợp đặc biệt: Xã không được giao nhiệm vụ cho Tiêu chí 1
     if (criterion.id === 'TC01') {
         const firstIndicatorId = criterion.indicators[0]?.id;
         if (firstIndicatorId && assessmentData[firstIndicatorId]?.isTasked === false) {
@@ -1635,16 +1611,13 @@ const handleSaveDraft = useCallback(async () => {
 
     let hasPending = false;
 
-    // Duyệt qua tất cả các chỉ tiêu và chỉ tiêu con để tìm trạng thái ưu tiên cao nhất
     for (const indicator of criterion.indicators) {
-        // Nếu một chỉ tiêu chưa có dữ liệu, toàn bộ tiêu chí là 'pending'
         if (!assessmentData[indicator.id] || !assessmentData[indicator.id].status) {
             return 'pending';
         }
         
         const status = assessmentData[indicator.id].status;
         
-        // Nếu có bất kỳ chỉ tiêu nào 'không đạt', toàn bộ tiêu chí sẽ 'không đạt' ngay lập tức
         if (status === 'not-achieved') {
             return 'not-achieved';
         }
@@ -1654,12 +1627,10 @@ const handleSaveDraft = useCallback(async () => {
         }
     }
 
-    // Nếu có bất kỳ chỉ tiêu nào 'chưa chấm', toàn bộ tiêu chí là 'chưa hoàn thành'
     if (hasPending) {
         return 'pending';
     }
 
-    // Nếu không có chỉ tiêu nào 'không đạt' hoặc 'chưa chấm', thì tiêu chí đó là 'đạt'
     return 'achieved';
 };
 
@@ -1906,4 +1877,3 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
-
