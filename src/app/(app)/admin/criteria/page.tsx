@@ -253,7 +253,8 @@ function IndicatorContentConfig({ indicator, onIndicatorChange }: { indicator: I
     
     return (
         <div className="p-4 border rounded-lg bg-slate-50 border-slate-200 mt-4 space-y-4">
-            <h5 className="font-semibold text-slate-800">Nội dung của chỉ tiêu (N-of-M Rule)</h5>
+            <h5 className="font-semibold text-slate-800">Nội dung của chỉ tiêu</h5>
+            <p className="text-sm text-muted-foreground">Mỗi chỉ tiêu có thể gồm nhiều nội dung nhỏ. Chọn quy tắc đạt chuẩn: Tất cả phải đạt, Đạt ít nhất X nội dung, hoặc Đạt theo tỷ lệ %.</p>
             
             <div className="space-y-3">
                 {(indicator.contents || []).map((content, index) => (
@@ -306,7 +307,7 @@ function IndicatorContentConfig({ indicator, onIndicatorChange }: { indicator: I
                         <RadioGroupItem value="atLeast" id="rule-atLeast" /> Đạt ít nhất
                     </Label>
                      <Label className="flex items-center gap-2 p-3 border rounded-md cursor-pointer has-[:checked]:bg-blue-100 has-[:checked]:border-primary text-sm">
-                        <RadioGroupItem value="percentage" id="rule-percentage" /> Đạt tỷ lệ
+                        <RadioGroupItem value="percentage" id="rule-percentage" /> Đạt theo tỷ lệ %
                     </Label>
                 </RadioGroup>
                 <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
@@ -339,10 +340,6 @@ function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: 
     setFormData(prev => ({ ...prev, [id]: value }));
   };
   
-  const handleSelectChange = (value: string) => {
-    setFormData(prev => ({ ...prev, inputType: value as Indicator['inputType'] }));
-  };
-
   const handleIndicatorChange = (updatedIndicator: Indicator) => {
       setFormData(updatedIndicator);
   }
@@ -364,27 +361,32 @@ function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: 
           <Label htmlFor="description" className="text-right pt-2">Mô tả</Label>
           <Textarea id="description" value={formData.description || ''} onChange={handleChange} className="col-span-3" />
         </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="standardLevel" className="text-right">Yêu cầu đạt chuẩn</Label>
-          <Input id="standardLevel" value={formData.standardLevel || ''} onChange={handleChange} className="col-span-3" placeholder="Ví dụ: '>=2', 'Đạt', '100%'"/>
-        </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="inputType" className="text-right">Loại dữ liệu đầu vào</Label>
-          <Select value={(formData as Indicator).inputType} onValueChange={handleSelectChange}>
-            <SelectTrigger className="col-span-3">
-              <SelectValue placeholder="Chọn loại dữ liệu" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="boolean">Lựa chọn Đạt/Không đạt</SelectItem>
-              <SelectItem value="select">Lựa chọn nhiều mục</SelectItem>
-              <SelectItem value="number">Nhập liệu số</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="grid grid-cols-4 items-start gap-4">
-          <Label htmlFor="evidenceRequirement" className="text-right pt-2">Yêu cầu hồ sơ minh chứng</Label>
-          <Textarea id="evidenceRequirement" value={(formData as Indicator).evidenceRequirement || ''} onChange={handleChange} className="col-span-3" />
-        </div>
+        
+        {isSubIndicator && (
+            <>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="standardLevel" className="text-right">Yêu cầu đạt chuẩn</Label>
+                    <Input id="standardLevel" value={formData.standardLevel || ''} onChange={handleChange} className="col-span-3" placeholder="Ví dụ: '>=2', 'Đạt', '100%'"/>
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="inputType" className="text-right">Loại dữ liệu đầu vào</Label>
+                    <Select value={formData.inputType} onValueChange={(value) => setFormData(prev => ({ ...prev, inputType: value as Indicator['inputType'] }))}>
+                        <SelectTrigger className="col-span-3">
+                        <SelectValue placeholder="Chọn loại dữ liệu" />
+                        </SelectTrigger>
+                        <SelectContent>
+                        <SelectItem value="boolean">Lựa chọn Đạt/Không đạt</SelectItem>
+                        <SelectItem value="select">Lựa chọn nhiều mục</SelectItem>
+                        <SelectItem value="number">Nhập liệu số</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                 <div className="grid grid-cols-4 items-start gap-4">
+                    <Label htmlFor="evidenceRequirement" className="text-right pt-2">Yêu cầu hồ sơ minh chứng</Label>
+                    <Textarea id="evidenceRequirement" value={formData.evidenceRequirement || ''} onChange={handleChange} className="col-span-3" />
+                </div>
+            </>
+        )}
 
         {!isSubIndicator && (
             <IndicatorContentConfig indicator={formData} onIndicatorChange={handleIndicatorChange} />
@@ -464,12 +466,12 @@ export default function CriteriaManagementPage() {
         id: `CT${Date.now().toString().slice(-6)}`,
         name: indicatorToSave.name || "Chỉ tiêu mới",
         description: indicatorToSave.description || "",
-        standardLevel: indicatorToSave.standardLevel || "",
-        inputType: indicatorToSave.inputType || "boolean",
-        evidenceRequirement: indicatorToSave.evidenceRequirement || "",
+        standardLevel: "", // Removed from form
+        inputType: "boolean", // Removed from form
+        evidenceRequirement: "", // Removed from form
         subIndicators: [], // Legacy field
-        contents: indicatorToSave.contents || [], // New field
-        passRule: indicatorToSave.passRule || { type: 'all' }, // New field
+        contents: indicatorToSave.contents || [],
+        passRule: indicatorToSave.passRule || { type: 'all' },
       };
 
       newCriteria = criteria.map(c => {
@@ -729,4 +731,5 @@ export default function CriteriaManagementPage() {
     
 
     
+
 
