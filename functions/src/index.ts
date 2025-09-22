@@ -142,13 +142,17 @@ export const onAssessmentFileDeleted = onDocumentUpdated({
         logger.log(`Attempting to delete file from path: ${filePath}`);
         const fileRef = bucket.file(filePath);
 
-        deletionPromises.push(fileRef.delete().catch((err: {code: number}) => {
-          if (err.code === 404) {
-            logger.warn(`Attempted to delete ${filePath}, but it was not found. Ignoring.`);
-          } else {
-            logger.error(`Failed to delete file ${filePath}:`, err);
-          }
-        }));
+        deletionPromises.push(
+          fileRef.delete()
+            .then(() => {}) // Ensure the promise chain returns void on success
+            .catch((err: {code: number}) => {
+              if (err.code === 404) {
+                logger.warn(`Attempted to delete ${filePath}, but it was not found. Ignoring.`);
+              } else {
+                logger.error(`Failed to delete file ${filePath}:`, err);
+              }
+            })
+        );
 
         const pathInfo = parseAssessmentPath(filePath);
         if (pathInfo) {
@@ -478,5 +482,3 @@ export const getSignedUrlForFile = onCall({ region: "asia-east1" }, async (reque
     throw new HttpsError("internal", "Không thể tạo đường dẫn xem trước cho file.");
   }
 });
-
-    
