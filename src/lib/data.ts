@@ -32,7 +32,22 @@ export type IndicatorResult = {
         issueDate: string;
         excerpt: string;
         issuanceDeadlineDays: number;
-    }[];
+    }[] | null; // Allow null to be compatible with Firestore
+
+    // NEW FIELDS FOR N-of-M RULE
+    contentResults?: { 
+        [contentId: string]: { 
+            value: any, 
+            files: { name: string, url: string }[], 
+            status: 'achieved' | 'not-achieved' | 'pending', 
+            note?: string 
+        } 
+    };
+    meta?: { 
+        metCount?: number, 
+        totalCount?: number, 
+        computedAt?: string 
+    };
 };
 
 
@@ -57,7 +72,8 @@ export type Unit = {
   headquarters?: string;
 };
 
-export type SubIndicator = {
+// Renamed from SubIndicator for new terminology
+export type Content = {
   id: string;
   name: string;
   description: string;
@@ -66,16 +82,23 @@ export type SubIndicator = {
   evidenceRequirement: string;
 };
 
+
 export type Indicator = {
   id: string;
   name: string;
   description: string;
-  // An indicator might not have its own evaluation fields if it's just a container for sub-indicators.
-  // For simplicity, we keep them but they can be optional or ignored in the UI if subIndicators exist.
   standardLevel: string;
   inputType: 'number' | 'boolean' | 'select';
   evidenceRequirement: string;
-  subIndicators: SubIndicator[];
+  subIndicators: Content[]; // Kept for backward compatibility
+  
+  // NEW FIELDS FOR N-of-M RULE
+  contents?: Content[];
+  passRule?: { 
+      type: 'all' | 'atLeast' | 'percentage', 
+      minCount?: number, 
+      minPercent?: number 
+  };
 };
 
 
@@ -85,10 +108,8 @@ export type Criterion = {
   description: string;
   indicators: Indicator[];
   
-  // --- THAY ĐỔI BẮT ĐẦU TẠI ĐÂY ---
-  assignmentType?: 'quantity' | 'specific'; // Thêm trường này
+  assignmentType?: 'quantity' | 'specific'; 
 
-  // Các trường hiện có cho loại 'specific'
   assignedDocumentsCount?: number;
   documents?: {
     name: string;
@@ -114,11 +135,9 @@ export type Assessment = {
   communeId: string;
   assessmentPeriodId: string;
   
-  // NEW: Separated statuses
   registrationStatus: 'pending' | 'approved' | 'rejected';
   assessmentStatus: 'not_started' | 'draft' | 'pending_review' | 'returned_for_revision' | 'achieved_standard' | 'rejected';
 
-  // Timestamps and user info
   registrationSubmissionDate?: string;
   assessmentSubmissionDate?: string;
   approvalDate?: string;   // Date of final "achieved_standard"
@@ -126,15 +145,12 @@ export type Assessment = {
   submittedBy?: string; // User ID
   approverId?: string;     // Optional
   
-  // Registration-related fields
   registrationFormUrl?: string;
   registrationRejectionReason?: string;
   
-  // Assessment-related fields
   assessmentRejectionReason?: string; // Final rejection reason
   assessmentData?: Record<string, IndicatorResult>; // Holds all self-assessment data
 
-  // Announcement fields
   announcementDecisionUrl?: string;
   announcementDate?: string;
 };
