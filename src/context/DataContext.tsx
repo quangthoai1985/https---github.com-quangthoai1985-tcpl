@@ -10,25 +10,24 @@ import {
     type Role,
     type Criterion,
     type Document as AppDocument,
-    type LoginConfig
+    type LoginConfig,
+    type IndicatorResult
 } from '@/lib/data';
 import { initializeApp, getApp, getApps, FirebaseOptions, type FirebaseApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, type Firestore, deleteDoc, getDoc, onSnapshot, query, where, Unsubscribe } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut, User as FirebaseUser, type Auth } from 'firebase/auth';
 import { getStorage, ref, deleteObject, type FirebaseStorage } from 'firebase/storage';
-import { getFunctions, type FirebaseFunctions } from 'firebase/functions'; // Thêm vào
+import { getFunctions, type FirebaseFunctions } from 'firebase/functions';
 
-// Hard-coded Firebase configuration as requested
 const firebaseConfig: FirebaseOptions = {
   apiKey: "AIzaSyCj0H_a8O7znR_M1bFim9Lzt5MfnsptxH4",
   authDomain: "chuan-tiep-can-pl.firebaseapp.com",
   projectId: "chuan-tiep-can-pl",
-  storageBucket: "chuan-tiep-can-pl.firebasestorage.app",
+  storageBucket: "chuan-tiep-can-pl.appspot.com",
   messagingSenderId: "851876581009",
   appId: "1:851876581009:web:60bfbcc40055f76f607930"
 };
 
-// Helper function to initialize Firebase services safely on the client-side
 const getFirebaseServices = () => {
     if (typeof window === 'undefined') {
         return { app: null, db: null, auth: null, storage: null, functions: null };
@@ -37,11 +36,10 @@ const getFirebaseServices = () => {
     const db = getFirestore(app);
     const auth = getAuth(app);
     const storage = getStorage(app);
-    const functions = getFunctions(app); // Thêm vào
-    return { app, db, auth, storage, functions }; // Thêm functions
+    const functions = getFunctions(app);
+    return { app, db, auth, storage, functions };
 };
 
-// Define a type for our dynamic notifications
 export type Notification = {
   id: string;
   title: string;
@@ -61,7 +59,7 @@ interface DataContextType {
   updateAssessmentPeriods: (newPeriods: AssessmentPeriod[]) => Promise<void>;
   assessments: Assessment[];
   updateAssessments: (newAssessments: Assessment[]) => Promise<void>;
-  updateSingleAssessment: (assessment: Assessment) => Promise<void>; // NEW
+  updateSingleAssessment: (assessment: Assessment) => Promise<void>;
   deleteAssessment: (assessmentId: string) => Promise<void>;
   criteria: Criterion[];
   updateCriteria: (newCriteria: Criterion[]) => Promise<void>;
@@ -77,7 +75,7 @@ interface DataContextType {
   setLoginInfo: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   storage: FirebaseStorage | null;
-  functions: FirebaseFunctions | null; // Thêm vào
+  functions: FirebaseFunctions | null;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -86,7 +84,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   const [db, setDb] = useState<Firestore | null>(null);
   const [auth, setAuth] = useState<Auth | null>(null);
   const [storage, setStorage] = useState<FirebaseStorage | null>(null);
-  const [functions, setFunctions] = useState<FirebaseFunctions | null>(null); // Thêm vào
+  const [functions, setFunctions] = useState<FirebaseFunctions | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<User[]>([]);
@@ -106,7 +104,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     if (services.db) setDb(services.db);
     if (services.auth) setAuth(services.auth);
     if (services.storage) setStorage(services.storage);
-    if (services.functions) setFunctions(services.functions); // Thêm vào
+    if (services.functions) setFunctions(services.functions);
   }, []);
 
   const getUnitName = (unitId: string, allUnits: Unit[]) => {
@@ -198,7 +196,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
       return uniqueNotifications.slice(0, 15);
   };
   
-  // Listener for public config, available even when not logged in
   useEffect(() => {
     if (!db) return;
     const configDocRef = doc(db, 'configurations', 'loginPage');
@@ -214,7 +211,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
   }, [db]);
 
 
-  // Effect for Auth state and user-specific data
   useEffect(() => {
     if (!auth || !db) return;
 
@@ -233,7 +229,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                     setCurrentUser(loggedInUser);
                     setRole(loggedInUser.role);
 
-                    // Set up common listeners
                     const commonCollections = ['units', 'assessmentPeriods', 'criteria', 'guidanceDocuments'];
                     commonCollections.forEach(colName => {
                         const q = query(collection(db, colName));
@@ -249,14 +244,13 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                         allUnsubs.push(unsub);
                     });
 
-                    // Set up role-specific listeners
                     if (loggedInUser.role === 'admin') {
                         const usersQuery = query(collection(db, 'users'));
                         allUnsubs.push(onSnapshot(usersQuery, (snap) => setUsers(snap.docs.map(d => d.data() as User))));
 
                         const assessmentsQuery = query(collection(db, 'assessments'));
                         allUnsubs.push(onSnapshot(assessmentsQuery, (snap) => setAssessments(snap.docs.map(d => d.data() as Assessment))));
-                    } else { // commune_staff
+                    } else { 
                         setUsers([]); 
                         const assessmentsQuery = query(collection(db, 'assessments'), where("communeId", "==", loggedInUser.communeId));
                         allUnsubs.push(onSnapshot(assessmentsQuery, (snap) => setAssessments(snap.docs.map(d => d.data() as Assessment))));
@@ -271,7 +265,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
             }
 
         } else {
-            // Logged out: clean up state
             setCurrentUser(null);
             setRole(null);
             setUsers([]);
@@ -284,7 +277,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         }
         setLoading(false);
         
-        // Return a cleanup function that unsubscribes from everything when auth state changes
         return () => {
             allUnsubs.forEach(unsub => unsub());
         };
@@ -293,7 +285,6 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubAuth();
 }, [auth, db]);
 
-  // Effect to generate notifications whenever relevant data changes
   useEffect(() => {
       setNotifications(generateNotifications(currentUser, assessments, units));
   }, [currentUser, assessments, units]);
@@ -350,11 +341,10 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
     };
   };
 
-  // New function to update a single document efficiently
   const updateSingleAssessment = async (assessment: Assessment) => {
     if (!db) return;
     const docRef = doc(db, 'assessments', assessment.id);
-    await setDoc(docRef, assessment, { merge: true }); // Use merge to be safe
+    await setDoc(docRef, assessment, { merge: true });
   };
 
   const updateLoginConfig = async (newConfig: LoginConfig) => {
@@ -420,7 +410,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         units, updateUnits, 
         assessmentPeriods, updateAssessmentPeriods, 
         assessments, updateAssessments, 
-        updateSingleAssessment, // EXPORT NEW FUNCTION
+        updateSingleAssessment,
         deleteAssessment,
         deleteFileByUrl,
         criteria, updateCriteria,
@@ -433,7 +423,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         setLoginInfo,
         logout,
         storage,
-        functions, // Thêm vào
+        functions,
     }}>
       {children}
     </DataContext.Provider>
@@ -447,5 +437,3 @@ export const useData = () => {
   }
   return context;
 };
-
-    
