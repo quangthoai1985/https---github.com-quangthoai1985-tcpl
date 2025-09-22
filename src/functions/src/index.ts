@@ -43,18 +43,19 @@ export const syncUserClaims = onDocumentWritten({ document: "users/{userId}", re
 
 // ===== CÁC HÀM PHỤ TRỢ (GIỮ NGUYÊN) =====
 function parseAssessmentPath(filePath: string):
-    { communeId: string; periodId: string; indicatorId: string; docIndex: number } | null {
+    { communeId: string; periodId: string; indicatorId: string; subId: string, isContent: boolean } | null {
   const parts = filePath.split("/");
   if (parts.length === 7 && parts[0] === "hoso" && parts[2] === "evidence") {
-    const docIndex = parseInt(parts[5], 10);
-    if (!isNaN(docIndex)) {
-      return {
-        communeId: parts[1],
-        periodId: parts[3],
-        indicatorId: parts[4],
-        docIndex: docIndex,
-      };
-    }
+    const subId = parts[5];
+    // Giả định contentId bắt đầu bằng 'CNT', còn docIndex cho TC1 là số
+    const isContent = subId.startsWith("CNT");
+    return {
+      communeId: parts[1],
+      periodId: parts[3],
+      indicatorId: parts[4],
+      subId: subId,
+      isContent: isContent,
+    };
   }
   return null;
 }
@@ -62,22 +63,38 @@ function parseAssessmentPath(filePath: string):
 function collectAllFileUrls(assessmentData: unknown): Set<string> {
   const urls = new Set<string>();
   if (!assessmentData || typeof assessmentData !== "object") return urls;
+
   for (const indicatorId in (assessmentData as Record<string, unknown>)) {
     const indicator = (assessmentData as Record<string, any>)[indicatorId];
-    if (indicator) {
-      if (Array.isArray(indicator.files)) {
-        indicator.files.forEach((file: { url: string }) => {
-          if (file && typeof file.url === "string" && file.url) urls.add(file.url);
-        });
+    if (!indicator) continue;
+
+    // Xử lý 'files'
+    if (Array.isArray(indicator.files)) {
+      indicator.files.forEach((file: { url: string }) => {
+        if (file && typeof file.url === "string" && file.url) urls.add(file.url);
+      });
+    }
+
+    // Xử lý 'filesPerDocument'
+    if (indicator.filesPerDocument && typeof indicator.filesPerDocument === "object") {
+      for (const docIndex in indicator.filesPerDocument) {
+        const fileList = indicator.filesPerDocument[docIndex];
+        if (Array.isArray(fileList)) {
+          fileList.forEach((file: { url: string }) => {
+            if (file && typeof file.url === "string" && file.url) urls.add(file.url);
+          });
+        }
       }
-      if (indicator.filesPerDocument && typeof indicator.filesPerDocument === "object") {
-        for (const docIndex in indicator.filesPerDocument) {
-          const fileList = indicator.filesPerDocument[docIndex];
-          if (Array.isArray(fileList)) {
-            fileList.forEach((file: { url: string }) => {
-              if (file && typeof file.url === "string" && file.url) urls.add(file.url);
-            });
-          }
+    }
+
+    // Xử lý 'contentResults'
+    if (indicator.contentResults && typeof indicator.contentResults === "object") {
+      for (const contentId in indicator.contentResults) {
+        const content = indicator.contentResults[contentId];
+        if (content && Array.isArray(content.files)) {
+          content.files.forEach((file: { url: string }) => {
+            if (file && typeof file.url === "string" && file.url) urls.add(file.url);
+          });
         }
       }
     }
@@ -100,8 +117,7 @@ export const onAssessmentFileDeleted = onDocumentUpdated({
   const filesAfter = collectAllFileUrls(dataAfter.assessmentData);
 
   const deletionPromises: Promise<void>[] = [];
-  const storage = admin.storage();
-  const bucket = storage.bucket();
+  const bucket = admin.storage().bucket();
 
   for (const fileUrl of filesBefore) {
     if (!filesAfter.has(fileUrl) && fileUrl.includes("firebasestorage.googleapis.com")) {
@@ -117,13 +133,42 @@ export const onAssessmentFileDeleted = onDocumentUpdated({
         logger.log(`Attempting to delete file from path: ${filePath}`);
         const fileRef = bucket.file(filePath);
 
-        deletionPromises.push(fileRef.delete().catch((err) => {
+        deletionPromises.push(fileRef.delete().catch((err: {code: number}) => {
           if (err.code === 404) {
             logger.warn(`Attempted to delete ${filePath}, but it was not found. Ignoring.`);
           } else {
             logger.error(`Failed to delete file ${filePath}:`, err);
           }
         }));
+
+        const pathInfo = parseAssessmentPath(filePath);
+        if (pathInfo) {
+          const assessmentRef = db.collection("assessments").doc(event.params.assessmentId);
+          const transactionPromise = db.runTransaction(async (transaction) => {
+            const doc = await transaction.get(assessmentRef);
+            if (!doc.exists) return;
+
+            const assessmentData = doc.data()?.assessmentData || {};
+            const indicatorResult = assessmentData[pathInfo.indicatorId];
+
+            if (indicatorResult) {
+              if (pathInfo.isContent && indicatorResult.contentResults?.[pathInfo.subId]) {
+                const contentFiles = indicatorResult.contentResults[pathInfo.subId].files || [];
+                if (contentFiles.length === 0) {
+                  logger.info(`Content ${pathInfo.subId} has no files left, marking as not-achieved.`);
+                  indicatorResult.contentResults[pathInfo.subId].status = "not-achieved";
+                }
+              } else if (!pathInfo.isContent && indicatorResult.files) {
+                if (indicatorResult.files.length === 0) {
+                  logger.info(`Indicator ${pathInfo.indicatorId} has no files left, marking as not-achieved.`);
+                  indicatorResult.status = "not-achieved";
+                }
+              }
+              transaction.set(assessmentRef, { assessmentData: { [pathInfo.indicatorId]: indicatorResult } }, { merge: true });
+            }
+          });
+          deletionPromises.push(transactionPromise);
+        }
       } catch (error: unknown) {
         logger.error(`Error processing URL for deletion: ${fileUrl}`, error);
       }
@@ -132,7 +177,7 @@ export const onAssessmentFileDeleted = onDocumentUpdated({
 
   if (deletionPromises.length > 0) {
     await Promise.all(deletionPromises);
-    logger.info(`Successfully processed ${deletionPromises.length} potential file deletion(s).`);
+    logger.info(`Successfully processed ${deletionPromises.length} potential file operation(s).`);
   } else {
     logger.log("No files were removed in this update. No deletions necessary.");
   }
@@ -220,7 +265,7 @@ function translateErrorMessage(englishError: string): string {
 
 
 export const verifyPDFSignature = onObjectFinalized({
-  bucket: "chuan-tiep-can-pl.firebasestorage.app", region: "asia-east1",
+  bucket: "chuan-tiep-can-pl.appspot.com", region: "asia-east1",
 }, async (event) => {
   const fileBucket = event.data.bucket;
   const filePath = event.data.name;
@@ -249,12 +294,19 @@ export const verifyPDFSignature = onObjectFinalized({
   if (!contentType || !contentType.startsWith("application/pdf")) return null;
 
   const pathInfo = parseAssessmentPath(filePath);
-  if (!pathInfo || !pathInfo.indicatorId.startsWith("CT1.")) {
-    logger.log(`File ${filePath} does not match Criterion 1 structure. Skipping.`);
+  // Ignore content files and non-TC1 files
+  if (!pathInfo || pathInfo.isContent || !pathInfo.indicatorId.startsWith("CT1")) {
+    logger.log(`File ${filePath} is not a TC01 evidence file. Skipping.`);
     return null;
   }
 
-  const { communeId, periodId, indicatorId, docIndex } = pathInfo;
+  const { communeId, periodId, indicatorId } = pathInfo;
+  const docIndex = parseInt(pathInfo.subId, 10);
+  if (isNaN(docIndex)) {
+    logger.log(`Invalid docIndex from path: ${pathInfo.subId}`);
+    return null;
+  }
+
   const assessmentId = `assess_${periodId}_${communeId}`;
   const assessmentRef = db.collection("assessments").doc(assessmentId);
 
@@ -266,7 +318,7 @@ export const verifyPDFSignature = onObjectFinalized({
       await db.runTransaction(async (transaction) => {
         const doc = await transaction.get(assessmentRef);
         if (!doc.exists) {
-          logger.error(`Assessment document ${assessmentId} does not exist. Cannot update file status.`);
+          logger.error(`Assessment document ${assessmentId} does not exist.`);
           return;
         }
 
@@ -276,13 +328,17 @@ export const verifyPDFSignature = onObjectFinalized({
         const assessmentData = data.assessmentData || {};
         const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {}, status: "pending", value: 0 };
         const filesPerDocument = indicatorResult.filesPerDocument || {};
-        const fileList: {name: string, url: string, signatureStatus?: string, signatureError?: string}[] = filesPerDocument[docIndex] || [];
+        const fileList: {
+            name: string,
+            url: string,
+            signatureStatus?: string,
+            signatureError?: string
+        }[] = filesPerDocument[docIndex] || [];
 
         let fileToUpdate = fileList.find((f) => f.name === fileName);
 
         if (!fileToUpdate) {
-          const newFileUrl = `
-          https://firebasestorage.googleapis.com/v0/b/${fileBucket}/o/${encodeURIComponent(filePath)}?alt=media`;
+          const newFileUrl = `https://firebasestorage.googleapis.com/v0/b/${fileBucket}/o/${encodeURIComponent(filePath)}?alt=media`;
           fileToUpdate = { name: fileName, url: newFileUrl };
           fileList.push(fileToUpdate);
           logger.info(`File entry for "${fileName}" not found in Firestore. Creating it.`);
@@ -389,7 +445,7 @@ export const getSignedUrlForFile = onCall({ region: "asia-east1" }, async (reque
     throw new HttpsError("unauthenticated", "Người dùng phải đăng nhập để thực hiện.");
   }
 
-  const filePath = request.data.filePath;
+  const filePath = request.data.filePath as string;
   if (!filePath || typeof filePath !== "string") {
     throw new HttpsError("invalid-argument", "Phải cung cấp đường dẫn file (filePath).");
   }
