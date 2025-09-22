@@ -2,35 +2,20 @@
   "functions": {
     "source": "functions"
   },
-  "apphosting": [
-    {
-      "site": "chuan-tiep-can-pl",
-      "region": "asia-east1"
-    },
-    {
-      "backendId": "chuan-tiep-can-pl",
-      "rootDir": "/",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "functions"
-      ],
-      "alwaysDeployFromSource": true
-    },
-    {
-      "backendId": "chuan-tiep-can-pl1",
-      "rootDir": "/",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "functions"
-      ]
-    }
-  ],
+  "apphosting": {
+    "backendId": "chuan-tiep-can-pl",
+    "site": "chuan-tiep-can-pl",
+    "region": "asia-east1",
+    "rootDir": "/",
+    "ignore": [
+      "node_modules",
+      ".git",
+      "firebase-debug.log",
+      "firebase-debug.*.log",
+      "functions"
+    ],
+    "alwaysDeployFromSource": true
+  },
   "firestore": {
     "rules": "firestore.rules"
   },
