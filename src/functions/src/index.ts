@@ -60,46 +60,55 @@ function parseAssessmentPath(filePath: string):
   return null;
 }
 
+interface FileWithUrl {
+    url: string;
+}
+
+interface IndicatorData {
+    files?: FileWithUrl[];
+    filesPerDocument?: Record<string, FileWithUrl[]>;
+    contentResults?: Record<string, { files?: FileWithUrl[] }>;
+}
+
 function collectAllFileUrls(assessmentData: unknown): Set<string> {
-  const urls = new Set<string>();
-  if (!assessmentData || typeof assessmentData !== "object") return urls;
+    const urls = new Set<string>();
+    if (!assessmentData || typeof assessmentData !== "object") return urls;
 
-  for (const indicatorId in (assessmentData as Record<string, unknown>)) {
-    const indicator = (assessmentData as Record<string, any>)[indicatorId];
-    if (!indicator) continue;
+    const data = assessmentData as Record<string, unknown>;
 
-    // Xử lý 'files'
-    if (Array.isArray(indicator.files)) {
-      indicator.files.forEach((file: { url: string }) => {
-        if (file && typeof file.url === "string" && file.url) urls.add(file.url);
-      });
-    }
+    for (const indicatorId in data) {
+        const indicator = data[indicatorId] as IndicatorData;
+        if (!indicator) continue;
 
-    // Xử lý 'filesPerDocument'
-    if (indicator.filesPerDocument && typeof indicator.filesPerDocument === "object") {
-      for (const docIndex in indicator.filesPerDocument) {
-        const fileList = indicator.filesPerDocument[docIndex];
-        if (Array.isArray(fileList)) {
-          fileList.forEach((file: { url: string }) => {
-            if (file && typeof file.url === "string" && file.url) urls.add(file.url);
-          });
+        if (Array.isArray(indicator.files)) {
+            indicator.files.forEach((file) => {
+                if (file && typeof file.url === "string" && file.url) urls.add(file.url);
+            });
         }
-      }
-    }
 
-    // Xử lý 'contentResults'
-    if (indicator.contentResults && typeof indicator.contentResults === "object") {
-      for (const contentId in indicator.contentResults) {
-        const content = indicator.contentResults[contentId];
-        if (content && Array.isArray(content.files)) {
-          content.files.forEach((file: { url: string }) => {
-            if (file && typeof file.url === "string" && file.url) urls.add(file.url);
-          });
+        if (indicator.filesPerDocument && typeof indicator.filesPerDocument === "object") {
+            for (const docIndex in indicator.filesPerDocument) {
+                const fileList = indicator.filesPerDocument[docIndex];
+                if (Array.isArray(fileList)) {
+                    fileList.forEach((file) => {
+                        if (file && typeof file.url === "string" && file.url) urls.add(file.url);
+                    });
+                }
+            }
         }
-      }
+
+        if (indicator.contentResults && typeof indicator.contentResults === "object") {
+            for (const contentId in indicator.contentResults) {
+                const content = indicator.contentResults[contentId];
+                if (content && Array.isArray(content.files)) {
+                    content.files.forEach((file) => {
+                        if (file && typeof file.url === "string" && file.url) urls.add(file.url);
+                    });
+                }
+            }
+        }
     }
-  }
-  return urls;
+    return urls;
 }
 
 export const onAssessmentFileDeleted = onDocumentUpdated({
@@ -358,9 +367,9 @@ export const verifyPDFSignature = onObjectFinalized({
         const criterionData = criterionDocSnap.data();
         const assignedCount = criterionData?.assignedDocumentsCount || 0;
 
-        const allFiles = Object.values(indicatorResult.filesPerDocument).flat();
+        const allFiles = Object.values(indicatorResult.filesPerDocument).flat() as {signatureStatus?: string}[];
         const allRequiredFilesUploaded = allFiles.length >= assignedCount;
-        const allSignaturesValid = allFiles.every((f: {signatureStatus?: string}) => f.signatureStatus === "valid");
+        const allSignaturesValid = allFiles.every((f) => f.signatureStatus === "valid");
         const quantityMet = Number(indicatorResult.value) >= assignedCount;
 
         if (quantityMet && allRequiredFilesUploaded && allSignaturesValid) {
@@ -401,7 +410,8 @@ export const verifyPDFSignature = onObjectFinalized({
       issueDate = parse(documentConfig.issueDate, "dd/MM/yyyy", new Date());
       deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
     } else {
-      const communeDocumentConfig = assessmentData?.[indicatorId]?.communeDefinedDocuments?.[docIndex];
+      const communeDocs = assessmentData?.[indicatorId]?.communeDefinedDocuments;
+      const communeDocumentConfig = Array.isArray(communeDocs) ? communeDocs[docIndex] : undefined;
       if (!communeDocumentConfig || !communeDocumentConfig.issueDate || !communeDocumentConfig.issuanceDeadlineDays) {
         throw new Error(`Không tìm thấy thông tin văn bản do xã kê khai cho index ${docIndex}.`);
       }
