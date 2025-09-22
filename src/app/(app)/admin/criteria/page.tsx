@@ -16,7 +16,7 @@ import {
   CardContent,
   CardHeader,
 } from '@/components/ui/card';
-import { MoreHorizontal, PlusCircle, CornerDownRight, Info, Calendar as CalendarIcon, Save } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, CornerDownRight, Info, Calendar as CalendarIcon, Save, Trash2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -33,8 +33,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import PageHeader from '@/components/layout/page-header';
 import { useData } from '@/context/DataContext';
-import type { Criterion, Indicator, SubIndicator } from '@/lib/data';
+import type { Criterion, Indicator, Content } from '@/lib/data';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Separator } from '@/components/ui/separator';
 
 
 function CriterionForm({ criterion, onSave, onCancel }: { criterion: Partial<Criterion>, onSave: (criterion: Partial<Criterion>) => void, onCancel: () => void }) {
@@ -209,10 +210,129 @@ function Criterion1Config({ criterion, onSave }: { criterion: Criterion, onSave:
     );
 }
 
+function IndicatorContentConfig({ indicator, onIndicatorChange }: { indicator: Indicator, onIndicatorChange: (indicator: Indicator) => void }) {
+    
+    const handleContentChange = (index: number, field: keyof Content, value: string) => {
+        const newContents = [...(indicator.contents || [])];
+        if (newContents[index]) {
+            (newContents[index] as any)[field] = value;
+            onIndicatorChange({ ...indicator, contents: newContents });
+        }
+    };
 
-function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: { indicator: Partial<Indicator | SubIndicator>, onSave: (indicator: Partial<Indicator | SubIndicator>) => void, onCancel: () => void, isSubIndicator?: boolean }) {
-  const [formData, setFormData] = React.useState(indicator);
-  const title = isSubIndicator ? 'chỉ tiêu con' : 'chỉ tiêu';
+    const addContent = () => {
+        const newContent: Content = {
+            id: `CNT${Date.now().toString().slice(-6)}`,
+            name: 'Nội dung mới',
+            description: '',
+            standardLevel: '',
+            inputType: 'boolean',
+            evidenceRequirement: ''
+        };
+        onIndicatorChange({ ...indicator, contents: [...(indicator.contents || []), newContent] });
+    };
+
+    const removeContent = (index: number) => {
+        const newContents = (indicator.contents || []).filter((_, i) => i !== index);
+        onIndicatorChange({ ...indicator, contents: newContents });
+    };
+
+    const handlePassRuleTypeChange = (type: 'all' | 'atLeast' | 'percentage') => {
+        onIndicatorChange({ ...indicator, passRule: { ...indicator.passRule, type } });
+    }
+
+    const handlePassRuleValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const { id, value } = e.target;
+        const numValue = Number(value);
+        if (id === 'minCount') {
+            onIndicatorChange({ ...indicator, passRule: { ...indicator.passRule, minCount: numValue } });
+        } else if (id === 'minPercent') {
+            onIndicatorChange({ ...indicator, passRule: { ...indicator.passRule, minPercent: numValue } });
+        }
+    }
+    
+    return (
+        <div className="p-4 border rounded-lg bg-slate-50 border-slate-200 mt-4 space-y-4">
+            <h5 className="font-semibold text-slate-800">Nội dung của chỉ tiêu (N-of-M Rule)</h5>
+            
+            <div className="space-y-3">
+                {(indicator.contents || []).map((content, index) => (
+                    <div key={content.id} className="p-3 border rounded-md bg-white space-y-3">
+                        <div className="flex justify-between items-center">
+                            <Label htmlFor={`content-name-${index}`} className="font-medium">Nội dung {index + 1}</Label>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeContent(index)}>
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div className="grid gap-1.5">
+                                <Label htmlFor={`content-name-${index}`} className="text-xs">Tên nội dung</Label>
+                                <Textarea id={`content-name-${index}`} value={content.name} onChange={(e) => handleContentChange(index, 'name', e.target.value)} rows={2}/>
+                            </div>
+                            <div className="grid gap-1.5">
+                                <Label htmlFor={`content-desc-${index}`} className="text-xs">Mô tả</Label>
+                                <Textarea id={`content-desc-${index}`} value={content.description} onChange={(e) => handleContentChange(index, 'description', e.target.value)} rows={2}/>
+                            </div>
+                            <div className="grid gap-1.5">
+                                <Label htmlFor={`content-input-${index}`} className="text-xs">Loại dữ liệu</Label>
+                                <Select value={content.inputType} onValueChange={(value) => handleContentChange(index, 'inputType', value)}>
+                                    <SelectTrigger id={`content-input-${index}`}><SelectValue /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="boolean">Lựa chọn Đạt/Không đạt</SelectItem>
+                                        <SelectItem value="number">Nhập liệu số</SelectItem>
+                                        <SelectItem value="select">Lựa chọn nhiều mục</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                             <div className="grid gap-1.5">
+                                <Label htmlFor={`content-standard-${index}`} className="text-xs">Yêu cầu đạt chuẩn</Label>
+                                <Input id={`content-standard-${index}`} value={content.standardLevel} onChange={(e) => handleContentChange(index, 'standardLevel', e.target.value)} />
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+            <Button variant="outline" size="sm" onClick={addContent}><PlusCircle className="mr-2 h-4 w-4"/>Thêm nội dung</Button>
+            
+            <Separator />
+
+            <div>
+                <Label className="font-medium mb-2 block">Quy tắc đạt của chỉ tiêu</Label>
+                <RadioGroup value={indicator.passRule?.type || 'all'} onValueChange={handlePassRuleTypeChange} className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <Label className="flex items-center gap-2 p-3 border rounded-md cursor-pointer has-[:checked]:bg-blue-100 has-[:checked]:border-primary text-sm">
+                        <RadioGroupItem value="all" id="rule-all" /> Tất cả phải đạt
+                    </Label>
+                     <Label className="flex items-center gap-2 p-3 border rounded-md cursor-pointer has-[:checked]:bg-blue-100 has-[:checked]:border-primary text-sm">
+                        <RadioGroupItem value="atLeast" id="rule-atLeast" /> Đạt ít nhất
+                    </Label>
+                     <Label className="flex items-center gap-2 p-3 border rounded-md cursor-pointer has-[:checked]:bg-blue-100 has-[:checked]:border-primary text-sm">
+                        <RadioGroupItem value="percentage" id="rule-percentage" /> Đạt tỷ lệ
+                    </Label>
+                </RadioGroup>
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <div></div> {/* Spacer */}
+                    {indicator.passRule?.type === 'atLeast' && (
+                        <div className="grid gap-1.5">
+                            <Label htmlFor="minCount" className="text-xs">Số nội dung tối thiểu</Label>
+                            <Input id="minCount" type="number" value={indicator.passRule.minCount || ''} onChange={handlePassRuleValueChange} placeholder="VD: 3" />
+                        </div>
+                    )}
+                    {indicator.passRule?.type === 'percentage' && (
+                         <div className="grid gap-1.5">
+                            <Label htmlFor="minPercent" className="text-xs">Tỷ lệ % tối thiểu</Label>
+                            <Input id="minPercent" type="number" value={indicator.passRule.minPercent || ''} onChange={handlePassRuleValueChange} placeholder="VD: 80" />
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+
+function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: { indicator: Partial<Indicator | Content>, onSave: (indicator: Partial<Indicator | Content>) => void, onCancel: () => void, isSubIndicator?: boolean }) {
+  const [formData, setFormData] = React.useState(indicator as Indicator);
+  const title = isSubIndicator ? 'nội dung' : 'chỉ tiêu';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
@@ -222,6 +342,10 @@ function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: 
   const handleSelectChange = (value: string) => {
     setFormData(prev => ({ ...prev, inputType: value as Indicator['inputType'] }));
   };
+
+  const handleIndicatorChange = (updatedIndicator: Indicator) => {
+      setFormData(updatedIndicator);
+  }
 
   return (
     <>
@@ -241,7 +365,7 @@ function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: 
           <Textarea id="description" value={formData.description || ''} onChange={handleChange} className="col-span-3" />
         </div>
         <div className="grid grid-cols-4 items-center gap-4">
-          <Label htmlFor="standardLevel" className="text-right">Mức độ đạt chuẩn</Label>
+          <Label htmlFor="standardLevel" className="text-right">Yêu cầu đạt chuẩn</Label>
           <Input id="standardLevel" value={formData.standardLevel || ''} onChange={handleChange} className="col-span-3" placeholder="Ví dụ: '>=2', 'Đạt', '100%'"/>
         </div>
         <div className="grid grid-cols-4 items-center gap-4">
@@ -261,6 +385,10 @@ function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: 
           <Label htmlFor="evidenceRequirement" className="text-right pt-2">Yêu cầu hồ sơ minh chứng</Label>
           <Textarea id="evidenceRequirement" value={(formData as Indicator).evidenceRequirement || ''} onChange={handleChange} className="col-span-3" />
         </div>
+
+        {!isSubIndicator && (
+            <IndicatorContentConfig indicator={formData} onIndicatorChange={handleIndicatorChange} />
+        )}
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Hủy</Button>
@@ -278,7 +406,7 @@ export default function CriteriaManagementPage() {
   const [editingIndicator, setEditingIndicator] = React.useState<{criterionId: string, indicator: Partial<Indicator>} | null>(null);
   const [addingIndicatorTo, setAddingIndicatorTo] = React.useState<string | null>(null);
   
-  const [editingSubIndicator, setEditingSubIndicator] = React.useState<{criterionId: string, indicatorId: string, subIndicator: Partial<SubIndicator>} | null>(null);
+  const [editingSubIndicator, setEditingSubIndicator] = React.useState<{criterionId: string, indicatorId: string, subIndicator: Partial<Content>} | null>(null);
   const [addingSubIndicatorTo, setAddingSubIndicatorTo] = React.useState<{criterionId: string, indicatorId: string} | null>(null);
 
   const { toast } = useToast();
@@ -339,7 +467,9 @@ export default function CriteriaManagementPage() {
         standardLevel: indicatorToSave.standardLevel || "",
         inputType: indicatorToSave.inputType || "boolean",
         evidenceRequirement: indicatorToSave.evidenceRequirement || "",
-        subIndicators: []
+        subIndicators: [], // Legacy field
+        contents: indicatorToSave.contents || [], // New field
+        passRule: indicatorToSave.passRule || { type: 'all' }, // New field
       };
 
       newCriteria = criteria.map(c => {
@@ -361,10 +491,10 @@ export default function CriteriaManagementPage() {
   };
   
   const handleAddSubIndicator = (criterionId: string, indicatorId: string) => setAddingSubIndicatorTo({criterionId, indicatorId});
-  const handleEditSubIndicator = (criterionId: string, indicatorId: string, subIndicator: SubIndicator) => setEditingSubIndicator({criterionId, indicatorId, subIndicator});
+  const handleEditSubIndicator = (criterionId: string, indicatorId: string, subIndicator: Content) => setEditingSubIndicator({criterionId, indicatorId, subIndicator});
   const handleCancelEditSubIndicator = () => { setEditingSubIndicator(null); setAddingSubIndicatorTo(null); };
 
-  const handleSaveSubIndicator = async (subIndicatorToSave: Partial<SubIndicator>) => {
+  const handleSaveSubIndicator = async (subIndicatorToSave: Partial<Content>) => {
       let newCriteria: Criterion[] = [];
       
       if (editingSubIndicator) { // Editing existing sub-indicator
@@ -376,7 +506,7 @@ export default function CriteriaManagementPage() {
                         if (i.id === editingSubIndicator.indicatorId) {
                             return {
                                 ...i,
-                                subIndicators: (i.subIndicators || []).map(si => si.id === subIndicatorToSave.id ? { ...si, ...subIndicatorToSave} as SubIndicator : si)
+                                subIndicators: (i.subIndicators || []).map(si => si.id === subIndicatorToSave.id ? { ...si, ...subIndicatorToSave} as Content : si)
                             }
                         }
                         return i;
@@ -388,7 +518,7 @@ export default function CriteriaManagementPage() {
         toast({ title: "Thành công!", description: "Đã cập nhật chỉ tiêu con."});
 
       } else if (addingSubIndicatorTo) { // Adding new sub-indicator
-        const newSubIndicator: SubIndicator = {
+        const newSubIndicator: Content = {
             id: `CTC${Date.now().toString().slice(-6)}`,
             name: subIndicatorToSave.name || "Chỉ tiêu con mới",
             description: subIndicatorToSave.description || "",
@@ -567,7 +697,7 @@ export default function CriteriaManagementPage() {
     </Dialog>
     
     <Dialog open={!!editingIndicator || !!addingIndicatorTo} onOpenChange={(open) => !open && handleCancelEditIndicator()}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl">
             {(editingIndicator || addingIndicatorTo) && (
                 <IndicatorForm 
                     indicator={editingIndicator?.indicator || {}}
@@ -599,3 +729,4 @@ export default function CriteriaManagementPage() {
     
 
     
+
