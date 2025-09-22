@@ -9,8 +9,13 @@ import { HttpsError, onCall } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions/v2";
 
 
-admin.initializeApp();
+admin.initializeApp({
+  credential: admin.credential.applicationDefault(),
+  projectId: "chuan-tiep-can-pl",
+  storageBucket: "chuan-tiep-can-pl.firebasestorage.app"
+});
 const db = admin.firestore();
+
 
 // ===== HÀM SYNC CLAIMS (GIỮ NGUYÊN) =====
 export const syncUserClaims = onDocumentWritten({ document: "users/{userId}", region: "asia-east1" }, async (event) => {
@@ -157,7 +162,7 @@ export const onAssessmentFileDeleted = onDocumentUpdated({
         const pathInfo = parseAssessmentPath(filePath);
         if (pathInfo) {
           const assessmentRef = db.collection("assessments").doc(event.params.assessmentId);
-          const transactionPromise = db.runTransaction(async (transaction) => {
+          const transactionPromise = db.runTransaction(async (transaction: admin.firestore.Transaction) => {
             const doc = await transaction.get(assessmentRef);
             if (!doc.exists) return;
 
@@ -328,7 +333,7 @@ export const verifyPDFSignature = onObjectFinalized({
       reason?: string,
   ) => {
     try {
-      await db.runTransaction(async (transaction) => {
+      await db.runTransaction(async (transaction: admin.firestore.Transaction) => {
         const doc = await transaction.get(assessmentRef);
         if (!doc.exists) {
           logger.error(`Assessment document ${assessmentId} does not exist.`);

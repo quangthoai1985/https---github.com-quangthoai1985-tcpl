@@ -42,8 +42,12 @@ const pdf_lib_1 = require("pdf-lib");
 const date_fns_1 = require("date-fns");
 const https_1 = require("firebase-functions/v2/https");
 const v2_1 = require("firebase-functions/v2");
-admin.initializeApp();
-const db = admin.firestore();
+admin.initializeApp({
+    credential: admin.credential.applicationDefault(),
+    projectId: "chuan-tiep-can-pl",
+    storageBucket: "chuan-tiep-can-pl.firebasestorage.app"
+});
+const bucket = admin.storage().bucket("chuan-tiep-can-pl.firebasestorage.app");
 // ===== HÀM SYNC CLAIMS (GIỮ NGUYÊN) =====
 exports.syncUserClaims = (0, firestore_1.onDocumentWritten)({ document: "users/{userId}", region: "asia-east1" }, async (event) => {
     var _a;
@@ -156,7 +160,9 @@ exports.onAssessmentFileDeleted = (0, firestore_1.onDocumentUpdated)({
                 }
                 v2_1.logger.log(`Attempting to delete file from path: ${filePath}`);
                 const fileRef = bucket.file(filePath);
-                deletionPromises.push(fileRef.delete().catch((err) => {
+                deletionPromises.push(fileRef.delete()
+                    .then(() => { }) // Ensure the promise chain returns void on success
+                    .catch((err) => {
                     if (err.code === 404) {
                         v2_1.logger.warn(`Attempted to delete ${filePath}, but it was not found. Ignoring.`);
                     }
