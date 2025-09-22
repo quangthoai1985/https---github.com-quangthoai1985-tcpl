@@ -522,10 +522,10 @@ const EvidenceUploaderComponent = ({ indicatorId, evidence, onEvidenceChange, is
              <p className="text-xs text-muted-foreground mt-1">{acceptedFileText} Dung lượng tối đa: 5MB.</p>
 
             <div className="grid gap-1">
-                 <Label htmlFor={`link-${indicatorId}-${docIndex}`} className="text-xs">Hoặc thêm liên kết</Label>
+                 <Label htmlFor={`link-${indicatorId}-${docIndex}-${contentId}`} className="text-xs">Hoặc thêm liên kết</Label>
                  <div className="flex gap-2">
                     <Input
-                        id={`link-${indicatorId}-${docIndex}`}
+                        id={`link-${indicatorId}-${docIndex}-${contentId}`}
                         value={linkInput}
                         onChange={(e) => setLinkInput(e.target.value)}
                         placeholder="Dán đường dẫn vào đây"
@@ -720,11 +720,11 @@ const renderInput = (
                 {checkboxOptions.map((option, index) => (
                      <div key={index} className="flex items-center space-x-2">
                         <Checkbox
-                            id={`${indicator.id}-check-${index}`}
+                            id={`${indicator.id}-check-${index}-${contentId}`}
                             checked={data.value?.[option] || false}
                             onCheckedChange={(checked) => handleCheckboxChange(option, !!checked)}
                         />
-                        <Label htmlFor={`${indicator.id}-check-${index}`} className="font-normal">{option}</Label>
+                        <Label htmlFor={`${indicator.id}-check-${index}-${contentId}`} className="font-normal">{option}</Label>
                     </div>
                 ))}
             </div>
@@ -812,12 +812,12 @@ const renderInput = (
             return (
                 <RadioGroup onValueChange={handleRadioChange} value={data.value === true ? 'true' : data.value === false ? 'false' : ''} className="grid gap-2">
                     <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="true" id={`${indicator.id}-true`} />
-                        <Label htmlFor={`${indicator.id}-true`}>{trueLabel}</Label>
+                        <RadioGroupItem value="true" id={`${indicator.id}-true-${contentId}`} />
+                        <Label htmlFor={`${indicator.id}-true-${contentId}`}>{trueLabel}</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="false" id={`${indicator.id}-false`} />
-                        <Label htmlFor={`${indicator.id}-false`}>{falseLabel}</Label>
+                        <RadioGroupItem value="false" id={`${indicator.id}-false-${contentId}`} />
+                        <Label htmlFor={`${indicator.id}-false-${contentId}`}>{falseLabel}</Label>
                     </div>
                 </RadioGroup>
             );
@@ -825,56 +825,61 @@ const renderInput = (
         case 'number':
             return (
                 <div className="grid gap-2">
-                    <Label htmlFor={`${indicator.id}-input`}>Tỷ lệ (%) hoặc số lượng</Label>
-                    <Input id={`${indicator.id}-input`} type="number" placeholder="Nhập giá trị" value={data.value || ''} onChange={(e) => handleValueChange(null, e.target.value)} />
+                    <Label htmlFor={`${indicator.id}-input-${contentId}`}>Tỷ lệ (%) hoặc số lượng</Label>
+                    <Input id={`${indicator.id}-input-${contentId}`} type="number" placeholder="Nhập giá trị" value={data.value || ''} onChange={(e) => handleValueChange(null, e.target.value)} />
                 </div>
             );
         case 'select':
              return (
                 <div className="grid gap-2">
                      <div className="flex items-center space-x-2">
-                        <Checkbox id={`${indicator.id}-check1`} />
-                        <Label htmlFor={`${indicator.id}-check1`}>Có giao diện thân thiện</Label>
+                        <Checkbox id={`${indicator.id}-check1-${contentId}`} />
+                        <Label htmlFor={`${indicator.id}-check1-${contentId}`}>Có giao diện thân thiện</Label>
                     </div>
                     <div className="flex items-center space-x-2">
-                        <Checkbox id={`${indicator.id}-check2`} />
-                        <Label htmlFor={`${indicator.id}-check2`}>Cập nhật thông tin thường xuyên</Label>
+                        <Checkbox id={`${indicator.id}-check2-${contentId}`} />
+                        <Label htmlFor={`${indicator.id}-check2-${contentId}`}>Cập nhật thông tin thường xuyên</Label>
                     </div>
                 </div>
             );
     }
 }
 
-const evaluateStatus = (value: any, standardLevel: string, isTasked?: boolean | null, assignedCount?: number, filesPerDocument?: { [documentIndex: number]: FileWithStatus[] }): AssessmentStatus => {
+const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus[], isTasked?: boolean | null, assignedCount?: number, filesPerDocument?: { [documentIndex: number]: FileWithStatus[] }): AssessmentStatus => {
     if (isTasked === false) {
         return 'achieved';
     }
 
-    if (value === undefined || value === null || value === '') return 'pending';
-
     // Logic for Criterion 1 indicators
     if (assignedCount && assignedCount > 0) {
         const enteredValue = Number(value);
-        if (isNaN(enteredValue)) return 'pending';
+        if (isNaN(enteredValue) || value === null || value === '') return 'pending';
 
         const quantityMet = enteredValue >= assignedCount;
 
         if (filesPerDocument) {
             const allFiles = Object.values(filesPerDocument).flat();
-            // FIX: Check if the number of uploaded files is GREATER THAN OR EQUAL to the required quantity
-            const allRequiredFilesUploaded = allFiles.length >= assignedCount;
+            const uploadedCount = allFiles.length;
+            const requiredFilesMet = uploadedCount >= enteredValue; 
             const allSignaturesValid = allFiles.every(f => 'signatureStatus' in f && f.signatureStatus === 'valid');
-
-            // New, stricter "Achieved" condition
-            if (quantityMet && allRequiredFilesUploaded && allSignaturesValid) {
+            
+            if (quantityMet && requiredFilesMet && allSignaturesValid) {
                 return 'achieved';
             }
         }
-
-        // If any of the conditions for 'achieved' are not met, it's 'not-achieved'
         return 'not-achieved';
     }
 
+    // General logic for other indicators/contents
+    if (value === undefined || value === null || value === '') {
+        return 'pending';
+    }
+    
+    // **NEW LOGIC**: Evidence is required
+    if (files.length === 0) {
+        return 'not-achieved'; // Data entered but no evidence
+    }
+    
     // Logic for checkbox groups
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
         // Special case for CT2.3 (Yêu cầu cung cấp thông tin)
@@ -1217,9 +1222,10 @@ const handleIsTaskedChange = useCallback((indicatorId: string, isTasked: boolean
             const tc1Data = prev[criteria[0].indicators[0].id];
             assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
         }
-
+        
+        const files = isTasked ? prev[indicatorId].files : [];
         const filesPerDocument = parentCriterion?.id === 'TC01' ? prev[indicatorId].filesPerDocument : undefined;
-        const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, isTasked, assignedCount, filesPerDocument);
+        const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, files, isTasked, assignedCount, filesPerDocument);
 
         const newData = {
             ...prev,
@@ -1256,11 +1262,14 @@ const handleValueChange = useCallback((indicatorId: string, value: any, contentI
         if (contentId) { // Updating a content item within an indicator
             const content = indicator.contents?.find(c => c.id === contentId);
             if (!content) return prev;
-            
-            const newContentStatus = evaluateStatus(value, content.standardLevel, true);
+
             const contentResults = { ...(newData[indicatorId].contentResults || {}) };
+            const currentContentData = contentResults[contentId] || { files: [], status: 'pending', value: null };
+            
+            const newContentStatus = evaluateStatus(value, content.standardLevel, currentContentData.files, true);
+
             contentResults[contentId] = {
-                ...(contentResults[contentId] || { files: [], note: '' }),
+                ...currentContentData,
                 value: value,
                 status: newContentStatus,
             };
@@ -1287,7 +1296,7 @@ const handleValueChange = useCallback((indicatorId: string, value: any, contentI
             }
 
             const filesPerDocument = parentCriterion?.id === 'TC01' ? prev[indicatorId].filesPerDocument : undefined;
-            const newStatus = evaluateStatus(value, indicator.standardLevel, isTasked, assignedCount, filesPerDocument);
+            const newStatus = evaluateStatus(value, indicator.standardLevel, prev[indicatorId].files, isTasked, assignedCount, filesPerDocument);
 
             newData[indicatorId] = {
                 ...newData[indicatorId],
@@ -1332,19 +1341,26 @@ const handleNoteChange = useCallback((indicatorId: string, note: string, content
 const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus, contentId?: string) => {
     setAssessmentData(prev => {
         const newData = { ...prev };
+        const indicator = findIndicator(indicatorId) as Indicator | null;
+        if (!indicator) return prev;
+
         const indicatorData = { ...newData[indicatorId] };
         
         let fileList: FileWithStatus[];
+        let currentValue: any;
 
         if (contentId) {
             const contentResults = { ...(indicatorData.contentResults || {}) };
             const contentData = { ...(contentResults[contentId] || { files: [], status: 'pending', value: null }) };
             fileList = [...(contentData.files || [])];
+            currentValue = contentData.value;
         } else if (docIndex !== undefined) {
              const filesPerDoc = { ...(indicatorData.filesPerDocument || {}) };
              fileList = [...(filesPerDoc[docIndex] || [])];
+             currentValue = indicatorData.value;
         } else {
             fileList = [...(indicatorData.files || [])];
+            currentValue = indicatorData.value;
         }
 
         if (fileToRemove) {
@@ -1354,21 +1370,33 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
         }
 
         if (contentId) {
+             const content = indicator.contents?.find(c => c.id === contentId);
+             if (!content) return prev;
              const contentResults = { ...(indicatorData.contentResults || {}) };
-             contentResults[contentId] = { ...(contentResults[contentId] || { status: 'pending', value: null }), files: fileList };
+             const newContentStatus = evaluateStatus(currentValue, content.standardLevel, fileList, true);
+             contentResults[contentId] = { ...(contentResults[contentId] || { value: null }), files: fileList, status: newContentStatus };
              indicatorData.contentResults = contentResults;
+             indicatorData.status = evaluateIndicatorByPassRule(indicator, contentResults);
         } else if (docIndex !== undefined) {
             const filesPerDoc = { ...(indicatorData.filesPerDocument || {}) };
             filesPerDoc[docIndex] = fileList;
             indicatorData.filesPerDocument = filesPerDoc;
+             const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
+             let assignedCount;
+             if (parentCriterion?.id === 'TC01') {
+                 const tc1Data = prev[parentCriterion.indicators[0].id];
+                 assignedCount = parentCriterion.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+             }
+            indicatorData.status = evaluateStatus(currentValue, indicator.standardLevel, [], indicatorData.isTasked, assignedCount, filesPerDoc);
         } else {
             indicatorData.files = fileList;
+            indicatorData.status = evaluateStatus(currentValue, indicator.standardLevel, fileList, indicatorData.isTasked);
         }
 
         newData[indicatorId] = indicatorData;
         return newData;
     });
-}, []);
+}, [criteria, findIndicator]);
 
 
 const handleSaveDraft = useCallback(async () => {
@@ -1798,7 +1826,7 @@ const handleSaveDraft = useCallback(async () => {
                                                                                   specialIndicatorIds={[]}
                                                                                   specialLabels={{no: 'Không', yes: 'Có'}}
                                                                                   customBooleanLabels={null}
-                                                                                  checkboxOptions={null}
+                                                                                  checkboxOptions={getCheckboxOptions(content.id, criteria)}
                                                                                   indicator={content}
                                                                                   data={contentData as any}
                                                                                   onValueChange={(id, value) => handleValueChange(indicator.id, value, content.id)}
