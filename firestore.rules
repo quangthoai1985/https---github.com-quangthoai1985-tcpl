@@ -2,62 +2,9 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper functions
-    function isAdmin() {
-      return request.auth.token.role == 'admin';
-    }
-
-    function isOwner(communeId) {
-      return request.auth.token.communeId == communeId;
-    }
-
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    // Rules for each collection
-    match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    match /units/{unitId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    match /criteria/{criterionId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    match /assessmentPeriods/{periodId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-
-    match /guidanceDocuments/{docId} {
-      allow read: if isAuthenticated();
-      allow write: if isAdmin();
-    }
-    
-    match /configurations/{configId} {
-      allow read: if true; // Publicly readable for login page
-      allow write: if isAdmin();
-    }
-
-    match /assessments/{assessmentId} {
-      allow read: if isAdmin() || isOwner(resource.data.communeId);
-      allow create: if isOwner(request.resource.data.communeId);
-      allow update: if isAdmin() || isOwner(request.resource.data.communeId);
-      allow delete: if isAdmin();
-    }
-    
-    match /signature_checks/{checkId} {
-      // Only backend functions can write. Admins can read for debugging.
-      allow read: if isAdmin();
-      allow write: if false; // Prevent client-side writes
+    // Rules for all collections
+    match /{document=**} {
+      allow read, write: if true; // ⚠️ WARNING: For testing only. Not for production.
     }
   }
 }
