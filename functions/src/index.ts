@@ -1,3 +1,4 @@
+
 // File: functions/src/index.ts
 
 import { onDocumentWritten, onDocumentUpdated } from "firebase-functions/v2/firestore";
@@ -463,6 +464,16 @@ export const verifyPDFSignature = onObjectFinalized({
 });
 
 
+/**
+ * Đây là một hàm callable function, được thiết kế để client (trình duyệt)
+ * gọi trực tiếp nhằm lấy một URL có chữ ký (signed URL) để xem trước tệp
+ * một cách an toàn mà không cần cấp quyền đọc công khai cho toàn bộ Storage.
+ *
+ * Hiện tại, ứng dụng đang sử dụng phương pháp hiển thị tệp qua Google Docs Viewer,
+ * phương pháp đó yêu cầu tệp phải có quyền đọc công khai.
+ * Nếu trong tương lai có yêu cầu bảo mật cao hơn, hàm này có thể được sử dụng
+ * để thay thế cho cơ chế hiện tại.
+ */
 export const getSignedUrlForFile = onCall({ region: "asia-east1" }, async (request) => {
   if (!request.auth) {
     throw new HttpsError("unauthenticated", "Người dùng phải đăng nhập để thực hiện.");
@@ -487,3 +498,4 @@ export const getSignedUrlForFile = onCall({ region: "asia-east1" }, async (reque
     throw new HttpsError("internal", "Không thể tạo đường dẫn xem trước cho file.");
   }
 });
+

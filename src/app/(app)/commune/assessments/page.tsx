@@ -17,7 +17,6 @@ import PageHeader from "@/components/layout/page-header";
 import type { Indicator, SubIndicator, Criterion, Assessment, IndicatorResult, Content } from "@/lib/data";
 import { Textarea } from "@/components/ui/textarea";
 import { getDownloadURL, ref, uploadBytes, getBlob } from "firebase/storage";
-import { httpsCallable } from "firebase/functions";
 import { cn } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -1907,3 +1906,4 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
+
