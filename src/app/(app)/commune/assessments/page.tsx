@@ -1853,27 +1853,29 @@ const handleSaveDraft = useCallback(async () => {
     </div>
 
     <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
-    <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
-        <DialogHeader className="p-6 pb-0">
-            <DialogTitle>Xem trước: {previewFile?.name}</DialogTitle>
-        </DialogHeader>
-        <div className="flex-1 px-6 pb-6 h-full">
-            {previewFile && (
-                <iframe
-                    src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`}
-                    className="w-full h-full border rounded-md"
-                    title={previewFile.name}
-                ></iframe>
-            )}
-        </div>
-        <DialogFooter className="p-6 pt-0 border-t">
-             <Button variant="secondary" onClick={() => window.open(previewFile?.url, '_blank')}>
-                <Download className="mr-2 h-4 w-4"/> Tải xuống
-             </Button>
-            <Button variant="outline" onClick={() => setPreviewFile(null)}>Đóng</Button>
-        </DialogFooter>
-    </DialogContent>
-</Dialog>
+        <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
+            <DialogHeader className="p-6 pb-0">
+                <DialogTitle>Xem trước: {previewFile?.name}</DialogTitle>
+            </DialogHeader>
+            <div className="flex-1 px-6 pb-6 h-full">
+                {previewFile && (
+                    <iframe
+                        src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`}
+                        className="w-full h-full border rounded-md"
+                        title={previewFile.name}
+                    ></iframe>
+                )}
+            </div>
+            <DialogFooter className="p-6 pt-0 border-t">
+                 <Button variant="secondary" asChild>
+                    <a href={previewFile?.url} target="_blank" rel="noopener noreferrer">
+                        <Download className="mr-2 h-4 w-4"/> Tải xuống
+                    </a>
+                 </Button>
+                <Button variant="outline" onClick={() => setPreviewFile(null)}>Đóng</Button>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
     </>
   );
 }

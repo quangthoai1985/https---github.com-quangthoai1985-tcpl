@@ -366,7 +366,11 @@ export default function RegistrationManagementPage() {
                 )}
             </div>
             <DialogFooter className="p-6 pt-0 border-t">
-                 <Button variant="secondary" onClick={() => window.open(previewFile?.url, '_blank')}><Download className="mr-2 h-4 w-4"/> Tải xuống</Button>
+                 <Button variant="secondary" asChild>
+                    <a href={previewFile?.url} target="_blank" rel="noopener noreferrer">
+                        <Download className="mr-2 h-4 w-4"/> Tải xuống
+                    </a>
+                 </Button>
                 <Button variant="outline" onClick={() => setPreviewFile(null)}>Đóng</Button>
             </DialogFooter>
         </DialogContent>

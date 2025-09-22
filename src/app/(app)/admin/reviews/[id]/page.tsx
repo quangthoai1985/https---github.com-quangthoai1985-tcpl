@@ -637,7 +637,7 @@ export default function AssessmentDetailPage() {
                                                       <div className="flex items-center">
                                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setPreviewFile(file)}> <Eye className="h-4 w-4" /> </Button>
                                                         {isLink(file) ? null : (
-                                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => window.open(file.url, '_blank')}><Download className="h-4 w-4" /></Button>
+                                                            <Button variant="ghost" size="icon" className="h-8 w-8" asChild><a href={file.url} target="_blank" rel="noopener noreferrer"><Download className="h-4 w-4" /></a></Button>
                                                         )}
                                                       </div>
                                                     </div>
@@ -775,7 +775,11 @@ export default function AssessmentDetailPage() {
                 {previewFile && ( <iframe src={`https://docs.google.com/gview?url=${encodeURIComponent(previewFile.url)}&embedded=true`} className="w-full h-full border rounded-md" title={previewFile.name} ></iframe> )}
             </div>
             <DialogFooter className="p-6 pt-0 border-t">
-                <Button variant="secondary" onClick={() => window.open(previewFile?.url, '_blank')}><Download className="mr-2 h-4 w-4"/> Tải xuống</Button>
+                 <Button variant="secondary" asChild>
+                    <a href={previewFile?.url} target="_blank" rel="noopener noreferrer">
+                        <Download className="mr-2 h-4 w-4"/> Tải xuống
+                    </a>
+                 </Button>
                 <Button variant="outline" onClick={() => setPreviewFile(null)}>Đóng</Button>
             </DialogFooter>
         </DialogContent>

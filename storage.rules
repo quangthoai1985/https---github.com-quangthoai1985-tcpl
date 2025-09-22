@@ -2,57 +2,14 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-  
-    // Helper functions
-    function isAdmin() {
-      return request.auth.token.role == 'admin';
-    }
-    
-    function isOwner(communeId) {
-        return request.auth.token.communeId == communeId;
-    }
-    
-    function isAuthenticated() {
-      return request.auth != null;
-    }
-
-    // Allow admins to access everything
     match /{allPaths=**} {
-        allow read, write: if isAdmin();
-    }
+      // Bất kỳ ai đã đăng nhập đều có thể ghi (tải lên) tệp.
+      allow write: if request.auth != null;
 
-    // Rules for guidance documents and configurations (e.g., logos, background)
-    match /guidance_documents/{allPaths=**} {
-        allow read: if isAuthenticated();
-        // Write access already covered by admin rule above
-    }
-    
-    match /config/{allPaths=**} {
-        allow read: if true; // Publicly readable for login page
-        // Write access already covered by admin rule above
-    }
-    
-    // Rules for assessment evidence files
-    match /hoso/{communeId}/{allPaths=**} {
-        // Allow read only by the owner of the folder or an admin
-        allow read: if isOwner(communeId);
-        
-        // Allow write only by the owner of the folder, with file size constraints
-        allow write: if isOwner(communeId) && request.resource.size < 5 * 1024 * 1024; // Limit to 5MB
-    }
-    
-    // Rules for registration forms
-    match /hoso/{communeId}/registration/{allPaths=**} {
-       allow read: if isOwner(communeId);
-       allow write: if isOwner(communeId) && request.resource.size < 5 * 1024 * 1024;
-    }
-
-    // Rules for announcement decisions
-    match /hoso/{communeId}/announcements/{allPaths=**} {
-      // Only admins can upload announcements
-      allow write: if false; // Client-side uploads denied, already covered by admin rule
-      // Anyone authenticated can read the decisions
-      allow read: if isAuthenticated();
+      // Bất kỳ ai cũng có thể đọc tệp. 
+      // Điều này là cần thiết để các dịch vụ bên ngoài như Google Docs Viewer có thể truy cập và hiển thị tệp.
+      // Các tệp không chứa thông tin nhạy cảm, chỉ là minh chứng.
+      allow read;
     }
   }
 }
