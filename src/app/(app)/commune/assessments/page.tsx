@@ -14,7 +14,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/context/DataContext";
 import PageHeader from "@/components/layout/page-header";
-import type { Indicator, SubIndicator, Criterion, Assessment, IndicatorResult } from "@/lib/data";
+import type { Indicator, SubIndicator, Criterion, Assessment, IndicatorResult, Content } from "@/lib/data";
 import { Textarea } from "@/components/ui/textarea";
 import { getDownloadURL, ref, uploadBytes, getBlob } from "firebase/storage";
 import { httpsCallable } from "firebase/functions";
@@ -53,6 +53,19 @@ type IndicatorValue = {
         excerpt: string;
         issuanceDeadlineDays: number;
     }[];
+    contentResults?: {
+        [contentId: string]: {
+            value: any,
+            files: FileWithStatus[],
+            status: AssessmentStatus,
+            note?: string
+        }
+    };
+    meta?: {
+        metCount?: number,
+        totalCount?: number,
+        computedAt?: string
+    };
 };
 type AssessmentValues = Record<string, IndicatorValue>;
 
@@ -456,25 +469,26 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     );
 };
 
-const EvidenceUploaderComponent = ({ indicatorId, evidence, onEvidenceChange, isRequired, onPreview, docIndex, accept }: {
+const EvidenceUploaderComponent = ({ indicatorId, evidence, onEvidenceChange, isRequired, onPreview, docIndex, accept, contentId }: {
     indicatorId: string;
     evidence: FileWithStatus[];
-    onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => void;
+    onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus, contentId?: string) => void;
     isRequired: boolean;
     onPreview: (file: { name: string, url: string }) => void;
     docIndex?: number;
     accept?: string;
+    contentId?: string;
 }) => {
     const [linkInput, setLinkInput] = useState('');
     const { toast } = useToast();
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newFiles = Array.from(e.target.files || []);
-        onEvidenceChange(indicatorId, [...evidence, ...newFiles], docIndex);
+        onEvidenceChange(indicatorId, [...evidence, ...newFiles], docIndex, undefined, contentId);
     };
 
     const handleEvidenceRemove = (itemToRemove: FileWithStatus) => {
-        onEvidenceChange(indicatorId, [], docIndex, itemToRemove);
+        onEvidenceChange(indicatorId, [], docIndex, itemToRemove, contentId);
     };
 
     const handleAddLink = () => {
@@ -483,7 +497,7 @@ const EvidenceUploaderComponent = ({ indicatorId, evidence, onEvidenceChange, is
             return;
         }
         const newLink = { name: linkInput.trim(), url: linkInput.trim() };
-        onEvidenceChange(indicatorId, [...evidence, newLink], docIndex);
+        onEvidenceChange(indicatorId, [...evidence, newLink], docIndex, undefined, contentId);
         setLinkInput('');
     };
 
@@ -677,26 +691,27 @@ const renderInput = (
     customBooleanLabels: { true: string, false: string } | null,
     checkboxOptions: string[] | null,
     data: IndicatorValue,
-    onValueChange: (id: string, value: any) => void,
+    onValueChange: (id: string, value: any, contentId?: string) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void,
     criteria: Criterion[],
-    assessmentData: AssessmentValues
+    assessmentData: AssessmentValues,
+    contentId?: string,
 ) => {
     const handleValueChange = (subfield: 'total' | 'provided' | null, value: string) => {
         if (subfield) {
-            onValueChange(indicator.id, { ...(data.value || {}), [subfield]: value });
+            onValueChange(indicator.id, { ...(data.value || {}), [subfield]: value }, contentId);
         } else {
-            onValueChange(indicator.id, value);
+            onValueChange(indicator.id, value, contentId);
         }
     };
 
     const handleRadioChange = (val: string) => {
-        onValueChange(indicator.id, val === 'true');
+        onValueChange(indicator.id, val === 'true', contentId);
     }
 
     const handleCheckboxChange = (option: string, checked: boolean) => {
         const newValue = { ...((data.value as object) || {}), [option]: checked };
-        onValueChange(indicator.id, newValue);
+        onValueChange(indicator.id, newValue, contentId);
     };
 
     if (checkboxOptions) {
@@ -1038,6 +1053,8 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
                 ) : {},
                  // SỬA LỖI Ở ĐÂY: Chuyển undefined thành null
                  communeDefinedDocuments: indicatorData.communeDefinedDocuments || null,
+                 contentResults: indicatorData.contentResults || {},
+                 meta: indicatorData.meta || {}
             };
         }
     }
@@ -1073,9 +1090,24 @@ export default function SelfAssessmentPage() {
       const initialState: AssessmentValues = {};
       criteria.forEach(criterion => {
           (criterion.indicators || []).forEach(indicator => {
-              const processIndicator = (sub: Indicator | SubIndicator) => {
-                  const saved = existingData?.[sub.id];
-                  initialState[sub.id] = {
+              const processIndicator = (ind: Indicator | SubIndicator | Content) => {
+                  const saved = existingData?.[ind.id];
+                  const savedContentResults = saved?.contentResults || {};
+                  
+                  const contentResults: AssessmentValues[string]['contentResults'] = {};
+                  if (indicator.contents) {
+                      indicator.contents.forEach(content => {
+                          const savedContent = savedContentResults[content.id]
+                          contentResults[content.id] = {
+                              value: savedContent?.value ?? '',
+                              files: savedContent?.files ?? [],
+                              status: savedContent?.status ?? 'pending',
+                              note: savedContent?.note ?? '',
+                          }
+                      })
+                  }
+
+                  initialState[ind.id] = {
                       isTasked: saved?.isTasked ?? null,
                       value: saved?.value ?? '',
                       files: saved?.files ?? [],
@@ -1085,25 +1117,16 @@ export default function SelfAssessmentPage() {
                       adminNote: saved?.adminNote ?? '',
                       communeNote: saved?.communeNote ?? '',
                       communeDefinedDocuments: saved?.communeDefinedDocuments ?? [],
+                      contentResults,
+                      meta: saved?.meta || {}
                   };
               };
+              
+              processIndicator(indicator);
 
+              // Initialize sub-indicators (legacy)
               if (indicator.subIndicators && indicator.subIndicators.length > 0) {
-                  // For parent indicators, status should be calculated, not stored.
-                  // Initialize it as pending, it will be recalculated.
-                  const savedParent = existingData?.[indicator.id];
-                   initialState[indicator.id] = {
-                      isTasked: null, // Parent indicators don't have isTasked
-                      value: '', // Or some aggregated value if needed, but likely not
-                      files: [], // Parent indicators don't have files directly
-                      note: savedParent?.note ?? '',
-                      status: 'pending', // Will be recalculated
-                      adminNote: savedParent?.adminNote ?? '',
-                      communeNote: savedParent?.communeNote ?? '',
-                   };
                   indicator.subIndicators.forEach(processIndicator);
-              } else {
-                  processIndicator(indicator);
               }
           });
       });
@@ -1126,7 +1149,7 @@ export default function SelfAssessmentPage() {
 
   const specialLogicIndicatorIds = React.useMemo(() => getSpecialLogicIndicatorIds(criteria), [criteria]);
 
-  const findIndicator = useCallback((indicatorId: string): Indicator | SubIndicator | null => {
+  const findIndicator = useCallback((indicatorId: string): Indicator | SubIndicator | Content | null => {
     for (const c of criteria) {
         for (const i of (c.indicators || [])) {
             if (i.id === indicatorId) return i;
@@ -1134,35 +1157,48 @@ export default function SelfAssessmentPage() {
                 const sub = i.subIndicators.find(si => si.id === indicatorId);
                 if (sub) return sub;
             }
+            if (i.contents) {
+                 const content = i.contents.find(co => co.id === indicatorId);
+                 if (content) return content;
+            }
         }
     }
     return null;
 }, [criteria]);
 
-// Function to calculate parent indicator status
-const calculateParentIndicatorStatus = (parentIndicator: Indicator, currentData: AssessmentValues): AssessmentStatus => {
-    if (!parentIndicator.subIndicators || parentIndicator.subIndicators.length === 0) {
-        // This should not happen if called correctly, but as a safeguard:
-        return currentData[parentIndicator.id]?.status || 'pending';
-    }
-
-    let hasPending = false;
-    for (const sub of parentIndicator.subIndicators) {
-        const subStatus = currentData[sub.id]?.status;
-        if (subStatus === 'not-achieved') {
-            return 'not-achieved'; // Immediate failure
+    const evaluateIndicatorByPassRule = (indicator: Indicator, contentResults: AssessmentValues[string]['contentResults']): AssessmentStatus => {
+        if (!indicator.contents || indicator.contents.length === 0 || !contentResults) {
+            return 'pending'; // Should not happen if called correctly
         }
-        if (subStatus === 'pending') {
-            hasPending = true;
+
+        const passRule = indicator.passRule || { type: 'all' };
+        const totalContents = indicator.contents.length;
+        let metCount = 0;
+        let hasPending = false;
+
+        for (const content of indicator.contents) {
+            const result = contentResults[content.id];
+            if (!result || result.status === 'pending') {
+                hasPending = true;
+            } else if (result.status === 'achieved') {
+                metCount++;
+            }
         }
-    }
+        
+        if (hasPending) return 'pending';
 
-    if (hasPending) {
-        return 'pending';
-    }
-
-    return 'achieved';
-};
+        switch (passRule.type) {
+            case 'all':
+                return metCount === totalContents ? 'achieved' : 'not-achieved';
+            case 'atLeast':
+                return metCount >= (passRule.minCount || 1) ? 'achieved' : 'not-achieved';
+            case 'percentage':
+                 const percentage = (metCount / totalContents) * 100;
+                return percentage >= (passRule.minPercent || 100) ? 'achieved' : 'not-achieved';
+            default:
+                return 'pending';
+        }
+    };
 
 
 const handleIsTaskedChange = useCallback((indicatorId: string, isTasked: boolean) => {
@@ -1197,10 +1233,9 @@ const handleIsTaskedChange = useCallback((indicatorId: string, isTasked: boolean
             }
         };
 
-        // After updating the sub-indicator, check if we need to update the parent
         const parentIndicator = criteria.flatMap(c => c.indicators).find(i => i.subIndicators?.some(si => si.id === indicatorId));
         if (parentIndicator) {
-            const newParentStatus = calculateParentIndicatorStatus(parentIndicator, newData);
+            const newParentStatus = evaluateIndicatorByPassRule(parentIndicator, newData[parentIndicator.id].contentResults || {});
             newData[parentIndicator.id] = {
                 ...newData[parentIndicator.id],
                 status: newParentStatus,
@@ -1211,42 +1246,53 @@ const handleIsTaskedChange = useCallback((indicatorId: string, isTasked: boolean
     });
 }, [criteria, findIndicator]);
 
-const handleValueChange = useCallback((indicatorId: string, value: any) => {
+const handleValueChange = useCallback((indicatorId: string, value: any, contentId?: string) => {
     setAssessmentData(prev => {
-        const indicator = findIndicator(indicatorId);
+        const indicator = findIndicator(indicatorId) as Indicator | null;
         if (!indicator) return prev;
 
-        const isTasked = prev[indicatorId].isTasked;
-        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
+        const newData = { ...prev };
+        
+        if (contentId) { // Updating a content item within an indicator
+            const content = indicator.contents?.find(c => c.id === contentId);
+            if (!content) return prev;
+            
+            const newContentStatus = evaluateStatus(value, content.standardLevel, true);
+            const contentResults = { ...(newData[indicatorId].contentResults || {}) };
+            contentResults[contentId] = {
+                ...(contentResults[contentId] || { files: [], note: '' }),
+                value: value,
+                status: newContentStatus,
+            };
 
-        let assignedCount;
-        if (parentCriterion?.id === 'TC01') {
-            const tc1Data = prev[parentCriterion.indicators[0].id];
-            assignedCount = parentCriterion.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
-        } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
-             const tc1Data = prev[criteria[0].indicators[0].id];
-             assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
-        }
+            const newIndicatorStatus = evaluateIndicatorByPassRule(indicator, contentResults);
+            
+            newData[indicatorId] = {
+                ...newData[indicatorId],
+                contentResults: contentResults,
+                status: newIndicatorStatus
+            };
 
-        const filesPerDocument = parentCriterion?.id === 'TC01' ? prev[indicatorId].filesPerDocument : undefined;
-        const newStatus = evaluateStatus(value, indicator.standardLevel, isTasked, assignedCount, filesPerDocument);
+        } else { // Updating a simple indicator
+            const isTasked = prev[indicatorId].isTasked;
+            const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
 
-        const newData = {
-            ...prev,
-            [indicatorId]: {
-                ...prev[indicatorId],
+            let assignedCount;
+            if (parentCriterion?.id === 'TC01') {
+                const tc1Data = prev[parentCriterion.indicators[0].id];
+                assignedCount = parentCriterion.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+            } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
+                 const tc1Data = prev[criteria[0].indicators[0].id];
+                 assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+            }
+
+            const filesPerDocument = parentCriterion?.id === 'TC01' ? prev[indicatorId].filesPerDocument : undefined;
+            const newStatus = evaluateStatus(value, indicator.standardLevel, isTasked, assignedCount, filesPerDocument);
+
+            newData[indicatorId] = {
+                ...newData[indicatorId],
                 value: value,
                 status: newStatus
-            }
-        };
-
-        // After updating the sub-indicator, check if we need to update the parent
-        const parentIndicator = criteria.flatMap(c => c.indicators).find(i => i.subIndicators?.some(si => si.id === indicatorId));
-        if (parentIndicator) {
-            const newParentStatus = calculateParentIndicatorStatus(parentIndicator, newData);
-            newData[parentIndicator.id] = {
-                ...newData[parentIndicator.id],
-                status: newParentStatus,
             };
         }
 
@@ -1264,57 +1310,64 @@ const handleCommuneDocsChange = useCallback((indicatorId: string, docs: any[]) =
     }));
 }, []);
 
-const handleNoteChange = useCallback((indicatorId: string, note: string) => {
-    setAssessmentData(prev => ({
-        ...prev,
-        [indicatorId]: {
-            ...prev[indicatorId],
-            note: note,
+const handleNoteChange = useCallback((indicatorId: string, note: string, contentId?: string) => {
+    setAssessmentData(prev => {
+        const newData = { ...prev };
+        if (contentId) {
+             const contentResults = { ...(newData[indicatorId].contentResults || {}) };
+             if(contentResults[contentId]) {
+                 contentResults[contentId].note = note;
+                 newData[indicatorId] = { ...newData[indicatorId], contentResults };
+             }
+        } else {
+            newData[indicatorId] = {
+                ...newData[indicatorId],
+                note: note,
+            };
         }
-    }));
+        return newData;
+    });
 }, []);
 
-const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
-    // Luồng xử lý khi XÓA một file
-    if (fileToRemove) {
-        setAssessmentData(prev => {
-            const newData = { ...prev };
-            const currentIndicatorData = newData[indicatorId];
-            if (!currentIndicatorData) return prev;
+const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus, contentId?: string) => {
+    setAssessmentData(prev => {
+        const newData = { ...prev };
+        const indicatorData = { ...newData[indicatorId] };
+        
+        let fileList: FileWithStatus[];
 
-            // Xóa file khỏi danh sách trong trạng thái tạm thời (React state)
-            if (docIndex !== undefined) { // Dành cho Tiêu chí 1
-                const newFilesPerDoc = { ...currentIndicatorData.filesPerDocument };
-                newFilesPerDoc[docIndex] = (newFilesPerDoc[docIndex] || []).filter(f =>
-                    (f instanceof File && fileToRemove instanceof File && f.name !== fileToRemove.name) ||
-                    (! (f instanceof File) && ! (fileToRemove instanceof File) && f.url !== fileToRemove.url)
-                );
-                newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
-            } else { // Dành cho các chỉ tiêu khác
-                 newData[indicatorId] = { ...currentIndicatorData, files: currentIndicatorData.files.filter(f => f.name !== fileToRemove.name) };
-            }
-            return newData;
-        });
+        if (contentId) {
+            const contentResults = { ...(indicatorData.contentResults || {}) };
+            const contentData = { ...(contentResults[contentId] || { files: [], status: 'pending', value: null }) };
+            fileList = [...(contentData.files || [])];
+        } else if (docIndex !== undefined) {
+             const filesPerDoc = { ...(indicatorData.filesPerDocument || {}) };
+             fileList = [...(filesPerDoc[docIndex] || [])];
+        } else {
+            fileList = [...(indicatorData.files || [])];
+        }
 
-        // QUAN TRỌNG: Không còn lệnh gọi xóa file trực tiếp khỏi Storage ở đây.
-        // Backend sẽ tự động lo việc này.
+        if (fileToRemove) {
+            fileList = fileList.filter(f => f.name !== fileToRemove.name);
+        } else {
+            fileList.push(...newFiles);
+        }
 
-    } else { // Luồng xử lý khi THÊM một file
-        setAssessmentData(prev => {
-             const newData = { ...prev };
-             const currentIndicatorData = newData[indicatorId];
-             if (!currentIndicatorData) return prev;
+        if (contentId) {
+             const contentResults = { ...(indicatorData.contentResults || {}) };
+             contentResults[contentId] = { ...(contentResults[contentId] || { status: 'pending', value: null }), files: fileList };
+             indicatorData.contentResults = contentResults;
+        } else if (docIndex !== undefined) {
+            const filesPerDoc = { ...(indicatorData.filesPerDocument || {}) };
+            filesPerDoc[docIndex] = fileList;
+            indicatorData.filesPerDocument = filesPerDoc;
+        } else {
+            indicatorData.files = fileList;
+        }
 
-             if (docIndex !== undefined) {
-                 const newFilesPerDoc = { ...currentIndicatorData.filesPerDocument };
-                 newFilesPerDoc[docIndex] = [...(newFilesPerDoc[docIndex] || []), ...newFiles];
-                 newData[indicatorId] = { ...currentIndicatorData, filesPerDocument: newFilesPerDoc };
-             } else {
-                 newData[indicatorId] = { ...currentIndicatorData, files: [...(currentIndicatorData.files || []), ...newFiles] };
-             }
-             return newData;
-        });
-    }
+        newData[indicatorId] = indicatorData;
+        return newData;
+    });
 }, []);
 
 
@@ -1335,22 +1388,26 @@ const handleSaveDraft = useCallback(async () => {
             const indicatorState = assessmentData[indicatorId];
 
             // Hàm xử lý chung cho một danh sách file
-            const processFileList = (files: any[], docIndex?: number) => {
+            const processFileList = (files: any[], docIndex?: number, contentId?: string) => {
                 files.forEach((file, fileIndex) => {
                     // Chỉ xử lý những file thực sự là đối tượng File (chưa được tải lên)
                     if (file instanceof File) {
                         const promise = async () => {
                             try {
-                                const filePath = docIndex !== undefined
-                                    ? `hoso/${currentUser.communeId}/evidence/${activePeriod.id}/${indicatorId}/${docIndex}/${file.name}`
-                                    : `hoso/${currentUser.communeId}/evidence/${activePeriod.id}/${indicatorId}/${file.name}`;
-
+                                 const filePath = contentId
+                                    ? `hoso/${currentUser.communeId}/evidence/${activePeriod.id}/${indicatorId}/${contentId}/${file.name}`
+                                    : docIndex !== undefined
+                                        ? `hoso/${currentUser.communeId}/evidence/${activePeriod.id}/${indicatorId}/${docIndex}/${file.name}`
+                                        : `hoso/${currentUser.communeId}/evidence/${activePeriod.id}/${indicatorId}/${file.name}`;
+                                
                                 const storageRef = ref(storage, filePath);
                                 const snapshot = await uploadBytes(storageRef, file);
                                 const downloadURL = await getDownloadURL(snapshot.ref);
 
                                 // Cập nhật URL vào bản sao dữ liệu
-                                if (docIndex !== undefined) {
+                                if (contentId) {
+                                    dataToSave[indicatorId].contentResults[contentId].files[fileIndex] = { name: file.name, url: downloadURL };
+                                } else if (docIndex !== undefined) {
                                     dataToSave[indicatorId].filesPerDocument[docIndex][fileIndex] = { name: file.name, url: downloadURL };
                                 } else {
                                     dataToSave[indicatorId].files[fileIndex] = { name: file.name, url: downloadURL };
@@ -1365,18 +1422,26 @@ const handleSaveDraft = useCallback(async () => {
                     }
                 });
             };
-
-            // Xử lý mảng files chính
-            if (indicatorState.files) {
-                processFileList(indicatorState.files);
-            }
-
+            
             // Xử lý filesPerDocument (Tiêu chí 1)
             if (indicatorState.filesPerDocument) {
                 for (const docIndex in indicatorState.filesPerDocument) {
                     processFileList(indicatorState.filesPerDocument[docIndex], Number(docIndex));
                 }
             }
+            
+            // Xử lý contentResults
+            if (indicatorState.contentResults) {
+                for (const contentId in indicatorState.contentResults) {
+                     processFileList(indicatorState.contentResults[contentId].files, undefined, contentId);
+                }
+            }
+
+            // Xử lý mảng files chính (cho các chỉ tiêu đơn giản)
+            if (indicatorState.files && !indicatorState.contentResults) {
+                processFileList(indicatorState.files);
+            }
+
         }
 
         // Đợi tất cả các file mới tải lên hoàn tất
@@ -1403,10 +1468,10 @@ const handleSaveDraft = useCallback(async () => {
     } catch (error) {
         console.error("Lỗi khi lưu nháp:", error);
         savingToast.dismiss(); // Đóng thông báo đang lưu
-        toast({
-            variant: 'destructive',
-            title: 'Lỗi khi lưu nháp',
-            description: 'Đã xảy ra lỗi khi tải tệp hoặc lưu dữ liệu.'
+        toast({ 
+            variant: 'destructive', 
+            title: 'Lỗi khi lưu nháp', 
+            description: 'Đã xảy ra lỗi khi tải tệp hoặc lưu dữ liệu.' 
         });
     } finally {
         setIsSubmitting(false);
@@ -1415,8 +1480,9 @@ const handleSaveDraft = useCallback(async () => {
 
   useEffect(() => {
     const hasUnsavedFiles = Object.values(assessmentData).some(indicator =>
-        indicator.files.some(f => f instanceof File) ||
-        (indicator.filesPerDocument && Object.values(indicator.filesPerDocument).some(list => list.some(f => f instanceof File)))
+        (indicator.files || []).some(f => f instanceof File) ||
+        (indicator.filesPerDocument && Object.values(indicator.filesPerDocument).some(list => list.some(f => f instanceof File))) ||
+        (indicator.contentResults && Object.values(indicator.contentResults).some(res => (res.files || []).some(f => f instanceof File)))
     );
 
     if (hasUnsavedFiles) {
@@ -1430,40 +1496,53 @@ const handleSaveDraft = useCallback(async () => {
 
   const { canSubmit, submissionErrors } = useMemo(() => {
     const errors: string[] = [];
-    let allIndicatorsAssessed = true;
+    let allItemsAssessed = true;
 
     for (const id in assessmentData) {
         const data = assessmentData[id];
-        const indicator = findIndicator(id);
+        const indicator = findIndicator(id) as Indicator;
         if (!indicator) continue;
-
-        if (data.status === 'pending') {
-            allIndicatorsAssessed = false;
-        }
-
-        if (data.status !== 'pending' && data.isTasked !== false) {
+        
+        // Function to check evidence for a given item (indicator or content)
+        const checkEvidence = (itemData: any, itemName: string, isCriterion1: boolean) => {
+            if (itemData.status !== 'pending' && itemData.isTasked !== false) {
+                 if (isCriterion1) {
+                    const assignedDocsCount = (criteria.find(c=>c.id === 'TC01') as Criterion).assignedDocumentsCount || itemData.communeDefinedDocuments?.length || 0;
+                    if (assignedDocsCount > 0 && Number(itemData.value) > 0) {
+                        const docIndicesWithMissingFiles = Array.from({length: Number(itemData.value)}, (_, i) => i)
+                           .filter(i => (itemData.filesPerDocument?.[i] || []).length === 0);
+                        if (docIndicesWithMissingFiles.length > 0) {
+                            errors.push(`Chỉ tiêu "${itemName}" yêu cầu minh chứng cho mỗi văn bản đã ban hành.`);
+                        }
+                    }
+                 } else if ((itemData.files || []).length === 0) {
+                    errors.push(`Mục "${itemName}" yêu cầu minh chứng.`);
+                 }
+            }
+        };
+        
+        if (indicator.contents && indicator.contents.length > 0) {
+            // Indicator with contents
+            if(data.status === 'pending') allItemsAssessed = false;
+            
+            for(const content of indicator.contents) {
+                const contentResult = data.contentResults?.[content.id];
+                if (!contentResult || contentResult.status === 'pending') {
+                    allItemsAssessed = false;
+                }
+                checkEvidence(contentResult || { status: 'pending'}, content.name, false);
+            }
+        } else {
+             // Simple indicator or sub-indicator
+            if (data.status === 'pending') allItemsAssessed = false;
             const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === id || (i.subIndicators && i.subIndicators.some(si => si.id === id))));
             const isCriterion1 = parentCriterion?.id === 'TC01';
-
-            if (isCriterion1) {
-                 const assignedDocsCount = parentCriterion.assignedDocumentsCount || data.communeDefinedDocuments?.length || 0;
-                 if (assignedDocsCount > 0 && Number(data.value) > 0) {
-                     const docIndicesWithMissingFiles = Array.from({length: Number(data.value)}, (_, i) => i)
-                        .filter(i => (data.filesPerDocument?.[i] || []).length === 0);
-                     if (docIndicesWithMissingFiles.length > 0) {
-                         errors.push(`Chỉ tiêu "${indicator.name}" yêu cầu minh chứng cho mỗi văn bản đã ban hành.`);
-                     }
-                 }
-            } else {
-                if (data.files.length === 0) {
-                    errors.push(`Chỉ tiêu "${indicator.name}" yêu cầu minh chứng.`);
-                }
-            }
+            checkEvidence(data, indicator.name, isCriterion1);
         }
     }
 
-    if (!allIndicatorsAssessed) {
-        errors.push("Bạn phải hoàn thành việc chấm điểm cho tất cả các chỉ tiêu.");
+    if (!allItemsAssessed) {
+        errors.push("Bạn phải hoàn thành việc chấm điểm cho tất cả các chỉ tiêu/nội dung.");
     }
 
     return { canSubmit: errors.length === 0, submissionErrors: [...new Set(errors)] };
@@ -1531,24 +1610,20 @@ const handleSaveDraft = useCallback(async () => {
 
     // Duyệt qua tất cả các chỉ tiêu và chỉ tiêu con để tìm trạng thái ưu tiên cao nhất
     for (const indicator of criterion.indicators) {
-        const indicatorsToCheck = indicator.subIndicators?.length > 0 ? indicator.subIndicators : [indicator];
+        // Nếu một chỉ tiêu chưa có dữ liệu, toàn bộ tiêu chí là 'pending'
+        if (!assessmentData[indicator.id] || !assessmentData[indicator.id].status) {
+            return 'pending';
+        }
+        
+        const status = assessmentData[indicator.id].status;
+        
+        // Nếu có bất kỳ chỉ tiêu nào 'không đạt', toàn bộ tiêu chí sẽ 'không đạt' ngay lập tức
+        if (status === 'not-achieved') {
+            return 'not-achieved';
+        }
 
-        for (const sub of indicatorsToCheck) {
-            // Nếu một chỉ tiêu chưa có dữ liệu, toàn bộ tiêu chí là 'pending'
-            if (!assessmentData[sub.id] || !assessmentData[sub.id].status) {
-                return 'pending';
-            }
-
-            const status = assessmentData[sub.id].status;
-
-            // Nếu có bất kỳ chỉ tiêu nào 'không đạt', toàn bộ tiêu chí sẽ 'không đạt' ngay lập tức
-            if (status === 'not-achieved') {
-                return 'not-achieved';
-            }
-
-            if (status === 'pending') {
-                hasPending = true;
-            }
+        if (status === 'pending') {
+            hasPending = true;
         }
     }
 
@@ -1672,10 +1747,10 @@ const handleSaveDraft = useCallback(async () => {
                                                     )
                                                 }
 
-
                                                 return (
                                                     <div key={indicator.id} className={indicatorBlockClasses}>
-                                                        {(!indicator.subIndicators || indicator.subIndicators.length === 0) ? (
+                                                        {(!indicator.contents || indicator.contents.length === 0) ? (
+                                                            // Fallback to old rendering
                                                             <IndicatorAssessment
                                                                 specialIndicatorIds={specialLogicIndicatorIds}
                                                                 specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
@@ -1692,10 +1767,12 @@ const handleSaveDraft = useCallback(async () => {
                                                                 assessmentData={assessmentData}
                                                             />
                                                         ) : (
+                                                            // New rendering for indicator with contents
                                                             <>
                                                                 <div className="flex items-center gap-2">
                                                                     <StatusBadge status={assessmentData[indicator.id]?.status} />
                                                                     <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
+                                                                    {/* Optional: Add meta info display */}
                                                                 </div>
                                                                  <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
                                                                     <div className="flex items-start gap-2 text-blue-800">
@@ -1704,29 +1781,30 @@ const handleSaveDraft = useCallback(async () => {
                                                                     </div>
                                                                 </div>
                                                                 <div className="mt-4 pl-6 space-y-6 border-l-2 border-dashed">
-                                                                  {(indicator.subIndicators || []).map(sub => {
-                                                                        if (!assessmentData[sub.id]) return null;
-                                                                        const subStatus = assessmentData[sub.id]?.status;
+                                                                  {(indicator.contents || []).map(content => {
+                                                                        const contentData = assessmentData[indicator.id]?.contentResults?.[content.id];
+                                                                        if (!contentData) return null;
+                                                                        
                                                                         const subBlockClasses = cn(
                                                                             "relative pl-6 transition-colors rounded-r-lg py-4",
-                                                                             subStatus === 'achieved' && 'bg-green-50',
-                                                                             subStatus === 'not-achieved' && 'bg-red-50',
-                                                                             subStatus === 'pending' && 'bg-amber-50 border-l-amber-200'
+                                                                             contentData.status === 'achieved' && 'bg-green-50',
+                                                                             contentData.status === 'not-achieved' && 'bg-red-50',
+                                                                             contentData.status === 'pending' && 'bg-amber-50 border-l-amber-200'
                                                                         );
                                                                         return (
-                                                                          <div key={sub.id} className={subBlockClasses}>
+                                                                          <div key={content.id} className={subBlockClasses}>
                                                                               <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
                                                                               <IndicatorAssessment
-                                                                                  specialIndicatorIds={specialLogicIndicatorIds}
-                                                                                  specialLabels={getSpecialIndicatorLabels(sub.id, criteria)}
-                                                                                  customBooleanLabels={getCustomBooleanLabels(sub.id, criteria)}
-                                                                                  checkboxOptions={getCheckboxOptions(sub.id, criteria)}
-                                                                                  indicator={sub}
-                                                                                  data={assessmentData[sub.id]}
-                                                                                  onValueChange={handleValueChange}
-                                                                                  onNoteChange={handleNoteChange}
+                                                                                  specialIndicatorIds={[]}
+                                                                                  specialLabels={{no: 'Không', yes: 'Có'}}
+                                                                                  customBooleanLabels={null}
+                                                                                  checkboxOptions={null}
+                                                                                  indicator={content}
+                                                                                  data={contentData as any}
+                                                                                  onValueChange={(id, value) => handleValueChange(indicator.id, value, content.id)}
+                                                                                  onNoteChange={(id, note) => handleNoteChange(indicator.id, note, content.id)}
                                                                                   onEvidenceChange={handleEvidenceChange}
-                                                                                  onIsTaskedChange={handleIsTaskedChange}
+                                                                                  onIsTaskedChange={() => {}} // N/A for contents
                                                                                   onPreview={handlePreview}
                                                                                   criteria={criteria}
                                                                                   assessmentData={assessmentData}
@@ -1801,3 +1879,5 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
+
+    
