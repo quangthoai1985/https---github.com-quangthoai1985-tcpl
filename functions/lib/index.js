@@ -47,7 +47,7 @@ admin.initializeApp({
     projectId: "chuan-tiep-can-pl",
     storageBucket: "chuan-tiep-can-pl.firebasestorage.app"
 });
-const bucket = admin.storage().bucket("chuan-tiep-can-pl.firebasestorage.app");
+const db = admin.firestore();
 // ===== HÀM SYNC CLAIMS (GIỮ NGUYÊN) =====
 exports.syncUserClaims = (0, firestore_1.onDocumentWritten)({ document: "users/{userId}", region: "asia-east1" }, async (event) => {
     var _a;

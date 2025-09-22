@@ -283,7 +283,7 @@ function translateErrorMessage(englishError: string): string {
 
 
 export const verifyPDFSignature = onObjectFinalized({
-  bucket: "chuan-tiep-can-pl.appspot.com", region: "asia-east1",
+  bucket: "chuan-tiep-can-pl.firebasestorage.app", region: "asia-east1",
 }, async (event) => {
   const fileBucket = event.data.bucket;
   const filePath = event.data.name;
