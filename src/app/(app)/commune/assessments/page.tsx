@@ -1879,5 +1879,3 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
-
-    

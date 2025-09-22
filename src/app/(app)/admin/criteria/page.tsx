@@ -289,6 +289,10 @@ function IndicatorContentConfig({ indicator, onIndicatorChange }: { indicator: I
                                 <Label htmlFor={`content-standard-${index}`} className="text-xs">Yêu cầu đạt chuẩn</Label>
                                 <Input id={`content-standard-${index}`} value={content.standardLevel} onChange={(e) => handleContentChange(index, 'standardLevel', e.target.value)} />
                             </div>
+                             <div className="md:col-span-2 grid gap-1.5">
+                                <Label htmlFor={`content-evidence-${index}`} className="text-xs">Yêu cầu hồ sơ minh chứng</Label>
+                                <Textarea id={`content-evidence-${index}`} value={content.evidenceRequirement || ''} onChange={(e) => handleContentChange(index, 'evidenceRequirement', e.target.value)} rows={2} placeholder="Ví dụ: Quyết định, Kế hoạch, Báo cáo..."/>
+                            </div>
                         </div>
                     </div>
                 ))}
@@ -362,32 +366,6 @@ function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: 
           <Textarea id="description" value={formData.description || ''} onChange={handleChange} className="col-span-3" />
         </div>
         
-        {isSubIndicator && (
-            <>
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="standardLevel" className="text-right">Yêu cầu đạt chuẩn</Label>
-                    <Input id="standardLevel" value={formData.standardLevel || ''} onChange={handleChange} className="col-span-3" placeholder="Ví dụ: '>=2', 'Đạt', '100%'"/>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="inputType" className="text-right">Loại dữ liệu đầu vào</Label>
-                    <Select value={formData.inputType} onValueChange={(value) => setFormData(prev => ({ ...prev, inputType: value as Indicator['inputType'] }))}>
-                        <SelectTrigger className="col-span-3">
-                        <SelectValue placeholder="Chọn loại dữ liệu" />
-                        </SelectTrigger>
-                        <SelectContent>
-                        <SelectItem value="boolean">Lựa chọn Đạt/Không đạt</SelectItem>
-                        <SelectItem value="select">Lựa chọn nhiều mục</SelectItem>
-                        <SelectItem value="number">Nhập liệu số</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
-                 <div className="grid grid-cols-4 items-start gap-4">
-                    <Label htmlFor="evidenceRequirement" className="text-right pt-2">Yêu cầu hồ sơ minh chứng</Label>
-                    <Textarea id="evidenceRequirement" value={formData.evidenceRequirement || ''} onChange={handleChange} className="col-span-3" />
-                </div>
-            </>
-        )}
-
         {!isSubIndicator && (
             <IndicatorContentConfig indicator={formData} onIndicatorChange={handleIndicatorChange} />
         )}
@@ -526,7 +504,7 @@ export default function CriteriaManagementPage() {
             description: subIndicatorToSave.description || "",
             standardLevel: subIndicatorToSave.standardLevel || "",
             inputType: (subIndicatorToSave as Indicator).inputType || "boolean",
-            evidenceRequirement: (subIndicatorToSave as Indicator).evidenceRequirement || "",
+            evidenceRequirement: subIndicatorToSave.evidenceRequirement || "",
         };
 
         newCriteria = criteria.map(c => {
@@ -726,10 +704,3 @@ export default function CriteriaManagementPage() {
     </>
   );
 }
-
-
-    
-
-    
-
-

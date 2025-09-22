@@ -79,7 +79,7 @@ export type Content = {
   description: string;
   standardLevel: string;
   inputType: 'number' | 'boolean' | 'select';
-  evidenceRequirement: string;
+  evidenceRequirement?: string;
 };
 
 
