@@ -1,18 +1,11 @@
-
 [
   {
     "origin": [
-      "https://chuan-tiep-can-pl--chuan-tiep-can-pl.asia-east1.hosted.app",
-      "https://chuan-tiep-can-pl--chuan-tiep-can-pl.asia-east1.web.app",
-      "http://localhost:3000",
-      "http://localhost:9002"
+      "https://chuan-tiep-can-pl.web.app",
+      "https://chuan-tiep-can-pl--chuan-tiep-can-pl.asia-east1.hosted.app"
     ],
-    "method": ["GET", "PUT", "POST", "DELETE", "HEAD"],
-    "responseHeader": [
-      "Content-Type",
-      "Authorization",
-      "X-Goog-Resumable"
-    ],
+    "method": ["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS"],
+    "responseHeader": ["Content-Type", "Authorization"],
     "maxAgeSeconds": 3600
   }
 ]
