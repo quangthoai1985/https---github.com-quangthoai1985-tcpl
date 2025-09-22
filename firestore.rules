@@ -3,114 +3,61 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user is an admin
+    // Helper functions
     function isAdmin() {
       return request.auth.token.role == 'admin';
     }
 
-    // Helper function to check if the user is a commune staff member
-    function isCommuneStaff() {
-      return request.auth.token.role == 'commune_staff';
+    function isOwner(communeId) {
+      return request.auth.token.communeId == communeId;
     }
 
-    // Helper function to check if the user is authenticated
-    function isSignedIn() {
+    function isAuthenticated() {
       return request.auth != null;
     }
 
-    // =============================================================
-    // Rule: /users/{userId}
-    // Admin: Can read/write any user document.
-    // Commune Staff: Can only read/update their own document.
-    // =============================================================
+    // Rules for each collection
     match /users/{userId} {
-      allow read, update: if isAdmin() || request.auth.uid == userId;
-      allow create, delete: if isAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
-    
-    // =============================================================
-    // Rule: /units/{unitId}
-    // Admin: Can read/write any unit.
-    // Commune Staff: Can only read.
-    // =============================================================
+
     match /units/{unitId} {
-        allow read: if isSignedIn();
-        allow write: if isAdmin();
-    }
-    
-    // =============================================================
-    // Rule: /assessmentPeriods/{periodId}
-    // Admin: Can read/write.
-    // Commune Staff: Can only read.
-    // =============================================================
-    match /assessmentPeriods/{periodId} {
-      allow read: if isSignedIn();
+      allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
-    // =============================================================
-    // Rule: /criteria/{criterionId}
-    // Admin: Can read/write.
-    // Commune Staff: Can only read.
-    // New fields `contents` and `passRule` are allowed.
-    // =============================================================
     match /criteria/{criterionId} {
-      allow read: if isSignedIn();
+      allow read: if isAuthenticated();
       allow write: if isAdmin();
-      
-      // Allow new fields for N-of-M rule
-      match /indicators/{indicatorId} {
-        allow read, write: if isAdmin();
-        // This is a simplified rule. For stricter validation:
-        // allow write: if isAdmin() && request.resource.data.keys().hasAll(['contents', 'passRule']);
-      }
     }
 
-    // =============================================================
-    // Rule: /assessments/{assessmentId}
-    // Admin: Can read/write any assessment.
-    // Commune Staff: Can only read/write assessments linked to their communeId.
-    // New fields `contentResults` and `meta` are allowed.
-    // =============================================================
-    match /assessments/{assessmentId} {
-      allow read, update: if isAdmin() || (isCommuneStaff() && request.auth.token.communeId == resource.data.communeId);
-      allow create: if isCommuneStaff();
-      allow delete: if isAdmin();
-      
-      // Allow new fields for content-level results
-       match /assessmentData/{indicatorId} {
-          allow read, write: if isAdmin() || (isCommuneStaff() && request.auth.token.communeId == get(/databases/$(database)/documents/assessments/$(assessmentId)).data.communeId);
-          // Simplified rule for new fields.
-       }
+    match /assessmentPeriods/{periodId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
-    
-    // =============================================================
-    // Rule: /guidanceDocuments/{docId}
-    // All signed-in users can read. Only admins can write.
-    // =============================================================
+
     match /guidanceDocuments/{docId} {
-        allow read: if isSignedIn();
-        allow write: if isAdmin();
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
     }
     
-    // =============================================================
-    // Rule: /configurations/{configId}
-    // All users (even unauthenticated) can read loginPage config.
-    // Only admins can write.
-    // =============================================================
     match /configurations/{configId} {
-        allow read: if configId == 'loginPage';
-        allow write: if isAdmin();
+      allow read: if true; // Publicly readable for login page
+      allow write: if isAdmin();
+    }
+
+    match /assessments/{assessmentId} {
+      allow read: if isAdmin() || isOwner(resource.data.communeId);
+      allow create: if isOwner(request.resource.data.communeId);
+      allow update: if isAdmin() || isOwner(request.resource.data.communeId);
+      allow delete: if isAdmin();
     }
     
-    // =============================================================
-    // Rule: /signature_checks/{checkId}
-    // This collection is written to by Cloud Functions.
-    // We allow read access for admins for debugging purposes.
-    // =============================================================
-     match /signature_checks/{checkId} {
-        allow read: if isAdmin();
-        allow write: if false; // Only backend can write
+    match /signature_checks/{checkId} {
+      // Only backend functions can write. Admins can read for debugging.
+      allow read: if isAdmin();
+      allow write: if false; // Prevent client-side writes
     }
   }
 }

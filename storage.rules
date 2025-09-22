@@ -2,44 +2,57 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
-
-    // QUY TẮC CHUNG CHO CÁC THƯ MỤC VÀ TÀI LIỆU CHUNG
-
-    // Thư mục cấu hình chung (logo, ảnh nền,...)
-    // - Ai cũng có thể đọc.
-    // - Chỉ admin mới có thể ghi.
-    match /config/{path=**} {
-      allow read;
-      allow write: if request.auth != null && request.auth.token.role == 'admin';
+  
+    // Helper functions
+    function isAdmin() {
+      return request.auth.token.role == 'admin';
+    }
+    
+    function isOwner(communeId) {
+        return request.auth.token.communeId == communeId;
+    }
+    
+    function isAuthenticated() {
+      return request.auth != null;
     }
 
-    // Thư mục văn bản hướng dẫn
-    // - Người dùng đăng nhập có thể đọc.
-    // - Chỉ admin mới có thể ghi.
-    match /guidance_documents/{path=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.token.role == 'admin';
+    // Allow admins to access everything
+    match /{allPaths=**} {
+        allow read, write: if isAdmin();
     }
 
-    // QUY TẮC RIÊNG CHO THƯ MỤC HỒ SƠ CỦA CÁC XÃ
-    match /hoso/{communeId}/{path=**} {
-      
-      // ĐIỀU KIỆN ĐỌC (READ)
-      // - Admin được đọc tất cả.
-      // - Cán bộ xã được đọc hồ sơ của chính xã mình.
-      allow read;
-
-      // ĐIỀU KIỆN GHI (WRITE: create, update, delete)
-      // Cán bộ xã có thể ghi vào thư mục của mình, miễn là file nhỏ hơn 5MB
-      allow write: if request.auth != null && 
-        request.auth.token.communeId == communeId &&
-        request.resource.size < 5 * 1024 * 1024;
+    // Rules for guidance documents and configurations (e.g., logos, background)
+    match /guidance_documents/{allPaths=**} {
+        allow read: if isAuthenticated();
+        // Write access already covered by admin rule above
     }
-     
-     // QUY TẮC RIÊNG CHO THƯ MỤC ANNOUNCEMENTS CỦA ADMIN
-     match /hoso/{communeId}/announcements/{path=**} {
-        allow read: if true; // Publicly readable
-        allow write: if request.auth != null && request.auth.token.role == 'admin';
-     }
+    
+    match /config/{allPaths=**} {
+        allow read: if true; // Publicly readable for login page
+        // Write access already covered by admin rule above
+    }
+    
+    // Rules for assessment evidence files
+    match /hoso/{communeId}/{allPaths=**} {
+        // Allow read only by the owner of the folder or an admin
+        allow read: if isOwner(communeId);
+        
+        // Allow write only by the owner of the folder, with file size constraints
+        allow write: if isOwner(communeId) && request.resource.size < 5 * 1024 * 1024; // Limit to 5MB
+    }
+    
+    // Rules for registration forms
+    match /hoso/{communeId}/registration/{allPaths=**} {
+       allow read: if isOwner(communeId);
+       allow write: if isOwner(communeId) && request.resource.size < 5 * 1024 * 1024;
+    }
+
+    // Rules for announcement decisions
+    match /hoso/{communeId}/announcements/{allPaths=**} {
+      // Only admins can upload announcements
+      allow write: if false; // Client-side uploads denied, already covered by admin rule
+      // Anyone authenticated can read the decisions
+      allow read: if isAuthenticated();
+    }
   }
 }
