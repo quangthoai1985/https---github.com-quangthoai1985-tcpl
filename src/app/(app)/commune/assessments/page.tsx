@@ -362,6 +362,10 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                             const data = assessmentData[indicator.id];
                             if (!data) return <div key={indicator.id}>Đang tải...</div>;
 
+                            // Lấy content đầu tiên (và duy nhất) của mỗi chỉ tiêu trong TC1
+                            const content = indicator.contents?.[0];
+                            if (!content) return null; // Bỏ qua nếu chỉ tiêu không có content
+
                             const valueAsNumber = Number(data.value);
                             const progress = assignedCount > 0 && !isNaN(valueAsNumber) ? Math.round((valueAsNumber / assignedCount) * 100) : 0;
                             const progressColor = progress >= 100 ? "bg-green-500" : "bg-yellow-500";
@@ -377,7 +381,19 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                  <div key={indicator.id} className={blockClasses}>
                                     <div className="flex items-center gap-2">
                                       <StatusBadge status={data.status} />
-                                      <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
+                                      {/* Sử dụng tên của content thay vì tên của indicator */}
+                                      <h4 className="font-semibold text-base flex-1">{content.name}</h4>
+                                    </div>
+                                    
+                                     {/* Hiển thị mô tả và yêu cầu từ content */}
+                                     <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
+                                        <div className="flex items-start gap-2 text-blue-800">
+                                            <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                                            <div>
+                                                <p className="text-sm">{content.description}</p>
+                                                <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{content.standardLevel}</span></p>
+                                            </div>
+                                        </div>
                                     </div>
 
                                     <div className="grid gap-2 mt-4">
