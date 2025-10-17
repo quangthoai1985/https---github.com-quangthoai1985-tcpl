@@ -336,9 +336,8 @@ function IndicatorContentConfig({ indicator, onIndicatorChange }: { indicator: I
 }
 
 
-function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: { indicator: Partial<Indicator | Content>, onSave: (indicator: Partial<Indicator | Content>) => void, onCancel: () => void, isSubIndicator?: boolean }) {
+function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Indicator>, onSave: (indicator: Partial<Indicator>) => void, onCancel: () => void }) {
   const [formData, setFormData] = React.useState(indicator as Indicator);
-  const title = isSubIndicator ? 'nội dung' : 'chỉ tiêu';
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { id, value } = e.target;
@@ -352,9 +351,9 @@ function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: 
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{indicator.id ? `Chỉnh sửa ${title}` : `Tạo ${title} mới`}</DialogTitle>
+        <DialogTitle>{indicator.id ? `Chỉnh sửa chỉ tiêu` : `Tạo chỉ tiêu mới`}</DialogTitle>
         <DialogDescription>
-          {indicator.id ? `Cập nhật thông tin chi tiết cho ${title} này.` : `Điền thông tin để tạo ${title} mới.`}
+          {indicator.id ? `Cập nhật thông tin chi tiết cho chỉ tiêu này.` : `Điền thông tin để tạo chỉ tiêu mới.`}
         </DialogDescription>
       </DialogHeader>
       <div className="grid gap-4 py-4 max-h-[70vh] overflow-y-auto pr-6">
@@ -363,9 +362,8 @@ function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: 
           <Textarea id="name" value={formData.name || ''} onChange={handleChange} className="col-span-3" />
         </div>
         
-        {!isSubIndicator && (
-            <IndicatorContentConfig indicator={formData} onIndicatorChange={handleIndicatorChange} />
-        )}
+        <IndicatorContentConfig indicator={formData} onIndicatorChange={handleIndicatorChange} />
+
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Hủy</Button>
@@ -382,9 +380,6 @@ export default function CriteriaManagementPage() {
   const [addingCriterion, setAddingCriterion] = React.useState<boolean>(false);
   const [editingIndicator, setEditingIndicator] = React.useState<{criterionId: string, indicator: Partial<Indicator>} | null>(null);
   const [addingIndicatorTo, setAddingIndicatorTo] = React.useState<string | null>(null);
-  
-  const [editingSubIndicator, setEditingSubIndicator] = React.useState<{criterionId: string, indicatorId: string, subIndicator: Partial<Content>} | null>(null);
-  const [addingSubIndicatorTo, setAddingSubIndicatorTo] = React.useState<{criterionId: string, indicatorId: string} | null>(null);
 
   const { toast } = useToast();
   
@@ -440,10 +435,6 @@ export default function CriteriaManagementPage() {
        const newIndicator: Indicator = {
         id: `CT${Date.now().toString().slice(-6)}`,
         name: indicatorToSave.name || "Chỉ tiêu mới",
-        standardLevel: "", 
-        inputType: "boolean",
-        evidenceRequirement: "",
-        subIndicators: [], // Legacy field
         contents: indicatorToSave.contents || [],
         passRule: indicatorToSave.passRule || { type: 'all' },
       };
@@ -465,67 +456,6 @@ export default function CriteriaManagementPage() {
     }
     handleCancelEditIndicator();
   };
-  
-  const handleAddSubIndicator = (criterionId: string, indicatorId: string) => setAddingSubIndicatorTo({criterionId, indicatorId});
-  const handleEditSubIndicator = (criterionId: string, indicatorId: string, subIndicator: Content) => setEditingSubIndicator({criterionId, indicatorId, subIndicator});
-  const handleCancelEditSubIndicator = () => { setEditingSubIndicator(null); setAddingSubIndicatorTo(null); };
-
-  const handleSaveSubIndicator = async (subIndicatorToSave: Partial<Content>) => {
-      let newCriteria: Criterion[] = [];
-      
-      if (editingSubIndicator) { // Editing existing sub-indicator
-        newCriteria = criteria.map(c => {
-            if (c.id === editingSubIndicator.criterionId) {
-                return {
-                    ...c,
-                    indicators: c.indicators.map(i => {
-                        if (i.id === editingSubIndicator.indicatorId) {
-                            return {
-                                ...i,
-                                subIndicators: (i.subIndicators || []).map(si => si.id === subIndicatorToSave.id ? { ...si, ...subIndicatorToSave} as Content : si)
-                            }
-                        }
-                        return i;
-                    })
-                }
-            }
-            return c;
-        });
-        toast({ title: "Thành công!", description: "Đã cập nhật chỉ tiêu con."});
-
-      } else if (addingSubIndicatorTo) { // Adding new sub-indicator
-        const newSubIndicator: Content = {
-            id: `CTC${Date.now().toString().slice(-6)}`,
-            name: subIndicatorToSave.name || "Chỉ tiêu con mới",
-            description: subIndicatorToSave.description || "",
-            standardLevel: subIndicatorToSave.standardLevel || "",
-            inputType: (subIndicatorToSave as Indicator).inputType || "boolean",
-            evidenceRequirement: subIndicatorToSave.evidenceRequirement || "",
-        };
-
-        newCriteria = criteria.map(c => {
-            if (c.id === addingSubIndicatorTo.criterionId) {
-                return {
-                    ...c,
-                    indicators: c.indicators.map(i => {
-                        if (i.id === addingSubIndicatorTo.indicatorId) {
-                            return { ...i, subIndicators: [...(i.subIndicators || []), newSubIndicator] };
-                        }
-                        return i;
-                    })
-                };
-            }
-            return c;
-        });
-        toast({ title: "Thành công!", description: "Đã thêm chỉ tiêu con mới." });
-      }
-
-      if (newCriteria.length > 0) {
-          await updateCriteria(newCriteria);
-      }
-      handleCancelEditSubIndicator();
-  }
-
 
   return (
     <>
@@ -599,50 +529,6 @@ export default function CriteriaManagementPage() {
                             </DropdownMenu>
                         </div>
                       
-                        {/* Fallback to old subIndicators if contents is empty */}
-                        {(!indicator.contents || indicator.contents.length === 0) && (indicator.subIndicators && indicator.subIndicators.length > 0) && (
-                            <div className="mt-4 pl-6 space-y-4 border-l-2 border-dashed">
-                                {indicator.subIndicators.map(sub => (
-                                    <div key={sub.id} className="grid gap-3 rounded-md border bg-card p-4 shadow-sm relative">
-                                        <CornerDownRight className="absolute -left-9 top-6 h-5 w-5 text-muted-foreground"/>
-                                        <div className="flex justify-between items-start">
-                                            <h5 className="font-semibold text-base flex-1 pr-4">{sub.name}</h5>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className='h-8 w-8 flex-shrink-0'>
-                                                    <MoreHorizontal className="h-4 w-4" />
-                                                </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                                                <DropdownMenuItem onClick={() => handleEditSubIndicator(criterion.id, indicator.id, sub)}>Sửa chỉ tiêu con</DropdownMenuItem>
-                                                <DropdownMenuItem className="text-destructive">
-                                                    Xóa chỉ tiêu con
-                                                </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </div>
-                                        <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md">
-                                           <div className="flex items-start gap-2 text-blue-800">
-                                               <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                                               <div>
-                                                  <p className="text-sm">{sub.description}</p>
-                                                  <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{sub.standardLevel}</span></p>
-                                               </div>
-                                           </div>
-                                        </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm mt-2">
-                                            <div><strong>Loại dữ liệu:</strong> <Badge variant="outline">{sub.inputType}</Badge></div>
-                                        </div>
-                                        <div>
-                                            <p className="font-medium text-sm">Yêu cầu hồ sơ minh chứng:</p>
-                                            <p className="text-sm text-muted-foreground">{sub.evidenceRequirement}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-
                     </div>
                   ))}
                 </div>
@@ -672,19 +558,6 @@ export default function CriteriaManagementPage() {
                     indicator={editingIndicator?.indicator || {}}
                     onSave={handleSaveIndicator}
                     onCancel={handleCancelEditIndicator}
-                />
-            )}
-        </DialogContent>
-    </Dialog>
-    
-    <Dialog open={!!editingSubIndicator || !!addingSubIndicatorTo} onOpenChange={(open) => !open && handleCancelEditSubIndicator()}>
-        <DialogContent className="max-w-2xl">
-            {(editingSubIndicator || addingSubIndicatorTo) && (
-                <IndicatorForm 
-                    indicator={editingSubIndicator?.subIndicator || {}}
-                    onSave={handleSaveSubIndicator}
-                    onCancel={handleCancelEditSubIndicator}
-                    isSubIndicator={true}
                 />
             )}
         </DialogContent>

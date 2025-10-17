@@ -81,18 +81,10 @@ export type Content = {
   inputType: 'number' | 'boolean' | 'select' | 'text'; // Added 'text'
   evidenceRequirement?: string;
 };
-// Legacy alias to maintain backward compatibility while migrating to contents
-export type SubIndicator = Content;
-
-
 
 export type Indicator = {
   id: string;
   name: string;
-  standardLevel: string;
-  inputType: 'number' | 'boolean' | 'select' | 'text';
-  evidenceRequirement: string;
-  subIndicators: Content[]; // Legacy field, to be phased out
   
   // NEW FIELDS FOR N-of-M RULE
   contents?: Content[];
