@@ -20,6 +20,7 @@
     "cleanup:signatures": "GOOGLE_APPLICATION_CREDENTIALS=./service-account-credentials.json tsx src/scripts/cleanup-signature-fields.ts",
     "cleanup:ct1": "GOOGLE_APPLICATION_CREDENTIALS=./service-account-credentials.json tsx src/scripts/cleanup-assessment-ct1.ts",
     "migrate:contents": "GOOGLE_APPLICATION_CREDENTIALS=./service-account-credentials.json tsx src/scripts/migrate-indicator-contents.ts",
+    "cleanup:indicator-desc": "GOOGLE_APPLICATION_CREDENTIALS=./service-account-credentials.json tsx src/scripts/remove-indicator-description.ts",
     "backup": "bash backup.sh",
     "backup:firestore": "GOOGLE_APPLICATION_CREDENTIALS=./service-account-credentials.json tsx src/scripts/backup-firestore.ts"
   },

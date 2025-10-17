@@ -362,10 +362,6 @@ function IndicatorForm({ indicator, onSave, onCancel, isSubIndicator = false }: 
           <Label htmlFor="name" className="text-right pt-2">Tên</Label>
           <Textarea id="name" value={formData.name || ''} onChange={handleChange} className="col-span-3" />
         </div>
-        <div className="grid grid-cols-4 items-start gap-4">
-          <Label htmlFor="description" className="text-right pt-2">Mô tả</Label>
-          <Textarea id="description" value={formData.description || ''} onChange={handleChange} className="col-span-3" />
-        </div>
         
         {!isSubIndicator && (
             <IndicatorContentConfig indicator={formData} onIndicatorChange={handleIndicatorChange} />
@@ -444,7 +440,6 @@ export default function CriteriaManagementPage() {
        const newIndicator: Indicator = {
         id: `CT${Date.now().toString().slice(-6)}`,
         name: indicatorToSave.name || "Chỉ tiêu mới",
-        description: indicatorToSave.description || "",
         standardLevel: "", 
         inputType: "boolean",
         evidenceRequirement: "",
@@ -608,7 +603,6 @@ export default function CriteriaManagementPage() {
                            <div className="flex items-start gap-2 text-blue-800">
                                <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
                                <div>
-                                  <p className="text-sm">{indicator.description}</p>
                                   {(indicator.standardLevel || (indicator.contents && indicator.contents.length > 0)) ? null : (
                                     <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
                                   )}

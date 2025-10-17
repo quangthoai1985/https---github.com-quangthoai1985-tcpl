@@ -68,6 +68,13 @@ type IndicatorValue = {
 };
 type AssessmentValues = Record<string, IndicatorValue>;
 
+const getIndicatorContents = (indicator: Indicator): Content[] => {
+    if (indicator.contents && indicator.contents.length > 0) {
+        return indicator.contents;
+    }
+    return indicator.subIndicators || [];
+};
+
 const Criterion1EvidenceUploader = ({
   indicatorId,
   docIndex,
@@ -563,9 +570,14 @@ const EvidenceUploaderComponent = ({ indicatorId, evidence, onEvidenceChange, is
 const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
     if (!criteria || criteria.length < 3) return [];
 
-    const firstCriterionIndicatorIds = (criteria[0]?.indicators || []).flatMap(i =>
-        i.subIndicators && i.subIndicators.length > 0 ? i.subIndicators.map(si => si.id) : [i.id]
-    );
+    //const firstCriterionIndicatorIds = (criteria[0]?.indicators || []).flatMap(i =>
+    //    i.subIndicators && i.subIndicators.length > 0 ? i.subIndicators.map(si => si.id) : [i.id]
+    //);
+    
+    const firstCriterionIndicatorIds = (criteria[0]?.indicators || []).flatMap(indicator => {
+        const contents = getIndicatorContents(indicator);
+        return contents.length > 0 ? contents.map(content => content.id) : [indicator.id];
+    });
 
     const secondCriterion = criteria[1];
     let specialIdsFromSecondCriterion: string[] = [];
@@ -578,22 +590,42 @@ const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
         specialIdsFromSecondCriterion.push(secondCriterion.indicators[2].id);
     }
 
-    if (secondCriterion.indicators?.length > 3 && secondCriterion.indicators[3].subIndicators?.length > 2) {
-        specialIdsFromSecondCriterion.push(secondCriterion.indicators[3].subIndicators[2].id);
+    //if (secondCriterion.indicators?.length > 3 && secondCriterion.indicators[3].subIndicators?.length > 2) {
+    //    specialIdsFromSecondCriterion.push(secondCriterion.indicators[3].subIndicators[2].id);
+    if (secondCriterion.indicators?.length > 3) {
+        const contents = getIndicatorContents(secondCriterion.indicators[3]);
+        if (contents.length > 2) {
+            specialIdsFromSecondCriterion.push(contents[2].id);
+        }
     }
 
     const thirdCriterion = criteria[2];
     let specialIdsFromThirdCriterion: string[] = [];
-    if (thirdCriterion.indicators?.length > 0 && thirdCriterion.indicators[0].subIndicators?.length > 0) {
-        specialIdsFromThirdCriterion.push(thirdCriterion.indicators[0].subIndicators[0].id);
+    ///if (thirdCriterion.indicators?.length > 0 && thirdCriterion.indicators[0].subIndicators?.length > 0) {
+    //    specialIdsFromThirdCriterion.push(thirdCriterion.indicators[0].subIndicators[0].id);
+    if (thirdCriterion.indicators?.length > 0) {
+        const firstIndicatorContents = getIndicatorContents(thirdCriterion.indicators[0]);
+        if (firstIndicatorContents.length > 0) {
+            specialIdsFromThirdCriterion.push(firstIndicatorContents[0].id);
+        }
     }
 
-     if (thirdCriterion.indicators?.length > 0 && thirdCriterion.indicators[0].subIndicators?.length > 1) {
-        specialIdsFromThirdCriterion.push(thirdCriterion.indicators[0].subIndicators[1].id);
+    // if (thirdCriterion.indicators?.length > 0 && thirdCriterion.indicators[0].subIndicators?.length > 1) {
+    //    specialIdsFromThirdCriterion.push(thirdCriterion.indicators[0].subIndicators[1].id);
+    if (thirdCriterion.indicators?.length > 0) {
+        const firstIndicatorContents = getIndicatorContents(thirdCriterion.indicators[0]);
+        if (firstIndicatorContents.length > 1) {
+            specialIdsFromThirdCriterion.push(firstIndicatorContents[1].id);
+        }
     }
 
-     if (thirdCriterion.indicators?.length > 1 && thirdCriterion.indicators[1].subIndicators?.length > 0) {
-        specialIdsFromThirdCriterion.push(thirdCriterion.indicators[1].subIndicators[0].id);
+    // if (thirdCriterion.indicators?.length > 1 && thirdCriterion.indicators[1].subIndicators?.length > 0) {
+    //    specialIdsFromThirdCriterion.push(thirdCriterion.indicators[1].subIndicators[0].id);
+    if (thirdCriterion.indicators?.length > 1) {
+        const secondIndicatorContents = getIndicatorContents(thirdCriterion.indicators[1]);
+        if (secondIndicatorContents.length > 0) {
+            specialIdsFromThirdCriterion.push(secondIndicatorContents[0].id);
+        }
     }
 
     return [...specialIdsFromSecondCriterion];
@@ -603,11 +635,19 @@ const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) =
     if (!criteria || criteria.length < 3) return { no: 'Không được giao nhiệm vụ', yes: 'Được giao nhiệm vụ' };
 
     const indicator3_tc2_id = criteria[1].indicators?.length >= 3 ? criteria[1].indicators[2].id : null;
-    const subIndicator3_tc2_i4_id = criteria[1].indicators?.length > 3 && criteria[1].indicators[3].subIndicators?.length > 2 ? criteria[1].indicators[3].subIndicators[2].id : null;
-    const subIndicator1_tc3_i1_id = criteria[2].indicators?.length > 0 && criteria[2].indicators[0].subIndicators?.length > 0 ? criteria[2].indicators[0].subIndicators[0].id : null;
-    const subIndicator2_tc3_i1_id = criteria[2].indicators?.length > 0 && criteria[2].indicators[0].subIndicators?.length > 1 ? criteria[2].indicators[0].subIndicators[1].id : null;
-    const subIndicator1_tc3_i2_id = criteria[2].indicators?.length > 1 && criteria[2].indicators[1].subIndicators?.length > 0 ? criteria[2].indicators[1].subIndicators[0].id : null;
+//    const subIndicator3_tc2_i4_id = criteria[1].indicators?.length > 3 && criteria[1].indicators[3].subIndicators?.length > 2 ? criteria[1].indicators[3].subIndicators[2].id : null;
+//    const subIndicator1_tc3_i1_id = criteria[2].indicators?.length > 0 && criteria[2].indicators[0].subIndicators?.length > 0 ? criteria[2].indicators[0].subIndicators[0].id : null;
+//    const subIndicator2_tc3_i1_id = criteria[2].indicators?.length > 0 && criteria[2].indicators[0].subIndicators?.length > 1 ? criteria[2].indicators[0].subIndicators[1].id : null;
+//    const subIndicator1_tc3_i2_id = criteria[2].indicators?.length > 1 && criteria[2].indicators[1].subIndicators?.length > 0 ? criteria[2].indicators[1].subIndicators[0].id : null;
+    const indicator4Criterion2Contents = criteria[1].indicators?.length > 3 ? getIndicatorContents(criteria[1].indicators[3]) : [];
+    const subIndicator3_tc2_i4_id = indicator4Criterion2Contents.length > 2 ? indicator4Criterion2Contents[2].id : null;
 
+    const criterion3Indicator1Contents = criteria[2].indicators?.length > 0 ? getIndicatorContents(criteria[2].indicators[0]) : [];
+    const subIndicator1_tc3_i1_id = criterion3Indicator1Contents.length > 0 ? criterion3Indicator1Contents[0].id : null;
+    const subIndicator2_tc3_i1_id = criterion3Indicator1Contents.length > 1 ? criterion3Indicator1Contents[1].id : null;
+
+    const criterion3Indicator2Contents = criteria[2].indicators?.length > 1 ? getIndicatorContents(criteria[2].indicators[1]) : [];
+    const subIndicator1_tc3_i2_id = criterion3Indicator2Contents.length > 0 ? criterion3Indicator2Contents[0].id : null;
     if (indicatorId === indicator3_tc2_id) {
         return { no: "Không yêu cầu cung cấp", yes: "Có yêu cầu cung cấp" };
     }
@@ -637,10 +677,17 @@ const getCustomBooleanLabels = (indicatorId: string, criteria: Criterion[]) => {
 
     const criterion2 = criteria[1];
 
-    if (criterion2.indicators?.length > 3 && criterion2.indicators[3].subIndicators?.length > 0) {
+    /*if (criterion2.indicators?.length > 3 && criterion2.indicators[3].subIndicators?.length > 0) {
         const subIndicator1_tc2_i4_id = criterion2.indicators[3].subIndicators[0].id;
         if (indicatorId === subIndicator1_tc2_i4_id) {
-            return { true: 'Ban hành đúng thời hạn', false: 'Ban hành không đúng thời hạn' };
+            return { true: 'Ban hành đúng thời hạn', false: 'Ban hành không đúng thời hạn' };*/
+            if (criterion2.indicators?.length > 3) {
+                const contents = getIndicatorContents(criterion2.indicators[3]);
+                if (contents.length > 0) {
+                    const subIndicator1_tc2_i4_id = contents[0].id;
+                    if (indicatorId === subIndicator1_tc2_i4_id) {
+                        return { true: 'Ban hành đúng thời hạn', false: 'Ban hành không đúng thời hạn' };
+                    }    
         }
     }
     return null;
@@ -651,7 +698,7 @@ const getCheckboxOptions = (indicatorId: string, criteria: Criterion[]) => {
     const criterion2 = criteria[1];
     const criterion3 = criteria[2];
 
-    if (criterion2.indicators?.length > 4 && indicatorId === criterion2.indicators[4].id) {
+    /*if (criterion2.indicators?.length > 4 && indicatorId === criterion2.indicators[4].id) {
         return [
             "Tổ chức cuộc thi tìm hiểu pháp luật trực tuyến",
             "Tổ chức tập huấn phổ biến kiến thức pháp luật và kỹ năng phổ biến, giáo dục pháp luật cho đội ngũ nhân lực làm công tác phổ biến, giáo dục pháp luật bằng hình thức trực tuyến",
@@ -661,16 +708,42 @@ const getCheckboxOptions = (indicatorId: string, criteria: Criterion[]) => {
             "Xây dựng chatbox giải đáp pháp luật",
             "Phổ biến, giáo dục pháp luật thông qua tin nhắn điện thoại",
             "Hoạt động khác về chuyển đổi số, ứng dụng công nghệ số bảo đảm phù hợp"
-        ];
+        ];*/
+        if (criterion2.indicators?.length > 4) {
+            const targetIndicator = criterion2.indicators[4];
+            const targetContents = getIndicatorContents(targetIndicator);
+            if (indicatorId === targetIndicator.id || targetContents.some(content => content.id === indicatorId)) {
+                return [
+                    "Tổ chức cuộc thi tìm hiểu pháp luật trực tuyến",
+                    "Tổ chức tập huấn phổ biến kiến thức pháp luật và kỹ năng phổ biến, giáo dục pháp luật cho đội ngũ nhân lực làm công tác phổ biến, giáo dục pháp luật bằng hình thức trực tuyến",
+                    "Phổ biến, giáo dục pháp luật trên Cổng Thông tin điện tử/Trang Thông tin điện tử của Hội đồng nhân dân, Uỷ ban nhân dân cấp xã và có sự kết nối với Cổng Pháp luật Quốc gia (đối với cấp xã đã có Cổng/Trang thông tin điện tử)",
+                    "Sử dụng mạng xã hội và các nền tảng cộng đồng trực tuyến khác để thực hiện phổ biến, giáo dục pháp luật",
+                    "Xây dựng, số hoá các tài liệu, sản phẩm truyền thông, phổ biến, giáo dục pháp luật như video clip, podcast, audio...",
+                    "Xây dựng chatbox giải đáp pháp luật",
+                    "Phổ biến, giáo dục pháp luật thông qua tin nhắn điện thoại",
+                    "Hoạt động khác về chuyển đổi số, ứng dụng công nghệ số bảo đảm phù hợp"
+                ];
+            }
     }
 
-    if(criterion3.indicators?.length > 2 && indicatorId === criterion3.indicators[2].id) {
+  /*  if(criterion3.indicators?.length > 2 && indicatorId === criterion3.indicators[2].id) {
         return [
             "Huy động đội ngũ luật sư, luật gia, Hội thẩm nhân dân, lực lượng Công an nhân dân, Bộ đội Biên phòng, báo cáo viên pháp luật, tuyên truyền viên pháp luật, lực lượng tham gia bảo vệ an ninh, trật tự ở cơ sở, người đã từng là Thẩm phán, Kiểm sát viên, Điều tra viên, người đã hoặc đang công tác trong lĩnh vực pháp luật tham gia làm hòa giải viên ở cơ sở.",
             "Huy động đội ngũ nêu trên hỗ trợ pháp lý, tư vấn cho tổ hoà giải để giải quyết vụ, việc thuộc phạm vi hoà giải ở cơ sở.",
             "Huy động đội ngũ nêu trên tham gia tập huấn, bồi dưỡng cho hoà giải viên.",
             "Các hoạt động phối hợp, hỗ trợ hiệu quả của cá nhân, tổ chức khác trong triển khai công tác hòa giải ở cơ sở."
-        ];
+        ];*/
+        if (criterion3.indicators?.length > 2) {
+            const targetIndicator = criterion3.indicators[2];
+            const targetContents = getIndicatorContents(targetIndicator);
+            if (indicatorId === targetIndicator.id || targetContents.some(content => content.id === indicatorId)) {
+                return [
+                    "Huy động đội ngũ luật sư, luật gia, Hội thẩm nhân dân, lực lượng Công an nhân dân, Bộ đội Biên phòng, báo cáo viên pháp luật, tuyên truyền viên pháp luật, lực lượng tham gia bảo vệ an ninh, trật tự ở cơ sở, người đã từng là Thẩm phán, Kiểm sát viên, Điều tra viên, người đã hoặc đang công tác trong lĩnh vực pháp luật tham gia làm hòa giải viên ở cơ sở.",
+                    "Huy động đội ngũ nêu trên hỗ trợ pháp lý, tư vấn cho tổ hoà giải để giải quyết vụ, việc thuộc phạm vi hoà giải ở cơ sở.",
+                    "Huy động đội ngũ nêu trên tham gia tập huấn, bồi dưỡng cho hoà giải viên.",
+                    "Các hoạt động phối hợp, hỗ trợ hiệu quả của cá nhân, tổ chức khác trong triển khai công tác hòa giải ở cơ sở."
+                ];
+            } 
     }
 
     return null;
@@ -1091,7 +1164,7 @@ export default function SelfAssessmentPage() {
       const initialState: AssessmentValues = {};
       criteria.forEach(criterion => {
           (criterion.indicators || []).forEach(indicator => {
-              const processIndicator = (ind: Indicator | SubIndicator | Content) => {
+              /*const processIndicator = (ind: Indicator | SubIndicator | Content) => {
                   const saved = existingData?.[ind.id];
                   const savedContentResults = saved?.contentResults || {};
                   
@@ -1106,9 +1179,24 @@ export default function SelfAssessmentPage() {
                               note: savedContent?.note ?? '',
                           }
                       })
-                  }
-
-                  initialState[ind.id] = {
+                  }*/
+                      const savedIndicator = existingData?.[indicator.id];
+                      const hasNewContents = indicator.contents && indicator.contents.length > 0;
+        
+                      const contentResults: AssessmentValues[string]['contentResults'] = {};
+        
+                      if (hasNewContents) {
+                          indicator.contents!.forEach(content => {
+                              const savedContent = savedIndicator?.contentResults?.[content.id] || existingData?.[content.id];
+                              contentResults[content.id] = {
+                                  value: savedContent?.value ?? '',
+                                  files: savedContent?.files ?? [],
+                                  status: savedContent?.status ?? 'pending',
+                                  note: savedContent?.note ?? '',
+                              };
+                          });
+                      }
+                  /*initialState[ind.id] = {
                       isTasked: saved?.isTasked ?? null,
                       value: saved?.value ?? '',
                       files: saved?.files ?? [],
@@ -1121,15 +1209,45 @@ export default function SelfAssessmentPage() {
                       contentResults,
                       meta: saved?.meta || {}
                   };
-              };
-              
-              processIndicator(indicator);
+              };*/
+              initialState[indicator.id] = {
+                isTasked: savedIndicator?.isTasked ?? null,
+                value: savedIndicator?.value ?? '',
+                files: savedIndicator?.files ?? [],
+                filesPerDocument: savedIndicator?.filesPerDocument ?? {},
+                note: savedIndicator?.note ?? '',
+                status: savedIndicator?.status ?? 'pending',
+                adminNote: savedIndicator?.adminNote ?? '',
+                communeNote: savedIndicator?.communeNote ?? '',
+                communeDefinedDocuments: savedIndicator?.communeDefinedDocuments ?? [],
+                contentResults: hasNewContents ? contentResults : (savedIndicator?.contentResults ?? {}),
+                meta: savedIndicator?.meta || {}
+            };
+            /*  processIndicator(indicator);
 
               if (indicator.subIndicators && indicator.subIndicators.length > 0) {
-                  indicator.subIndicators.forEach(processIndicator);
+                  indicator.subIndicators.forEach(processIndicator);*/
+                  if (!hasNewContents && indicator.subIndicators && indicator.subIndicators.length > 0) {
+                    indicator.subIndicators.forEach(sub => {
+                        const savedSub = existingData?.[sub.id];
+                        initialState[sub.id] = {
+                            isTasked: savedSub?.isTasked ?? null,
+                            value: savedSub?.value ?? '',
+                            files: savedSub?.files ?? [],
+                            filesPerDocument: savedSub?.filesPerDocument ?? {},
+                            note: savedSub?.note ?? '',
+                            status: savedSub?.status ?? 'pending',
+                            adminNote: savedSub?.adminNote ?? '',
+                            communeNote: savedSub?.communeNote ?? '',
+                            communeDefinedDocuments: savedSub?.communeDefinedDocuments ?? [],
+                            contentResults: savedSub?.contentResults ?? {},
+                            meta: savedSub?.meta || {}
+                        };
+                    });  
               }
           });
       });
+
       return initialState;
   }, []);
 
@@ -1150,16 +1268,25 @@ export default function SelfAssessmentPage() {
   const specialLogicIndicatorIds = React.useMemo(() => getSpecialLogicIndicatorIds(criteria), [criteria]);
 
   const findIndicator = useCallback((indicatorId: string): Indicator | SubIndicator | Content | null => {
-    for (const c of criteria) {
+/*    for (const c of criteria) {
         for (const i of (c.indicators || [])) {
             if (i.id === indicatorId) return i;
             if (i.subIndicators) {
                 const sub = i.subIndicators.find(si => si.id === indicatorId);
-                if (sub) return sub;
+                if (sub) return sub;*/
+                for (const criterion of criteria) {
+                    for (const indicator of (criterion.indicators || [])) {
+                        if (indicator.id === indicatorId) {
+                            return indicator;
             }
-            if (i.contents) {
+           /* if (i.contents) {
                  const content = i.contents.find(co => co.id === indicatorId);
-                 if (content) return content;
+                 if (content) return content;*/
+                 
+            const contents = getIndicatorContents(indicator);
+            const matchedContent = contents.find(content => content.id === indicatorId);
+            if (matchedContent) {
+                return matchedContent;
             }
         }
     }
@@ -1207,8 +1334,8 @@ const handleIsTaskedChange = useCallback((indicatorId: string, isTasked: boolean
         if (!indicator) return prev;
 
         const valueToEvaluate = isTasked ? prev[indicatorId].value : null;
-        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
-
+        //const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
+        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || getIndicatorContents(i).some(content => content.id === indicatorId)));
         let assignedCount;
         if (parentCriterion?.id === 'TC01') {
             const tc1Data = prev[parentCriterion.indicators[0].id];
@@ -1234,7 +1361,8 @@ const handleIsTaskedChange = useCallback((indicatorId: string, isTasked: boolean
             }
         };
 
-        const parentIndicator = criteria.flatMap(c => c.indicators).find(i => i.subIndicators?.some(si => si.id === indicatorId));
+        //const parentIndicator = criteria.flatMap(c => c.indicators).find(i => i.subIndicators?.some(si => si.id === indicatorId));
+        const parentIndicator = criteria.flatMap(c => c.indicators).find(i => getIndicatorContents(i).some(content => content.id === indicatorId));
         if (parentIndicator) {
             const newParentStatus = evaluateIndicatorByPassRule(parentIndicator, newData[parentIndicator.id].contentResults || {});
             newData[parentIndicator.id] = {
@@ -1535,7 +1663,8 @@ const handleSaveDraft = useCallback(async () => {
         };
         
         if (indicator.contents && indicator.contents.length > 0) {
-            if(data.status === 'pending') allItemsAssessed = false;
+        /*    if(data.status === 'pending') allItemsAssessed = false;*/
+            if (data.status === 'pending') allItemsAssessed = false;
             
             for(const content of indicator.contents) {
                 const contentResult = data.contentResults?.[content.id];
@@ -1546,7 +1675,8 @@ const handleSaveDraft = useCallback(async () => {
             }
         } else {
             if (data.status === 'pending') allItemsAssessed = false;
-            const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === id || (i.subIndicators && i.subIndicators.some(si => si.id === id))));
+        //    const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === id || (i.subIndicators && i.subIndicators.some(si => si.id === id))));
+            const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === id || getIndicatorContents(i).some(content => content.id === id)));
             const isCriterion1 = parentCriterion?.id === 'TC01';
             checkEvidence(data, indicator.name, isCriterion1);
         }
