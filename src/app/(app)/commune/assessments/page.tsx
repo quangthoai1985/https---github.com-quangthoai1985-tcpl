@@ -1765,6 +1765,7 @@ const handleSaveDraft = useCallback(async () => {
                                                                 onPreview={handlePreview}
                                                                 criteria={criteria}
                                                                 assessmentData={assessmentData}
+                                                                contentId={indicator.id}
                                                             />
                                                         )}
                                                     </div>
@@ -1833,5 +1834,3 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
-
-    
