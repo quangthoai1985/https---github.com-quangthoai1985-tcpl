@@ -1,5 +1,4 @@
 
-
 'use client'
 
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -67,13 +66,6 @@ type IndicatorValue = {
     };
 };
 type AssessmentValues = Record<string, IndicatorValue>;
-
-const getIndicatorContents = (indicator: Indicator): Content[] => {
-    if (indicator.contents && indicator.contents.length > 0) {
-        return indicator.contents;
-    }
-    return indicator.subIndicators || [];
-};
 
 const Criterion1EvidenceUploader = ({
   indicatorId,
@@ -387,12 +379,6 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                       <StatusBadge status={data.status} />
                                       <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
                                     </div>
-                                    <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
-                                      <div className="flex items-start gap-2 text-blue-800">
-                                          <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                                          <p className="text-sm">{indicator.description}</p>
-                                      </div>
-                                    </div>
 
                                     <div className="grid gap-2 mt-4">
                                       <div className="flex items-center gap-4">
@@ -570,124 +556,51 @@ const EvidenceUploaderComponent = ({ indicatorId, evidence, onEvidenceChange, is
 const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
     if (!criteria || criteria.length < 3) return [];
 
-    //const firstCriterionIndicatorIds = (criteria[0]?.indicators || []).flatMap(i =>
-    //    i.subIndicators && i.subIndicators.length > 0 ? i.subIndicators.map(si => si.id) : [i.id]
-    //);
-    
-    const firstCriterionIndicatorIds = (criteria[0]?.indicators || []).flatMap(indicator => {
-        const contents = getIndicatorContents(indicator);
-        return contents.length > 0 ? contents.map(content => content.id) : [indicator.id];
-    });
-
     const secondCriterion = criteria[1];
     let specialIdsFromSecondCriterion: string[] = [];
-
-    if (secondCriterion.indicators?.length >= 2) {
-        specialIdsFromSecondCriterion.push(secondCriterion.indicators[1].id);
-    }
-
-    if (secondCriterion.indicators?.length >= 3) {
-        specialIdsFromSecondCriterion.push(secondCriterion.indicators[2].id);
-    }
-
-    //if (secondCriterion.indicators?.length > 3 && secondCriterion.indicators[3].subIndicators?.length > 2) {
-    //    specialIdsFromSecondCriterion.push(secondCriterion.indicators[3].subIndicators[2].id);
-    if (secondCriterion.indicators?.length > 3) {
-        const contents = getIndicatorContents(secondCriterion.indicators[3]);
-        if (contents.length > 2) {
-            specialIdsFromSecondCriterion.push(contents[2].id);
-        }
-    }
-
+    if (secondCriterion.indicators?.length >= 2) specialIdsFromSecondCriterion.push(secondCriterion.indicators[1].id);
+    if (secondCriterion.indicators?.length >= 3) specialIdsFromSecondCriterion.push(secondCriterion.indicators[2].id);
+    if (secondCriterion.indicators?.length > 3 && secondCriterion.indicators[3].contents?.length > 2) specialIdsFromSecondCriterion.push(secondCriterion.indicators[3].contents[2].id);
+    
     const thirdCriterion = criteria[2];
     let specialIdsFromThirdCriterion: string[] = [];
-    ///if (thirdCriterion.indicators?.length > 0 && thirdCriterion.indicators[0].subIndicators?.length > 0) {
-    //    specialIdsFromThirdCriterion.push(thirdCriterion.indicators[0].subIndicators[0].id);
-    if (thirdCriterion.indicators?.length > 0) {
-        const firstIndicatorContents = getIndicatorContents(thirdCriterion.indicators[0]);
-        if (firstIndicatorContents.length > 0) {
-            specialIdsFromThirdCriterion.push(firstIndicatorContents[0].id);
-        }
-    }
+    if (thirdCriterion.indicators?.length > 0 && thirdCriterion.indicators[0].contents?.length > 0) specialIdsFromThirdCriterion.push(thirdCriterion.indicators[0].contents[0].id);
+    if (thirdCriterion.indicators?.length > 0 && thirdCriterion.indicators[0].contents?.length > 1) specialIdsFromThirdCriterion.push(thirdCriterion.indicators[0].contents[1].id);
+    if (thirdCriterion.indicators?.length > 1 && thirdCriterion.indicators[1].contents?.length > 0) specialIdsFromThirdCriterion.push(thirdCriterion.indicators[1].contents[0].id);
 
-    // if (thirdCriterion.indicators?.length > 0 && thirdCriterion.indicators[0].subIndicators?.length > 1) {
-    //    specialIdsFromThirdCriterion.push(thirdCriterion.indicators[0].subIndicators[1].id);
-    if (thirdCriterion.indicators?.length > 0) {
-        const firstIndicatorContents = getIndicatorContents(thirdCriterion.indicators[0]);
-        if (firstIndicatorContents.length > 1) {
-            specialIdsFromThirdCriterion.push(firstIndicatorContents[1].id);
-        }
-    }
-
-    // if (thirdCriterion.indicators?.length > 1 && thirdCriterion.indicators[1].subIndicators?.length > 0) {
-    //    specialIdsFromThirdCriterion.push(thirdCriterion.indicators[1].subIndicators[0].id);
-    if (thirdCriterion.indicators?.length > 1) {
-        const secondIndicatorContents = getIndicatorContents(thirdCriterion.indicators[1]);
-        if (secondIndicatorContents.length > 0) {
-            specialIdsFromThirdCriterion.push(secondIndicatorContents[0].id);
-        }
-    }
-
-    return [...specialIdsFromSecondCriterion];
+    return [...specialIdsFromSecondCriterion, ...specialIdsFromThirdCriterion];
 }
 
 const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) => {
     if (!criteria || criteria.length < 3) return { no: 'Không được giao nhiệm vụ', yes: 'Được giao nhiệm vụ' };
 
     const indicator3_tc2_id = criteria[1].indicators?.length >= 3 ? criteria[1].indicators[2].id : null;
-//    const subIndicator3_tc2_i4_id = criteria[1].indicators?.length > 3 && criteria[1].indicators[3].subIndicators?.length > 2 ? criteria[1].indicators[3].subIndicators[2].id : null;
-//    const subIndicator1_tc3_i1_id = criteria[2].indicators?.length > 0 && criteria[2].indicators[0].subIndicators?.length > 0 ? criteria[2].indicators[0].subIndicators[0].id : null;
-//    const subIndicator2_tc3_i1_id = criteria[2].indicators?.length > 0 && criteria[2].indicators[0].subIndicators?.length > 1 ? criteria[2].indicators[0].subIndicators[1].id : null;
-//    const subIndicator1_tc3_i2_id = criteria[2].indicators?.length > 1 && criteria[2].indicators[1].subIndicators?.length > 0 ? criteria[2].indicators[1].subIndicators[0].id : null;
-    const indicator4Criterion2Contents = criteria[1].indicators?.length > 3 ? getIndicatorContents(criteria[1].indicators[3]) : [];
-    const subIndicator3_tc2_i4_id = indicator4Criterion2Contents.length > 2 ? indicator4Criterion2Contents[2].id : null;
+    const indicator4Criterion2Contents = criteria[1].indicators?.length > 3 ? criteria[1].indicators[3].contents : [];
+    const subIndicator3_tc2_i4_id = indicator4Criterion2Contents && indicator4Criterion2Contents.length > 2 ? indicator4Criterion2Contents[2].id : null;
 
-    const criterion3Indicator1Contents = criteria[2].indicators?.length > 0 ? getIndicatorContents(criteria[2].indicators[0]) : [];
-    const subIndicator1_tc3_i1_id = criterion3Indicator1Contents.length > 0 ? criterion3Indicator1Contents[0].id : null;
-    const subIndicator2_tc3_i1_id = criterion3Indicator1Contents.length > 1 ? criterion3Indicator1Contents[1].id : null;
+    const criterion3Indicator1Contents = criteria[2].indicators?.length > 0 ? criteria[2].indicators[0].contents : [];
+    const subIndicator1_tc3_i1_id = criterion3Indicator1Contents && criterion3Indicator1Contents.length > 0 ? criterion3Indicator1Contents[0].id : null;
+    const subIndicator2_tc3_i1_id = criterion3Indicator1Contents && criterion3Indicator1Contents.length > 1 ? criterion3Indicator1Contents[1].id : null;
 
-    const criterion3Indicator2Contents = criteria[2].indicators?.length > 1 ? getIndicatorContents(criteria[2].indicators[1]) : [];
-    const subIndicator1_tc3_i2_id = criterion3Indicator2Contents.length > 0 ? criterion3Indicator2Contents[0].id : null;
-    if (indicatorId === indicator3_tc2_id) {
-        return { no: "Không yêu cầu cung cấp", yes: "Có yêu cầu cung cấp" };
-    }
-
-    if (indicatorId === subIndicator3_tc2_i4_id) {
-        return { no: "Không phát sinh nhiệm vụ ngoài kế hoạch", yes: "Có phát sinh nhiệm vụ ngoài kế hoạch" };
-    }
-
-    if (indicatorId === subIndicator1_tc3_i1_id) {
-        return { no: "Không phát sinh yêu cầu thành lập", yes: "Có phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên" };
-    }
-
-    if (indicatorId === subIndicator2_tc3_i1_id) {
-        return { no: "Không phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên", yes: "Có phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên" };
-    }
-
-    if (indicatorId === subIndicator1_tc3_i2_id) {
-        return { no: "Không phát sinh vụ, việc hòa giải", yes: "Có phát sinh vụ, việc hòa giải" };
-    }
-
+    const criterion3Indicator2Contents = criteria[2].indicators?.length > 1 ? criteria[2].indicators[1].contents : [];
+    const subIndicator1_tc3_i2_id = criterion3Indicator2Contents && criterion3Indicator2Contents.length > 0 ? criterion3Indicator2Contents[0].id : null;
+    
+    if (indicatorId === indicator3_tc2_id) return { no: "Không yêu cầu cung cấp", yes: "Có yêu cầu cung cấp" };
+    if (indicatorId === subIndicator3_tc2_i4_id) return { no: "Không phát sinh nhiệm vụ ngoài kế hoạch", yes: "Có phát sinh nhiệm vụ ngoài kế hoạch" };
+    if (indicatorId === subIndicator1_tc3_i1_id) return { no: "Không phát sinh yêu cầu thành lập", yes: "Có phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên" };
+    if (indicatorId === subIndicator2_tc3_i1_id) return { no: "Không phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên", yes: "Có phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên" };
+    if (indicatorId === subIndicator1_tc3_i2_id) return { no: "Không phát sinh vụ, việc hòa giải", yes: "Có phát sinh vụ, việc hòa giải" };
 
     return { no: 'Không được giao nhiệm vụ', yes: 'Được giao nhiệm vụ' };
 }
 
 const getCustomBooleanLabels = (indicatorId: string, criteria: Criterion[]) => {
     if (!criteria || criteria.length < 2) return null;
-
     const criterion2 = criteria[1];
-
-    /*if (criterion2.indicators?.length > 3 && criterion2.indicators[3].subIndicators?.length > 0) {
-        const subIndicator1_tc2_i4_id = criterion2.indicators[3].subIndicators[0].id;
+    if (criterion2.indicators?.length > 3 && criterion2.indicators[3].contents?.length > 0) {
+        const subIndicator1_tc2_i4_id = criterion2.indicators[3].contents[0].id;
         if (indicatorId === subIndicator1_tc2_i4_id) {
-            return { true: 'Ban hành đúng thời hạn', false: 'Ban hành không đúng thời hạn' };*/
-            if (criterion2.indicators?.length > 3) {
-                const contents = getIndicatorContents(criterion2.indicators[3]);
-                if (contents.length > 0) {
-                    const subIndicator1_tc2_i4_id = contents[0].id;
-                    if (indicatorId === subIndicator1_tc2_i4_id) {
-                        return { true: 'Ban hành đúng thời hạn', false: 'Ban hành không đúng thời hạn' };
-                    }    
+            return { true: 'Ban hành đúng thời hạn', false: 'Ban hành không đúng thời hạn' };
         }
     }
     return null;
@@ -698,60 +611,24 @@ const getCheckboxOptions = (indicatorId: string, criteria: Criterion[]) => {
     const criterion2 = criteria[1];
     const criterion3 = criteria[2];
 
-    /*if (criterion2.indicators?.length > 4 && indicatorId === criterion2.indicators[4].id) {
-        return [
-            "Tổ chức cuộc thi tìm hiểu pháp luật trực tuyến",
-            "Tổ chức tập huấn phổ biến kiến thức pháp luật và kỹ năng phổ biến, giáo dục pháp luật cho đội ngũ nhân lực làm công tác phổ biến, giáo dục pháp luật bằng hình thức trực tuyến",
-            "Phổ biến, giáo dục pháp luật trên Cổng Thông tin điện tử/Trang Thông tin điện tử của Hội đồng nhân dân, Uỷ ban nhân dân cấp xã và có sự kết nối với Cổng Pháp luật Quốc gia (đối với cấp xã đã có Cổng/Trang thông tin điện tử)",
-            "Sử dụng mạng xã hội và các nền tảng cộng đồng trực tuyến khác để thực hiện phổ biến, giáo dục pháp luật",
-            "Xây dựng, số hoá các tài liệu, sản phẩm truyền thông, phổ biến, giáo dục pháp luật như video clip, podcast, audio...",
-            "Xây dựng chatbox giải đáp pháp luật",
-            "Phổ biến, giáo dục pháp luật thông qua tin nhắn điện thoại",
-            "Hoạt động khác về chuyển đổi số, ứng dụng công nghệ số bảo đảm phù hợp"
-        ];*/
-        if (criterion2.indicators?.length > 4) {
-            const targetIndicator = criterion2.indicators[4];
-            const targetContents = getIndicatorContents(targetIndicator);
-            if (indicatorId === targetIndicator.id || targetContents.some(content => content.id === indicatorId)) {
-                return [
-                    "Tổ chức cuộc thi tìm hiểu pháp luật trực tuyến",
-                    "Tổ chức tập huấn phổ biến kiến thức pháp luật và kỹ năng phổ biến, giáo dục pháp luật cho đội ngũ nhân lực làm công tác phổ biến, giáo dục pháp luật bằng hình thức trực tuyến",
-                    "Phổ biến, giáo dục pháp luật trên Cổng Thông tin điện tử/Trang Thông tin điện tử của Hội đồng nhân dân, Uỷ ban nhân dân cấp xã và có sự kết nối với Cổng Pháp luật Quốc gia (đối với cấp xã đã có Cổng/Trang thông tin điện tử)",
-                    "Sử dụng mạng xã hội và các nền tảng cộng đồng trực tuyến khác để thực hiện phổ biến, giáo dục pháp luật",
-                    "Xây dựng, số hoá các tài liệu, sản phẩm truyền thông, phổ biến, giáo dục pháp luật như video clip, podcast, audio...",
-                    "Xây dựng chatbox giải đáp pháp luật",
-                    "Phổ biến, giáo dục pháp luật thông qua tin nhắn điện thoại",
-                    "Hoạt động khác về chuyển đổi số, ứng dụng công nghệ số bảo đảm phù hợp"
-                ];
-            }
+    if (criterion2.indicators?.length > 4) {
+        const targetIndicator = criterion2.indicators[4];
+        if (indicatorId === targetIndicator.id || targetIndicator.contents?.some(c => c.id === indicatorId)) {
+            return ["Tổ chức cuộc thi tìm hiểu pháp luật trực tuyến","Tổ chức tập huấn phổ biến kiến thức pháp luật và kỹ năng phổ biến, giáo dục pháp luật cho đội ngũ nhân lực làm công tác phổ biến, giáo dục pháp luật bằng hình thức trực tuyến","Phổ biến, giáo dục pháp luật trên Cổng Thông tin điện tử/Trang Thông tin điện tử của Hội đồng nhân dân, Uỷ ban nhân dân cấp xã và có sự kết nối với Cổng Pháp luật Quốc gia (đối với cấp xã đã có Cổng/Trang thông tin điện tử)","Sử dụng mạng xã hội và các nền tảng cộng đồng trực tuyến khác để thực hiện phổ biến, giáo dục pháp luật","Xây dựng, số hoá các tài liệu, sản phẩm truyền thông, phổ biến, giáo dục pháp luật như video clip, podcast, audio...","Xây dựng chatbox giải đáp pháp luật","Phổ biến, giáo dục pháp luật thông qua tin nhắn điện thoại","Hoạt động khác về chuyển đổi số, ứng dụng công nghệ số bảo đảm phù hợp"];
+        }
     }
-
-  /*  if(criterion3.indicators?.length > 2 && indicatorId === criterion3.indicators[2].id) {
-        return [
-            "Huy động đội ngũ luật sư, luật gia, Hội thẩm nhân dân, lực lượng Công an nhân dân, Bộ đội Biên phòng, báo cáo viên pháp luật, tuyên truyền viên pháp luật, lực lượng tham gia bảo vệ an ninh, trật tự ở cơ sở, người đã từng là Thẩm phán, Kiểm sát viên, Điều tra viên, người đã hoặc đang công tác trong lĩnh vực pháp luật tham gia làm hòa giải viên ở cơ sở.",
-            "Huy động đội ngũ nêu trên hỗ trợ pháp lý, tư vấn cho tổ hoà giải để giải quyết vụ, việc thuộc phạm vi hoà giải ở cơ sở.",
-            "Huy động đội ngũ nêu trên tham gia tập huấn, bồi dưỡng cho hoà giải viên.",
-            "Các hoạt động phối hợp, hỗ trợ hiệu quả của cá nhân, tổ chức khác trong triển khai công tác hòa giải ở cơ sở."
-        ];*/
-        if (criterion3.indicators?.length > 2) {
-            const targetIndicator = criterion3.indicators[2];
-            const targetContents = getIndicatorContents(targetIndicator);
-            if (indicatorId === targetIndicator.id || targetContents.some(content => content.id === indicatorId)) {
-                return [
-                    "Huy động đội ngũ luật sư, luật gia, Hội thẩm nhân dân, lực lượng Công an nhân dân, Bộ đội Biên phòng, báo cáo viên pháp luật, tuyên truyền viên pháp luật, lực lượng tham gia bảo vệ an ninh, trật tự ở cơ sở, người đã từng là Thẩm phán, Kiểm sát viên, Điều tra viên, người đã hoặc đang công tác trong lĩnh vực pháp luật tham gia làm hòa giải viên ở cơ sở.",
-                    "Huy động đội ngũ nêu trên hỗ trợ pháp lý, tư vấn cho tổ hoà giải để giải quyết vụ, việc thuộc phạm vi hoà giải ở cơ sở.",
-                    "Huy động đội ngũ nêu trên tham gia tập huấn, bồi dưỡng cho hoà giải viên.",
-                    "Các hoạt động phối hợp, hỗ trợ hiệu quả của cá nhân, tổ chức khác trong triển khai công tác hòa giải ở cơ sở."
-                ];
-            } 
+    if (criterion3.indicators?.length > 2) {
+        const targetIndicator = criterion3.indicators[2];
+        if (indicatorId === targetIndicator.id || targetIndicator.contents?.some(c => c.id === indicatorId)) {
+            return ["Huy động đội ngũ luật sư, luật gia, Hội thẩm nhân dân, lực lượng Công an nhân dân, Bộ đội Biên phòng, báo cáo viên pháp luật, tuyên truyền viên pháp luật, lực lượng tham gia bảo vệ an ninh, trật tự ở cơ sở, người đã từng là Thẩm phán, Kiểm sát viên, Điều tra viên, người đã hoặc đang công tác trong lĩnh vực pháp luật tham gia làm hòa giải viên ở cơ sở.","Huy động đội ngũ nêu trên hỗ trợ pháp lý, tư vấn cho tổ hoà giải để giải quyết vụ, việc thuộc phạm vi hoà giải ở cơ sở.","Huy động đội ngũ nêu trên tham gia tập huấn, bồi dưỡng cho hoà giải viên.","Các hoạt động phối hợp, hỗ trợ hiệu quả của cá nhân, tổ chức khác trong triển khai công tác hòa giải ở cơ sở."];
+        }
     }
-
     return null;
 }
 
 
 const renderInput = (
-    indicator: Indicator | SubIndicator | Content,
+    indicator: Content,
     specialIndicatorIds: string[],
     specialLabels: { no: string; yes: string },
     customBooleanLabels: { true: string, false: string } | null,
@@ -908,6 +785,13 @@ const renderInput = (
                     </div>
                 </div>
             );
+        case 'text':
+             return (
+                <div className="grid gap-2">
+                    <Label htmlFor={`${indicator.id}-input-${contentId}`}>Kết quả</Label>
+                    <Input id={`${indicator.id}-input-${contentId}`} type="text" placeholder="Nhập kết quả" value={data.value || ''} onChange={(e) => handleValueChange(null, e.target.value)} />
+                </div>
+            );
     }
 }
 
@@ -941,14 +825,12 @@ const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus
         return 'pending';
     }
     
-    // **NEW LOGIC**: Evidence is required
     if (files.length === 0) {
         return 'not-achieved'; // Data entered but no evidence
     }
     
     // Logic for checkbox groups
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-        // Special case for CT2.3 (Yêu cầu cung cấp thông tin)
         if (value.hasOwnProperty('total') && value.hasOwnProperty('provided')) {
             const total = Number(value.total);
             const provided = Number(value.provided);
@@ -957,9 +839,8 @@ const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus
             return (provided / total) >= 1 ? 'achieved' : 'not-achieved';
         }
 
-        // General checkbox logic
         const checkedCount = Object.values(value).filter(v => v === true).length;
-        const requiredCountMatch = standardLevel.match(/(\\d+)/);
+        const requiredCountMatch = standardLevel.match(/(\d+)/);
         if (requiredCountMatch) {
             const requiredCount = parseInt(requiredCountMatch[0], 10);
             return checkedCount >= requiredCount ? 'achieved' : 'not-achieved';
@@ -977,7 +858,7 @@ const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus
 
     if (typeof value === 'number' || !isNaN(Number(value))) {
         const numericValue = Number(value);
-        const match = standard.match(/([>=<]+)?\\s*(\\d+)/);
+        const match = standard.match(/([>=<]+)?\s*(\d+)/);
         if (match) {
             const operator = match[1] || '==';
             const standardValue = parseInt(match[2], 10);
@@ -1033,7 +914,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
     specialLabels: { no: string; yes: string },
     customBooleanLabels: { true: string, false: string} | null,
     checkboxOptions: string[] | null,
-    indicator: Indicator | SubIndicator | Content,
+    indicator: Content,
     data: AssessmentValues[string],
     onValueChange: (id: string, value: any, contentId?: string) => void,
     onNoteChange: (id: string, note: string, contentId?: string) => void,
@@ -1164,52 +1045,22 @@ export default function SelfAssessmentPage() {
       const initialState: AssessmentValues = {};
       criteria.forEach(criterion => {
           (criterion.indicators || []).forEach(indicator => {
-              /*const processIndicator = (ind: Indicator | SubIndicator | Content) => {
-                  const saved = existingData?.[ind.id];
-                  const savedContentResults = saved?.contentResults || {};
-                  
-                  const contentResults: AssessmentValues[string]['contentResults'] = {};
-                  if (indicator.contents) {
-                      indicator.contents.forEach(content => {
-                          const savedContent = savedContentResults[content.id]
-                          contentResults[content.id] = {
-                              value: savedContent?.value ?? '',
-                              files: savedContent?.files ?? [],
-                              status: savedContent?.status ?? 'pending',
-                              note: savedContent?.note ?? '',
-                          }
-                      })
-                  }*/
-                      const savedIndicator = existingData?.[indicator.id];
-                      const hasNewContents = indicator.contents && indicator.contents.length > 0;
-        
-                      const contentResults: AssessmentValues[string]['contentResults'] = {};
-        
-                      if (hasNewContents) {
-                          indicator.contents!.forEach(content => {
-                              const savedContent = savedIndicator?.contentResults?.[content.id] || existingData?.[content.id];
-                              contentResults[content.id] = {
-                                  value: savedContent?.value ?? '',
-                                  files: savedContent?.files ?? [],
-                                  status: savedContent?.status ?? 'pending',
-                                  note: savedContent?.note ?? '',
-                              };
-                          });
-                      }
-                  /*initialState[ind.id] = {
-                      isTasked: saved?.isTasked ?? null,
-                      value: saved?.value ?? '',
-                      files: saved?.files ?? [],
-                      filesPerDocument: saved?.filesPerDocument ?? {},
-                      note: saved?.note ?? '',
-                      status: saved?.status ?? 'pending',
-                      adminNote: saved?.adminNote ?? '',
-                      communeNote: saved?.communeNote ?? '',
-                      communeDefinedDocuments: saved?.communeDefinedDocuments ?? [],
-                      contentResults,
-                      meta: saved?.meta || {}
-                  };
-              };*/
+              const savedIndicator = existingData?.[indicator.id];
+              const hasNewContents = indicator.contents && indicator.contents.length > 0;
+
+              const contentResults: AssessmentValues[string]['contentResults'] = {};
+              if (hasNewContents) {
+                  indicator.contents!.forEach(content => {
+                      const savedContent = savedIndicator?.contentResults?.[content.id];
+                      contentResults[content.id] = {
+                          value: savedContent?.value ?? '',
+                          files: savedContent?.files ?? [],
+                          status: savedContent?.status ?? 'pending',
+                          note: savedContent?.note ?? '',
+                      };
+                  });
+              }
+
               initialState[indicator.id] = {
                 isTasked: savedIndicator?.isTasked ?? null,
                 value: savedIndicator?.value ?? '',
@@ -1220,31 +1071,9 @@ export default function SelfAssessmentPage() {
                 adminNote: savedIndicator?.adminNote ?? '',
                 communeNote: savedIndicator?.communeNote ?? '',
                 communeDefinedDocuments: savedIndicator?.communeDefinedDocuments ?? [],
-                contentResults: hasNewContents ? contentResults : (savedIndicator?.contentResults ?? {}),
+                contentResults: contentResults,
                 meta: savedIndicator?.meta || {}
             };
-            /*  processIndicator(indicator);
-
-              if (indicator.subIndicators && indicator.subIndicators.length > 0) {
-                  indicator.subIndicators.forEach(processIndicator);*/
-                  if (!hasNewContents && indicator.subIndicators && indicator.subIndicators.length > 0) {
-                    indicator.subIndicators.forEach(sub => {
-                        const savedSub = existingData?.[sub.id];
-                        initialState[sub.id] = {
-                            isTasked: savedSub?.isTasked ?? null,
-                            value: savedSub?.value ?? '',
-                            files: savedSub?.files ?? [],
-                            filesPerDocument: savedSub?.filesPerDocument ?? {},
-                            note: savedSub?.note ?? '',
-                            status: savedSub?.status ?? 'pending',
-                            adminNote: savedSub?.adminNote ?? '',
-                            communeNote: savedSub?.communeNote ?? '',
-                            communeDefinedDocuments: savedSub?.communeDefinedDocuments ?? [],
-                            contentResults: savedSub?.contentResults ?? {},
-                            meta: savedSub?.meta || {}
-                        };
-                    });  
-              }
           });
       });
 
@@ -1267,31 +1096,19 @@ export default function SelfAssessmentPage() {
 
   const specialLogicIndicatorIds = React.useMemo(() => getSpecialLogicIndicatorIds(criteria), [criteria]);
 
-  const findIndicator = useCallback((indicatorId: string): Indicator | SubIndicator | Content | null => {
-/*    for (const c of criteria) {
-        for (const i of (c.indicators || [])) {
-            if (i.id === indicatorId) return i;
-            if (i.subIndicators) {
-                const sub = i.subIndicators.find(si => si.id === indicatorId);
-                if (sub) return sub;*/
-                for (const criterion of criteria) {
-                    for (const indicator of (criterion.indicators || [])) {
-                        if (indicator.id === indicatorId) {
-                            return indicator;
-            }
-           /* if (i.contents) {
-                 const content = i.contents.find(co => co.id === indicatorId);
-                 if (content) return content;*/
-                 
-            const contents = getIndicatorContents(indicator);
-            const matchedContent = contents.find(content => content.id === indicatorId);
-            if (matchedContent) {
-                return matchedContent;
-            }
-        }
-    }
-    return null;
-}, [criteria]);
+  const findIndicator = useCallback((indicatorId: string): Indicator | Content | null => {
+      for (const criterion of criteria) {
+          for (const indicator of (criterion.indicators || [])) {
+              if (indicator.id === indicatorId) return indicator;
+              
+              if (indicator.contents) {
+                  const matchedContent = indicator.contents.find(content => content.id === indicatorId);
+                  if (matchedContent) return matchedContent;
+              }
+          }
+      }
+      return null;
+  }, [criteria]);
 
     const evaluateIndicatorByPassRule = (indicator: Indicator, contentResults: AssessmentValues[string]['contentResults']): AssessmentStatus => {
         if (!indicator.contents || indicator.contents.length === 0 || !contentResults) {
@@ -1333,44 +1150,59 @@ const handleIsTaskedChange = useCallback((indicatorId: string, isTasked: boolean
         const indicator = findIndicator(indicatorId);
         if (!indicator) return prev;
 
-        const valueToEvaluate = isTasked ? prev[indicatorId].value : null;
-        //const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || (i.subIndicators && i.subIndicators.some(si => si.id === indicatorId))));
-        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || getIndicatorContents(i).some(content => content.id === indicatorId)));
-        let assignedCount;
-        if (parentCriterion?.id === 'TC01') {
-            const tc1Data = prev[parentCriterion.indicators[0].id];
-            assignedCount = parentCriterion.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
-        } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
-            const tc1Data = prev[criteria[0].indicators[0].id];
-            assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
-        }
+        const newData = { ...prev };
+        const indicatorData = { ...newData[indicatorId] };
         
-        const files = isTasked ? prev[indicatorId].files : [];
-        const filesPerDocument = parentCriterion?.id === 'TC01' ? prev[indicatorId].filesPerDocument : undefined;
-        const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, files, isTasked, assignedCount, filesPerDocument);
+        // Find parent indicator if the current one is a content item
+        const parentIndicator = criteria.flatMap(c => c.indicators).find(i => i.contents?.some(c => c.id === indicatorId));
 
-        const newData = {
-            ...prev,
-            [indicatorId]: {
-                ...prev[indicatorId],
+        if (parentIndicator) { // This is a content item
+            const contentResults = { ...indicatorData.contentResults };
+            if (contentResults[indicator.id]) {
+                const currentContentData = contentResults[indicator.id];
+                const valueToEvaluate = isTasked ? currentContentData.value : null;
+                const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, isTasked ? currentContentData.files : [], isTasked);
+                
+                contentResults[indicator.id] = {
+                    ...currentContentData,
+                    isTasked: isTasked,
+                    status: newStatus,
+                    value: isTasked ? currentContentData.value : null,
+                    files: isTasked ? currentContentData.files : [],
+                };
+
+                const newParentStatus = evaluateIndicatorByPassRule(parentIndicator, contentResults);
+                newData[parentIndicator.id] = {
+                    ...newData[parentIndicator.id],
+                    contentResults: contentResults,
+                    status: newParentStatus,
+                };
+            }
+        } else { // This is a simple indicator
+            const valueToEvaluate = isTasked ? indicatorData.value : null;
+            const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
+            let assignedCount;
+            if (parentCriterion?.id === 'TC01') {
+                const tc1Data = prev[parentCriterion.indicators[0].id];
+                assignedCount = parentCriterion.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+            } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
+                const tc1Data = prev[criteria[0].indicators[0].id];
+                assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+            }
+            
+            const files = isTasked ? indicatorData.files : [];
+            const filesPerDocument = parentCriterion?.id === 'TC01' ? indicatorData.filesPerDocument : undefined;
+            const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, files, isTasked, assignedCount, filesPerDocument);
+
+            newData[indicatorId] = {
+                ...indicatorData,
                 isTasked: isTasked,
                 status: newStatus,
-                value: isTasked ? prev[indicatorId].value : null,
-                files: isTasked ? prev[indicatorId].files : [],
-                filesPerDocument: isTasked ? prev[indicatorId].filesPerDocument : {},
-            }
-        };
-
-        //const parentIndicator = criteria.flatMap(c => c.indicators).find(i => i.subIndicators?.some(si => si.id === indicatorId));
-        const parentIndicator = criteria.flatMap(c => c.indicators).find(i => getIndicatorContents(i).some(content => content.id === indicatorId));
-        if (parentIndicator) {
-            const newParentStatus = evaluateIndicatorByPassRule(parentIndicator, newData[parentIndicator.id].contentResults || {});
-            newData[parentIndicator.id] = {
-                ...newData[parentIndicator.id],
-                status: newParentStatus,
+                value: isTasked ? indicatorData.value : null,
+                files: isTasked ? indicatorData.files : [],
+                filesPerDocument: isTasked ? indicatorData.filesPerDocument : {},
             };
         }
-
         return newData;
     });
 }, [criteria, findIndicator]);
@@ -1663,7 +1495,6 @@ const handleSaveDraft = useCallback(async () => {
         };
         
         if (indicator.contents && indicator.contents.length > 0) {
-        /*    if(data.status === 'pending') allItemsAssessed = false;*/
             if (data.status === 'pending') allItemsAssessed = false;
             
             for(const content of indicator.contents) {
@@ -1675,8 +1506,7 @@ const handleSaveDraft = useCallback(async () => {
             }
         } else {
             if (data.status === 'pending') allItemsAssessed = false;
-        //    const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === id || (i.subIndicators && i.subIndicators.some(si => si.id === id))));
-            const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === id || getIndicatorContents(i).some(content => content.id === id)));
+            const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === id));
             const isCriterion1 = parentCriterion?.id === 'TC01';
             checkEvidence(data, indicator.name, isCriterion1);
         }
@@ -1858,61 +1688,16 @@ const handleSaveDraft = useCallback(async () => {
                                                     assessmentData[indicator.id]?.status === 'not-achieved' && 'bg-red-50 border-red-200',
                                                     assessmentData[indicator.id]?.status === 'pending' && 'bg-amber-50 border-amber-200'
                                                 );
-
-                                                if (indicator.id === 'CT2.1') {
-                                                    return (
-                                                         <div key={indicator.id} className={indicatorBlockClasses}>
-                                                             <IndicatorAssessment
-                                                                specialIndicatorIds={specialLogicIndicatorIds}
-                                                                specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
-                                                                customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
-                                                                checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
-                                                                indicator={indicator}
-                                                                data={assessmentData[indicator.id]}
-                                                                onValueChange={handleValueChange}
-                                                                onNoteChange={handleNoteChange}
-                                                                onEvidenceChange={handleEvidenceChange}
-                                                                onIsTaskedChange={handleIsTaskedChange}
-                                                                onPreview={handlePreview}
-                                                                criteria={criteria}
-                                                                assessmentData={assessmentData}
-                                                            />
-                                                         </div>
-                                                    )
-                                                }
+                                                
+                                                const hasContents = indicator.contents && indicator.contents.length > 0;
 
                                                 return (
                                                     <div key={indicator.id} className={indicatorBlockClasses}>
-                                                        {(!indicator.contents || indicator.contents.length === 0) ? (
-                                                            // Fallback to old rendering
-                                                            <IndicatorAssessment
-                                                                specialIndicatorIds={specialLogicIndicatorIds}
-                                                                specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
-                                                                customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
-                                                                checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
-                                                                indicator={indicator}
-                                                                data={assessmentData[indicator.id]}
-                                                                onValueChange={handleValueChange}
-                                                                onNoteChange={handleNoteChange}
-                                                                onEvidenceChange={handleEvidenceChange}
-                                                                onIsTaskedChange={handleIsTaskedChange}
-                                                                onPreview={handlePreview}
-                                                                criteria={criteria}
-                                                                assessmentData={assessmentData}
-                                                            />
-                                                        ) : (
-                                                            // New rendering for indicator with contents
-                                                            <>
+                                                        {hasContents ? (
+                                                             <>
                                                                 <div className="flex items-center gap-2">
                                                                     <StatusBadge status={assessmentData[indicator.id]?.status} />
                                                                     <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
-                                                                    {/* Optional: Add meta info display */}
-                                                                </div>
-                                                                 <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
-                                                                    <div className="flex items-start gap-2 text-blue-800">
-                                                                        <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                                                                        <p className="text-sm">{indicator.description}</p>
-                                                                    </div>
                                                                 </div>
                                                                 <div className="mt-4 pl-6 space-y-6 border-l-2 border-dashed">
                                                                   {(indicator.contents || []).map(content => {
@@ -1929,16 +1714,16 @@ const handleSaveDraft = useCallback(async () => {
                                                                           <div key={content.id} className={subBlockClasses}>
                                                                               <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
                                                                               <IndicatorAssessment
-                                                                                  specialIndicatorIds={[]}
-                                                                                  specialLabels={{no: 'Không', yes: 'Có'}}
-                                                                                  customBooleanLabels={null}
+                                                                                  specialIndicatorIds={specialLogicIndicatorIds}
+                                                                                  specialLabels={getSpecialIndicatorLabels(content.id, criteria)}
+                                                                                  customBooleanLabels={getCustomBooleanLabels(content.id, criteria)}
                                                                                   checkboxOptions={getCheckboxOptions(content.id, criteria)}
                                                                                   indicator={content}
                                                                                   data={contentData as any}
                                                                                   onValueChange={(id, value) => handleValueChange(indicator.id, value, content.id)}
                                                                                   onNoteChange={(id, note) => handleNoteChange(indicator.id, note, content.id)}
                                                                                   onEvidenceChange={handleEvidenceChange}
-                                                                                  onIsTaskedChange={() => {}} // N/A for contents
+                                                                                  onIsTaskedChange={(id, isTasked) => handleIsTaskedChange(content.id, isTasked)}
                                                                                   onPreview={handlePreview}
                                                                                   criteria={criteria}
                                                                                   assessmentData={assessmentData}
@@ -1949,6 +1734,22 @@ const handleSaveDraft = useCallback(async () => {
                                                                   })}
                                                                 </div>
                                                             </>
+                                                        ) : (
+                                                            <IndicatorAssessment
+                                                                specialIndicatorIds={specialLogicIndicatorIds}
+                                                                specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
+                                                                customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
+                                                                checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
+                                                                indicator={indicator as Content}
+                                                                data={assessmentData[indicator.id]}
+                                                                onValueChange={handleValueChange}
+                                                                onNoteChange={handleNoteChange}
+                                                                onEvidenceChange={handleEvidenceChange}
+                                                                onIsTaskedChange={handleIsTaskedChange}
+                                                                onPreview={handlePreview}
+                                                                criteria={criteria}
+                                                                assessmentData={assessmentData}
+                                                            />
                                                         )}
                                                     </div>
                                                 );
@@ -2016,5 +1817,3 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
-
-    
