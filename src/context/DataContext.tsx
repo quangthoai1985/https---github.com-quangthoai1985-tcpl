@@ -11,7 +11,10 @@ import {
     type Criterion,
     type Document as AppDocument,
     type LoginConfig,
-    type IndicatorResult
+    type IndicatorResult,
+    type Indicator,
+    type SubIndicator,
+    type Content,
 } from '@/lib/data';
 import { initializeApp, getApp, getApps, FirebaseOptions, type FirebaseApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, type Firestore, deleteDoc, getDoc, onSnapshot, query, where, Unsubscribe } from 'firebase/firestore';

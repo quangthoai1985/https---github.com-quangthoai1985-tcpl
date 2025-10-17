@@ -78,7 +78,7 @@ export type Content = {
   name: string;
   description: string;
   standardLevel: string;
-  inputType: 'number' | 'boolean' | 'select';
+  inputType: 'number' | 'boolean' | 'select' | 'text'; // Added 'text'
   evidenceRequirement?: string;
 };
 
@@ -88,9 +88,9 @@ export type Indicator = {
   name: string;
   description: string;
   standardLevel: string;
-  inputType: 'number' | 'boolean' | 'select';
+  inputType: 'number' | 'boolean' | 'select' | 'text'; // Added 'text'
   evidenceRequirement: string;
-  subIndicators: Content[]; // Kept for backward compatibility
+  subIndicators: Content[]; // Legacy field, to be phased out
   
   // NEW FIELDS FOR N-of-M RULE
   contents?: Content[];
