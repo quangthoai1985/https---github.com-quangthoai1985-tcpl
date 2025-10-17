@@ -28,7 +28,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 
 type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
 type FileWithStatus = (File | {
-    name: string,
+    name: string, 
     url: string,
     signatureStatus?: 'validating' | 'valid' | 'invalid' | 'error',
     signatureError?: string,
@@ -814,6 +814,8 @@ const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus
         return 'achieved';
     }
 
+    const hasFileEvidence = (files || []).some(f => 'url' in f && f.url);
+
     // Logic for Criterion 1 indicators
     if (assignedCount && assignedCount > 0) {
         const enteredValue = Number(value);
@@ -823,7 +825,7 @@ const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus
 
         if (filesPerDocument) {
             const allFiles = Object.values(filesPerDocument).flat();
-            const uploadedCount = allFiles.length;
+            const uploadedCount = allFiles.filter(f => 'url' in f && f.url).length;
             const requiredFilesMet = uploadedCount >= enteredValue; 
             const allSignaturesValid = allFiles.every(f => 'signatureStatus' in f && f.signatureStatus === 'valid');
             
@@ -839,7 +841,7 @@ const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus
         return 'pending';
     }
     
-    if ((files || []).length === 0) {
+    if (!hasFileEvidence) {
         return 'not-achieved';
     }
     
@@ -1497,12 +1499,12 @@ const handleSaveDraft = useCallback(async () => {
                     const assignedDocsCount = (criteria.find(c=>c.id === 'TC01') as Criterion).assignedDocumentsCount || itemData.communeDefinedDocuments?.length || 0;
                     if (assignedDocsCount > 0 && Number(itemData.value) > 0) {
                         const docIndicesWithMissingFiles = Array.from({length: Number(itemData.value)}, (_, i) => i)
-                           .filter(i => (itemData.filesPerDocument?.[i] || []).length === 0);
+                           .filter(i => (itemData.filesPerDocument?.[i] || []).filter((f: any) => 'url' in f && f.url).length === 0);
                         if (docIndicesWithMissingFiles.length > 0) {
                             errors.push(`Chỉ tiêu "${itemName}" yêu cầu minh chứng cho mỗi văn bản đã ban hành.`);
                         }
                     }
-                 } else if ((itemData.files || []).length === 0) {
+                 } else if ((itemData.files || []).filter((f: any) => 'url' in f && f.url).length === 0) {
                     errors.push(`Mục "${itemName}" yêu cầu minh chứng.`);
                  }
             }
@@ -1831,3 +1833,5 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
+
+    
