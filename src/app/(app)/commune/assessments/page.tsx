@@ -839,8 +839,8 @@ const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus
         return 'pending';
     }
     
-    if (files.length === 0) {
-        return 'not-achieved'; // Data entered but no evidence
+    if ((files || []).length === 0) {
+        return 'not-achieved';
     }
     
     // Logic for checkbox groups
@@ -939,7 +939,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
     assessmentData: AssessmentValues,
     contentId?: string,
 }) => {
-    const isEvidenceRequired = data.status !== 'pending' && data.isTasked !== false && data.files.length === 0;
+    const isEvidenceRequired = data.status !== 'pending' && data.isTasked !== false && (data.files || []).length === 0;
 
     return (
         <div className="grid gap-6">
