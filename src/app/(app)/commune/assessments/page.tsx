@@ -886,7 +886,7 @@ const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus
 
         // General checkbox logic
         const checkedCount = Object.values(value).filter(v => v === true).length;
-        const requiredCountMatch = standardLevel.match(/(\d+)/);
+        const requiredCountMatch = standardLevel.match(/(\\d+)/);
         if (requiredCountMatch) {
             const requiredCount = parseInt(requiredCountMatch[0], 10);
             return checkedCount >= requiredCount ? 'achieved' : 'not-achieved';
@@ -904,7 +904,7 @@ const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus
 
     if (typeof value === 'number' || !isNaN(Number(value))) {
         const numericValue = Number(value);
-        const match = standard.match(/([>=<]+)?\s*(\d+)/);
+        const match = standard.match(/([>=<]+)?\\s*(\\d+)/);
         if (match) {
             const operator = match[1] || '==';
             const standardValue = parseInt(match[2], 10);
@@ -955,20 +955,21 @@ const StatusBadge = ({ status, isCriterion = false }: { status: AssessmentStatus
 };
 
 
-const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, indicator, data, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, criteria, assessmentData }: {
+const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, indicator, data, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, criteria, assessmentData, contentId }: {
     specialIndicatorIds: string[],
     specialLabels: { no: string; yes: string },
     customBooleanLabels: { true: string, false: string} | null,
     checkboxOptions: string[] | null,
-    indicator: Indicator | SubIndicator,
+    indicator: Indicator | SubIndicator | Content,
     data: AssessmentValues[string],
-    onValueChange: (id: string, value: any) => void,
-    onNoteChange: (id: string, note: string) => void,
-    onEvidenceChange: (id: string, files: (File | { name: string; url: string; })[], docIndex?: number, fileToRemove?: FileWithStatus) => void,
+    onValueChange: (id: string, value: any, contentId?: string) => void,
+    onNoteChange: (id: string, note: string, contentId?: string) => void,
+    onEvidenceChange: (id: string, files: (File | { name: string; url: string; })[], docIndex?: number, fileToRemove?: FileWithStatus, contentId?: string) => void,
     onIsTaskedChange: (id: string, isTasked: boolean) => void,
     onPreview: (file: {name: string, url: string}) => void,
     criteria: Criterion[],
-    assessmentData: AssessmentValues
+    assessmentData: AssessmentValues,
+    contentId?: string,
 }) => {
     const isEvidenceRequired = data.status !== 'pending' && data.isTasked !== false && data.files.length === 0;
 
@@ -993,15 +994,15 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
             <div className="grid gap-4">
                 <div className="grid gap-2">
                   <Label>Kết quả tự đánh giá</Label>
-                  {renderInput(indicator, specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, data, onValueChange, onIsTaskedChange, criteria, assessmentData)}
+                  {renderInput(indicator, specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, data, onValueChange, onIsTaskedChange, criteria, assessmentData, contentId)}
                 </div>
                 <div className="grid gap-2">
-                    <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
+                    <Label htmlFor={`note-${indicator.id}-${contentId}`}>Ghi chú/Giải trình</Label>
                     <Textarea
-                        id={`note-${indicator.id}`}
+                        id={`note-${indicator.id}-${contentId}`}
                         placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..."
                         value={data.note}
-                        onChange={(e) => onNoteChange(indicator.id, e.target.value)}
+                        onChange={(e) => onNoteChange(indicator.id, e.target.value, contentId)}
                     />
                 </div>
             </div>
@@ -1010,7 +1011,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
                 <Label className="font-medium">Hồ sơ minh chứng</Label>
                 <p className="text-sm text-muted-foreground">{indicator.evidenceRequirement || 'Không yêu cầu cụ thể.'}</p>
                 <div className="mt-2">
-                    <EvidenceUploaderComponent indicatorId={indicator.id} evidence={data.files} onEvidenceChange={onEvidenceChange} onPreview={onPreview} isRequired={isEvidenceRequired} />
+                    <EvidenceUploaderComponent indicatorId={indicator.id} contentId={contentId} evidence={data.files} onEvidenceChange={onEvidenceChange} onPreview={onPreview} isRequired={isEvidenceRequired} />
                 </div>
             </div>
         </div>
@@ -1048,7 +1049,12 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
                     Object.entries(indicatorData.filesPerDocument).map(([idx, fileList]) => [idx, sanitizeFiles(fileList || [])])
                 ) : {},
                  communeDefinedDocuments: indicatorData.communeDefinedDocuments || null,
-                 contentResults: indicatorData.contentResults || {},
+                 contentResults: indicatorData.contentResults ? Object.fromEntries(
+                    Object.entries(indicatorData.contentResults).map(([contentId, contentData]) => [contentId, {
+                        ...contentData,
+                        files: sanitizeFiles(contentData.files)
+                    }])
+                 ) : {},
                  meta: indicatorData.meta || {}
             };
         }
@@ -1448,7 +1454,7 @@ const handleSaveDraft = useCallback(async () => {
                 }
             }
 
-            if (indicatorState.files && !indicatorState.contentResults) {
+            if (indicatorState.files && !indicatorState.contentResults && Object.keys(indicatorState.filesPerDocument || {}).length === 0) {
                 processFileList(indicatorState.files);
             }
 
@@ -1806,6 +1812,7 @@ const handleSaveDraft = useCallback(async () => {
                                                                                   onPreview={handlePreview}
                                                                                   criteria={criteria}
                                                                                   assessmentData={assessmentData}
+                                                                                  contentId={content.id}
                                                                               />
                                                                           </div>
                                                                         )
@@ -1879,3 +1886,5 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
+
+    
