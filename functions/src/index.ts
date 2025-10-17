@@ -50,17 +50,30 @@ export const syncUserClaims = onDocumentWritten({ document: "users/{userId}", re
 function parseAssessmentPath(filePath: string):
     { communeId: string; periodId: string; indicatorId: string; subId: string, isContent: boolean } | null {
   const parts = filePath.split("/");
-  if (parts.length === 7 && parts[0] === "hoso" && parts[2] === "evidence") {
-    const subId = parts[5];
-    // Giả định contentId bắt đầu bằng 'CNT', còn docIndex cho TC1 là số
-    const isContent = subId.startsWith("CNT");
-    return {
-      communeId: parts[1],
-      periodId: parts[3],
-      indicatorId: parts[4],
-      subId: subId,
-      isContent: isContent,
-    };
+  if (parts.length >= 6 && parts[0] === "hoso" && parts[2] === "evidence") {
+    // Path for Criterion 1: hoso/{communeId}/evidence/{periodId}/{indicatorId}/{docIndex}/{fileName} (length 7)
+    // Path for others: hoso/{communeId}/evidence/{periodId}/{indicatorId}/{contentId}/{fileName} (length 7)
+    // Path for simple indicators: hoso/{communeId}/evidence/{periodId}/{indicatorId}/{fileName} (length 6)
+    if (parts.length === 7) {
+        const subId = parts[5];
+        const isContent = subId.startsWith("CNT");
+        return {
+          communeId: parts[1],
+          periodId: parts[3],
+          indicatorId: parts[4],
+          subId: subId,
+          isContent: isContent,
+        };
+    } else if (parts.length === 6) {
+        // Simple indicator with no content/docIndex
+         return {
+          communeId: parts[1],
+          periodId: parts[3],
+          indicatorId: parts[4],
+          subId: '', // No subId
+          isContent: false, // Not a content item
+        };
+    }
   }
   return null;
 }
@@ -176,7 +189,7 @@ export const onAssessmentFileDeleted = onDocumentUpdated({
                   logger.info(`Content ${pathInfo.subId} has no files left, marking as not-achieved.`);
                   indicatorResult.contentResults[pathInfo.subId].status = "not-achieved";
                 }
-              } else if (!pathInfo.isContent && indicatorResult.files) {
+              } else if (!pathInfo.isContent && !pathInfo.subId && indicatorResult.files) {
                 if (indicatorResult.files.length === 0) {
                   logger.info(`Indicator ${pathInfo.indicatorId} has no files left, marking as not-achieved.`);
                   indicatorResult.status = "not-achieved";
@@ -312,11 +325,18 @@ export const verifyPDFSignature = onObjectFinalized({
   if (!contentType || !contentType.startsWith("application/pdf")) return null;
 
   const pathInfo = parseAssessmentPath(filePath);
-  // Ignore content files and non-TC1 files
-  if (!pathInfo || pathInfo.isContent || !pathInfo.indicatorId.startsWith("CT1")) {
-    logger.log(`File ${filePath} is not a TC01 evidence file. Skipping.`);
+  // Ignore files not belonging to Criterion 1
+  if (!pathInfo || !pathInfo.indicatorId.startsWith("CT1")) {
+    logger.log(`File ${filePath} is not a TC01 evidence file. Skipping signature check.`);
     return null;
   }
+  
+  // Also ignore if it's a content file (CNTxxx) but not a docIndex (number) for TC1
+  if (pathInfo.isContent) {
+      logger.log(`File ${filePath} is a content file, not a TC01 document. Skipping signature check.`);
+      return null;
+  }
+
 
   const { communeId, periodId, indicatorId } = pathInfo;
   const docIndex = parseInt(pathInfo.subId, 10);

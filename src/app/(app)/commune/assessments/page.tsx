@@ -678,7 +678,7 @@ const getCheckboxOptions = (indicatorId: string, criteria: Criterion[]) => {
 
 
 const renderInput = (
-    indicator: Indicator | SubIndicator,
+    indicator: Indicator | SubIndicator | Content,
     specialIndicatorIds: string[],
     specialLabels: { no: string; yes: string },
     customBooleanLabels: { true: string, false: string } | null,
