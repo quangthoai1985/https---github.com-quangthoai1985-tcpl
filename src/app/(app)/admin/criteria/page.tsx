@@ -282,6 +282,7 @@ function IndicatorContentConfig({ indicator, onIndicatorChange }: { indicator: I
                                         <SelectItem value="boolean">Lựa chọn Đạt/Không đạt</SelectItem>
                                         <SelectItem value="number">Nhập liệu số</SelectItem>
                                         <SelectItem value="select">Lựa chọn nhiều mục</SelectItem>
+                                        <SelectItem value="text">Nhập liệu văn bản</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>
@@ -444,9 +445,9 @@ export default function CriteriaManagementPage() {
         id: `CT${Date.now().toString().slice(-6)}`,
         name: indicatorToSave.name || "Chỉ tiêu mới",
         description: indicatorToSave.description || "",
-        standardLevel: "", // Removed from form
-        inputType: "boolean", // Removed from form
-        evidenceRequirement: "", // Removed from form
+        standardLevel: "", 
+        inputType: "boolean",
+        evidenceRequirement: "",
         subIndicators: [], // Legacy field
         contents: indicatorToSave.contents || [],
         passRule: indicatorToSave.passRule || { type: 'all' },
@@ -608,51 +609,56 @@ export default function CriteriaManagementPage() {
                                <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
                                <div>
                                   <p className="text-sm">{indicator.description}</p>
-                                  <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
+                                  {(indicator.standardLevel || (indicator.contents && indicator.contents.length > 0)) ? null : (
+                                    <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
+                                  )}
                                </div>
                            </div>
                         </div>
                         
-                        <div className="mt-4 pl-6 space-y-4 border-l-2 border-dashed">
-                            {(indicator.subIndicators || []).map(sub => (
-                                <div key={sub.id} className="grid gap-3 rounded-md border bg-card p-4 shadow-sm relative">
-                                    <CornerDownRight className="absolute -left-9 top-6 h-5 w-5 text-muted-foreground"/>
-                                    <div className="flex justify-between items-start">
-                                        <h5 className="font-semibold text-base flex-1 pr-4">{sub.name}</h5>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className='h-8 w-8 flex-shrink-0'>
-                                                <MoreHorizontal className="h-4 w-4" />
-                                            </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                            <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={() => handleEditSubIndicator(criterion.id, indicator.id, sub)}>Sửa chỉ tiêu con</DropdownMenuItem>
-                                            <DropdownMenuItem className="text-destructive">
-                                                Xóa chỉ tiêu con
-                                            </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </div>
-                                    <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md">
-                                       <div className="flex items-start gap-2 text-blue-800">
-                                           <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                                           <div>
-                                              <p className="text-sm">{sub.description}</p>
-                                              <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{sub.standardLevel}</span></p>
+                        {/* Fallback to old subIndicators if contents is empty */}
+                        {(!indicator.contents || indicator.contents.length === 0) && (indicator.subIndicators && indicator.subIndicators.length > 0) && (
+                            <div className="mt-4 pl-6 space-y-4 border-l-2 border-dashed">
+                                {indicator.subIndicators.map(sub => (
+                                    <div key={sub.id} className="grid gap-3 rounded-md border bg-card p-4 shadow-sm relative">
+                                        <CornerDownRight className="absolute -left-9 top-6 h-5 w-5 text-muted-foreground"/>
+                                        <div className="flex justify-between items-start">
+                                            <h5 className="font-semibold text-base flex-1 pr-4">{sub.name}</h5>
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className='h-8 w-8 flex-shrink-0'>
+                                                    <MoreHorizontal className="h-4 w-4" />
+                                                </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                <DropdownMenuLabel>Hành động</DropdownMenuLabel>
+                                                <DropdownMenuItem onClick={() => handleEditSubIndicator(criterion.id, indicator.id, sub)}>Sửa chỉ tiêu con</DropdownMenuItem>
+                                                <DropdownMenuItem className="text-destructive">
+                                                    Xóa chỉ tiêu con
+                                                </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        </div>
+                                        <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md">
+                                           <div className="flex items-start gap-2 text-blue-800">
+                                               <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
+                                               <div>
+                                                  <p className="text-sm">{sub.description}</p>
+                                                  <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{sub.standardLevel}</span></p>
+                                               </div>
                                            </div>
-                                       </div>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm mt-2">
+                                            <div><strong>Loại dữ liệu:</strong> <Badge variant="outline">{sub.inputType}</Badge></div>
+                                        </div>
+                                        <div>
+                                            <p className="font-medium text-sm">Yêu cầu hồ sơ minh chứng:</p>
+                                            <p className="text-sm text-muted-foreground">{sub.evidenceRequirement}</p>
+                                        </div>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-2 text-sm mt-2">
-                                        <div><strong>Loại dữ liệu:</strong> <Badge variant="outline">{sub.inputType}</Badge></div>
-                                    </div>
-                                    <div>
-                                        <p className="font-medium text-sm">Yêu cầu hồ sơ minh chứng:</p>
-                                        <p className="text-sm text-muted-foreground">{sub.evidenceRequirement}</p>
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
+                                ))}
+                            </div>
+                        )}
 
                     </div>
                   ))}
