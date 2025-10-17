@@ -599,17 +599,6 @@ export default function CriteriaManagementPage() {
                             </DropdownMenu>
                         </div>
                       
-                        <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md">
-                           <div className="flex items-start gap-2 text-blue-800">
-                               <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                               <div>
-                                  {(indicator.standardLevel || (indicator.contents && indicator.contents.length > 0)) ? null : (
-                                    <p className="text-sm mt-2"><strong>Yêu cầu đạt chuẩn: </strong><span className="font-semibold">{indicator.standardLevel}</span></p>
-                                  )}
-                               </div>
-                           </div>
-                        </div>
-                        
                         {/* Fallback to old subIndicators if contents is empty */}
                         {(!indicator.contents || indicator.contents.length === 0) && (indicator.subIndicators && indicator.subIndicators.length > 0) && (
                             <div className="mt-4 pl-6 space-y-4 border-l-2 border-dashed">
