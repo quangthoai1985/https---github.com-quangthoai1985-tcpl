@@ -825,7 +825,7 @@ const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus
 
         if (filesPerDocument) {
             const allFiles = Object.values(filesPerDocument).flat();
-            const uploadedCount = allFiles.filter(f => 'url' in f && f.url).length;
+            const uploadedCount = allFiles.length;
             const requiredFilesMet = uploadedCount >= enteredValue; 
             const allSignaturesValid = allFiles.every(f => 'signatureStatus' in f && f.signatureStatus === 'valid');
             
@@ -1396,7 +1396,6 @@ const handleSaveDraft = useCallback(async () => {
     const savingToast = toast({ title: 'Đang lưu nháp...' });
 
     try {
-        const dataToSave = JSON.parse(JSON.stringify(assessmentData));
         const uploadPromises: Promise<void>[] = [];
 
         for (const indicatorId in assessmentData) {
@@ -1418,11 +1417,11 @@ const handleSaveDraft = useCallback(async () => {
                                 const downloadURL = await getDownloadURL(snapshot.ref);
 
                                 if (contentId) {
-                                    dataToSave[indicatorId].contentResults[contentId].files[fileIndex] = { name: file.name, url: downloadURL };
+                                    assessmentData[indicatorId].contentResults[contentId].files[fileIndex] = { name: file.name, url: downloadURL };
                                 } else if (docIndex !== undefined) {
-                                    dataToSave[indicatorId].filesPerDocument[docIndex][fileIndex] = { name: file.name, url: downloadURL };
+                                    assessmentData[indicatorId].filesPerDocument[docIndex][fileIndex] = { name: file.name, url: downloadURL };
                                 } else {
-                                    dataToSave[indicatorId].files[fileIndex] = { name: file.name, url: downloadURL };
+                                    assessmentData[indicatorId].files[fileIndex] = { name: file.name, url: downloadURL };
                                 }
                             } catch (uploadError) {
                                 console.error(`Lỗi khi tải lên file ${file.name}:`, uploadError);
@@ -1460,7 +1459,7 @@ const handleSaveDraft = useCallback(async () => {
         const updatedAssessment: Assessment = {
             ...currentAssessment,
             assessmentStatus: 'draft',
-            assessmentData: sanitizeDataForFirestore(dataToSave),
+            assessmentData: sanitizeDataForFirestore(assessmentData),
         };
 
         await updateSingleAssessment(updatedAssessment);
@@ -1515,12 +1514,12 @@ const handleSaveDraft = useCallback(async () => {
                     const assignedDocsCount = (criteria.find(c=>c.id === 'TC01') as Criterion).assignedDocumentsCount || itemData.communeDefinedDocuments?.length || 0;
                     if (assignedDocsCount > 0 && Number(itemData.value) > 0) {
                         const docIndicesWithMissingFiles = Array.from({length: Number(itemData.value)}, (_, i) => i)
-                           .filter(i => (itemData.filesPerDocument?.[i] || []).filter((f: any) => 'url' in f && f.url).length === 0);
+                           .filter(i => (itemData.filesPerDocument?.[i] || []).length === 0);
                         if (docIndicesWithMissingFiles.length > 0) {
                             errors.push(`Chỉ tiêu "${itemName}" yêu cầu minh chứng cho mỗi văn bản đã ban hành.`);
                         }
                     }
-                 } else if ((itemData.files || []).filter((f: any) => 'url' in f && f.url).length === 0) {
+                 } else if ((itemData.files || []).length === 0) {
                     errors.push(`Mục "${itemName}" yêu cầu minh chứng.`);
                  }
             }
@@ -1754,7 +1753,7 @@ const handleSaveDraft = useCallback(async () => {
                                                                                   data={contentData as any}
                                                                                   onValueChange={(id, value) => handleValueChange(indicator.id, value, content.id)}
                                                                                   onNoteChange={(id, note) => handleNoteChange(indicator.id, note, content.id)}
-                                                                                  onEvidenceChange={(id, files, docIdx, fileToDel) => handleEvidenceChange(id, files, docIdx, fileToDel, content.id)}
+                                                                                  onEvidenceChange={handleEvidenceChange}
                                                                                   onIsTaskedChange={(id, isTasked) => handleIsTaskedChange(content.id, isTasked)}
                                                                                   onPreview={handlePreview}
                                                                                   criteria={criteria}
@@ -1776,7 +1775,7 @@ const handleSaveDraft = useCallback(async () => {
                                                                 data={assessmentData[indicator.id]}
                                                                 onValueChange={handleValueChange}
                                                                 onNoteChange={handleNoteChange}
-                                                                onEvidenceChange={handleEvidenceChange}
+                                                                onEvidenceChange={(id, files, docIdx, fileToDel, cId) => handleEvidenceChange(indicator.id, files, docIdx, fileToDel, cId)}
                                                                 onIsTaskedChange={handleIsTaskedChange}
                                                                 onPreview={handlePreview}
                                                                 criteria={criteria}
