@@ -56,13 +56,13 @@ type IndicatorValue = {
             value: any,
             files: FileWithStatus[],
             status: AssessmentStatus,
-            note?: string
-        }
+            note?: string 
+        } 
     };
-    meta?: {
-        metCount?: number,
-        totalCount?: number,
-        computedAt?: string
+    meta?: { 
+        metCount?: number, 
+        totalCount?: number, 
+        computedAt?: string 
     };
 };
 type AssessmentValues = Record<string, IndicatorValue>;
@@ -1161,54 +1161,70 @@ export default function SelfAssessmentPage() {
     };
 
 
-const handleIsTaskedChange = useCallback((indicatorId: string, isTasked: boolean) => {
+const handleIsTaskedChange = useCallback((id: string, isTasked: boolean) => {
+    // 'id' có thể là indicator.id (đơn giản) hoặc content.id (phức tạp)
     setAssessmentData(prev => {
-        const indicator = findIndicator(indicatorId);
-        if (!indicator) return prev;
+        const item = findIndicator(id); // item là Indicator hoặc Content
+        if (!item) return prev;
 
         const newData = { ...prev };
-        const indicatorData = { ...newData[indicatorId] };
         
-        // Find parent indicator if the current one is a content item
-        const parentIndicator = criteria.flatMap(c => c.indicators).find(i => i.contents?.some(c => c.id === indicatorId));
+        // Kiểm tra xem đây là Content hay Indicator
+        const parentIndicator = criteria.flatMap(c => c.indicators).find(i => i.contents?.some(c => c.id === id));
 
-        if (parentIndicator) { // This is a content item
-            const contentResults = { ...indicatorData.contentResults };
-            if (contentResults[indicator.id]) {
-                const currentContentData = contentResults[indicator.id];
+        if (parentIndicator) { 
+            // ============ ĐÂY LÀ LOGIC SỬA CHO CONTENT ITEM ============
+            const contentId = id;
+            
+            // 1. Lấy dữ liệu của CHỈ TIÊU CHA
+            const parentData = { ...newData[parentIndicator.id] }; 
+            const contentResults = { ...(parentData.contentResults || {}) };
+            
+            // 2. Đảm bảo nội dung con này tồn tại trong state
+            if (contentResults[contentId]) {
+                const currentContentData = contentResults[contentId];
                 const valueToEvaluate = isTasked ? currentContentData.value : null;
-                const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, isTasked ? currentContentData.files : [], isTasked);
+                // 'item' ở đây chính là object 'content'
+                const newStatus = evaluateStatus(valueToEvaluate, item.standardLevel, isTasked ? currentContentData.files : [], isTasked);
                 
-                contentResults[indicator.id] = {
+                // 3. Cập nhật nội dung con (thêm/cập nhật trường isTasked)
+                contentResults[contentId] = {
                     ...currentContentData,
-                    isTasked: isTasked,
+                    isTasked: isTasked, 
                     status: newStatus,
                     value: isTasked ? currentContentData.value : null,
                     files: isTasked ? currentContentData.files : [],
                 };
 
+                // 4. Tính toán lại trạng thái cha
                 const newParentStatus = evaluateIndicatorByPassRule(parentIndicator, contentResults);
+                
+                // 5. Cập nhật state của cha
                 newData[parentIndicator.id] = {
-                    ...newData[parentIndicator.id],
+                    ...parentData,
                     contentResults: contentResults,
                     status: newParentStatus,
                 };
             }
-        } else { // This is a simple indicator
+        } else { 
+            // ============ LOGIC CHO INDICATOR ĐƠN GIẢN (KHÔNG THAY ĐỔI) ============
+            const indicatorId = id;
+            const indicatorData = { ...newData[indicatorId] }; 
             const valueToEvaluate = isTasked ? indicatorData.value : null;
             const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
+            
             let assignedCount;
             if (parentCriterion?.id === 'TC01') {
                 const tc1Data = prev[parentCriterion.indicators[0].id];
                 assignedCount = parentCriterion.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
             } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
-                const tc1Data = prev[criteria[0].indicators[0].id];
-                assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+                 const tc1Data = prev[criteria[0].indicators[0].id];
+                 assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
             }
             
             const files = isTasked ? indicatorData.files : [];
             const filesPerDocument = parentCriterion?.id === 'TC01' ? indicatorData.filesPerDocument : undefined;
-            const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, files, isTasked, assignedCount, filesPerDocument);
+            const newStatus = evaluateStatus(valueToEvaluate, item.standardLevel, files, isTasked, assignedCount, filesPerDocument);
 
             newData[indicatorId] = {
                 ...indicatorData,
