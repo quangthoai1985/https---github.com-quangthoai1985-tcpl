@@ -79,14 +79,14 @@ const GenericCriterionComponent = ({
                                         </div>
                                         <div className="mt-4 pl-6 space-y-6 border-l-2 border-dashed">
                                           {(indicator.contents || []).map(content => {
-                                                if (!assessmentData[indicator.id]?.contentResults) return null;
-                                                
                                                 const subBlockClasses = cn(
                                                     "relative pl-6 transition-colors rounded-r-lg py-4",
                                                      assessmentData[indicator.id].contentResults![content.id]?.status === 'achieved' && 'bg-green-50',
                                                      assessmentData[indicator.id].contentResults![content.id]?.status === 'not-achieved' && 'bg-red-50',
                                                      assessmentData[indicator.id].contentResults![content.id]?.status === 'pending' && 'bg-amber-50 border-l-amber-200'
                                                 );
+                                                const contentData = assessmentData[indicator.id]?.contentResults?.[content.id];
+                                                if (!contentData) return null;
                                                 return (
                                                   <div key={content.id} className={subBlockClasses}>
                                                       <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
@@ -96,10 +96,10 @@ const GenericCriterionComponent = ({
                                                           customBooleanLabels={getCustomBooleanLabels(content.id, criteria)}
                                                           checkboxOptions={getCheckboxOptions(content.id, criteria)}
                                                           indicator={content}
-                                                          data={assessmentData[indicator.id]}
-                                                          onValueChange={(id, value, cId) => handleValueChange(indicator.id, value, cId)}
-                                                          onNoteChange={(id, note, cId) => handleNoteChange(indicator.id, note, cId)}
-                                                          onEvidenceChange={(id, files, docIdx, fileToDel, cId) => handleEvidenceChange(indicator.id, files, docIdx, fileToDel, cId)}
+                                                          data={contentData}
+                                                          onValueChange={(id, value, cId) => onValueChange(indicator.id, value, cId)}
+                                                          onNoteChange={(id, note, cId) => onNoteChange(indicator.id, note, cId)}
+                                                          onEvidenceChange={(id, files, docIdx, fileToDel, cId) => onEvidenceChange(indicator.id, files, docIdx, fileToDel, cId)}
                                                           onIsTaskedChange={onIsTaskedChange}
                                                           onPreview={onPreview}
                                                           criteria={criteria}
@@ -120,9 +120,9 @@ const GenericCriterionComponent = ({
                                         checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
                                         indicator={indicator as any}
                                         data={assessmentData[indicator.id]}
-                                        onValueChange={handleValueChange}
-                                        onNoteChange={handleNoteChange}
-                                        onEvidenceChange={handleEvidenceChange}
+                                        onValueChange={onValueChange}
+                                        onNoteChange={onNoteChange}
+                                        onEvidenceChange={onEvidenceChange}
                                         onIsTaskedChange={onIsTaskedChange}
                                         onPreview={onPreview}
                                         criteria={criteria}
