@@ -24,48 +24,8 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import type { AssessmentStatus, FileWithStatus, IndicatorValue, AssessmentValues } from './types';
 
-
-type AssessmentStatus = 'achieved' | 'not-achieved' | 'pending';
-type FileWithStatus = (File | {
-    name: string, 
-    url: string,
-    signatureStatus?: 'validating' | 'valid' | 'invalid' | 'error',
-    signatureError?: string,
-    contentCheckStatus?: 'passed' | 'failed' | 'not_checked',
-    contentCheckIssues?: string[]
-});
-
-type IndicatorValue = {
-    isTasked?: boolean | null;
-    value: any;
-    files: FileWithStatus[];
-    filesPerDocument?: { [documentIndex: number]: FileWithStatus[] };
-    note: string;
-    status: AssessmentStatus;
-    adminNote?: string;
-    communeNote?: string;
-    communeDefinedDocuments?: {
-        name: string;
-        issueDate: string;
-        excerpt: string;
-        issuanceDeadlineDays: number;
-    }[];
-    contentResults?: {
-        [contentId: string]: {
-            value: any,
-            files: FileWithStatus[],
-            status: AssessmentStatus,
-            note?: string 
-        } 
-    };
-    meta?: { 
-        metCount?: number, 
-        totalCount?: number, 
-        computedAt?: string 
-    };
-};
-type AssessmentValues = Record<string, IndicatorValue>;
 
 const Criterion1EvidenceUploader = ({
   indicatorId,
