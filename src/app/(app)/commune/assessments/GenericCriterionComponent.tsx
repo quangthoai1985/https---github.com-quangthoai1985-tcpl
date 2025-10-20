@@ -4,10 +4,11 @@ import React from 'react';
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { CornerDownRight } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { AssessmentValues, Criterion } from "@/lib/data";
+import type { Assessment, Criterion, Indicator, IndicatorResult } from "@/lib/data";
 import type { AssessmentStatus } from './types';
 import StatusBadge from './StatusBadge';
 import IndicatorAssessment from './IndicatorAssessment';
+import Criterion2_Indicator4_Component from './Criterion2_Indicator4_Component';
 
 const GenericCriterionComponent = ({
     criterion,
@@ -22,7 +23,9 @@ const GenericCriterionComponent = ({
     specialLogicIndicatorIds,
     getSpecialIndicatorLabels,
     getCustomBooleanLabels,
-    getCheckboxOptions
+    getCheckboxOptions,
+    periodId,
+    communeId
 }: {
     criterion: Criterion;
     criterionStatus: AssessmentStatus;
@@ -37,6 +40,8 @@ const GenericCriterionComponent = ({
     getSpecialIndicatorLabels: (indicatorId: string, criteria: Criterion[]) => { no: string; yes: string; };
     getCustomBooleanLabels: (indicatorId: string, criteria: Criterion[]) => { true: string, false: string } | null;
     getCheckboxOptions: (indicatorId: string, criteria: Criterion[]) => string[] | null;
+    periodId: string;
+    communeId: string;
 }) => {
     
     const triggerClasses = cn(
@@ -58,6 +63,24 @@ const GenericCriterionComponent = ({
             <AccordionContent>
                 <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
                     {(criterion.indicators || []).map(indicator => {
+                        
+                        if (indicator.id === 'CT2.4') {
+                            return (
+                                <Criterion2_Indicator4_Component
+                                    key={indicator.id}
+                                    indicator={indicator}
+                                    assessmentData={assessmentData}
+                                    onValueChange={onValueChange}
+                                    onNoteChange={onNoteChange}
+                                    onEvidenceChange={onEvidenceChange}
+                                    onIsTaskedChange={onIsTaskedChange}
+                                    onPreview={onPreview}
+                                    periodId={periodId} 
+                                    communeId={communeId}
+                                />
+                            );
+                        }
+
                         if (!assessmentData[indicator.id]) return null;
 
                         const indicatorBlockClasses = cn(
