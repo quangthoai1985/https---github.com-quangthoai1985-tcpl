@@ -814,7 +814,7 @@ const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus
         return 'achieved';
     }
 
-    const hasFileEvidence = (files || []).some(f => 'url' in f && f.url);
+    const hasFileEvidence = (files || []).length > 0;
 
     // Logic for Criterion 1 indicators
     if (assignedCount && assignedCount > 0) {
@@ -1754,7 +1754,7 @@ const handleSaveDraft = useCallback(async () => {
                                                                                   data={contentData as any}
                                                                                   onValueChange={(id, value) => handleValueChange(indicator.id, value, content.id)}
                                                                                   onNoteChange={(id, note) => handleNoteChange(indicator.id, note, content.id)}
-                                                                                  onEvidenceChange={(id, files, docIdx, fileToDel, cId) => handleEvidenceChange(indicator.id, files, docIdx, fileToDel, cId)}
+                                                                                  onEvidenceChange={(id, files, docIdx, fileToDel) => handleEvidenceChange(id, files, docIdx, fileToDel, content.id)}
                                                                                   onIsTaskedChange={(id, isTasked) => handleIsTaskedChange(content.id, isTasked)}
                                                                                   onPreview={handlePreview}
                                                                                   criteria={criteria}
@@ -1850,3 +1850,5 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
+
+    
