@@ -288,7 +288,7 @@ function IndicatorContentConfig({ indicator, onIndicatorChange }: { indicator: I
                             </div>
                              <div className="grid gap-1.5">
                                 <Label htmlFor={`content-standard-${index}`} className="text-xs">Yêu cầu đạt chuẩn</Label>
-                                <Input id={`content-standard-${index}`} value={content.standardLevel} onChange={(e) => handleContentChange(index, 'standardLevel', e.target.value)} />
+                                <Input id={`content-standard-${index}`} value={content.standardLevel || ''} onChange={(e) => handleContentChange(index, 'standardLevel', e.target.value)} />
                             </div>
                              <div className="md:col-span-2 grid gap-1.5">
                                 <Label htmlFor={`content-evidence-${index}`} className="text-xs">Yêu cầu hồ sơ minh chứng</Label>
@@ -566,6 +566,4 @@ export default function CriteriaManagementPage() {
     </>
   );
 }
-
-
 
