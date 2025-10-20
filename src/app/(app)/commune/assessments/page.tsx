@@ -469,8 +469,9 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
     );
 };
 
-const EvidenceUploaderComponent = ({ indicatorId, evidence, onEvidenceChange, isRequired, onPreview, docIndex, accept, contentId }: {
+const EvidenceUploaderComponent = ({ indicatorId, parentIndicatorId, evidence, onEvidenceChange, isRequired, onPreview, docIndex, accept, contentId }: {
     indicatorId: string;
+    parentIndicatorId?: string;
     evidence: FileWithStatus[];
     onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus, contentId?: string) => void;
     isRequired: boolean;
@@ -484,11 +485,11 @@ const EvidenceUploaderComponent = ({ indicatorId, evidence, onEvidenceChange, is
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newFiles = Array.from(e.target.files || []);
-        onEvidenceChange(indicatorId, [...evidence, ...newFiles], docIndex, undefined, contentId);
+        onEvidenceChange(parentIndicatorId || indicatorId, [...evidence, ...newFiles], docIndex, undefined, contentId);
     };
 
     const handleEvidenceRemove = (itemToRemove: FileWithStatus) => {
-        onEvidenceChange(indicatorId, [], docIndex, itemToRemove, contentId);
+        onEvidenceChange(parentIndicatorId || indicatorId, [], docIndex, itemToRemove, contentId);
     };
 
     const handleAddLink = () => {
@@ -497,7 +498,7 @@ const EvidenceUploaderComponent = ({ indicatorId, evidence, onEvidenceChange, is
             return;
         }
         const newLink = { name: linkInput.trim(), url: linkInput.trim() };
-        onEvidenceChange(indicatorId, [...evidence, newLink], docIndex, undefined, contentId);
+        onEvidenceChange(parentIndicatorId || indicatorId, [...evidence, newLink], docIndex, undefined, contentId);
         setLinkInput('');
     };
 
@@ -925,7 +926,7 @@ const StatusBadge = ({ status, isCriterion = false }: { status: AssessmentStatus
 };
 
 
-const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, indicator, data, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, criteria, assessmentData, contentId }: {
+const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, indicator, data, onValueChange, onNoteChange, onEvidenceChange, onIsTaskedChange, onPreview, criteria, assessmentData, contentId, parentIndicatorId }: {
     specialIndicatorIds: string[],
     specialLabels: { no: string; yes: string },
     customBooleanLabels: { true: string, false: string} | null,
@@ -940,14 +941,25 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
     criteria: Criterion[],
     assessmentData: AssessmentValues,
     contentId?: string,
+    parentIndicatorId?: string,
 }) => {
-    const isEvidenceRequired = data.status !== 'pending' && data.isTasked !== false && (data.files || []).length === 0;
+    
+    const targetIndicatorId = parentIndicatorId || indicator.id;
+    const targetContentId = contentId || indicator.id;
+
+    const contentState = parentIndicatorId
+        ? data.contentResults?.[targetContentId] ?? { value: '', files: [], status: 'pending', note: '' }
+        : null;
+        
+    const displayData = contentState ? contentState : data;
+
+    const isEvidenceRequired = displayData.status !== 'pending' && (parentIndicatorId ? true : data.isTasked !== false) && (displayData.files || []).length === 0;
 
     return (
         <div className="grid gap-6">
             <div>
                 <div className="flex items-center gap-2">
-                    <StatusBadge status={data.status} />
+                    <StatusBadge status={displayData.status} />
                     <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
                 </div>
                  <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
@@ -964,15 +976,15 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
             <div className="grid gap-4">
                 <div className="grid gap-2">
                   <Label>Kết quả tự đánh giá</Label>
-                  {renderInput(indicator, specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, data, onValueChange, onIsTaskedChange, criteria, assessmentData, contentId)}
+                  {renderInput(indicator, specialIndicatorIds, specialLabels, customBooleanLabels, checkboxOptions, displayData, onValueChange, onIsTaskedChange, criteria, assessmentData, contentId)}
                 </div>
                 <div className="grid gap-2">
                     <Label htmlFor={`note-${indicator.id}-${contentId}`}>Ghi chú/Giải trình</Label>
                     <Textarea
                         id={`note-${indicator.id}-${contentId}`}
                         placeholder="Giải trình thêm về kết quả hoặc các vấn đề liên quan..."
-                        value={data.note}
-                        onChange={(e) => onNoteChange(indicator.id, e.target.value, contentId)}
+                        value={displayData.note || ''}
+                        onChange={(e) => onNoteChange(targetIndicatorId, e.target.value, contentId)}
                     />
                 </div>
             </div>
@@ -981,7 +993,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
                 <Label className="font-medium">Hồ sơ minh chứng</Label>
                 <p className="text-sm text-muted-foreground">{indicator.evidenceRequirement || 'Không yêu cầu cụ thể.'}</p>
                 <div className="mt-2">
-                    <EvidenceUploaderComponent indicatorId={indicator.id} contentId={contentId} evidence={data.files} onEvidenceChange={onEvidenceChange} onPreview={onPreview} isRequired={isEvidenceRequired} />
+                    <EvidenceUploaderComponent indicatorId={targetIndicatorId} parentIndicatorId={parentIndicatorId} contentId={contentId} evidence={displayData.files || []} onEvidenceChange={onEvidenceChange} onPreview={onPreview} isRequired={isEvidenceRequired} />
                 </div>
             </div>
         </div>
@@ -1417,9 +1429,9 @@ const handleSaveDraft = useCallback(async () => {
                                 const downloadURL = await getDownloadURL(snapshot.ref);
 
                                 if (contentId) {
-                                    assessmentData[indicatorId].contentResults[contentId].files[fileIndex] = { name: file.name, url: downloadURL };
+                                    assessmentData[indicatorId].contentResults![contentId].files[fileIndex] = { name: file.name, url: downloadURL };
                                 } else if (docIndex !== undefined) {
-                                    assessmentData[indicatorId].filesPerDocument[docIndex][fileIndex] = { name: file.name, url: downloadURL };
+                                    assessmentData[indicatorId].filesPerDocument![docIndex][fileIndex] = { name: file.name, url: downloadURL };
                                 } else {
                                     assessmentData[indicatorId].files[fileIndex] = { name: file.name, url: downloadURL };
                                 }
@@ -1750,15 +1762,16 @@ const handleSaveDraft = useCallback(async () => {
                                                                                   customBooleanLabels={getCustomBooleanLabels(content.id, criteria)}
                                                                                   checkboxOptions={getCheckboxOptions(content.id, criteria)}
                                                                                   indicator={content}
-                                                                                  data={contentData as any}
-                                                                                  onValueChange={(id, value) => handleValueChange(indicator.id, value, content.id)}
-                                                                                  onNoteChange={(id, note) => handleNoteChange(indicator.id, note, content.id)}
-                                                                                  onEvidenceChange={handleEvidenceChange}
+                                                                                  data={assessmentData[indicator.id]}
+                                                                                  onValueChange={handleValueChange}
+                                                                                  onNoteChange={handleNoteChange}
+                                                                                  onEvidenceChange={(id, files, docIdx, fileToDel, cId) => handleEvidenceChange(indicator.id, files, docIdx, fileToDel, cId)}
                                                                                   onIsTaskedChange={(id, isTasked) => handleIsTaskedChange(content.id, isTasked)}
                                                                                   onPreview={handlePreview}
                                                                                   criteria={criteria}
                                                                                   assessmentData={assessmentData}
                                                                                   contentId={content.id}
+                                                                                  parentIndicatorId={indicator.id}
                                                                               />
                                                                           </div>
                                                                         )
@@ -1775,12 +1788,11 @@ const handleSaveDraft = useCallback(async () => {
                                                                 data={assessmentData[indicator.id]}
                                                                 onValueChange={handleValueChange}
                                                                 onNoteChange={handleNoteChange}
-                                                                onEvidenceChange={(id, files, docIdx, fileToDel, cId) => handleEvidenceChange(indicator.id, files, docIdx, fileToDel, cId)}
+                                                                onEvidenceChange={handleEvidenceChange}
                                                                 onIsTaskedChange={handleIsTaskedChange}
                                                                 onPreview={handlePreview}
                                                                 criteria={criteria}
                                                                 assessmentData={assessmentData}
-                                                                contentId={indicator.id}
                                                             />
                                                         )}
                                                     </div>
@@ -1849,5 +1861,3 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
-
-    
