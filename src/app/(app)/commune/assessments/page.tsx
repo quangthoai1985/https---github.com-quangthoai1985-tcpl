@@ -9,7 +9,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from "react"
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/context/DataContext";
 import PageHeader from "@/components/layout/page-header";
-import type { Indicator, Criterion, Assessment, IndicatorResult, Content } from "@/lib/data";
+import type { Indicator, Criterion, Assessment, IndicatorResult, Content } from '@/lib/data';
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -856,45 +856,53 @@ const handleSaveDraft = useCallback(async () => {
                 <CardContent>
                     <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
                         {criteria.map((criterion, index) => {
-                             const criterionStatus = calculateCriterionStatus(criterion);
+                            const criterionStatus = calculateCriterionStatus(criterion);
 
-                             if (index === 0) {
-                                 return (
-                                     <Criterion1Component
-                                        key={criterion.id}
-                                        criterion={criterion}
-                                        criterionStatus={criterionStatus}
-                                        assessmentData={assessmentData}
-                                        onValueChange={handleValueChange}
-                                        onNoteChange={handleNoteChange}
-                                        onEvidenceChange={handleEvidenceChange}
-                                        onIsTaskedChange={handleIsTaskedChange}
-                                        onPreview={handlePreview}
-                                        periodId={activePeriod.id}
-                                        communeId={currentUser.communeId}
-                                        handleCommuneDocsChange={handleCommuneDocsChange}
-                                     />
-                                 );
-                             }
-                            
-                            return (
-                                <GenericCriterionComponent
-                                    key={criterion.id}
-                                    criterion={criterion}
-                                    criterionStatus={criterionStatus}
-                                    assessmentData={assessmentData}
-                                    onValueChange={handleValueChange}
-                                    onNoteChange={handleNoteChange}
-                                    onEvidenceChange={handleEvidenceChange}
-                                    onIsTaskedChange={handleIsTaskedChange}
-                                    onPreview={handlePreview}
-                                    criteria={criteria}
-                                    specialLogicIndicatorIds={specialLogicIndicatorIds}
-                                    getSpecialIndicatorLabels={getSpecialIndicatorLabels}
-                                    getCustomBooleanLabels={getCustomBooleanLabels}
-                                    getCheckboxOptions={getCheckboxOptions}
-                                />
-                            )
+                            // Dùng ID của tiêu chí để quyết định render component nào
+                            switch (criterion.id) {
+                                case 'TC01':
+                                    return (
+                                        <Criterion1Component
+                                            key={criterion.id}
+                                            criterion={criterion}
+                                            criterionStatus={criterionStatus}
+                                            assessmentData={assessmentData}
+                                            onValueChange={handleValueChange}
+                                            onNoteChange={handleNoteChange}
+                                            onEvidenceChange={handleEvidenceChange}
+                                            onIsTaskedChange={handleIsTaskedChange}
+                                            onPreview={handlePreview}
+                                            periodId={activePeriod!.id}
+                                            communeId={currentUser!.communeId}
+                                            handleCommuneDocsChange={handleCommuneDocsChange}
+                                        />
+                                    );
+                                
+                                // TC02, TC03 và các TC khác sẽ dùng chung component Generic
+                                case 'TC02':
+                                case 'TC03':
+                                case 'TC04': // Thêm dự phòng cho TC04 nếu có
+                                case 'TC05': // Thêm dự phòng cho TC05 nếu có
+                                default:
+                                    return (
+                                        <GenericCriterionComponent
+                                            key={criterion.id}
+                                            criterion={criterion}
+                                            criterionStatus={criterionStatus}
+                                            assessmentData={assessmentData}
+                                            onValueChange={handleValueChange}
+                                            onNoteChange={handleNoteChange}
+                                            onEvidenceChange={handleEvidenceChange}
+                                            onIsTaskedChange={handleIsTaskedChange}
+                                            onPreview={handlePreview}
+                                            criteria={criteria}
+                                            specialLogicIndicatorIds={specialLogicIndicatorIds}
+                                            getSpecialIndicatorLabels={getSpecialIndicatorLabels}
+                                            getCustomBooleanLabels={getCustomBooleanLabels}
+                                            getCheckboxOptions={getCheckboxOptions}
+                                        />
+                                    );
+                            }
                         })}
                     </Accordion>
                 </CardContent>
