@@ -1,4 +1,3 @@
-
 'use client'
 
 import { Accordion } from "@/components/ui/accordion";
@@ -181,23 +180,24 @@ const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus
 
 const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, IndicatorResult> => {
     const sanitizedData: Record<string, IndicatorResult> = {};
+    const sanitizeFiles = (files: FileWithStatus[]) => (files || []).map(f => {
+        if (f instanceof File) {
+            // This case should ideally not happen if uploads are complete, but as a fallback:
+            return { name: f.name, url: '' }; // Don't save File objects
+        }
+        return {
+            name: f.name,
+            url: f.url || '',
+            signatureStatus: f.signatureStatus || null,
+            signatureError: f.signatureError || null,
+            contentCheckStatus: f.contentCheckStatus || null,
+            contentCheckIssues: f.contentCheckIssues || null
+        };
+    });
+
     for (const key in data) {
         if (Object.prototype.hasOwnProperty.call(data, key)) {
             const indicatorData = data[key];
-            const sanitizeFiles = (files: FileWithStatus[]) => (files || []).map(f => {
-                if (f instanceof File) {
-                    // This case should ideally not happen if uploads are complete, but as a fallback:
-                    return { name: f.name, url: '' }; // Don't save File objects
-                }
-                return {
-                    name: f.name,
-                    url: f.url,
-                    signatureStatus: f.signatureStatus,
-                    signatureError: f.signatureError,
-                    contentCheckStatus: f.contentCheckStatus,
-                    contentCheckIssues: f.contentCheckIssues
-                };
-            });
 
             sanitizedData[key] = {
                 isTasked: indicatorData.isTasked === undefined ? null : indicatorData.isTasked,
