@@ -1754,7 +1754,7 @@ const handleSaveDraft = useCallback(async () => {
                                                                                   data={contentData as any}
                                                                                   onValueChange={(id, value) => handleValueChange(indicator.id, value, content.id)}
                                                                                   onNoteChange={(id, note) => handleNoteChange(indicator.id, note, content.id)}
-                                                                                  onEvidenceChange={handleEvidenceChange}
+                                                                                  onEvidenceChange={(id, files, docIdx, fileToDel, cId) => handleEvidenceChange(indicator.id, files, docIdx, fileToDel, cId)}
                                                                                   onIsTaskedChange={(id, isTasked) => handleIsTaskedChange(content.id, isTasked)}
                                                                                   onPreview={handlePreview}
                                                                                   criteria={criteria}
