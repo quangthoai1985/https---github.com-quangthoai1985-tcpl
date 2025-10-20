@@ -1,35 +1,22 @@
 
 'use client'
 
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Accordion } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { UploadCloud, File as FileIcon, X, CornerDownRight, CheckCircle, XCircle, CircleSlash, Loader2, LinkIcon, Info, AlertTriangle, FileUp, ListChecks, Eye, Download } from "lucide-react";
+import { Loader2, AlertTriangle, Download, Eye } from "lucide-react";
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { useData } from "@/context/DataContext";
 import PageHeader from "@/components/layout/page-header";
-import type { Indicator, SubIndicator, Criterion, Assessment, IndicatorResult, Content } from "@/lib/data";
-import { Textarea } from "@/components/ui/textarea";
-import { getDownloadURL, ref, uploadBytes, getBlob } from "firebase/storage";
-import { cn } from "@/lib/utils";
+import type { Indicator, Criterion, Assessment, IndicatorResult, Content } from "@/lib/data";
+import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { AssessmentStatus, FileWithStatus, IndicatorValue, AssessmentValues } from './types';
-import StatusBadge from './StatusBadge';
-import EvidenceUploaderComponent from './EvidenceUploaderComponent';
-import Criterion1EvidenceUploader from './Criterion1EvidenceUploader';
-import IndicatorAssessment from './IndicatorAssessment';
 import Criterion1Component from "./Criterion1Component";
+import GenericCriterionComponent from "./GenericCriterionComponent";
 
 
 const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
@@ -367,39 +354,79 @@ export default function SelfAssessmentPage() {
 
 
 const handleIsTaskedChange = useCallback((id: string, isTasked: boolean) => {
+    // 'id' có thể là indicator.id (đơn giản) hoặc content.id (phức tạp)
     setAssessmentData(prev => {
+        const item = findIndicator(id); // item là Indicator hoặc Content
+        if (!item) return prev;
+
         const newData = { ...prev };
-        const indicator = findIndicator(id);
-        if (!indicator) return prev;
         
-        const indicatorData = { ...newData[id] };
-        
-        const valueToEvaluate = isTasked ? indicatorData.value : null;
+        // Kiểm tra xem đây là Content hay Indicator
+        const parentIndicator = criteria.flatMap(c => c.indicators).find(i => i.contents?.some(c => c.id === id));
 
-        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === id));
-        let assignedCount;
-        if (parentCriterion?.id === 'TC01') {
-            const tc1Data = prev[parentCriterion.indicators[0].id];
-            assignedCount = parentCriterion.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
-        } else if (criteria[1]?.indicators?.[1]?.id === id) {
-             const tc1Data = prev[criteria[0].indicators[0].id];
-             assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+        if (parentIndicator) { 
+            // ============ ĐÂY LÀ LOGIC SỬA CHO CONTENT ITEM ============
+            const contentId = id;
+            
+            // 1. Lấy dữ liệu của CHỈ TIÊU CHA
+            const parentData = { ...newData[parentIndicator.id] }; 
+            const contentResults = { ...(parentData.contentResults || {}) };
+            
+            // 2. Đảm bảo nội dung con này tồn tại trong state
+            if (contentResults[contentId]) {
+                const currentContentData = contentResults[contentId];
+                const valueToEvaluate = isTasked ? currentContentData.value : null;
+                // 'item' ở đây chính là object 'content'
+                const newStatus = evaluateStatus(valueToEvaluate, item.standardLevel, isTasked ? currentContentData.files : [], isTasked);
+                
+                // 3. Cập nhật nội dung con (thêm/cập nhật trường isTasked)
+                contentResults[contentId] = {
+                    ...currentContentData,
+                    isTasked: isTasked, 
+                    status: newStatus,
+                    value: isTasked ? currentContentData.value : null,
+                    files: isTasked ? currentContentData.files : [],
+                };
+
+                // 4. Tính toán lại trạng thái cha
+                const newParentStatus = evaluateIndicatorByPassRule(parentIndicator, contentResults);
+                
+                // 5. Cập nhật state của cha
+                newData[parentIndicator.id] = {
+                    ...parentData,
+                    contentResults: contentResults,
+                    status: newParentStatus,
+                };
+            }
+        } else { 
+            // ============ LOGIC CHO INDICATOR ĐƠN GIẢN (KHÔNG THAY ĐỔI) ============
+            const indicatorId = id;
+            const indicatorData = { ...newData[indicatorId] }; 
+            const valueToEvaluate = isTasked ? indicatorData.value : null;
+            const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
+            
+            let assignedCount;
+            if (parentCriterion?.id === 'TC01') {
+                const tc1Data = prev[parentCriterion.indicators[0].id];
+                assignedCount = parentCriterion.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+            } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
+                 const tc1Data = prev[criteria[0].indicators[0].id];
+                 assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+            }
+            
+            const files = isTasked ? indicatorData.files : [];
+            const filesPerDocument = parentCriterion?.id === 'TC01' ? indicatorData.filesPerDocument : undefined;
+            const newStatus = evaluateStatus(valueToEvaluate, item.standardLevel, files, isTasked, assignedCount, filesPerDocument);
+
+            newData[indicatorId] = {
+                ...indicatorData,
+                isTasked: isTasked,
+                status: newStatus,
+                value: isTasked ? indicatorData.value : null,
+                files: isTasked ? indicatorData.files : [],
+                filesPerDocument: isTasked ? indicatorData.filesPerDocument : {},
+            };
         }
-
-        const files = isTasked ? indicatorData.files : [];
-        const filesPerDocument = parentCriterion?.id === 'TC01' ? indicatorData.filesPerDocument : undefined;
-        
-        const newStatus = evaluateStatus(valueToEvaluate, indicator.standardLevel, files, isTasked, assignedCount, filesPerDocument);
-
-        newData[id] = {
-            ...indicatorData,
-            isTasked: isTasked,
-            status: newStatus,
-            value: isTasked ? indicatorData.value : null,
-            files: isTasked ? indicatorData.files : [],
-            filesPerDocument: isTasked ? indicatorData.filesPerDocument : {},
-        };
-        
         return newData;
     });
 }, [criteria, findIndicator]);
@@ -850,104 +877,24 @@ const handleSaveDraft = useCallback(async () => {
                                  );
                              }
                             
-                            const triggerClasses = cn(
-                                "font-headline text-lg rounded-md px-4 transition-colors hover:no-underline",
-                                criterionStatus === 'achieved' && 'bg-green-100 hover:bg-green-200/80',
-                                criterionStatus === 'not-achieved' && 'bg-red-100 hover:bg-red-200/80',
-                                criterionStatus === 'pending' && 'bg-amber-100 hover:bg-amber-200/80',
-                            );
-
-                             return (
-                                <AccordionItem value={criterion.id} key={criterion.id}>
-                                    <AccordionTrigger className={triggerClasses}>
-                                        <div className="flex items-center gap-4 flex-1">
-                                                <StatusBadge status={criterionStatus} isCriterion={true} />
-                                                <span className="text-xl font-semibold">Tiêu chí {index+1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</span>
-                                            </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent>
-                                        <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
-                                            {(criterion.indicators || []).map(indicator => {
-                                                if (!assessmentData[indicator.id]) return null;
-
-                                                const indicatorBlockClasses = cn(
-                                                    "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
-                                                    assessmentData[indicator.id]?.status === 'achieved' && 'bg-green-50 border-green-200',
-                                                    assessmentData[indicator.id]?.status === 'not-achieved' && 'bg-red-50 border-red-200',
-                                                    assessmentData[indicator.id]?.status === 'pending' && 'bg-amber-50 border-amber-200'
-                                                );
-                                                
-                                                const hasContents = indicator.contents && indicator.contents.length > 0;
-
-                                                return (
-                                                    <div key={indicator.id} className={indicatorBlockClasses}>
-                                                        {hasContents ? (
-                                                             <>
-                                                                <div className="flex items-center gap-2">
-                                                                    <StatusBadge status={assessmentData[indicator.id]?.status} />
-                                                                    <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
-                                                                </div>
-                                                                <div className="mt-4 pl-6 space-y-6 border-l-2 border-dashed">
-                                                                  {(indicator.contents || []).map(content => {
-                                                                        if (!assessmentData[indicator.id]?.contentResults) return null;
-                                                                        const contentData = assessmentData[indicator.id].contentResults![content.id];
-                                                                        if (!contentData) return null;
-                                                                        
-                                                                        const subBlockClasses = cn(
-                                                                            "relative pl-6 transition-colors rounded-r-lg py-4",
-                                                                             contentData.status === 'achieved' && 'bg-green-50',
-                                                                             contentData.status === 'not-achieved' && 'bg-red-50',
-                                                                             contentData.status === 'pending' && 'bg-amber-50 border-l-amber-200'
-                                                                        );
-                                                                        return (
-                                                                          <div key={content.id} className={subBlockClasses}>
-                                                                              <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
-                                                                              <IndicatorAssessment
-                                                                                  specialIndicatorIds={specialLogicIndicatorIds}
-                                                                                  specialLabels={getSpecialIndicatorLabels(content.id, criteria)}
-                                                                                  customBooleanLabels={getCustomBooleanLabels(content.id, criteria)}
-                                                                                  checkboxOptions={getCheckboxOptions(content.id, criteria)}
-                                                                                  indicator={content}
-                                                                                  data={assessmentData[indicator.id]}
-                                                                                  onValueChange={(id, value, cId) => handleValueChange(indicator.id, value, cId)}
-                                                                                  onNoteChange={(id, note, cId) => handleNoteChange(indicator.id, note, cId)}
-                                                                                  onEvidenceChange={(id, files, docIdx, fileToDel, cId) => handleEvidenceChange(indicator.id, files, docIdx, fileToDel, cId)}
-                                                                                  onIsTaskedChange={(id, isTasked) => handleIsTaskedChange(content.id, isTasked)}
-                                                                                  onPreview={handlePreview}
-                                                                                  criteria={criteria}
-                                                                                  assessmentData={assessmentData}
-                                                                                  contentId={content.id}
-                                                                                  parentIndicatorId={indicator.id}
-                                                                              />
-                                                                          </div>
-                                                                        )
-                                                                  })}
-                                                                </div>
-                                                            </>
-                                                        ) : (
-                                                            <IndicatorAssessment
-                                                                specialIndicatorIds={specialLogicIndicatorIds}
-                                                                specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
-                                                                customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
-                                                                checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
-                                                                indicator={indicator as unknown as Content}
-                                                                data={assessmentData[indicator.id]}
-                                                                onValueChange={handleValueChange}
-                                                                onNoteChange={handleNoteChange}
-                                                                onEvidenceChange={handleEvidenceChange}
-                                                                onIsTaskedChange={handleIsTaskedChange}
-                                                                onPreview={handlePreview}
-                                                                criteria={criteria}
-                                                                assessmentData={assessmentData}
-                                                            />
-                                                        )}
-                                                    </div>
-                                                );
-                                            })}
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                             )
+                            return (
+                                <GenericCriterionComponent
+                                    key={criterion.id}
+                                    criterion={criterion}
+                                    criterionStatus={criterionStatus}
+                                    assessmentData={assessmentData}
+                                    onValueChange={handleValueChange}
+                                    onNoteChange={handleNoteChange}
+                                    onEvidenceChange={handleEvidenceChange}
+                                    onIsTaskedChange={handleIsTaskedChange}
+                                    onPreview={handlePreview}
+                                    criteria={criteria}
+                                    specialLogicIndicatorIds={specialLogicIndicatorIds}
+                                    getSpecialIndicatorLabels={getSpecialIndicatorLabels}
+                                    getCustomBooleanLabels={getCustomBooleanLabels}
+                                    getCheckboxOptions={getCheckboxOptions}
+                                />
+                            )
                         })}
                     </Accordion>
                 </CardContent>
@@ -1007,5 +954,3 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
-
-    
