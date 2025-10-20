@@ -452,44 +452,61 @@ const Criterion1Assessment = ({ criterion, assessmentData, onValueChange, onNote
                                         <Label className="font-medium">Hồ sơ minh chứng</Label>
                                         <p className="text-sm text-muted-foreground">{content.evidenceRequirement || 'Không yêu cầu cụ thể.'}</p>
                                         
-                                        <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
-                                            <AlertTriangle className="h-4 w-4" />
-                                            <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
-                                            <AlertDescription>Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số.</AlertDescription>
-                                        </Alert>
+                                        {indicatorIndex === 0 ? (
+                                            // START: Logic cho Chỉ tiêu 1.1 (index 0)
+                                            <>
+                                                <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
+                                                    <AlertTriangle className="h-4 w-4" />
+                                                    <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
+                                                    <AlertDescription>Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số.</AlertDescription>
+                                                </Alert>
 
-                                        {docsToRender.length > 0 ? (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                                                {docsToRender.map((doc, docIndex) => {
-                                                    const evidence = data.filesPerDocument?.[docIndex] || [];
-                                                    const isRequired = data.status !== 'pending' && data.isTasked !== false && evidence.length === 0 && Number(data.value) > docIndex;
+                                                {docsToRender.length > 0 ? (
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                                                        {docsToRender.map((doc, docIndex) => {
+                                                            const evidence = data.filesPerDocument?.[docIndex] || [];
+                                                            const isRequired = data.status !== 'pending' && data.isTasked !== false && evidence.length === 0 && Number(data.value) > docIndex;
 
-                                                    return (
-                                                        <div key={docIndex} className="p-3 border rounded-lg grid gap-2 bg-background">
-                                                            <Label className="font-medium text-center text-sm truncate">Minh chứng cho: <span className="font-bold text-primary">{doc.name || `Văn bản ${docIndex + 1}`}</span></Label>
-                                                            <Criterion1EvidenceUploader 
-                                                                indicatorId={indicator.id} 
-                                                                docIndex={docIndex} 
-                                                                evidence={evidence} 
-                                                                onUploadComplete={handleUploadComplete} 
-                                                                onRemove={handleRemoveFile} 
-                                                                onAddLink={handleAddLink}
-                                                                onPreview={onPreview} 
-                                                                periodId={periodId} 
-                                                                communeId={communeId} 
-                                                                accept=".pdf"
-                                                            />
-                                                            {isRequired && (
-                                                                <p className="text-sm font-medium text-destructive mt-1">
-                                                                    Yêu cầu ít nhất một minh chứng.
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    )
-                                                })}
-                                            </div>
-                                        ) : <p className="text-sm text-muted-foreground">Vui lòng kê khai thông tin văn bản ở trên để tải lên minh chứng.</p>}
+                                                            return (
+                                                                <div key={docIndex} className="p-3 border rounded-lg grid gap-2 bg-background">
+                                                                    <Label className="font-medium text-center text-sm truncate">Minh chứng cho: <span className="font-bold text-primary">{doc.name || `Văn bản ${docIndex + 1}`}</span></Label>
+                                                                    <Criterion1EvidenceUploader 
+                                                                        indicatorId={indicator.id} 
+                                                                        docIndex={docIndex} 
+                                                                        evidence={evidence} 
+                                                                        onUploadComplete={handleUploadComplete} 
+                                                                        onRemove={handleRemoveFile} 
+                                                                        onAddLink={handleAddLink}
+                                                                        onPreview={onPreview} 
+                                                                        periodId={periodId} 
+                                                                        communeId={communeId} 
+                                                                        accept=".pdf"
+                                                                    />
+                                                                    {isRequired && (
+                                                                        <p className="text-sm font-medium text-destructive mt-1">
+                                                                            Yêu cầu ít nhất một minh chứng.
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            )
+                                                        })}
+                                                    </div>
+                                                ) : <p className="text-sm text-muted-foreground">Vui lòng kê khai thông tin văn bản ở trên để tải lên minh chứng.</p>}
+                                            </>
+                                            // END: Logic cho Chỉ tiêu 1.1 (index 0)
+                                        ) : (
+                                            // START: Logic cho Chỉ tiêu 1.2 và 1.3 (index > 0)
+                                            <EvidenceUploaderComponent 
+                                                indicatorId={indicator.id} 
+                                                evidence={data.files} 
+                                                onEvidenceChange={onEvidenceChange} 
+                                                onPreview={onPreview} 
+                                                isRequired={data.status !== 'pending' && data.isTasked !== false && data.files.length === 0}
+                                            />
+                                            // END: Logic cho Chỉ tiêu 1.2 và 1.3 (index > 0)
+                                        )}
                                     </div>
+
 
                                     <div className="grid gap-2 mt-4">
                                         <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
@@ -1821,7 +1838,7 @@ const handleSaveDraft = useCallback(async () => {
                                                                 specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
                                                                 customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
                                                                 checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
-                                                                indicator={indicator as Content}
+                                                                indicator={indicator as unknown as Content}
                                                                 data={assessmentData[indicator.id]}
                                                                 onValueChange={handleValueChange}
                                                                 onNoteChange={handleNoteChange}
