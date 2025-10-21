@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -141,7 +142,21 @@ const GenericCriterionComponent = ({
                                                                    <p className="text-sm">{content.description}</p>
                                                                 </div>
                                                              </div>
-                                                             {/* Giao diện upload đặc biệt */}
+                                                             
+                                                            {assignmentType === 'quantity' && (!assignedCount || assignedCount === 0) && (
+                                                                <div className="grid gap-2 p-3 border rounded-md bg-background mt-4">
+                                                                    <Label htmlFor={`communeDocCount-${indicator.id}-${content.id}`}>Tổng số Kế hoạch đã ban hành</Label>
+                                                                    <Input 
+                                                                        id={`communeDocCount-${indicator.id}-${content.id}`} 
+                                                                        type="number" 
+                                                                        value={parentIndicatorData.value || ''} 
+                                                                        onChange={(e) => onValueChange(indicator.id, e.target.value)} 
+                                                                        placeholder="Nhập số lượng" 
+                                                                        className="w-48"
+                                                                    />
+                                                                </div>
+                                                            )}
+
                                                              <div className="grid gap-2 mt-4">
                                                                  <Label className="font-medium">Hồ sơ minh chứng</Label>
                                                                   <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
@@ -150,13 +165,10 @@ const GenericCriterionComponent = ({
                                                                       <AlertDescription>Tệp PDF tải lên sẽ được kiểm tra chữ ký số (yêu cầu logic 7 ngày làm việc).</AlertDescription>
                                                                   </Alert>
 
-                                                                 {/* Phần hiển thị danh sách văn bản và ô upload */}
                                                                  {docsToRender.length > 0 ? (
                                                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
                                                                          {docsToRender.map((doc, docIndex) => {
-                                                                             // Lấy evidence TỪ parentIndicatorData.filesPerDocument
                                                                              const evidence = parentIndicatorData.filesPerDocument?.[docIndex] || [];
-                                                                             // Logic isRequired dựa trên contentData.status
                                                                              const isRequired = contentData.status !== 'pending' && evidence.length === 0;
 
                                                                              return (
@@ -164,19 +176,18 @@ const GenericCriterionComponent = ({
                                                                                      <Label className="font-medium text-center text-sm truncate">Minh chứng cho: <span className="font-bold text-primary">{doc.name || `Kế hoạch ${docIndex + 1}`}</span></Label>
                                                                                      <CT4EvidenceUploader
                                                                                          indicatorId={indicator.id}
-                                                                                         contentId={content.id} // Truyền contentId
-                                                                                         docIndex={docIndex} // Truyền docIndex
+                                                                                         contentId={content.id}
+                                                                                         docIndex={docIndex}
                                                                                          evidence={evidence}
-                                                                                         onUploadComplete={handleContent1UploadComplete} // Dùng hàm helper
-                                                                                         onRemove={handleContent1RemoveFile}          // Dùng hàm helper
-                                                                                         onAddLink={handleContent1AddLink}            // Dùng hàm helper
+                                                                                         onUploadComplete={handleContent1UploadComplete}
+                                                                                         onRemove={handleContent1RemoveFile}
+                                                                                         onAddLink={handleContent1AddLink}
                                                                                          onPreview={onPreview}
                                                                                          periodId={periodId}
                                                                                          communeId={communeId}
                                                                                          isRequired={isRequired}
                                                                                          accept=".pdf"
                                                                                      />
-                                                                                     {/* (Phần isRequired giữ nguyên) */}
                                                                                      {isRequired && (
                                                                                         <p className="text-sm font-medium text-destructive mt-1">
                                                                                             Yêu cầu ít nhất một minh chứng.

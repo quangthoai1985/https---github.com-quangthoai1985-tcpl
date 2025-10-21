@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -18,7 +19,14 @@ import { Save } from 'lucide-react';
 
 
 function CT4Content1Config({ criterion, onSave }: { criterion: Criterion, onSave: (criterion: Criterion) => void }) {
-    const [formData, setFormData] = React.useState<Indicator>(() => criterion.indicators.find(i => i.id === 'CT033278') || {} as Indicator);
+    const [formData, setFormData] = React.useState<Indicator>(() => {
+        const initialIndicator = criterion.indicators.find(i => i.id === 'CT033278') || {} as Indicator;
+        // Đảm bảo documents là mảng rỗng nếu count là 0/undefined ban đầu
+        if (!initialIndicator.assignedDocumentsCount || initialIndicator.assignedDocumentsCount === 0) {
+            initialIndicator.documents = [];
+        }
+        return initialIndicator;
+    });
     const { toast } = useToast();
 
     const handleCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
