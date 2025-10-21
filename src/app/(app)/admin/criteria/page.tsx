@@ -562,8 +562,8 @@ export default function CriteriaManagementPage() {
             )}
         </DialogContent>
     </Dialog>
-
     </>
   );
 }
+
 
