@@ -91,7 +91,7 @@ interface IndicatorData {
 
 function collectAllFileUrls(assessmentData: unknown): Set<string> {
   const urls = new Set<string>();
-  if (!assessmentData || typeof assessmentData !== "object") return urls;
+  if (!assessmentData || typeof assessmentData !== 'object') return urls;
 
   const data = assessmentData as Record<string, unknown>;
 
@@ -534,156 +534,164 @@ export const verifyCT4Signature = onObjectFinalized({
     return null;
   }
   
-  if (pathInfo.isContent) {
-      logger.log(`File ${filePath} is a content file, not a CT4 document. Skipping signature check.`);
-      return null;
-  }
-
-
   const { communeId, periodId, indicatorId } = pathInfo;
-  const docIndex = parseInt(pathInfo.subId, 10);
-  if (isNaN(docIndex)) {
-    logger.log(`Invalid docIndex from path: ${pathInfo.subId}`);
+  // For CT4, docIndex is derived from subId which should be a contentId
+  const contentId = pathInfo.subId;
+  if (!contentId) {
+    logger.log(`Invalid contentId from path for CT4: ${pathInfo.subId}`);
     return null;
   }
-
+  
   const assessmentId = `assess_${periodId}_${communeId}`;
   const assessmentRef = db.collection("assessments").doc(assessmentId);
 
   const updateAssessmentFileStatus = async (
-      fileStatus: "validating" | "valid" | "invalid" | "error",
-      reason?: string,
+    contentId: string, // ID của Nội dung 1 (CNT033278)
+    fileStatus: "validating" | "valid" | "invalid" | "error",
+    reason?: string,
   ) => {
-    try {
-      await db.runTransaction(async (transaction: admin.firestore.Transaction) => {
-        const doc = await transaction.get(assessmentRef);
-        if (!doc.exists) {
-          logger.error(`Assessment document ${assessmentId} does not exist.`);
-          return;
-        }
+      try {
+          await db.runTransaction(async (transaction) => {
+              const doc = await transaction.get(assessmentRef);
+              if (!doc.exists) throw new Error(`Assessment ${assessmentId} not found.`);
 
-        const data = doc.data();
-        if (!data) return;
+              const data = doc.data();
+              if (!data) return;
 
-        const assessmentData = data.assessmentData || {};
-        const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {}, status: "pending", value: 0 };
-        const filesPerDocument = indicatorResult.filesPerDocument || {};
-        const fileList: {
-            name: string,
-            url: string,
-            signatureStatus?: string,
-            signatureError?: string
-        }[] = filesPerDocument[docIndex] || [];
+              const assessmentData = data.assessmentData || {};
+              const indicatorResult = assessmentData[indicatorId] || { contentResults: {} }; // indicatorId là CT033278
+              const contentResults = indicatorResult.contentResults || {};
+              const content1Data = contentResults[contentId] || { files: [], status: "pending", value: null }; // contentId là CNT033278
+              const fileList: { name: string, url: string, signatureStatus?: string, signatureError?: string }[] = content1Data.files || [];
 
-        let fileToUpdate = fileList.find((f) => f.name === fileName);
+              // --- (Code cập nhật fileList và fileToUpdate giữ nguyên) ---
+               let fileToUpdate = fileList.find((f) => f.name === fileName);
 
-        if (!fileToUpdate) {
-          const newFileUrl = `https://firebasestorage.googleapis.com/v0/b/${fileBucket}/o/${encodeURIComponent(filePath)}?alt=media`;
-          fileToUpdate = { name: fileName, url: newFileUrl };
-          fileList.push(fileToUpdate);
-          logger.info(`File entry for "${fileName}" not found in Firestore. Creating it.`);
-        }
+               if (!fileToUpdate) {
+                   const newFileUrl = `https://firebasestorage.googleapis.com/v0/b/${fileBucket}/o/${encodeURIComponent(filePath)}?alt=media`;
+                   fileToUpdate = { name: fileName, url: newFileUrl };
+                   fileList.push(fileToUpdate);
+                   logger.info(`File entry for "${fileName}" not found in Firestore. Creating it.`);
+               }
 
-        fileToUpdate.signatureStatus = fileStatus;
-        if (reason) {
-          fileToUpdate.signatureError = reason;
-        } else {
-          delete fileToUpdate.signatureError;
-        }
+               fileToUpdate.signatureStatus = fileStatus;
+               if (reason) fileToUpdate.signatureError = reason;
+               else delete fileToUpdate.signatureError;
 
-        filesPerDocument[docIndex] = fileList;
-        indicatorResult.filesPerDocument = filesPerDocument;
+               content1Data.files = fileList;
+              // --- (Kết thúc code cập nhật fileList) ---
 
-        const criterionDocSnap = await transaction.get(db.collection("criteria").doc("TC02"));
-        const criterionData = criterionDocSnap.data();
-        const indicatorConfig = criterionData?.indicators?.find((i: {id: string}) => i.id === "CT033278");
-        const assignedCount = indicatorConfig?.assignedDocumentsCount || 0;
 
-        const allFiles = Object.values(indicatorResult.filesPerDocument).flat() as {signatureStatus?: string}[];
-        const allRequiredFilesUploaded = allFiles.length >= assignedCount;
-        const allSignaturesValid = allFiles.every((f) => f.signatureStatus === "valid");
-        const quantityMet = Number(indicatorResult.value) >= assignedCount;
+              // --- BẮT ĐẦU LOGIC CẬP NHẬT TRẠNG THÁI MỚI ---
+              let content1NewStatus = content1Data.status; // Giữ trạng thái cũ nếu đang validating
+              if (fileStatus === 'valid') {
+                  // Cần kiểm tra xem tất cả file của content1 có valid không
+                   const allContent1FilesValid = fileList.every(f => f.signatureStatus === 'valid');
+                   if (allContent1FilesValid) {
+                       content1NewStatus = "achieved";
+                   } else if (fileList.some(f => f.signatureStatus === 'invalid' || f.signatureStatus === 'error')) {
+                       content1NewStatus = "not-achieved"; // Nếu có file lỗi/invalid -> not-achieved
+                   } else {
+                        content1NewStatus = "pending"; // Nếu còn file đang validating
+                   }
+              } else if (fileStatus === 'invalid' || fileStatus === 'error') {
+                  content1NewStatus = "not-achieved"; // Chỉ cần 1 file lỗi/invalid là not-achieved
+              }
+              content1Data.status = content1NewStatus;
 
-        if (quantityMet && allRequiredFilesUploaded && allSignaturesValid) {
-          indicatorResult.status = "achieved";
-        } else if (indicatorResult.value !== "" && indicatorResult.value !== undefined) {
-          indicatorResult.status = "not-achieved";
-        }
+              // Lưu lại Nội dung 1
+              contentResults[contentId] = content1Data;
 
-        transaction.set(assessmentRef, { assessmentData: { [indicatorId]: indicatorResult } }, { merge: true });
-      });
-      logger.info(`Successfully updated file status for "${fileName}" in transaction.`);
-    } catch (error: unknown) {
-      logger.error(`Transaction to update file status for "${fileName}" failed:`, error);
-    }
+              // Tìm ID và trạng thái của Nội dung 2 (Giả định ID là CNT066117)
+              const content2Id = "CNT066117"; // **QUAN TRỌNG:** Xác nhận ID này!
+              const content2Data = contentResults[content2Id];
+              const content2Status = content2Data?.status || 'pending';
+
+              // Lấy quy tắc đạt của chỉ tiêu cha (CT033278) từ criteria
+              let parentIndicatorStatus: "achieved" | "not-achieved" | "pending" = 'pending';
+              const criteriaDoc = await transaction.get(db.collection("criteria").doc("TC02"));
+              const parentIndicatorConfig = criteriaDoc.data()?.indicators?.find((i: {id: string}) => i.id === indicatorId);
+              const passRuleType = parentIndicatorConfig?.passRule?.type || 'all'; // Mặc định là 'all'
+
+              if (passRuleType === 'all') {
+                  if (content1NewStatus === 'achieved' && content2Status === 'achieved') {
+                      parentIndicatorStatus = 'achieved';
+                  } else if (content1NewStatus === 'not-achieved' || content2Status === 'not-achieved') {
+                      parentIndicatorStatus = 'not-achieved';
+                  } else {
+                      parentIndicatorStatus = 'pending'; // Nếu có cái nào pending
+                  }
+              } else {
+                  // TODO: Thêm logic cho các passRule khác nếu cần (atLeast, percentage)
+                  parentIndicatorStatus = 'pending';
+              }
+
+              // Cập nhật trạng thái cho chỉ tiêu cha
+              indicatorResult.status = parentIndicatorStatus;
+              indicatorResult.contentResults = contentResults; // Đảm bảo lưu cả contentResults
+
+              transaction.set(assessmentRef, { assessmentData: { [indicatorId]: indicatorResult } }, { merge: true });
+              // --- KẾT THÚC LOGIC CẬP NHẬT TRẠNG THÁI MỚI ---
+          });
+          logger.info(`Successfully updated CT4 file & parent status for "${fileName}".`);
+      } catch (error: unknown) {
+          logger.error(`Transaction to update CT4 file status for "${fileName}" failed:`, error);
+      }
   };
 
-  await updateAssessmentFileStatus("validating");
 
   try {
-    const criterionDoc = await db.collection("criteria").doc("TC02").get();
-    const assessmentDoc = await assessmentRef.get();
+      const assessmentDoc = await assessmentRef.get();
+      if (!assessmentDoc.exists) throw new Error(`Assessment document ${assessmentId} does not exist.`);
+      const assessmentData = assessmentDoc.data()?.assessmentData;
+      if (!assessmentData) throw new Error("Assessment data is missing.");
+      
+      const contentData = assessmentData[indicatorId]?.contentResults?.[contentId];
+      if (!contentData) throw new Error(`Content data for ${contentId} not found in assessment.`);
 
-    if (!criterionDoc.exists) throw new Error("Không tìm thấy cấu hình Tiêu chí 2.");
-    if (!assessmentDoc.exists) throw new Error(`Không tìm thấy hồ sơ đánh giá: ${assessmentId}`);
-
-    const criterionData = criterionDoc.data();
-    const indicatorConfig = criterionData?.indicators?.find((i: {id: string}) => i.id === "CT033278");
-    if (!indicatorConfig) throw new Error("Không tìm thấy cấu hình Chỉ tiêu CT033278 trong Tiêu chí 2.");
-    
-    const assessmentData = assessmentDoc.data()?.assessmentData;
-    const assignmentType = indicatorConfig?.assignmentType || "specific";
-
-    let issueDate: Date;
-    let deadline: Date;
-
-    if (assignmentType === "specific") {
-      const documentConfig = indicatorConfig?.documents?.[docIndex];
-      if (!documentConfig || !documentConfig.issueDate || !documentConfig.issuanceDeadlineDays) {
-        throw new Error(`Không tìm thấy cấu hình văn bản cụ thể cho index ${docIndex}.`);
+      const provincialPlanDateStr = contentData.value?.provincialPlanDate;
+      if (!provincialPlanDateStr) throw new Error("Provincial plan issue date is not defined by the commune.");
+      
+      await updateAssessmentFileStatus(contentId, "validating");
+      
+      const issueDate = parse(provincialPlanDateStr, "dd/MM/yyyy", new Date());
+      if (isNaN(issueDate.getTime())) {
+          throw new Error(`Invalid provincial plan date format: ${provincialPlanDateStr}. Use DD/MM/YYYY.`);
       }
-      issueDate = parse(documentConfig.issueDate, "dd/MM/yyyy", new Date());
-      deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
-    } else {
-      const communeDocs = assessmentData?.[indicatorId]?.communeDefinedDocuments;
-      const communeDocumentConfig = Array.isArray(communeDocs) ? communeDocs[docIndex] : undefined;
-      if (
-        !communeDocumentConfig ||
-        !communeDocumentConfig.issueDate ||
-        !communeDocumentConfig.issuanceDeadlineDays
-      ) {
-        throw new Error(`Không tìm thấy thông tin văn bản do xã kê khai cho index ${docIndex}.`);
-      }
-      issueDate = parse(communeDocumentConfig.issueDate, "dd/MM/yyyy", new Date());
-      deadline = addDays(issueDate, communeDocumentConfig.issuanceDeadlineDays);
-    }
+      
+      const deadline = addBusinessDays(issueDate, 7);
 
-    const bucket = admin.storage().bucket(fileBucket);
-    const [fileBuffer] = await bucket.file(filePath).download();
-    const signatures = await extractSignatureInfo(fileBuffer);
-    if (signatures.length === 0) throw new Error("Không tìm thấy chữ ký nào trong tài liệu bằng pdf-lib.");
-    const firstSignature = signatures[0];
-    const signingTime = firstSignature.signDate;
-    if (!signingTime) throw new Error("Chữ ký không chứa thông tin ngày ký (M).");
+      const bucket = admin.storage().bucket(fileBucket);
+      const [fileBuffer] = await bucket.file(filePath).download();
+      const signatures = await extractSignatureInfo(fileBuffer);
+      if (signatures.length === 0) throw new Error("Không tìm thấy chữ ký nào trong tài liệu bằng pdf-lib.");
 
-    const isValid = signingTime <= deadline;
-    await saveCheckResult(
-      isValid ? "valid" : "expired",
-      isValid ? "Chữ ký hợp lệ" : "Ký sau thời hạn",
-      signingTime, deadline, firstSignature.name);
+      const firstSignature = signatures[0];
+      const signingTime = firstSignature.signDate;
+      if (!signingTime) throw new Error("Chữ ký không chứa thông tin ngày ký (M).");
 
-    await updateAssessmentFileStatus(
-      isValid ? "valid" : "invalid",
-      isValid ? undefined : `Ký sau thời hạn (${deadline.toLocaleDateString("vi-VN")})`);
+      const isValid = signingTime <= deadline;
+      await saveCheckResult(
+          isValid ? "valid" : "expired",
+          isValid ? "Chữ ký hợp lệ" : "Ký sau thời hạn",
+          signingTime, deadline, firstSignature.name
+      );
+
+      await updateAssessmentFileStatus(
+          contentId,
+          isValid ? "valid" : "invalid",
+          isValid ? undefined : `Ký sau thời hạn 7 ngày làm việc (Hạn chót: ${deadline.toLocaleDateString("vi-VN")})`
+      );
   } catch (error: unknown) {
-    logger.error(`[pdf-lib] Error processing ${filePath}:`, error);
-    const message = error instanceof Error ? error.message : String(error);
-    const userFriendlyMessage = translateErrorMessage(message);
+      logger.error(`[CT4 Signature] Error processing ${filePath}:`, error);
+      const message = error instanceof Error ? error.message : String(error);
+      const userFriendlyMessage = translateErrorMessage(message);
 
-    await saveCheckResult("error", userFriendlyMessage);
-
-    await updateAssessmentFileStatus("error", userFriendlyMessage);
-    return null;
+      await saveCheckResult("error", userFriendlyMessage);
+      if (contentId) {
+        await updateAssessmentFileStatus(contentId, "error", userFriendlyMessage);
+      }
+      return null;
   }
   return null;
 });
