@@ -61,7 +61,7 @@ const renderInput = (
         )
     }
 
-    if (specialIndicatorIds.includes(indicator.id)) {
+    if (Array.isArray(specialIndicatorIds) && specialIndicatorIds.includes(indicator.id)) {
         const criterion1 = criteria[0];
         const criterion2 = criteria[1];
         const isCt2_2 = criterion2?.indicators && criterion2.indicators[1]?.id === indicator.id;
@@ -253,5 +253,7 @@ const IndicatorAssessment = ({ specialIndicatorIds, specialLabels, customBoolean
 };
 
 export default IndicatorAssessment;
+
+    
 
     
