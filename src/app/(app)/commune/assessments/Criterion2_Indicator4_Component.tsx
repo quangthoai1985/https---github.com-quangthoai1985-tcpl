@@ -4,14 +4,14 @@
 import React, { useState } from 'react';
 import { cn } from "@/lib/utils";
 import type { AssessmentValues, FileWithStatus } from "./types";
-import type { Indicator } from "@/lib/data";
+import type { Criterion, Indicator } from "@/lib/data";
 import { Info, AlertTriangle } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import StatusBadge from "./StatusBadge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import CT4EvidenceUploader from "./CT4EvidenceUploader";
 import EvidenceUploaderComponent from './EvidenceUploaderComponent';
+import CT4EvidenceUploader from "./CT4EvidenceUploader"; 
 
 const Criterion2_Indicator4_Component = ({
     indicator,
@@ -43,7 +43,6 @@ const Criterion2_Indicator4_Component = ({
     const content1Data = data?.contentResults?.[content1.id];
     const content2Data = data?.contentResults?.[content2.id];
 
-    // DÒNG MỚI THÊM VÀO
     const [provincialPlanDate, setProvincialPlanDate] = useState(() => 
         (content1Data?.value && typeof content1Data.value === 'object') ? content1Data.value.provincialPlanDate || '' : ''
     );
@@ -106,6 +105,7 @@ const Criterion2_Indicator4_Component = ({
                     />
                 </div>
                 {/* KẾT THÚC KHỐI CODE MỚI */}
+
                 {/* Giao diện upload đặc biệt cho CT4 */}
                 <div className="grid gap-2 mt-4">
                     <Label className="font-medium">Hồ sơ minh chứng</Label>
@@ -123,6 +123,7 @@ const Criterion2_Indicator4_Component = ({
                         onPreview={onPreview}
                         periodId={periodId}
                         communeId={communeId}
+                        isRequired={content1Data.status === 'not-achieved' && content1Data.files.length === 0}
                         accept=".pdf"
                     />
                 </div>

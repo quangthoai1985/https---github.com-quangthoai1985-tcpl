@@ -369,10 +369,10 @@ export default function CriteriaManagementPage() {
                       />
                   )}
                   {index === 1 && ( // Chỉ hiển thị cho Tiêu chí 2
-                    <Criterion4Config 
-                        criterion={criterion} 
-                        onSave={(updatedCriterion) => updateCriteria(criteria.map(c => c.id === updatedCriterion.id ? updatedCriterion : c))} 
-                    />
+                      <Criterion4Config 
+                          criterion={criterion} 
+                          onSave={(updatedCriterion) => updateCriteria(criteria.map(c => c.id === updatedCriterion.id ? updatedCriterion : c))} 
+                      />
                   )}
                   {criterion.indicators.filter(i => !(index === 1 && i.id === 'CT033278')).map((indicator) => (
                     <div
@@ -435,6 +435,3 @@ export default function CriteriaManagementPage() {
     </>
   );
 }
-
-
-

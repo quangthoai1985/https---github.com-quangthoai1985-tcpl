@@ -407,16 +407,16 @@ const handleIsTaskedChange = useCallback((id: string, isTasked: boolean) => {
             const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
             
             let assignedCount;
-            if (parentCriterion?.id === 'TC01') {
-                const tc1Data = prev[parentCriterion.indicators[0].id];
-                assignedCount = parentCriterion.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+            if (parentCriterion?.id === 'TC01' || (parentCriterion?.id === 'TC02' && indicatorId === 'CT033278')) {
+                const tc1Data = prev[criteria[0].indicators[0].id];
+                assignedCount = (item as Indicator).assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
             } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
                  const tc1Data = prev[criteria[0].indicators[0].id];
                  assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
             }
             
             const files = isTasked ? indicatorData.files : [];
-            const filesPerDocument = parentCriterion?.id === 'TC01' ? indicatorData.filesPerDocument : undefined;
+            const filesPerDocument = (parentCriterion?.id === 'TC01' || indicatorId === 'CT033278') ? indicatorData.filesPerDocument : undefined;
             const newStatus = evaluateStatus(valueToEvaluate, item.standardLevel, files, isTasked, assignedCount, filesPerDocument);
 
             newData[indicatorId] = {
@@ -468,15 +468,15 @@ const handleValueChange = useCallback((indicatorId: string, value: any, contentI
             const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
 
             let assignedCount;
-            if (parentCriterion?.id === 'TC01') {
-                const tc1Data = prev[parentCriterion.indicators[0].id];
-                assignedCount = parentCriterion.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+            if (parentCriterion?.id === 'TC01' || (parentCriterion?.id === 'TC02' && indicatorId === 'CT033278')) {
+                 const tc1Data = prev[criteria[0].indicators[0].id];
+                 assignedCount = (indicator as Indicator).assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
             } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
                  const tc1Data = prev[criteria[0].indicators[0].id];
                  assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
             }
 
-            const filesPerDocument = parentCriterion?.id === 'TC01' ? prev[indicatorId].filesPerDocument : undefined;
+            const filesPerDocument = (parentCriterion?.id === 'TC01' || indicatorId === 'CT033278') ? prev[indicatorId].filesPerDocument : undefined;
             const newStatus = evaluateStatus(value, indicator.standardLevel, prev[indicatorId].files, isTasked, assignedCount, filesPerDocument);
 
             newData[indicatorId] = {
@@ -564,9 +564,9 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
             indicatorData.filesPerDocument = filesPerDoc;
              const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
              let assignedCount;
-             if (parentCriterion?.id === 'TC01') {
-                 const tc1Data = prev[parentCriterion.indicators[0].id];
-                 assignedCount = parentCriterion.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+             if (parentCriterion?.id === 'TC01' || (parentCriterion?.id === 'TC02' && indicatorId === 'CT033278')) {
+                 const tc1Data = prev[criteria[0].indicators[0].id];
+                 assignedCount = (indicator as Indicator).assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
              }
             indicatorData.status = evaluateStatus(currentValue, indicator.standardLevel, [], indicatorData.isTasked, assignedCount, filesPerDoc);
         } else {
@@ -732,7 +732,7 @@ const handleSaveDraft = useCallback(async () => {
         } else {
             if (data.status === 'pending') allItemsAssessed = false;
             const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === id));
-            const isCriterion1 = parentCriterion?.id === 'TC01';
+            const isCriterion1 = parentCriterion?.id === 'TC01' || (parentCriterion?.id === 'TC02' && id === 'CT033278');
             checkEvidence(data, indicator.name, isCriterion1);
         }
     }
@@ -903,6 +903,7 @@ const handleSaveDraft = useCallback(async () => {
                         getCheckboxOptions={getCheckboxOptions}
                         periodId={activePeriod!.id}
                         communeId={currentUser!.communeId}
+                        handleCommuneDocsChange={handleCommuneDocsChange}
                     />
                 );
         }
@@ -965,5 +966,3 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
-
-    

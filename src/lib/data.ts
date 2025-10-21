@@ -93,6 +93,16 @@ export type Indicator = {
       minCount?: number, 
       minPercent?: number 
   };
+  
+  // Fields for Criterion 1 / Criterion 4 logic
+  assignmentType?: 'quantity' | 'specific'; 
+  assignedDocumentsCount?: number;
+  documents?: {
+    name: string;
+    issueDate: string;
+    excerpt: string;
+    issuanceDeadlineDays: number;
+  }[];
 };
 
 

@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -8,7 +9,7 @@ import type { Assessment, Criterion, Indicator, IndicatorResult } from "@/lib/da
 import type { AssessmentStatus, AssessmentValues } from './types';
 import StatusBadge from './StatusBadge';
 import IndicatorAssessment from './IndicatorAssessment';
-import Criterion2_Indicator4_Component from './Criterion2_Indicator4_Component';
+import Criterion4SpecialComponent from './Criterion4SpecialComponent';
 
 const GenericCriterionComponent = ({
     criterion,
@@ -25,7 +26,8 @@ const GenericCriterionComponent = ({
     getCustomBooleanLabels,
     getCheckboxOptions,
     periodId,
-    communeId
+    communeId,
+    handleCommuneDocsChange
 }: {
     criterion: Criterion;
     criterionStatus: AssessmentStatus;
@@ -42,6 +44,7 @@ const GenericCriterionComponent = ({
     getCheckboxOptions: (indicatorId: string, criteria: Criterion[]) => string[] | null;
     periodId: string;
     communeId: string;
+    handleCommuneDocsChange: (indicatorId: string, docs: any[]) => void;
 }) => {
     
     const triggerClasses = cn(
@@ -66,16 +69,18 @@ const GenericCriterionComponent = ({
                         
                         if (indicator.id === 'CT033278') {
                             return (
-                                <Criterion2_Indicator4_Component
+                                <Criterion4SpecialComponent
                                     key={indicator.id}
                                     indicator={indicator}
                                     assessmentData={assessmentData}
                                     onValueChange={onValueChange}
                                     onNoteChange={onNoteChange}
                                     onEvidenceChange={onEvidenceChange}
+                                    onIsTaskedChange={onIsTaskedChange}
                                     onPreview={onPreview}
                                     periodId={periodId}
                                     communeId={communeId}
+                                    handleCommuneDocsChange={handleCommuneDocsChange}
                                 />
                             );
                         }

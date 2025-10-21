@@ -22,6 +22,7 @@ const CT4EvidenceUploader = ({
   accept,
   contentId,
   onEvidenceChange,
+  isRequired,
 }: {
   indicatorId: string;
   evidence: FileWithStatus[];
@@ -31,6 +32,7 @@ const CT4EvidenceUploader = ({
   accept?: string;
   contentId: string;
   onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus, contentId?: string) => void;
+  isRequired: boolean;
 }) => {
     const { storage } = useData();
     const { toast } = useToast();
