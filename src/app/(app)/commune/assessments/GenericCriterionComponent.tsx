@@ -105,7 +105,7 @@ const GenericCriterionComponent = ({
                                                 );
 
                                                 // ================ LOGIC PHÂN LOẠI CONTENT ================
-                                                if (content.id === 'CNT033278_1') { 
+                                                if (content.id === 'CNT033278') { 
                                                     // ----- RENDER NỘI DUNG 1 (Giống TC1) -----
                                                     const parentIndicatorData = assessmentData[indicator.id];
                                                     const assignmentType = indicator.assignmentType || 'specific';
@@ -114,9 +114,6 @@ const GenericCriterionComponent = ({
                                                     
                                                     const handleContent1EvidenceChange = (files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
                                                         onEvidenceChange(indicator.id, files, docIndex, fileToRemove, content.id);
-                                                    };
-                                                    const handleContent1RemoveFile = (docIndex: number, fileToRemove: FileWithStatus) => {
-                                                         onEvidenceChange(indicator.id, [], docIndex, fileToRemove, content.id);
                                                     };
 
                                                     return (
@@ -245,19 +242,12 @@ const GenericCriterionComponent = ({
                                                          <div key={content.id} className={subBlockClasses}>
                                                             <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
                                                             <IndicatorAssessment
-                                                               specialIndicatorIds={specialLogicIndicatorIds}
-                                                               specialLabels={getSpecialIndicatorLabels(content.id, criteria)}
-                                                               customBooleanLabels={getCustomBooleanLabels(content.id, criteria)}
-                                                               checkboxOptions={getCheckboxOptions(content.id, criteria)}
-                                                               indicator={content}
-                                                               data={contentData}
+                                                               {...props} // Truyền tất cả props xuống
+                                                               indicator={content} // indicator giờ là content
+                                                               data={contentData} // data của content
                                                                onValueChange={(id, value, cId) => onValueChange(indicator.id, value, cId)}
                                                                onNoteChange={(id, note, cId) => onNoteChange(indicator.id, note, cId)}
                                                                onEvidenceChange={(id, files, docIdx, fileToDel, cId) => onEvidenceChange(indicator.id, files, docIdx, fileToDel, cId)}
-                                                               onIsTaskedChange={onIsTaskedChange}
-                                                               onPreview={onPreview}
-                                                               criteria={criteria}
-                                                               assessmentData={assessmentData}
                                                                contentId={content.id}
                                                                parentIndicatorId={indicator.id}
                                                             />
