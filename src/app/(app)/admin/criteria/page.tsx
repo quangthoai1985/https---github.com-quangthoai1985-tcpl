@@ -374,7 +374,7 @@ export default function CriteriaManagementPage() {
                           onSave={(updatedCriterion) => updateCriteria(criteria.map(c => c.id === updatedCriterion.id ? updatedCriterion : c))} 
                       />
                   )}
-                  {criterion.indicators.filter(i => !(index === 1 && i.id === 'CT033278')).map((indicator) => (
+                  {criterion.indicators.map((indicator) => (
                     <div
                       key={indicator.id}
                       className="grid gap-3 rounded-md border bg-card p-4 shadow-sm"
