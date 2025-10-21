@@ -83,10 +83,15 @@ interface FileWithUrl {
     url: string;
 }
 
+interface ContentData {
+    files?: FileWithUrl[];
+    filesPerDocument?: Record<string, FileWithUrl[]>;
+}
+
 interface IndicatorData {
     files?: FileWithUrl[];
     filesPerDocument?: Record<string, FileWithUrl[]>;
-    contentResults?: Record<string, { files?: FileWithUrl[] }>;
+    contentResults?: Record<string, ContentData>;
 }
 
 function collectAllFileUrls(assessmentData: unknown): Set<string> {
@@ -124,6 +129,20 @@ function collectAllFileUrls(assessmentData: unknown): Set<string> {
             if (file && typeof file.url === "string" && file.url) urls.add(file.url);
           });
         }
+
+        // START: NEWLY ADDED IF BLOCK
+        // Check filesPerDocument inside contentResults (For CT4 - Content 1)
+        if (content && content.filesPerDocument && typeof content.filesPerDocument === 'object') {
+            for (const docIndex in content.filesPerDocument) {
+                const fileList = content.filesPerDocument[docIndex];
+                if (Array.isArray(fileList)) {
+                    fileList.forEach((file) => {
+                        if (file && typeof file.url === 'string' && file.url) urls.add(file.url);
+                    });
+                }
+            }
+        }
+        // END: NEWLY ADDED IF BLOCK
       }
     }
   }
@@ -654,3 +673,6 @@ export const verifyCT4Signature = onObjectFinalized({
   }
   return null;
 });
+
+
+    
