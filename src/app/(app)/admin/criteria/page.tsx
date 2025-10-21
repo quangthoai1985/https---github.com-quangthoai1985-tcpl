@@ -295,7 +295,23 @@ export default function CriteriaManagementPage() {
         if (c.id === editingIndicator.criterionId) {
           return {
             ...c,
-            indicators: c.indicators.map(i => i.id === indicatorToSave.id ? { ...i, ...indicatorToSave } as Indicator : i)
+            indicators: c.indicators.map(i => {
+                if (i.id === indicatorToSave.id) {
+                    // Nếu là CT4, chỉ cập nhật name, contents, passRule
+                    if (i.id === 'CT033278') {
+                        return { 
+                            ...i, // Giữ lại assignmentType, documents... cũ
+                            name: indicatorToSave.name || i.name, 
+                            contents: indicatorToSave.contents || i.contents, 
+                            passRule: indicatorToSave.passRule || i.passRule 
+                        } as Indicator;
+                    } else {
+                        // Chỉ tiêu thường, cập nhật bình thường
+                        return { ...i, ...indicatorToSave } as Indicator;
+                    }
+                }
+                return i;
+            })
           }
         }
         return c;
@@ -375,40 +391,39 @@ export default function CriteriaManagementPage() {
                       />
                   )}
                   {criterion.indicators.map((indicator) => (
-                    <div
-                      key={indicator.id}
-                      className="grid gap-3 rounded-md border bg-card p-4 shadow-sm"
-                    >
+                    <React.Fragment key={indicator.id}>
                         {/* Luôn render dòng hiển thị chỉ tiêu thông thường */}
-                        <div className="flex justify-between items-start">
-                            <h4 className="font-semibold text-base flex-1 pr-4">{indicator.name}</h4>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className='h-8 w-8 flex-shrink-0'>
-                                    <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                                <DropdownMenuItem onClick={() => handleEditIndicator(criterion.id, indicator)}>Sửa chỉ tiêu</DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem className="text-destructive">
-                                    Xóa chỉ tiêu
-                                </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                        <div
+                          className="grid gap-3 rounded-md border bg-card p-4 shadow-sm"
+                        >
+                            <div className="flex justify-between items-start">
+                                <h4 className="font-semibold text-base flex-1 pr-4">{indicator.name}</h4>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                    <Button variant="ghost" size="icon" className='h-8 w-8 flex-shrink-0'>
+                                        <MoreHorizontal className="h-4 w-4" />
+                                    </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>Hành động</DropdownMenuLabel>
+                                    <DropdownMenuItem onClick={() => handleEditIndicator(criterion.id, indicator)}>Sửa chỉ tiêu</DropdownMenuItem>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem className="text-destructive">
+                                        Xóa chỉ tiêu
+                                    </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
                         </div>
-
+            
                         {/* CHỈ RENDER KHUNG CẤU HÌNH NẾU ĐÂY LÀ CHỈ TIÊU 4 */}
                         {indicator.id === 'CT033278' && (
-                            <div className="mt-4 pt-4 border-t">
-                                <CT4Content1Config
-                                    criterion={criterion} // Vẫn cần criterion để lấy ID cha khi lưu
-                                    onSave={(updatedCriterion) => updateCriteria(criteria.map(c => c.id === updatedCriterion.id ? updatedCriterion : c))}
-                                />
-                            </div>
+                            <CT4Content1Config
+                                criterion={criterion}
+                                onSave={(updatedCriterion) => updateCriteria(criteria.map(c => c.id === updatedCriterion.id ? updatedCriterion : c))}
+                            />
                         )}
-                    </div>
+                    </React.Fragment>
                 ))}
                 </div>
               </AccordionContent>
