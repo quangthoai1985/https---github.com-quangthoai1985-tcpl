@@ -1,4 +1,3 @@
-
 'use client';
 
 import React from 'react';
@@ -155,8 +154,8 @@ const GenericCriterionComponent = ({
                                                                  {docsToRender.length > 0 ? (
                                                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
                                                                          {docsToRender.map((doc, docIndex) => {
-                                                                             // Lấy evidence TỪ contentData.filesPerDocument
-                                                                             const evidence = contentData.filesPerDocument?.[docIndex] || [];
+                                                                             // Lấy evidence TỪ parentIndicatorData.filesPerDocument
+                                                                             const evidence = parentIndicatorData.filesPerDocument?.[docIndex] || [];
                                                                              // Logic isRequired dựa trên contentData.status
                                                                              const isRequired = contentData.status !== 'pending' && evidence.length === 0;
 
@@ -300,5 +299,3 @@ const GenericCriterionComponent = ({
 };
 
 export default GenericCriterionComponent;
-
-    
