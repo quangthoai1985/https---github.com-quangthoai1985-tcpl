@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import StatusBadge from "./StatusBadge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-
-import CT4EvidenceUploader from "./CT4EvidenceUploader"; 
 import EvidenceUploaderComponent from './EvidenceUploaderComponent';
+
+// TODO: Sẽ cần tạo file CT4EvidenceUploader
+// import CT4EvidenceUploader from "./CT4EvidenceUploader"; 
 
 const Criterion2_Indicator4_Component = ({
     indicator,
@@ -19,7 +20,6 @@ const Criterion2_Indicator4_Component = ({
     onValueChange,
     onNoteChange,
     onEvidenceChange,
-    onIsTaskedChange,
     onPreview,
     periodId,
     communeId
@@ -29,7 +29,6 @@ const Criterion2_Indicator4_Component = ({
     onValueChange: (id: string, value: any, contentId?: string) => void;
     onNoteChange: (id: string, note: string, contentId?: string) => void;
     onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus, contentId?: string) => void;
-    onIsTaskedChange: (id: string, isTasked: boolean) => void;
     onPreview: (file: { name: string; url: string; }) => void;
     periodId: string;
     communeId: string;
@@ -39,7 +38,7 @@ const Criterion2_Indicator4_Component = ({
     const content1 = indicator.contents?.[0];
     const content2 = indicator.contents?.[1];
 
-    if (!content1 || !content2) return <div className="text-destructive">Lỗi cấu hình: Chỉ tiêu 4 phải có 2 nội dung.</div>;
+    if (!content1 || !content2) return <div className="text-destructive">Lỗi cấu hình: Chỉ tiêu 4 (CT033278) phải có 2 nội dung.</div>;
 
     const data = assessmentData[indicator.id];
     const content1Data = data?.contentResults?.[content1.id];
@@ -90,17 +89,26 @@ const Criterion2_Indicator4_Component = ({
                         <AlertDescription>Tệp PDF tải lên sẽ được kiểm tra chữ ký số (yêu cầu logic 7 ngày làm việc).</AlertDescription>
                     </Alert>
                     
-                    <CT4EvidenceUploader
+                    {/* TODO: Tạm thời dùng EvidenceUploaderComponent, sau này sẽ thay thế bằng CT4EvidenceUploader */}
+                    <EvidenceUploaderComponent
                         indicatorId={indicator.id}
-                        docIndex={0}
+                        contentId={content1.id}
                         evidence={content1Data.files}
-                        onUploadComplete={(indicatorId, docIndex, newFile) => onEvidenceChange(indicatorId, [newFile], undefined, undefined, content1.id)}
-                        onRemove={(indicatorId, docIndex, fileToRemove) => onEvidenceChange(indicatorId, [], undefined, fileToRemove, content1.id)}
-                        onAddLink={(indicatorId, docIndex, link) => onEvidenceChange(indicatorId, [link], undefined, undefined, content1.id)}
+                        onEvidenceChange={onEvidenceChange}
                         onPreview={onPreview}
-                        periodId={periodId}
-                        communeId={communeId}
+                        isRequired={content1Data.status === 'not-achieved' && content1Data.files.length === 0}
                         accept=".pdf"
+                        parentIndicatorId={indicator.id}
+                    />
+                </div>
+                 <div className="grid gap-2 mt-4">
+                    <Label htmlFor={`note-${indicator.id}-${content1.id}`}>Ghi chú/Giải trình</Label>
+                    <textarea 
+                        id={`note-${indicator.id}-${content1.id}`} 
+                        placeholder="Giải trình thêm..." 
+                        value={content1Data.note || ''} 
+                        onChange={(e) => onNoteChange(indicator.id, e.target.value, content1.id)} 
+                        className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
                     />
                 </div>
             </div>
@@ -140,6 +148,16 @@ const Criterion2_Indicator4_Component = ({
                         onPreview={onPreview}
                         isRequired={content2Data.status === 'not-achieved' && content2Data.files.length === 0}
                         parentIndicatorId={indicator.id}
+                    />
+                </div>
+                 <div className="grid gap-2 mt-4">
+                    <Label htmlFor={`note-${indicator.id}-${content2.id}`}>Ghi chú/Giải trình</Label>
+                    <textarea 
+                        id={`note-${indicator.id}-${content2.id}`} 
+                        placeholder="Giải trình thêm..." 
+                        value={content2Data.note || ''} 
+                        onChange={(e) => onNoteChange(indicator.id, e.target.value, content2.id)} 
+                        className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
                     />
                 </div>
             </div>
