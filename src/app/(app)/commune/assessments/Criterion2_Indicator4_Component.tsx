@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { cn } from "@/lib/utils";
 import type { AssessmentValues, FileWithStatus } from "./types";
 import type { Criterion, Indicator } from "@/lib/data";
@@ -9,8 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import StatusBadge from "./StatusBadge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import EvidenceUploaderComponent from './EvidenceUploaderComponent';
 import CT4EvidenceUploader from "./CT4EvidenceUploader";
+import EvidenceUploaderComponent from './EvidenceUploaderComponent';
 
 const Criterion2_Indicator4_Component = ({
     indicator,
@@ -41,6 +41,10 @@ const Criterion2_Indicator4_Component = ({
     const data = assessmentData[indicator.id];
     const content1Data = data?.contentResults?.[content1.id];
     const content2Data = data?.contentResults?.[content2.id];
+
+    const [provincialPlanDate, setProvincialPlanDate] = useState(() => 
+        (content1Data?.value && typeof content1Data.value === 'object') ? content1Data.value.provincialPlanDate || '' : ''
+    );
 
     if (!data || !content1Data || !content2Data) return <div>Đang tải nội dung Chỉ tiêu 4...</div>;
 
@@ -78,6 +82,28 @@ const Criterion2_Indicator4_Component = ({
                     </div>
                 </div>
                 
+                {/* KHỐI CODE MỚI THÊM VÀO: Ô NHẬP NGÀY */}
+                <div className="grid gap-2 mt-4 p-3 border rounded-md bg-background">
+                    <Label htmlFor="provincialPlanDate" className="font-medium text-destructive">
+                        Khai báo Ngày ban hành Kế hoạch của Tỉnh
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                        Nhập ngày ban hành (theo định dạng DD/MM/YYYY) của văn bản cấp Tỉnh. 
+                        Đây là căn cứ để hệ thống tính 7 ngày làm việc.
+                    </p>
+                    <Input 
+                        id="provincialPlanDate"
+                        placeholder="DD/MM/YYYY" 
+                        className="w-48"
+                        value={provincialPlanDate}
+                        onChange={(e) => setProvincialPlanDate(e.target.value)}
+                        onBlur={() => {
+                            const newValue = { ...((content1Data.value && typeof content1Data.value === 'object') ? content1Data.value : {}), provincialPlanDate: provincialPlanDate };
+                            onValueChange(indicator.id, newValue, content1.id);
+                        }}
+                    />
+                </div>
+                {/* KẾT THÚC KHỐI CODE MỚI */}
                 {/* Giao diện upload đặc biệt cho CT4 */}
                 <div className="grid gap-2 mt-4">
                     <Label className="font-medium">Hồ sơ minh chứng</Label>
@@ -89,7 +115,7 @@ const Criterion2_Indicator4_Component = ({
                     
                     <CT4EvidenceUploader
                         indicatorId={indicator.id}
-                        docIndex={0}
+                        docIndex={0} // docIndex không còn quá quan trọng ở đây, nhưng vẫn truyền để giữ cấu trúc
                         evidence={content1Data.files}
                         onUploadComplete={(indicatorId, docIndex, newFile) => onEvidenceChange(indicatorId, [newFile], docIndex, undefined, content1.id)}
                         onRemove={(indicatorId, docIndex, fileToRemove) => onEvidenceChange(indicatorId, [], docIndex, fileToRemove, content1.id)}
