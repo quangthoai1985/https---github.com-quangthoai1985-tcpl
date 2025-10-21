@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -14,26 +15,22 @@ import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 
 const CT4EvidenceUploader = ({
   indicatorId,
-  docIndex,
   evidence,
-  onUploadComplete,
-  onRemove,
   onPreview,
   periodId,
   communeId,
   accept,
-  onAddLink,
+  contentId,
+  onEvidenceChange,
 }: {
   indicatorId: string;
-  docIndex: number;
   evidence: FileWithStatus[];
-  onUploadComplete: (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => void;
-  onRemove: (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => void;
   onPreview: (file: { name: string; url: string; }) => void;
   periodId: string;
   communeId: string;
   accept?: string;
-  onAddLink: (indicatorId: string, docIndex: number, link: {name: string, url: string}) => void;
+  contentId: string;
+  onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus, contentId?: string) => void;
 }) => {
     const { storage } = useData();
     const { toast } = useToast();
@@ -58,7 +55,7 @@ const CT4EvidenceUploader = ({
             const snapshot = await uploadBytes(storageRef, file);
             const downloadURL = await getDownloadURL(snapshot.ref);
 
-            onUploadComplete(indicatorId, docIndex, { name: file.name, url: downloadURL });
+            onEvidenceChange(indicatorId, [{ name: file.name, url: downloadURL }], undefined, undefined, contentId);
             
             dismiss(loadingToastId);
 
@@ -90,7 +87,7 @@ const CT4EvidenceUploader = ({
             toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng nhập một đường dẫn hợp lệ.' });
             return;
         }
-        onAddLink(indicatorId, docIndex, { name: linkInput.trim(), url: linkInput.trim() });
+        onEvidenceChange(indicatorId, [{ name: linkInput.trim(), url: linkInput.trim() }], undefined, undefined, contentId);
         setLinkInput('');
     };
 
@@ -143,10 +140,10 @@ const CT4EvidenceUploader = ({
                  {isUploading && <Loader2 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-5 w-5 animate-spin" />}
             </div>
              <div className="grid gap-1">
-                 <Label htmlFor={`link-${indicatorId}-${docIndex}`} className="text-xs">Hoặc thêm liên kết</Label>
+                 <Label htmlFor={`link-${indicatorId}-${contentId}`} className="text-xs">Hoặc thêm liên kết</Label>
                  <div className="flex gap-2">
                     <Input
-                        id={`link-${indicatorId}-${docIndex}`}
+                        id={`link-${indicatorId}-${contentId}`}
                         value={linkInput}
                         onChange={(e) => setLinkInput(e.target.value)}
                         placeholder="Dán đường dẫn vào đây"
@@ -175,7 +172,7 @@ const CT4EvidenceUploader = ({
                                     <Eye className="h-4 w-4" />
                                 </Button>
                             )}
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemove(indicatorId, docIndex, file)}>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEvidenceChange(indicatorId, [], undefined, file, contentId)}>
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>

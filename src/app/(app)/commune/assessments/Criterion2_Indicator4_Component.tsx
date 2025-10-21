@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -115,15 +116,13 @@ const Criterion2_Indicator4_Component = ({
                     
                     <CT4EvidenceUploader
                         indicatorId={indicator.id}
-                        docIndex={0} // docIndex không còn quá quan trọng ở đây, nhưng vẫn truyền để giữ cấu trúc
                         evidence={content1Data.files}
-                        onUploadComplete={(indicatorId, docIndex, newFile) => onEvidenceChange(indicatorId, [newFile], docIndex, undefined, content1.id)}
-                        onRemove={(indicatorId, docIndex, fileToRemove) => onEvidenceChange(indicatorId, [], docIndex, fileToRemove, content1.id)}
-                        onAddLink={(indicatorId, docIndex, link) => onEvidenceChange(indicatorId, [link], docIndex, undefined, content1.id)}
+                        onEvidenceChange={onEvidenceChange}
                         onPreview={onPreview}
                         periodId={periodId}
                         communeId={communeId}
                         accept=".pdf"
+                        contentId={content1.id}
                     />
                 </div>
                  <div className="grid gap-2 mt-4">
