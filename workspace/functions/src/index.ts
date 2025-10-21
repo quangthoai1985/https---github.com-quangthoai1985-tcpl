@@ -67,20 +67,32 @@ const extractSignature = (pdfBuffer: Buffer): string | null => {
 // CLOUD FUNCTIONS
 // =================================================================================================
 
-export const syncUserClaims = onDocumentWritten("users/{userId}", async (event) => {
-    if (!event.data?.after.exists) { return; }
-    const userData = event.data.after.data();
-    const userId = event.params.userId;
-    if (!userData) { return; }
-    const claimsToSet: { [key: string]: any } = {};
-    if (userData.role) { claimsToSet.role = userData.role; }
-    if (userData.communeId) { claimsToSet.communeId = userData.communeId; }
-    try {
-        await admin.auth().setCustomUserClaims(userId, claimsToSet);
-    } catch (error) {
-        logger.error(`Error updating custom claims for user ${userId}:`, error);
-    }
-    return;
+export const syncUserClaims = onDocumentWritten({ document: "users/{userId}", region: "asia-east1" }, async (event) => {
+  if (!event.data?.after.exists) {
+    logger.log(`User document ${event.params.userId} deleted. Removing claims.`);
+    return null;
+  }
+  const userData = event.data.after.data();
+  const userId = event.params.userId;
+  if (!userData) {
+    logger.log(`User document ${userId} has no data. No action taken.`);
+    return null;
+  }
+  const claimsToSet: { [key: string]: string | boolean } = {};
+  if (userData.role) {
+    claimsToSet.role = userData.role;
+  }
+  if (userData.communeId) {
+    claimsToSet.communeId = userData.communeId;
+  }
+  try {
+    logger.log(`Updating claims for user ${userId}:`, claimsToSet);
+    await admin.auth().setCustomUserClaims(userId, claimsToSet);
+    logger.log(`Successfully updated claims for user ${userId}`);
+  } catch (error: unknown) {
+    logger.error(`Error updating custom claims for user ${userId}:`, error);
+  }
+  return null;
 });
 
 
