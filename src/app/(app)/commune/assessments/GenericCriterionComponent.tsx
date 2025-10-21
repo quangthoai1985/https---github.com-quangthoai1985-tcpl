@@ -34,6 +34,7 @@ const GenericCriterionComponent = ({
     periodId,
     communeId,
     handleCommuneDocsChange,
+    handleIsTaskedChange,
     ...props // Pass down the rest of the props for IndicatorAssessment
 }: {
     criterion: Criterion;
@@ -52,6 +53,7 @@ const GenericCriterionComponent = ({
     periodId: string;
     communeId: string;
     handleCommuneDocsChange: (indicatorId: string, docs: any[]) => void;
+    handleIsTaskedChange: (id: string, isTasked: boolean) => void;
 }) => {
     
     const triggerClasses = cn(
@@ -267,14 +269,25 @@ const GenericCriterionComponent = ({
                                                          <div key={content.id} className={subBlockClasses}>
                                                             <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
                                                             <IndicatorAssessment
-                                                               {...props} // Truyền tất cả props xuống
-                                                               indicator={content} // indicator giờ là content
-                                                               data={contentData} // data của content
-                                                               onValueChange={(id, value, cId) => onValueChange(indicator.id, value, cId)}
-                                                               onNoteChange={(id, note, cId) => onNoteChange(indicator.id, note, cId)}
-                                                               onEvidenceChange={(id, files, docIdx, fileToDel, cId) => onEvidenceChange(indicator.id, files, docIdx, fileToDel, cId)}
-                                                               contentId={content.id}
-                                                               parentIndicatorId={indicator.id}
+                                                                // Props cho logic đặc biệt (nếu có cho content này)
+                                                                specialIndicatorIds={specialLogicIndicatorIds}
+                                                                specialLabels={getSpecialIndicatorLabels(content.id, criteria)}
+                                                                customBooleanLabels={getCustomBooleanLabels(content.id, criteria)}
+                                                                checkboxOptions={getCheckboxOptions(content.id, criteria)}
+                                                                // Props chính
+                                                                indicator={content} // indicator giờ là content
+                                                                data={contentData} // data của content
+                                                                // Props callback (truyền ID cha và contentId)
+                                                                onValueChange={(id, value, cId) => onValueChange(indicator.id, value, content.id)}
+                                                                onNoteChange={(id, note, cId) => onNoteChange(indicator.id, note, content.id)}
+                                                                onEvidenceChange={(id, files, docIdx, fileToDel, cId) => onEvidenceChange(indicator.id, files, docIdx, fileToDel, content.id)}
+                                                                onIsTaskedChange={(id, isTasked) => handleIsTaskedChange(content.id, isTasked)} // Gọi handleIsTaskedChange với ID content
+                                                                // Props khác
+                                                                onPreview={onPreview}
+                                                                criteria={criteria}
+                                                                assessmentData={assessmentData} // assessmentData đầy đủ
+                                                                contentId={content.id} // ID của content này
+                                                                parentIndicatorId={indicator.id} // ID của chỉ tiêu cha
                                                             />
                                                          </div>
                                                     );
