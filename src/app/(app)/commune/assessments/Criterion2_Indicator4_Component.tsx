@@ -4,7 +4,7 @@
 import React, { useState } from 'react';
 import { cn } from "@/lib/utils";
 import type { AssessmentValues, FileWithStatus } from "./types";
-import type { Criterion, Indicator } from "@/lib/data";
+import type { Indicator } from "@/lib/data";
 import { Info, AlertTriangle } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -43,6 +43,7 @@ const Criterion2_Indicator4_Component = ({
     const content1Data = data?.contentResults?.[content1.id];
     const content2Data = data?.contentResults?.[content2.id];
 
+    // DÒNG MỚI THÊM VÀO
     const [provincialPlanDate, setProvincialPlanDate] = useState(() => 
         (content1Data?.value && typeof content1Data.value === 'object') ? content1Data.value.provincialPlanDate || '' : ''
     );
@@ -116,13 +117,13 @@ const Criterion2_Indicator4_Component = ({
                     
                     <CT4EvidenceUploader
                         indicatorId={indicator.id}
+                        contentId={content1.id}
                         evidence={content1Data.files}
                         onEvidenceChange={onEvidenceChange}
                         onPreview={onPreview}
                         periodId={periodId}
                         communeId={communeId}
                         accept=".pdf"
-                        contentId={content1.id}
                     />
                 </div>
                  <div className="grid gap-2 mt-4">
