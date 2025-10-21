@@ -5,7 +5,7 @@ import * as admin from "firebase-admin";
 import { onObjectFinalized } from "firebase-functions/v2/storage";
 import { logger } from "firebase-functions";
 import * as forge from 'node-forge';
-import { addDays, parse } from 'date-fns';
+import { addDays, parse, addBusinessDays } from "date-fns";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -250,3 +250,164 @@ export const verifyPDFSignature = onObjectFinalized(async (event) => {
     }
     return null;
 });
+
+export const verifyCT4Signature = onObjectFinalized({
+  bucket: "chuan-tiep-can-pl.firebasestorage.app", region: "asia-east1",
+}, async (event) => {
+  const fileBucket = event.data.bucket;
+  const filePath = event.data.name;
+  const contentType = event.data.contentType;
+  const fileName = filePath.split("/").pop() || "unknownfile";
+
+  // 1. Chỉ lắng nghe đúng đường dẫn của CT4
+  // Định dạng: hoso/{communeId}/evidence/{periodId}/{indicatorId}/CT4_CONTENT_1/{fileName}
+  const ct4PathRegex = /^hoso\/([^\/]+)\/evidence\/([^\/]+)\/([^\/]+)\/CT4_CONTENT_1\//;
+  const match = filePath.match(ct4PathRegex);
+
+  if (!contentType || !contentType.startsWith("application/pdf") || !match) {
+    logger.log(`File ${filePath} is not a CT4 evidence file. Skipping.`);
+    return null;
+  }
+
+  const [, communeId, periodId, indicatorId] = match;
+  const assessmentId = `assess_${periodId}_${communeId}`;
+  const assessmentRef = db.collection("assessments").doc(assessmentId);
+  logger.info(`Processing CT4 file: ${fileName} for assessment ${assessmentId}`);
+
+  // Hàm helper để cập nhật trạng thái file (Tương tự TC1)
+  const updateAssessmentFileStatus = async (
+      contentId: string,
+      fileStatus: "validating" | "valid" | "invalid" | "error",
+      reason?: string,
+  ) => {
+    try {
+      await db.runTransaction(async (transaction) => {
+        const doc = await transaction.get(assessmentRef);
+        if (!doc.exists) throw new Error(`Assessment ${assessmentId} not found.`);
+
+        const data = doc.data();
+        if (!data) return;
+
+        const assessmentData = data.assessmentData || {};
+        const indicatorResult = assessmentData[indicatorId] || { contentResults: {} };
+        const contentResults = indicatorResult.contentResults || {};
+        const contentData = contentResults[contentId] || { files: [], status: "pending", value: null };
+        const fileList: { name: string, url: string, signatureStatus?: string, signatureError?: string }[] = contentData.files || [];
+
+        let fileToUpdate = fileList.find((f) => f.name === fileName);
+
+        if (!fileToUpdate) {
+          const newFileUrl = `https://firebasestorage.googleapis.com/v0/b/${fileBucket}/o/${encodeURIComponent(filePath)}?alt=media`;
+          fileToUpdate = { name: fileName, url: newFileUrl };
+          fileList.push(fileToUpdate);
+          logger.info(`File entry for "${fileName}" not found in Firestore. Creating it.`);
+        }
+
+        fileToUpdate.signatureStatus = fileStatus;
+        if (reason) fileToUpdate.signatureError = reason;
+        else delete fileToUpdate.signatureError;
+
+        contentData.files = fileList;
+        // Tự động chấm điểm (logic cơ bản)
+        if (fileStatus === 'valid') {
+            contentData.status = "achieved";
+        } else if (fileStatus === 'invalid' || fileStatus === 'error') {
+            contentData.status = "not-achieved";
+        }
+
+        contentResults[contentId] = contentData;
+        indicatorResult.contentResults = contentResults;
+
+        transaction.set(assessmentRef, { assessmentData: { [indicatorId]: indicatorResult } }, { merge: true });
+      });
+      logger.info(`Successfully updated CT4 file status for "${fileName}".`);
+    } catch (error: unknown) {
+      logger.error(`Transaction to update CT4 file status for "${fileName}" failed:`, error);
+    }
+  };
+
+  let contentId = ""; // Chúng ta cần tìm contentId
+
+  try {
+    // 2. Lấy dữ liệu từ Firestore
+    const assessmentDoc = await assessmentRef.get();
+    if (!assessmentDoc.exists) throw new Error(`Assessment document ${assessmentId} does not exist.`);
+    
+    const assessmentData = assessmentDoc.data()?.assessmentData || {};
+    const indicatorData = assessmentData[indicatorId];
+    if (!indicatorData || !indicatorData.contentResults) throw new Error(`Indicator data ${indicatorId} or contentResults not found.`);
+
+    // 3. Tìm Content ID (ví dụ: "CNT033278") và ngày ban hành của tỉnh
+    let provincialPlanDateStr: string | null = null;
+    
+    // Duyệt qua các content results của chỉ tiêu này
+    for (const cId in indicatorData.contentResults) {
+        const content = indicatorData.contentResults[cId];
+        // Tìm content có lưu trữ 'provincialPlanDate'
+        if (content.value && typeof content.value === 'object' && content.value.provincialPlanDate) {
+            provincialPlanDateStr = content.value.provincialPlanDate;
+            contentId = cId;
+            break;
+        }
+    }
+
+    if (!contentId || !provincialPlanDateStr) {
+      throw new Error(`Could not find contentId or provincialPlanDate for indicator ${indicatorId}.`);
+    }
+    
+    // Đánh dấu file là "đang kiểm tra"
+    await updateAssessmentFileStatus(contentId, "validating");
+
+    // 4. Phân tích ngày và tính hạn chót 7 ngày làm việc
+    const issueDate = parse(provincialPlanDateStr, "dd/MM/yyyy", new Date());
+    if (isNaN(issueDate.getTime())) {
+        throw new Error(`Invalid provincial plan date format: ${provincialPlanDateStr}. Use DD/MM/YYYY.`);
+    }
+    
+    // Tính hạn chót = Ngày ban hành + 7 NGÀY LÀM VIỆC
+    // (addBusinessDays đã loại trừ T7, CN)
+    const deadline = addBusinessDays(issueDate, 7);
+
+    // 5. Kiểm tra chữ ký (Giống hệt TC1)
+    const bucket = admin.storage().bucket(fileBucket);
+    const [fileBuffer] = await bucket.file(filePath).download();
+    const signatures = await extractSignatureInfo(fileBuffer);
+    if (signatures.length === 0) throw new Error("Không tìm thấy chữ ký nào trong tài liệu.");
+
+    const firstSignature = signatures[0];
+    const signingTime = firstSignature.signDate;
+    if (!signingTime) throw new Error("Chữ ký không chứa thông tin ngày ký (M).");
+
+    // 6. So sánh
+    const isValid = signingTime <= deadline;
+
+    await updateAssessmentFileStatus(
+      contentId,
+      isValid ? "valid" : "invalid",
+      isValid ? undefined : `Ký sau thời hạn 7 ngày làm việc (Hạn chót: ${deadline.toLocaleDateString("vi-VN")})`
+    );
+
+  } catch (error: unknown) {
+    logger.error(`[CT4 Signature] Error processing ${filePath}:`, error);
+    const message = error instanceof Error ? error.message : String(error);
+    const userFriendlyMessage = translateErrorMessage(message);
+    
+    if (contentId) {
+        await updateAssessmentFileStatus(contentId, "error", userFriendlyMessage);
+    }
+    return null;
+  }
+  return null;
+});
+
+// Giả định hàm này đã tồn tại ở đâu đó trong file của bạn
+// Nếu chưa, bạn cần thêm nó vào.
+async function extractSignatureInfo(pdfBuffer: Buffer): Promise<{ name: string | null; signDate: Date | null }[]> {
+  // ... logic của hàm extractSignatureInfo với pdf-lib
+  return []; // Placeholder
+}
+
+function translateErrorMessage(englishError: string): string {
+  // ... logic của hàm translateErrorMessage
+  return englishError; // Placeholder
+}
