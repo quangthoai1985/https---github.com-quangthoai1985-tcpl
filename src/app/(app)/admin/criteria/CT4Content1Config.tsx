@@ -116,8 +116,8 @@ function CT4Content1Config({ criterion, onSave }: { criterion: Criterion, onSave
                                         </div>
                                     </div>
                                     <div className="md:col-span-9 grid gap-1.5">
-                                        <Label htmlFor={`doc-name-${index}-ct4`} className="text-xs font-semibold text-destructive">Tên văn bản QPPL</Label>
-                                        <Input id={`doc-name-${index}-ct4`} value={doc.name} onChange={(e) => handleDocumentChange(index, 'name', e.target.value)} placeholder={`Ví dụ: Nghị quyết về việc...`} />
+                                        <Label htmlFor={`doc-name-${index}-ct4`} className="text-xs font-semibold text-destructive">Tên Kế hoạch</Label>
+                                        <Input id={`doc-name-${index}-ct4`} value={doc.name} onChange={(e) => handleDocumentChange(index, 'name', e.target.value)} placeholder={`Ví dụ: Kế hoạch phổ biến, GDPL năm 2025...`} />
                                     </div>
                                     <div className="md:col-span-1"></div>
                                     <div className="md:col-span-9 grid gap-1.5">
@@ -143,7 +143,7 @@ function CT4Content1Config({ criterion, onSave }: { criterion: Criterion, onSave
             {/* TRƯỜNG HỢP GIAO THEO SỐ LƯỢNG */}
             {formData.assignmentType === 'quantity' && (
                 <div className="grid gap-2">
-                    <Label htmlFor="assignedDocumentsCountQty-ct4">Số lượng VBQPPL được giao ban hành trong năm</Label>
+                    <Label htmlFor="assignedDocumentsCountQty-ct4">Số lượng Kế hoạch được giao ban hành trong năm</Label>
                     <Input id="assignedDocumentsCountQty-ct4" type="number" value={formData.assignedDocumentsCount ?? ''} onChange={handleCountChange} placeholder="Để trống hoặc nhập 0 để xã tự điền" className="w-64"/>
                     <p className="text-sm text-muted-foreground">Nhập số lượng văn bản được giao. Để trống hoặc nhập 0 nếu muốn xã tự nhập số lượng.</p>
                 </div>
