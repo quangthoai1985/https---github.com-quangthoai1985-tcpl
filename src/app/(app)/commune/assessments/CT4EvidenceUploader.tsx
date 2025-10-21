@@ -21,8 +21,11 @@ const CT4EvidenceUploader = ({
   communeId,
   accept,
   contentId,
-  onEvidenceChange,
   isRequired,
+  docIndex,
+  onUploadComplete,
+  onRemove,
+  onAddLink,
 }: {
   indicatorId: string;
   evidence: FileWithStatus[];
@@ -31,8 +34,11 @@ const CT4EvidenceUploader = ({
   communeId: string;
   accept?: string;
   contentId: string;
-  onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus, contentId?: string) => void;
   isRequired: boolean;
+  docIndex: number;
+  onUploadComplete: (docIndex: number, newFile: { name: string, url: string }) => void;
+  onRemove: (docIndex: number, fileToRemove: FileWithStatus) => void;
+  onAddLink: (docIndex: number, link: { name: string, url: string }) => void;
 }) => {
     const { storage } = useData();
     const { toast } = useToast();
@@ -52,12 +58,12 @@ const CT4EvidenceUploader = ({
         }).id;
 
         try {
-            const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/CT4_CONTENT_1/${file.name}`;
+            const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${contentId}/${docIndex}/${file.name}`;
             const storageRef = ref(storage, filePath);
             const snapshot = await uploadBytes(storageRef, file);
             const downloadURL = await getDownloadURL(snapshot.ref);
 
-            onEvidenceChange(indicatorId, [{ name: file.name, url: downloadURL }], undefined, undefined, contentId);
+            onUploadComplete(docIndex, { name: file.name, url: downloadURL });
             
             dismiss(loadingToastId);
 
@@ -89,7 +95,7 @@ const CT4EvidenceUploader = ({
             toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng nhập một đường dẫn hợp lệ.' });
             return;
         }
-        onEvidenceChange(indicatorId, [{ name: linkInput.trim(), url: linkInput.trim() }], undefined, undefined, contentId);
+        onAddLink(docIndex, { name: linkInput.trim(), url: linkInput.trim() });
         setLinkInput('');
     };
 
@@ -142,10 +148,10 @@ const CT4EvidenceUploader = ({
                  {isUploading && <Loader2 className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 h-5 w-5 animate-spin" />}
             </div>
              <div className="grid gap-1">
-                 <Label htmlFor={`link-${indicatorId}-${contentId}`} className="text-xs">Hoặc thêm liên kết</Label>
+                 <Label htmlFor={`link-${indicatorId}-${docIndex}`} className="text-xs">Hoặc thêm liên kết</Label>
                  <div className="flex gap-2">
                     <Input
-                        id={`link-${indicatorId}-${contentId}`}
+                        id={`link-${indicatorId}-${docIndex}`}
                         value={linkInput}
                         onChange={(e) => setLinkInput(e.target.value)}
                         placeholder="Dán đường dẫn vào đây"
@@ -174,7 +180,7 @@ const CT4EvidenceUploader = ({
                                     <Eye className="h-4 w-4" />
                                 </Button>
                             )}
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEvidenceChange(indicatorId, [], undefined, file, contentId)}>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemove(docIndex, file)}>
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>
