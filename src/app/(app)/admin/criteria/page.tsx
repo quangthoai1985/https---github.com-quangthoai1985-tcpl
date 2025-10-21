@@ -368,40 +368,36 @@ export default function CriteriaManagementPage() {
                           onSave={(updatedCriterion) => updateCriteria(criteria.map(c => c.id === updatedCriterion.id ? updatedCriterion : c))} 
                       />
                   )}
+                  {index === 1 && ( // Chỉ hiển thị cho Tiêu chí 2
+                      <Criterion4Config 
+                          criterion={criterion} 
+                          onSave={(updatedCriterion) => updateCriteria(criteria.map(c => c.id === updatedCriterion.id ? updatedCriterion : c))} 
+                      />
+                  )}
                   {criterion.indicators.map((indicator) => (
-                      indicator.id === 'CT033278' ? (
-                          // Render khung cấu hình đặc biệt INLINE
-                          <Criterion4Config
-                              key={indicator.id} // Thêm key
-                              criterion={criterion}
-                              onSave={(updatedCriterion) => updateCriteria(criteria.map(c => c.id === updatedCriterion.id ? updatedCriterion : c))}
-                          />
-                      ) : (
-                          // Render chỉ tiêu thông thường
-                          <div
-                            key={indicator.id}
-                            className="grid gap-3 rounded-md border bg-card p-4 shadow-sm"
-                          >
-                              <div className="flex justify-between items-start">
-                                  <h4 className="font-semibold text-base flex-1 pr-4">{indicator.name}</h4>
-                                  <DropdownMenu>
-                                      <DropdownMenuTrigger asChild>
-                                      <Button variant="ghost" size="icon" className='h-8 w-8 flex-shrink-0'>
-                                          <MoreHorizontal className="h-4 w-4" />
-                                      </Button>
-                                      </DropdownMenuTrigger>
-                                      <DropdownMenuContent align="end">
-                                      <DropdownMenuLabel>Hành động</DropdownMenuLabel>
-                                      <DropdownMenuItem onClick={() => handleEditIndicator(criterion.id, indicator)}>Sửa chỉ tiêu</DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem className="text-destructive">
-                                          Xóa chỉ tiêu
-                                      </DropdownMenuItem>
-                                      </DropdownMenuContent>
-                                  </DropdownMenu>
-                              </div>
-                          </div>
-                      )
+                    <div
+                      key={indicator.id}
+                      className="grid gap-3 rounded-md border bg-card p-4 shadow-sm"
+                    >
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-semibold text-base flex-1 pr-4">{indicator.name}</h4>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className='h-8 w-8 flex-shrink-0'>
+                              <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuLabel>Hành động</DropdownMenuLabel>
+                            <DropdownMenuItem onClick={() => handleEditIndicator(criterion.id, indicator)}>Sửa chỉ tiêu</DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-destructive">
+                              Xóa chỉ tiêu
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
                   ))}
                 </div>
               </AccordionContent>
