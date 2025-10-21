@@ -15,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import CT4EvidenceUploader from './CT4EvidenceUploader';
 import EvidenceUploaderComponent from './EvidenceUploaderComponent';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const GenericCriterionComponent = ({
     criterion,
@@ -105,15 +106,27 @@ const GenericCriterionComponent = ({
                                                 );
 
                                                 // ================ LOGIC PHÂN LOẠI CONTENT ================
-                                                if (content.id === 'CNT033278') { 
+                                                if (content.id === 'CNT033278') {
                                                     // ----- RENDER NỘI DUNG 1 (Giống TC1) -----
+                                                    // Lấy cấu hình đặc biệt từ indicator cha (CT033278)
                                                     const parentIndicatorData = assessmentData[indicator.id];
-                                                    const assignmentType = indicator.assignmentType || 'specific';
+                                                    // **QUAN TRỌNG:** Lấy assignmentType TỪ INDICATOR CHA
+                                                    const assignmentType = indicator.assignmentType || 'specific'; 
                                                     const communeDefinedDocs = parentIndicatorData.communeDefinedDocuments || [];
+                                                    // **QUAN TRỌNG:** Lấy documents TỪ INDICATOR CHA
                                                     const docsToRender = assignmentType === 'specific' ? (indicator.documents || []) : communeDefinedDocs;
-                                                    
-                                                    const handleContent1EvidenceChange = (files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => {
-                                                        onEvidenceChange(indicator.id, files, docIndex, fileToRemove, content.id);
+                                                    // **QUAN TRỌNG:** Lấy assignedDocumentsCount TỪ INDICATOR CHA
+                                                    const assignedCount = indicator.assignedDocumentsCount || docsToRender.length || 0;
+
+                                                    // Hàm helper để gọi onEvidenceChange cho filesPerDocument của Content 1
+                                                     const handleContent1UploadComplete = (docIndex: number, newFile: { name: string; url: string; }) => {
+                                                         onEvidenceChange(indicator.id, [newFile], docIndex, undefined, content.id);
+                                                    };
+                                                     const handleContent1AddLink = (docIndex: number, newLink: { name: string; url: string; }) => {
+                                                         onEvidenceChange(indicator.id, [newLink], docIndex, undefined, content.id);
+                                                    };
+                                                     const handleContent1RemoveFile = (docIndex: number, fileToRemove: FileWithStatus) => {
+                                                         onEvidenceChange(indicator.id, [], docIndex, fileToRemove, content.id);
                                                     };
 
                                                     return (
@@ -129,57 +142,57 @@ const GenericCriterionComponent = ({
                                                                    <p className="text-sm">{content.description}</p>
                                                                 </div>
                                                              </div>
+                                                             {/* Giao diện upload đặc biệt */}
                                                              <div className="grid gap-2 mt-4">
-                                                                <div className="grid gap-2 p-3 border rounded-md bg-background">
-                                                                    <Label htmlFor={`provincialPlanDate-${content.id}`} className="font-medium text-destructive">
-                                                                        Khai báo Ngày ban hành Kế hoạch của Tỉnh
-                                                                    </Label>
-                                                                    <p className="text-xs text-muted-foreground">
-                                                                        Nhập ngày ban hành (theo định dạng DD/MM/YYYY) của văn bản cấp Tỉnh. 
-                                                                        Đây là căn cứ để hệ thống tính 7 ngày làm việc.
-                                                                    </p>
-                                                                    <Input 
-                                                                        id={`provincialPlanDate-${content.id}`}
-                                                                        placeholder="DD/MM/YYYY" 
-                                                                        className="w-48"
-                                                                        value={(contentData.value && typeof contentData.value === 'object' && contentData.value.provincialPlanDate) || ''}
-                                                                        onChange={(e) => {
-                                                                             const newValue = { ...((contentData.value && typeof contentData.value === 'object') ? contentData.value : {}), provincialPlanDate: e.target.value };
-                                                                            onValueChange(indicator.id, newValue, content.id);
-                                                                        }}
-                                                                    />
-                                                                </div>
-                                                                {docsToRender.length > 0 ? (
-                                                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                                                                        {docsToRender.map((doc, docIndex) => {
-                                                                            const evidence = contentData.filesPerDocument?.[docIndex] || [];
-                                                                            const isRequired = contentData.status !== 'pending' && evidence.length === 0;
+                                                                 <Label className="font-medium">Hồ sơ minh chứng</Label>
+                                                                  <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
+                                                                      <AlertTriangle className="h-4 w-4" />
+                                                                      <AlertTitle className="font-semibold text-amber-800">Lưu ý</AlertTitle>
+                                                                      <AlertDescription>Tệp PDF tải lên sẽ được kiểm tra chữ ký số (yêu cầu logic 7 ngày làm việc).</AlertDescription>
+                                                                  </Alert>
 
-                                                                            return (
-                                                                                <div key={docIndex} className="p-3 border rounded-lg grid gap-2 bg-background">
-                                                                                    <Label className="font-medium text-center text-sm truncate">Minh chứng cho: <span className="font-bold text-primary">{doc.name || `Văn bản ${docIndex + 1}`}</span></Label>
-                                                                                    <CT4EvidenceUploader 
-                                                                                        indicatorId={indicator.id}
-                                                                                        contentId={content.id}
-                                                                                        docIndex={docIndex}
-                                                                                        evidence={evidence} 
-                                                                                        onEvidenceChange={handleContent1EvidenceChange}
-                                                                                        onPreview={onPreview} 
-                                                                                        periodId={periodId} 
-                                                                                        communeId={communeId} 
-                                                                                        isRequired={isRequired}
-                                                                                        accept=".pdf"
-                                                                                    />
-                                                                                </div>
-                                                                            )
-                                                                        })}
-                                                                    </div>
-                                                                ) : null }
+                                                                 {/* Phần hiển thị danh sách văn bản và ô upload */}
+                                                                 {docsToRender.length > 0 ? (
+                                                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
+                                                                         {docsToRender.map((doc, docIndex) => {
+                                                                             // Lấy evidence TỪ contentData.filesPerDocument
+                                                                             const evidence = contentData.filesPerDocument?.[docIndex] || [];
+                                                                             // Logic isRequired dựa trên contentData.status
+                                                                             const isRequired = contentData.status !== 'pending' && evidence.length === 0;
+
+                                                                             return (
+                                                                                 <div key={docIndex} className="p-3 border rounded-lg grid gap-2 bg-background">
+                                                                                     <Label className="font-medium text-center text-sm truncate">Minh chứng cho: <span className="font-bold text-primary">{doc.name || `Kế hoạch ${docIndex + 1}`}</span></Label>
+                                                                                     <CT4EvidenceUploader
+                                                                                         indicatorId={indicator.id}
+                                                                                         contentId={content.id} // Truyền contentId
+                                                                                         docIndex={docIndex} // Truyền docIndex
+                                                                                         evidence={evidence}
+                                                                                         onUploadComplete={handleContent1UploadComplete} // Dùng hàm helper
+                                                                                         onRemove={handleContent1RemoveFile}          // Dùng hàm helper
+                                                                                         onAddLink={handleContent1AddLink}            // Dùng hàm helper
+                                                                                         onPreview={onPreview}
+                                                                                         periodId={periodId}
+                                                                                         communeId={communeId}
+                                                                                         isRequired={isRequired}
+                                                                                         accept=".pdf"
+                                                                                     />
+                                                                                     {/* (Phần isRequired giữ nguyên) */}
+                                                                                     {isRequired && (
+                                                                                        <p className="text-sm font-medium text-destructive mt-1">
+                                                                                            Yêu cầu ít nhất một minh chứng.
+                                                                                        </p>
+                                                                                    )}
+                                                                                 </div>
+                                                                             )
+                                                                         })}
+                                                                     </div>
+                                                                 ) : <p className="text-sm text-muted-foreground">Admin chưa cấu hình văn bản cụ thể hoặc xã chưa kê khai (nếu giao theo số lượng).</p>}
                                                              </div>
                                                               <div className="grid gap-2 mt-4">
-                                                                <Label htmlFor={`note-${indicator.id}-${content.id}`}>Ghi chú/Giải trình</Label>
-                                                                <textarea id={`note-${indicator.id}-${content.id}`} placeholder="Giải trình thêm..." value={contentData.note || ''} onChange={(e) => onNoteChange(indicator.id, e.target.value, content.id)} className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"/>
-                                                              </div>
+                                                                 <Label htmlFor={`note-${indicator.id}-${content.id}`}>Ghi chú/Giải trình</Label>
+                                                                 <textarea id={`note-${indicator.id}-${content.id}`} placeholder="Giải trình thêm..." value={contentData.note || ''} onChange={(e) => onNoteChange(indicator.id, e.target.value, content.id)} className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"/>
+                                                               </div>
                                                         </div>
                                                     );
                                                 } else if (content.id === 'CNT066117') {
@@ -202,6 +215,7 @@ const GenericCriterionComponent = ({
                                                                    <p className="text-sm">{content.description}</p>
                                                                 </div>
                                                              </div>
+                                                             {/* Giao diện nhập liệu đặc biệt */}
                                                              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 items-end">
                                                                 <div className="grid gap-1.5">
                                                                    <Label htmlFor={`ct4-total-${content.id}`}>Tổng số nhiệm vụ đề ra</Label>
@@ -218,6 +232,7 @@ const GenericCriterionComponent = ({
                                                                    <p className="text-2xl font-bold">{percentage}%</p>
                                                                  </div>
                                                              </div>
+                                                             {/* Minh chứng chung */}
                                                              <div className="grid gap-2 mt-4">
                                                                 <Label className="font-medium">Hồ sơ minh chứng</Label>
                                                                  <EvidenceUploaderComponent 
@@ -285,3 +300,5 @@ const GenericCriterionComponent = ({
 };
 
 export default GenericCriterionComponent;
+
+    
