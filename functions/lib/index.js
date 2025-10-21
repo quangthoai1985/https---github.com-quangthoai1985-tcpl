@@ -506,7 +506,8 @@ exports.verifyCT4Signature = (0, storage_1.onObjectFinalized)({
                 if (!data)
                     return;
                 const assessmentData = data.assessmentData || {};
-                const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {} };
+                // Lấy toàn bộ dữ liệu hiện có của indicator, bao gồm cả 'value'
+                const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {}, contentResults: {}, status: 'pending', value: null };
                 const filesPerDocument = indicatorResult.filesPerDocument || {};
                 const fileList = filesPerDocument[docIndex] || [];
                 let fileToUpdate = fileList.find((f) => f.name === fileName);
