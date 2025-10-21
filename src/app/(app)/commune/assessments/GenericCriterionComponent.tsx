@@ -5,7 +5,7 @@ import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/
 import { CornerDownRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Assessment, Criterion, Indicator, IndicatorResult } from "@/lib/data";
-import type { AssessmentStatus } from './types';
+import type { AssessmentStatus, AssessmentValues } from './types';
 import StatusBadge from './StatusBadge';
 import IndicatorAssessment from './IndicatorAssessment';
 import Criterion2_Indicator4_Component from './Criterion2_Indicator4_Component';
@@ -64,7 +64,7 @@ const GenericCriterionComponent = ({
                 <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
                     {(criterion.indicators || []).map(indicator => {
                         
-                        if (indicator.id === 'CT2.4') {
+                        if (indicator.id === 'CT033278') {
                             return (
                                 <Criterion2_Indicator4_Component
                                     key={indicator.id}
@@ -73,9 +73,8 @@ const GenericCriterionComponent = ({
                                     onValueChange={onValueChange}
                                     onNoteChange={onNoteChange}
                                     onEvidenceChange={onEvidenceChange}
-                                    onIsTaskedChange={onIsTaskedChange}
                                     onPreview={onPreview}
-                                    periodId={periodId} 
+                                    periodId={periodId}
                                     communeId={communeId}
                                 />
                             );

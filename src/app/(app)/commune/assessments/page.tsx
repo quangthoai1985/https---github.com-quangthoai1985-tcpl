@@ -893,7 +893,7 @@ const handleSaveDraft = useCallback(async () => {
                         onValueChange={handleValueChange}
                         onNoteChange={handleNoteChange}
                         onEvidenceChange={handleEvidenceChange}
-                        onIsTaskedChange={handleIsTaskedChange}
+                        onIsTaskedChange={onIsTaskedChange}
                         onPreview={handlePreview}
                         criteria={criteria}
                         specialLogicIndicatorIds={specialLogicIndicatorIds}

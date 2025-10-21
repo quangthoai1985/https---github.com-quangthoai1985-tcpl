@@ -10,9 +10,7 @@ import { Input } from "@/components/ui/input";
 import StatusBadge from "./StatusBadge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import EvidenceUploaderComponent from './EvidenceUploaderComponent';
-
-// TODO: Sẽ cần tạo file CT4EvidenceUploader
-// import CT4EvidenceUploader from "./CT4EvidenceUploader"; 
+import CT4EvidenceUploader from "./CT4EvidenceUploader";
 
 const Criterion2_Indicator4_Component = ({
     indicator,
@@ -89,16 +87,17 @@ const Criterion2_Indicator4_Component = ({
                         <AlertDescription>Tệp PDF tải lên sẽ được kiểm tra chữ ký số (yêu cầu logic 7 ngày làm việc).</AlertDescription>
                     </Alert>
                     
-                    {/* TODO: Tạm thời dùng EvidenceUploaderComponent, sau này sẽ thay thế bằng CT4EvidenceUploader */}
-                    <EvidenceUploaderComponent
+                    <CT4EvidenceUploader
                         indicatorId={indicator.id}
-                        contentId={content1.id}
+                        docIndex={0}
                         evidence={content1Data.files}
-                        onEvidenceChange={onEvidenceChange}
+                        onUploadComplete={(indicatorId, docIndex, newFile) => onEvidenceChange(indicatorId, [newFile], docIndex, undefined, content1.id)}
+                        onRemove={(indicatorId, docIndex, fileToRemove) => onEvidenceChange(indicatorId, [], docIndex, fileToRemove, content1.id)}
+                        onAddLink={(indicatorId, docIndex, link) => onEvidenceChange(indicatorId, [link], docIndex, undefined, content1.id)}
                         onPreview={onPreview}
-                        isRequired={content1Data.status === 'not-achieved' && content1Data.files.length === 0}
+                        periodId={periodId}
+                        communeId={communeId}
                         accept=".pdf"
-                        parentIndicatorId={indicator.id}
                     />
                 </div>
                  <div className="grid gap-2 mt-4">
