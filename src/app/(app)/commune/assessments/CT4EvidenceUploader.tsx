@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -50,11 +51,10 @@ const CT4EvidenceUploader = ({
 
         setIsUploading(true);
 
-        const { dismiss } = toast;
-        const loadingToastId = toast({
+        const { id: loadingToastId, dismiss: dismissLoadingToast } = toast({
             title: 'Đang tải lên...',
             description: `Đang xử lý tệp "${file.name}".`,
-        }).id;
+        });
 
         try {
             const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${contentId}/${docIndex}/${file.name}`;
@@ -64,7 +64,7 @@ const CT4EvidenceUploader = ({
 
             onUploadComplete(docIndex, { name: file.name, url: downloadURL });
             
-            dismiss(loadingToastId);
+            dismissLoadingToast();
 
             toast({
                 title: 'Tải lên thành công!',
@@ -76,7 +76,7 @@ const CT4EvidenceUploader = ({
         } catch (error) {
             console.error("Upload error for criterion 1:", error);
 
-            dismiss(loadingToastId);
+            dismissLoadingToast();
 
             toast({
                 title: 'Lỗi tải lên',
