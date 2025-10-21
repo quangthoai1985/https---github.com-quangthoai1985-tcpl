@@ -21,9 +21,11 @@ const CT4EvidenceUploader = ({
   communeId,
   accept,
   contentId,
-  onEvidenceChange,
   isRequired,
   docIndex,
+  onUploadComplete,
+  onRemove,
+  onAddLink,
 }: {
   indicatorId: string;
   evidence: FileWithStatus[];
@@ -32,9 +34,11 @@ const CT4EvidenceUploader = ({
   communeId: string;
   accept?: string;
   contentId: string;
-  onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus, contentId?: string) => void;
   isRequired: boolean;
   docIndex: number;
+  onUploadComplete: (docIndex: number, newFile: { name: string, url: string }) => void;
+  onRemove: (docIndex: number, fileToRemove: FileWithStatus) => void;
+  onAddLink: (docIndex: number, link: { name: string, url: string }) => void;
 }) => {
     const { storage } = useData();
     const { toast } = useToast();
@@ -47,21 +51,20 @@ const CT4EvidenceUploader = ({
 
         setIsUploading(true);
 
-        const { dismiss } = toast;
-        const loadingToastId = toast({
+        const { id: loadingToastId, dismiss: dismissLoadingToast } = toast({
             title: 'Đang tải lên...',
             description: `Đang xử lý tệp "${file.name}".`,
-        }).id;
+        });
 
         try {
-            const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
+            const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${contentId}/${docIndex}/${file.name}`;
             const storageRef = ref(storage, filePath);
             const snapshot = await uploadBytes(storageRef, file);
             const downloadURL = await getDownloadURL(snapshot.ref);
 
-            onEvidenceChange(indicatorId, [{ name: file.name, url: downloadURL }], docIndex, undefined, contentId);
+            onUploadComplete(docIndex, { name: file.name, url: downloadURL });
             
-            dismiss(loadingToastId);
+            dismissLoadingToast();
 
             toast({
                 title: 'Tải lên thành công!',
@@ -73,7 +76,7 @@ const CT4EvidenceUploader = ({
         } catch (error) {
             console.error("Upload error for criterion 1:", error);
 
-            dismiss(loadingToastId);
+            dismissLoadingToast();
 
             toast({
                 title: 'Lỗi tải lên',
@@ -91,7 +94,7 @@ const CT4EvidenceUploader = ({
             toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng nhập một đường dẫn hợp lệ.' });
             return;
         }
-        onEvidenceChange(indicatorId, [{ name: linkInput.trim(), url: linkInput.trim() }], docIndex, undefined, contentId);
+        onAddLink(docIndex, { name: linkInput.trim(), url: linkInput.trim() });
         setLinkInput('');
     };
 
@@ -176,7 +179,7 @@ const CT4EvidenceUploader = ({
                                     <Eye className="h-4 w-4" />
                                 </Button>
                             )}
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onEvidenceChange(indicatorId, [], docIndex, file, contentId)}>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemove(docIndex, file)}>
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>
