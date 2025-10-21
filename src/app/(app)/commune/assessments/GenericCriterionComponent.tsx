@@ -110,12 +110,49 @@ const GenericCriterionComponent = ({
                                                 // ================ LOGIC PHÂN LOẠI CONTENT ================
                                                 if (content.id === 'CNT033278') {
                                                     // ----- RENDER NỘI DUNG 1 (Giống TC1) -----
+
+                                                    // BẮT ĐẦU CODE MỚI: STATE VÀ EFFECT QUẢN LÝ DOCS CỦA XÃ
+                                                    const [localCommuneDefinedDocs, setLocalCommuneDefinedDocs] = useState(
+                                                        () => assessmentData[indicator.id]?.communeDefinedDocuments || []
+                                                    );
+
+                                                    // Đồng bộ state cục bộ với state cha khi state cha thay đổi
+                                                    useEffect(() => {
+                                                        setLocalCommuneDefinedDocs(assessmentData[indicator.id]?.communeDefinedDocuments || []);
+                                                    }, [assessmentData[indicator.id]?.communeDefinedDocuments]);
+
+
+                                                    // Gọi hàm callback của cha khi state cục bộ thay đổi
+                                                    useEffect(() => {
+                                                        // Chỉ gọi khi đang trong mode xã tự điền và state cục bộ thực sự thay đổi
+                                                        if (indicator.assignmentType === 'quantity' && (!indicator.assignedDocumentsCount || indicator.assignedDocumentsCount === 0)) {
+                                                            handleCommuneDocsChange(indicator.id, localCommuneDefinedDocs);
+                                                        }
+                                                        // Thêm dependency indicator.assignmentType và indicator.assignedDocumentsCount
+                                                    }, [localCommuneDefinedDocs, handleCommuneDocsChange, indicator.id, indicator.assignmentType, indicator.assignedDocumentsCount]);
+
+                                                    // Hàm cập nhật state cục bộ
+                                                    const handleLocalDocDetailChange = (index: number, field: string, value: string | number) => {
+                                                        setLocalCommuneDefinedDocs(prevDocs => {
+                                                            const newDocs = [...prevDocs];
+                                                            if(newDocs[index]) {
+                                                                (newDocs[index] as any)[field] = value;
+                                                            } else {
+                                                                // Xử lý trường hợp mảng chưa đủ dài khi xã tăng số lượng
+                                                                // Tạo object mới nếu index chưa tồn tại
+                                                                newDocs[index] = { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30, [field]: value };
+                                                            }
+                                                            return newDocs;
+                                                        });
+                                                    };
+                                                    // KẾT THÚC CODE MỚI: STATE VÀ EFFECT
+
+                                                    // Lấy cấu hình đặc biệt từ indicator cha (CT033278)
                                                     const parentIndicatorData = assessmentData[indicator.id];
                                                     // **QUAN TRỌNG:** Lấy assignmentType TỪ INDICATOR CHA
                                                     const assignmentType = indicator.assignmentType || 'specific'; 
                                                     // **QUAN TRỌNG:** Lấy assignedDocumentsCount TỪ INDICATOR CHA
                                                     const assignedCount = indicator.assignedDocumentsCount || 0; // Mặc định là 0 nếu không có
-                                                    const communeDefinedDocs = parentIndicatorData.communeDefinedDocuments || [];
                                                     
                                                     // --- BẮT ĐẦU LOGIC MỚI CHO docsToRender ---
                                                     let docsToRender: any[] = [];
@@ -123,14 +160,15 @@ const GenericCriterionComponent = ({
                                                         docsToRender = indicator.documents || [];
                                                     } else { // assignmentType === 'quantity'
                                                         if (assignedCount > 0) {
-                                                            // Nếu Admin đã định số lượng, dùng communeDefinedDocs (có thể rỗng ban đầu)
+                                                            // Nếu Admin đã định số lượng, dùng communeDefinedDocs từ state cha (có thể rỗng ban đầu)
                                                             // Cần đảm bảo mảng có đủ phần tử để render đúng số lượng ô
-                                                             docsToRender = Array.from({ length: assignedCount }, (_, i) => communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
+                                                            docsToRender = Array.from({ length: assignedCount }, (_, i) => (parentIndicatorData.communeDefinedDocuments || [])[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
                                                         } else {
                                                             // Nếu Admin không định số lượng (Xã tự điền)
                                                             // Lấy số lượng từ parentIndicatorData.value
                                                             const communeEnteredCount = Number(parentIndicatorData.value || 0);
-                                                             docsToRender = Array.from({ length: communeEnteredCount }, (_, i) => communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
+                                                            // Sử dụng state cục bộ localCommuneDefinedDocs
+                                                            docsToRender = Array.from({ length: communeEnteredCount }, (_, i) => localCommuneDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
                                                         }
                                                     }
                                                     // --- KẾT THÚC LOGIC MỚI CHO docsToRender ---
@@ -159,7 +197,7 @@ const GenericCriterionComponent = ({
                                                                    <p className="text-sm">{content.description}</p>
                                                                 </div>
                                                              </div>
-                                                             {/* BẮT ĐẦU CODE MỚI: Ô INPUT CHO XÃ TỰ ĐIỀN */}
+                                                            {/* BẮT ĐẦU CODE MỚI: Ô INPUT CHO XÃ TỰ ĐIỀN */}
                                                             {assignmentType === 'quantity' && (!assignedCount || assignedCount === 0) && (
                                                                 <div className="grid gap-2 p-3 border rounded-md bg-background mt-4">
                                                                     <Label htmlFor={`communeDocCount-${indicator.id}-${content.id}`}>Tổng số Kế hoạch đã ban hành</Label>
@@ -196,7 +234,18 @@ const GenericCriterionComponent = ({
 
                                                                              return (
                                                                                  <div key={docIndex} className="p-3 border rounded-lg grid gap-2 bg-background">
-                                                                                     <Label className="font-medium text-center text-sm truncate">Minh chứng cho: <span className="font-bold text-primary">{doc.name || `Kế hoạch ${docIndex + 1}`}</span></Label>
+                                                                                    {/* BẮT ĐẦU CODE MỚI: RENDER Ô INPUT KHI XÃ TỰ ĐIỀN */}
+                                                                                    {assignmentType === 'quantity' && assignedCount === 0 && (
+                                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 border-b pb-4">
+                                                                                            <div className="grid gap-1.5"><Label htmlFor={`doc-name-${indicator.id}-${content.id}-${docIndex}`} className="text-xs font-semibold">Tên Kế hoạch</Label><Input id={`doc-name-${indicator.id}-${content.id}-${docIndex}`} value={doc.name} onChange={(e) => handleLocalDocDetailChange(docIndex, 'name', e.target.value)} /></div>
+                                                                                            <div className="grid gap-1.5"><Label htmlFor={`doc-excerpt-${indicator.id}-${content.id}-${docIndex}`} className="text-xs font-semibold">Trích yếu</Label><Input id={`doc-excerpt-${indicator.id}-${content.id}-${docIndex}`} value={doc.excerpt} onChange={(e) => handleLocalDocDetailChange(docIndex, 'excerpt', e.target.value)} /></div>
+                                                                                            <div className="grid gap-1.5"><Label htmlFor={`doc-issuedate-${indicator.id}-${content.id}-${docIndex}`} className="text-xs font-semibold">Ngày ban hành (DD/MM/YYYY)</Label><Input id={`doc-issuedate-${indicator.id}-${content.id}-${docIndex}`} value={doc.issueDate} onChange={(e) => handleLocalDocDetailChange(docIndex, 'issueDate', e.target.value)} /></div>
+                                                                                            <div className="grid gap-1.5"><Label htmlFor={`doc-deadline-${indicator.id}-${content.id}-${docIndex}`} className="text-xs font-semibold">Thời hạn (ngày)</Label><Input type="number" id={`doc-deadline-${indicator.id}-${content.id}-${docIndex}`} value={doc.issuanceDeadlineDays} onChange={(e) => handleLocalDocDetailChange(docIndex, 'issuanceDeadlineDays', Number(e.target.value))} /></div>
+                                                                                        </div>
+                                                                                    )}
+                                                                                    {/* KẾT THÚC CODE MỚI */}
+                                                                                    
+                                                                                    <Label className="font-medium text-center text-sm truncate">Minh chứng cho: <span className="font-bold text-primary">{doc.name || `Kế hoạch ${docIndex + 1}`}</span></Label>
                                                                                      <CT4EvidenceUploader
                                                                                          indicatorId={indicator.id}
                                                                                          contentId={content.id} // Truyền contentId
@@ -211,7 +260,6 @@ const GenericCriterionComponent = ({
                                                                                          isRequired={isRequired}
                                                                                          accept=".pdf"
                                                                                      />
-                                                                                     {/* (Phần isRequired giữ nguyên) */}
                                                                                      {isRequired && (
                                                                                         <p className="text-sm font-medium text-destructive mt-1">
                                                                                             Yêu cầu ít nhất một minh chứng.
