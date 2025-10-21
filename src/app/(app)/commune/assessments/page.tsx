@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Accordion } from "@/components/ui/accordion";
@@ -893,7 +894,7 @@ const handleSaveDraft = useCallback(async () => {
                         onValueChange={handleValueChange}
                         onNoteChange={handleNoteChange}
                         onEvidenceChange={handleEvidenceChange}
-                        onIsTaskedChange={onIsTaskedChange}
+                        onIsTaskedChange={handleIsTaskedChange}
                         onPreview={handlePreview}
                         criteria={criteria}
                         specialLogicIndicatorIds={specialLogicIndicatorIds}
@@ -964,3 +965,5 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
+
+    
