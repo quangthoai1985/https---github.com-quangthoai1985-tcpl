@@ -1,4 +1,3 @@
-
 'use client'
 
 import { Accordion } from "@/components/ui/accordion";
@@ -522,56 +521,68 @@ const handleNoteChange = useCallback((indicatorId: string, note: string, content
 const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus, contentId?: string) => {
     setAssessmentData(prev => {
         const newData = { ...prev };
-        const indicator = findIndicator(indicatorId) as Indicator | null;
-        if (!indicator) return prev;
+        const item = findIndicator(indicatorId) as Indicator | Content | null;
+        if (!item) return prev;
 
         const indicatorData = { ...newData[indicatorId] };
         
         let fileList: FileWithStatus[];
         let currentValue: any;
 
-        if (contentId) {
-            const contentResults = { ...(indicatorData.contentResults || {}) };
-            const contentData = { ...(contentResults[contentId] || { files: [], status: 'pending', value: null }) };
-            fileList = [...(contentData.files || [])];
-            currentValue = contentData.value;
-        } else if (docIndex !== undefined) {
+        // Ưu tiên khối này nếu có docIndex
+        if (docIndex !== undefined) {
              const filesPerDoc = { ...(indicatorData.filesPerDocument || {}) };
              fileList = [...(filesPerDoc[docIndex] || [])];
              currentValue = indicatorData.value;
-        } else {
-            fileList = [...(indicatorData.files || [])];
-            currentValue = indicatorData.value;
-        }
 
-        if (fileToRemove) {
-            fileList = fileList.filter(f => f.name !== fileToRemove.name);
-        } else {
-            fileList.push(...newFiles);
-        }
+             if (fileToRemove) {
+                fileList = fileList.filter(f => f.name !== fileToRemove.name);
+             } else {
+                fileList.push(...newFiles);
+             }
 
-        if (contentId) {
-             const content = indicator.contents?.find(c => c.id === contentId);
+            filesPerDoc[docIndex] = fileList;
+            indicatorData.filesPerDocument = filesPerDoc;
+
+            const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
+            let assignedCount;
+            if (parentCriterion?.id === 'TC01' || (parentCriterion?.id === 'TC02' && indicatorId === 'CT033278')) {
+                const tc1Data = prev[criteria[0].indicators[0].id];
+                assignedCount = (item as Indicator).assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+            }
+            indicatorData.status = evaluateStatus(currentValue, item.standardLevel, [], indicatorData.isTasked, assignedCount, filesPerDoc);
+
+        // Chỉ chạy khối này nếu CHỈ CÓ contentId (không có docIndex)
+        } else if (contentId && docIndex === undefined) {
+             const content = (item as Indicator).contents?.find(c => c.id === contentId);
              if (!content) return prev;
              const contentResults = { ...(indicatorData.contentResults || {}) };
+             const contentData = { ...(contentResults[contentId] || { files: [], status: 'pending', value: null }) };
+             fileList = [...(contentData.files || [])];
+             currentValue = contentData.value;
+             
+             if (fileToRemove) {
+                fileList = fileList.filter(f => f.name !== fileToRemove.name);
+             } else {
+                fileList.push(...newFiles);
+             }
+
              const newContentStatus = evaluateStatus(currentValue, content.standardLevel, fileList, true);
              contentResults[contentId] = { ...(contentResults[contentId] || { value: null }), files: fileList, status: newContentStatus };
              indicatorData.contentResults = contentResults;
-             indicatorData.status = evaluateIndicatorByPassRule(indicator, contentResults);
-        } else if (docIndex !== undefined) {
-            const filesPerDoc = { ...(indicatorData.filesPerDocument || {}) };
-            filesPerDoc[docIndex] = fileList;
-            indicatorData.filesPerDocument = filesPerDoc;
-             const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
-             let assignedCount;
-             if (parentCriterion?.id === 'TC01' || (parentCriterion?.id === 'TC02' && indicatorId === 'CT033278')) {
-                 const tc1Data = prev[criteria[0].indicators[0].id];
-                 assignedCount = (indicator as Indicator).assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
-             }
-            indicatorData.status = evaluateStatus(currentValue, indicator.standardLevel, [], indicatorData.isTasked, assignedCount, filesPerDoc);
+             indicatorData.status = evaluateIndicatorByPassRule(item as Indicator, contentResults);
+        
         } else {
+            // Logic cho các chỉ tiêu/content đơn giản
+            fileList = [...(indicatorData.files || [])];
+            currentValue = indicatorData.value;
+             if (fileToRemove) {
+                fileList = fileList.filter(f => f.name !== fileToRemove.name);
+             } else {
+                fileList.push(...newFiles);
+             }
             indicatorData.files = fileList;
-            indicatorData.status = evaluateStatus(currentValue, indicator.standardLevel, fileList, indicatorData.isTasked);
+            indicatorData.status = evaluateStatus(currentValue, item.standardLevel, fileList, indicatorData.isTasked);
         }
 
         newData[indicatorId] = indicatorData;
