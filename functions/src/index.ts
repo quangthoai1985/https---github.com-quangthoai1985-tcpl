@@ -559,7 +559,8 @@ export const verifyCT4Signature = onObjectFinalized({
               if (!data) return;
 
               const assessmentData = data.assessmentData || {};
-              const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {} };
+              // Lấy toàn bộ dữ liệu hiện có của indicator, bao gồm cả 'value'
+              const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {}, contentResults: {}, status: 'pending', value: null };
               const filesPerDocument = indicatorResult.filesPerDocument || {};
               const fileList: { name: string, url: string, signatureStatus?: string, signatureError?: string }[] = filesPerDocument[docIndex] || [];
 
