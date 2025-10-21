@@ -507,6 +507,24 @@ export const verifyCT4Signature = onObjectFinalized({
   const contentType = event.data.contentType;
   const fileName = filePath.split("/").pop() || "unknownfile";
 
+  // Định dạng: hoso/{communeId}/evidence/{periodId}/{indicatorId}/{contentId}/{docIndex}/{fileName}
+  // indicatorId phải là CT033278, contentId phải là CNT033278
+  const ct4PathRegex = /^hoso\/([^\/]+)\/evidence\/([^\/]+)\/(CT033278)\/(CNT033278)\/(\d+)\//;
+  const match = filePath.match(ct4PathRegex);
+  
+  if (!contentType || !contentType.startsWith("application/pdf") || !match) {
+    // Không log ở đây để tránh spam, vì hàm này chạy cho mọi file upload
+    return null;
+  }
+  
+  const [, communeId, periodId, indicatorId, contentId, docIndexStr] = match;
+  const docIndex = parseInt(docIndexStr, 10);
+  
+  const assessmentId = `assess_${periodId}_${communeId}`;
+  const assessmentRef = db.collection("assessments").doc(assessmentId);
+
+  logger.info(`[CT4] Processing file: ${fileName} for assessment ${assessmentId}`);
+
   const saveCheckResult = async (
       status: "valid" | "expired" | "error",
       reason?: string,
@@ -526,27 +544,9 @@ export const verifyCT4Signature = onObjectFinalized({
     });
   };
 
-  if (!contentType || !contentType.startsWith("application/pdf")) return null;
-
-  const pathInfo = parseAssessmentPath(filePath);
-  if (!pathInfo || pathInfo.indicatorId !== "CT033278") {
-    logger.log(`File ${filePath} is not a CT4 evidence file. Skipping signature check.`);
-    return null;
-  }
-  
-  const { communeId, periodId, indicatorId } = pathInfo;
-  // For CT4, docIndex is derived from subId which should be a contentId
-  const contentId = pathInfo.subId;
-  if (!contentId) {
-    logger.log(`Invalid contentId from path for CT4: ${pathInfo.subId}`);
-    return null;
-  }
-  
-  const assessmentId = `assess_${periodId}_${communeId}`;
-  const assessmentRef = db.collection("assessments").doc(assessmentId);
-
   const updateAssessmentFileStatus = async (
-    contentId: string, // ID của Nội dung 1 (CNT033278)
+    contentId: string,
+    docIndex: number, // THÊM THAM SỐ NÀY
     fileStatus: "validating" | "valid" | "invalid" | "error",
     reason?: string,
   ) => {
@@ -559,107 +559,64 @@ export const verifyCT4Signature = onObjectFinalized({
               if (!data) return;
 
               const assessmentData = data.assessmentData || {};
-              const indicatorResult = assessmentData[indicatorId] || { contentResults: {} }; // indicatorId là CT033278
-              const contentResults = indicatorResult.contentResults || {};
-              const content1Data = contentResults[contentId] || { files: [], status: "pending", value: null }; // contentId là CNT033278
-              const fileList: { name: string, url: string, signatureStatus?: string, signatureError?: string }[] = content1Data.files || [];
+              const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {} };
+              const filesPerDocument = indicatorResult.filesPerDocument || {};
+              const fileList: { name: string, url: string, signatureStatus?: string, signatureError?: string }[] = filesPerDocument[docIndex] || [];
 
-              // --- (Code cập nhật fileList và fileToUpdate giữ nguyên) ---
                let fileToUpdate = fileList.find((f) => f.name === fileName);
 
                if (!fileToUpdate) {
                    const newFileUrl = `https://firebasestorage.googleapis.com/v0/b/${fileBucket}/o/${encodeURIComponent(filePath)}?alt=media`;
                    fileToUpdate = { name: fileName, url: newFileUrl };
                    fileList.push(fileToUpdate);
-                   logger.info(`File entry for "${fileName}" not found in Firestore. Creating it.`);
+                   logger.info(`[CT4] File entry for "${fileName}" not found in Firestore. Creating it.`);
                }
 
                fileToUpdate.signatureStatus = fileStatus;
                if (reason) fileToUpdate.signatureError = reason;
                else delete fileToUpdate.signatureError;
 
-               content1Data.files = fileList;
-              // --- (Kết thúc code cập nhật fileList) ---
+               filesPerDocument[docIndex] = fileList;
+               indicatorResult.filesPerDocument = filesPerDocument;
 
-
-              // --- BẮT ĐẦU LOGIC CẬP NHẬT TRẠNG THÁI MỚI ---
-              let content1NewStatus = content1Data.status; // Giữ trạng thái cũ nếu đang validating
-              if (fileStatus === 'valid') {
-                  // Cần kiểm tra xem tất cả file của content1 có valid không
-                   const allContent1FilesValid = fileList.every(f => f.signatureStatus === 'valid');
-                   if (allContent1FilesValid) {
-                       content1NewStatus = "achieved";
-                   } else if (fileList.some(f => f.signatureStatus === 'invalid' || f.signatureStatus === 'error')) {
-                       content1NewStatus = "not-achieved"; // Nếu có file lỗi/invalid -> not-achieved
-                   } else {
-                        content1NewStatus = "pending"; // Nếu còn file đang validating
-                   }
-              } else if (fileStatus === 'invalid' || fileStatus === 'error') {
-                  content1NewStatus = "not-achieved"; // Chỉ cần 1 file lỗi/invalid là not-achieved
-              }
-              content1Data.status = content1NewStatus;
-
-              // Lưu lại Nội dung 1
-              contentResults[contentId] = content1Data;
-
-              // Tìm ID và trạng thái của Nội dung 2 (Giả định ID là CNT066117)
-              const content2Id = "CNT066117"; // **QUAN TRỌNG:** Xác nhận ID này!
-              const content2Data = contentResults[content2Id];
-              const content2Status = content2Data?.status || 'pending';
-
-              // Lấy quy tắc đạt của chỉ tiêu cha (CT033278) từ criteria
-              let parentIndicatorStatus: "achieved" | "not-achieved" | "pending" = 'pending';
-              const criteriaDoc = await transaction.get(db.collection("criteria").doc("TC02"));
-              const parentIndicatorConfig = criteriaDoc.data()?.indicators?.find((i: {id: string}) => i.id === indicatorId);
-              const passRuleType = parentIndicatorConfig?.passRule?.type || 'all'; // Mặc định là 'all'
-
-              if (passRuleType === 'all') {
-                  if (content1NewStatus === 'achieved' && content2Status === 'achieved') {
-                      parentIndicatorStatus = 'achieved';
-                  } else if (content1NewStatus === 'not-achieved' || content2Status === 'not-achieved') {
-                      parentIndicatorStatus = 'not-achieved';
-                  } else {
-                      parentIndicatorStatus = 'pending'; // Nếu có cái nào pending
-                  }
-              } else {
-                  // TODO: Thêm logic cho các passRule khác nếu cần (atLeast, percentage)
-                  parentIndicatorStatus = 'pending';
-              }
-
-              // Cập nhật trạng thái cho chỉ tiêu cha
-              indicatorResult.status = parentIndicatorStatus;
-              indicatorResult.contentResults = contentResults; // Đảm bảo lưu cả contentResults
-
+              // Tạm thời chỉ cập nhật file status, logic status cha sẽ phức tạp hơn
+              // và có thể cần trigger riêng hoặc thực hiện ở client-side khi dữ liệu thay đổi.
+              // Logic cập nhật status cha bị comment ra để đơn giản hóa
+              
               transaction.set(assessmentRef, { assessmentData: { [indicatorId]: indicatorResult } }, { merge: true });
-              // --- KẾT THÚC LOGIC CẬP NHẬT TRẠNG THÁI MỚI ---
           });
-          logger.info(`Successfully updated CT4 file & parent status for "${fileName}".`);
+          logger.info(`[CT4] Successfully updated file status for "${fileName}".`);
       } catch (error: unknown) {
-          logger.error(`Transaction to update CT4 file status for "${fileName}" failed:`, error);
+          logger.error(`[CT4] Transaction to update file status for "${fileName}" failed:`, error);
       }
   };
 
 
   try {
+      await updateAssessmentFileStatus(contentId, docIndex, "validating");
+      
       const assessmentDoc = await assessmentRef.get();
       if (!assessmentDoc.exists) throw new Error(`Assessment document ${assessmentId} does not exist.`);
       const assessmentData = assessmentDoc.data()?.assessmentData;
       if (!assessmentData) throw new Error("Assessment data is missing.");
       
-      const contentData = assessmentData[indicatorId]?.contentResults?.[contentId];
-      if (!contentData) throw new Error(`Content data for ${contentId} not found in assessment.`);
+      const indicatorData = assessmentData[indicatorId];
+      if (!indicatorData) throw new Error(`Indicator data for ${indicatorId} not found.`);
 
-      const provincialPlanDateStr = contentData.value?.provincialPlanDate;
-      if (!provincialPlanDateStr) throw new Error("Provincial plan issue date is not defined by the commune.");
+      // Lấy thông tin văn bản từ communeDefinedDocuments (do xã tự kê khai)
+      const communeDocs = indicatorData.communeDefinedDocuments;
+      const communeDocumentConfig = Array.isArray(communeDocs) ? communeDocs[docIndex] : undefined;
       
-      await updateAssessmentFileStatus(contentId, "validating");
-      
-      const issueDate = parse(provincialPlanDateStr, "dd/MM/yyyy", new Date());
-      if (isNaN(issueDate.getTime())) {
-          throw new Error(`Invalid provincial plan date format: ${provincialPlanDateStr}. Use DD/MM/YYYY.`);
+      if (!communeDocumentConfig || !communeDocumentConfig.issueDate || !communeDocumentConfig.issuanceDeadlineDays) {
+        throw new Error(`Không tìm thấy thông tin Kế hoạch do xã kê khai cho index ${docIndex}.`);
       }
       
-      const deadline = addBusinessDays(issueDate, 7);
+      const issueDate = parse(communeDocumentConfig.issueDate, "dd/MM/yyyy", new Date());
+      if (isNaN(issueDate.getTime())) {
+          throw new Error(`Invalid provincial plan date format: ${communeDocumentConfig.issueDate}. Use DD/MM/YYYY.`);
+      }
+      
+      const deadline = addBusinessDays(issueDate, communeDocumentConfig.issuanceDeadlineDays);
 
       const bucket = admin.storage().bucket(fileBucket);
       const [fileBuffer] = await bucket.file(filePath).download();
@@ -679,8 +636,9 @@ export const verifyCT4Signature = onObjectFinalized({
 
       await updateAssessmentFileStatus(
           contentId,
+          docIndex,
           isValid ? "valid" : "invalid",
-          isValid ? undefined : `Ký sau thời hạn 7 ngày làm việc (Hạn chót: ${deadline.toLocaleDateString("vi-VN")})`
+          isValid ? undefined : `Ký sau thời hạn ${communeDocumentConfig.issuanceDeadlineDays} ngày làm việc (Hạn chót: ${deadline.toLocaleDateString("vi-VN")})`
       );
   } catch (error: unknown) {
       logger.error(`[CT4 Signature] Error processing ${filePath}:`, error);
@@ -689,7 +647,7 @@ export const verifyCT4Signature = onObjectFinalized({
 
       await saveCheckResult("error", userFriendlyMessage);
       if (contentId) {
-        await updateAssessmentFileStatus(contentId, "error", userFriendlyMessage);
+        await updateAssessmentFileStatus(contentId, docIndex, "error", userFriendlyMessage);
       }
       return null;
   }
