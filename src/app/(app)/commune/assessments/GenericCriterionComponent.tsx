@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -14,6 +15,7 @@ import EvidenceUploaderComponent from './EvidenceUploaderComponent';
 import CT4EvidenceUploader from "./CT4EvidenceUploader";
 import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import IndicatorAssessment from './IndicatorAssessment';
+import Criterion1Component from './Criterion1Component';
 
 
 const GenericCriterionComponent = ({
@@ -64,6 +66,24 @@ const GenericCriterionComponent = ({
         criterionStatus === 'pending' && 'bg-amber-100 hover:bg-amber-200/80',
     );
     const index = criteria.findIndex(c => c.id === criterion.id);
+
+    if (criterion.id === 'TC01') {
+        return (
+             <Criterion1Component
+                criterion={criterion}
+                criterionStatus={criterionStatus}
+                assessmentData={assessmentData}
+                onValueChange={onValueChange}
+                onNoteChange={onNoteChange}
+                onEvidenceChange={onEvidenceChange}
+                onIsTaskedChange={onIsTaskedChange}
+                onPreview={onPreview}
+                periodId={periodId}
+                communeId={communeId}
+                handleCommuneDocsChange={handleCommuneDocsChange}
+            />
+        )
+    }
 
     return (
         <AccordionItem value={criterion.id} key={criterion.id}>
@@ -167,22 +187,22 @@ const GenericCriterionComponent = ({
                                                     const assignmentType = indicator.assignmentType || 'specific'; 
                                                     // **QUAN TRỌNG:** Lấy assignedDocumentsCount TỪ INDICATOR CHA
                                                     const assignedCount = indicator.assignedDocumentsCount || 0; // Mặc định là 0 nếu không có
-                                                    
+                                                    const communeDefinedDocs = parentIndicatorData.communeDefinedDocuments || [];
+
                                                     // --- BẮT ĐẦU LOGIC MỚI CHO docsToRender ---
                                                     let docsToRender: any[] = [];
                                                     if (assignmentType === 'specific') {
                                                         docsToRender = indicator.documents || [];
                                                     } else { // assignmentType === 'quantity'
                                                         if (assignedCount > 0) {
-                                                            // Nếu Admin đã định số lượng, dùng communeDefinedDocs (có thể rỗng ban đầu)
-                                                            // Cần đảm bảo mảng có đủ phần tử để render đúng số lượng ô
-                                                             docsToRender = Array.from({ length: assignedCount }, (_, i) => (parentIndicatorData.communeDefinedDocuments || [])[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 });
+                                                            // Nếu Admin đã định số lượng, dùng communeDefinedDocs từ state cha (có thể rỗng ban đầu)
+                                                            docsToRender = Array.from({ length: assignedCount }, (_, i) => (parentIndicatorData.communeDefinedDocuments || [])[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 });
                                                         } else {
                                                             // Nếu Admin không định số lượng (Xã tự điền)
                                                             // Lấy số lượng từ parentIndicatorData.value
                                                             const communeEnteredCount = Number(parentIndicatorData.value || 0);
                                                             // Sử dụng state cục bộ localCommuneDefinedDocs
-                                                             docsToRender = Array.from({ length: communeEnteredCount }, (_, i) => localCommuneDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 });
+                                                            docsToRender = Array.from({ length: communeEnteredCount }, (_, i) => localCommuneDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 });
                                                         }
                                                     }
                                                     // --- KẾT THÚC LOGIC MỚI CHO docsToRender ---

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useCallback, useMemo, useState, useEffect } from 'react';
@@ -16,7 +17,7 @@ import type { Criterion } from "@/lib/data";
 import Criterion1EvidenceUploader from "./Criterion1EvidenceUploader";
 import EvidenceUploaderComponent from "./EvidenceUploaderComponent";
 import StatusBadge from "./StatusBadge";
-import type { AssessmentValues, FileWithStatus } from "./types";
+import type { AssessmentValues, FileWithStatus, AssessmentStatus } from "./types";
 
 const Criterion1Component = ({ 
     criterion,
@@ -32,7 +33,7 @@ const Criterion1Component = ({
     handleCommuneDocsChange
 }: {
     criterion: Criterion;
-    criterionStatus: 'achieved' | 'not-achieved' | 'pending';
+    criterionStatus: AssessmentStatus;
     assessmentData: AssessmentValues;
     onValueChange: (id: string, value: any) => void;
     onNoteChange: (id: string, note: string) => void;
