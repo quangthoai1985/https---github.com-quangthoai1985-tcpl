@@ -16,6 +16,7 @@ import CT4EvidenceUploader from "./CT4EvidenceUploader";
 import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import IndicatorAssessment from './IndicatorAssessment';
 import Criterion1Component from './Criterion1Component';
+import Criterion4SpecialComponent from './Criterion4SpecialComponent';
 
 
 const GenericCriterionComponent = ({
@@ -67,24 +68,6 @@ const GenericCriterionComponent = ({
     );
     const index = criteria.findIndex(c => c.id === criterion.id);
 
-    if (criterion.id === 'TC01') {
-        return (
-             <Criterion1Component
-                criterion={criterion}
-                criterionStatus={criterionStatus}
-                assessmentData={assessmentData}
-                onValueChange={onValueChange}
-                onNoteChange={onNoteChange}
-                onEvidenceChange={onEvidenceChange}
-                onIsTaskedChange={onIsTaskedChange}
-                onPreview={onPreview}
-                periodId={periodId}
-                communeId={communeId}
-                handleCommuneDocsChange={handleCommuneDocsChange}
-            />
-        )
-    }
-
     return (
         <AccordionItem value={criterion.id} key={criterion.id}>
             <AccordionTrigger className={triggerClasses}>
@@ -98,6 +81,25 @@ const GenericCriterionComponent = ({
                     {(criterion.indicators || []).map(indicator => {
                         
                         if (!assessmentData[indicator.id]) return null;
+
+                        // LOGIC MỚI: Xử lý riêng cho Chỉ tiêu 4
+                        if (indicator.id === 'CT033278') {
+                            return (
+                                <Criterion4SpecialComponent
+                                    key={indicator.id}
+                                    indicator={indicator}
+                                    assessmentData={assessmentData}
+                                    onValueChange={onValueChange}
+                                    onNoteChange={onNoteChange}
+                                    onEvidenceChange={onEvidenceChange}
+                                    onIsTaskedChange={onIsTaskedChange}
+                                    onPreview={onPreview}
+                                    periodId={periodId}
+                                    communeId={communeId}
+                                    handleCommuneDocsChange={handleCommuneDocsChange}
+                                />
+                            )
+                        }
 
                         const indicatorBlockClasses = cn(
                             "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
@@ -128,275 +130,28 @@ const GenericCriterionComponent = ({
                                                      contentData.status === 'pending' && 'bg-amber-50 border-l-amber-200'
                                                 );
 
-                                                // ================ LOGIC PHÂN LOẠI CONTENT ================
-                                                if (content.id === 'CNT033278') {
-                                                    // ----- RENDER NỘI DUNG 1 (Kế hoạch của CT4) -----
-                                                    
-                                                     // BẮT ĐẦU CODE MỚI: STATE VÀ EFFECT QUẢN LÝ DOCS CỦA XÃ
-                                                    const [localCommuneDefinedDocs, setLocalCommuneDefinedDocs] = useState(
-                                                        () => assessmentData[indicator.id]?.communeDefinedDocuments || []
-                                                    );
-
-                                                    const handleSaveDraft = useCallback(async (docsToSave: any[]) => {
-                                                        const sanitizedDocs = docsToSave.map(d => ({
-                                                            ...d,
-                                                            issuanceDeadlineDays: d.issuanceDeadlineDays || 7 // Đảm bảo có giá trị mặc định
-                                                        }));
-
-                                                        const newAssessmentData = {
-                                                            ...assessmentData,
-                                                            [indicator.id]: {
-                                                                ...assessmentData[indicator.id],
-                                                                communeDefinedDocuments: sanitizedDocs,
-                                                            },
-                                                        };
-                                                        await updateSingleAssessment({ assessmentData: newAssessmentData });
-                                                    }, [assessmentData, indicator.id, updateSingleAssessment]);
-
-
-                                                    // Đồng bộ state cục bộ với state cha khi state cha thay đổi
-                                                    useEffect(() => {
-                                                        setLocalCommuneDefinedDocs(assessmentData[indicator.id]?.communeDefinedDocuments || []);
-                                                    }, [assessmentData[indicator.id]?.communeDefinedDocuments]);
-
-
-                                                    // Gọi hàm callback của cha khi state cục bộ thay đổi
-                                                    useEffect(() => {
-                                                        // Chỉ gọi khi đang trong mode xã tự điền và state cục bộ thực sự thay đổi
-                                                        if (indicator.assignmentType === 'quantity' && (!indicator.assignedDocumentsCount || indicator.assignedDocumentsCount === 0)) {
-                                                            handleCommuneDocsChange(indicator.id, localCommuneDefinedDocs);
-                                                        }
-                                                        // Thêm dependency indicator.assignmentType và indicator.assignedDocumentsCount
-                                                    }, [localCommuneDefinedDocs, handleCommuneDocsChange, indicator.id, indicator.assignmentType, indicator.assignedDocumentsCount]);
-                                                    
-                                                     const handleLocalDocDetailChange = (index: number, field: string, value: string | number | undefined) => {
-                                                        setLocalCommuneDefinedDocs(prevDocs => {
-                                                            const newDocs = [...prevDocs];
-                                                            if (newDocs[index]) {
-                                                                (newDocs[index] as any)[field] = value;
-                                                            } else {
-                                                                newDocs[index] = { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7, [field]: value };
-                                                            }
-                                                            return newDocs;
-                                                        });
-                                                    };
-                                                    // KẾT THÚC CODE MỚI: STATE VÀ EFFECT
-
-                                                    const parentIndicatorData = assessmentData[indicator.id];
-                                                    // **QUAN TRỌNG:** Lấy assignmentType TỪ INDICATOR CHA
-                                                    const assignmentType = indicator.assignmentType || 'specific'; 
-                                                    // **QUAN TRỌNG:** Lấy assignedDocumentsCount TỪ INDICATOR CHA
-                                                    const assignedCount = indicator.assignedDocumentsCount || 0; // Mặc định là 0 nếu không có
-                                                    const communeDefinedDocs = parentIndicatorData.communeDefinedDocuments || [];
-
-                                                    // --- BẮT ĐẦU LOGIC MỚI CHO docsToRender ---
-                                                    let docsToRender: any[] = [];
-                                                    if (assignmentType === 'specific') {
-                                                        docsToRender = indicator.documents || [];
-                                                    } else { // assignmentType === 'quantity'
-                                                        if (assignedCount > 0) {
-                                                            // Nếu Admin đã định số lượng, dùng communeDefinedDocs từ state cha (có thể rỗng ban đầu)
-                                                            docsToRender = Array.from({ length: assignedCount }, (_, i) => (parentIndicatorData.communeDefinedDocuments || [])[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 });
-                                                        } else {
-                                                            // Nếu Admin không định số lượng (Xã tự điền)
-                                                            // Lấy số lượng từ parentIndicatorData.value
-                                                            const communeEnteredCount = Number(parentIndicatorData.value || 0);
-                                                            // Sử dụng state cục bộ localCommuneDefinedDocs
-                                                            docsToRender = Array.from({ length: communeEnteredCount }, (_, i) => localCommuneDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 });
-                                                        }
-                                                    }
-                                                    // --- KẾT THÚC LOGIC MỚI CHO docsToRender ---
-                                                    
-                                                    // Hàm helper để gọi onEvidenceChange cho filesPerDocument của Content 1
-                                                     const handleContent1UploadComplete = (docIndex: number, newFile: { name: string; url: string; }) => {
-                                                         onEvidenceChange(indicator.id, [newFile], docIndex, undefined, content.id);
-                                                    };
-                                                     const handleContent1AddLink = (docIndex: number, newLink: { name: string; url: string; }) => {
-                                                         onEvidenceChange(indicator.id, [newLink], docIndex, undefined, content.id);
-                                                    };
-                                                     const handleContent1RemoveFile = (docIndex: number, fileToRemove: FileWithStatus) => {
-                                                         onEvidenceChange(indicator.id, [], docIndex, fileToRemove, content.id);
-                                                    };
-
-                                                    return (
-                                                        <div key={content.id} className={subBlockClasses}>
-                                                            <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
-                                                            <div className="flex items-center gap-2 mb-4">
-                                                                <StatusBadge status={contentData.status} />
-                                                                <h5 className="font-semibold text-base flex-1">{content.name}</h5>
-                                                            </div>
-                                                             <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md">
-                                                                <div className="flex items-start gap-2 text-blue-800">
-                                                                   <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                                                                   <p className="text-sm">{content.description}</p>
-                                                                </div>
-                                                             </div>
-                                                            {/* BẮT ĐẦU CODE MỚI: Ô INPUT CHO XÃ TỰ ĐIỀN */}
-                                                            {assignmentType === 'quantity' && (!assignedCount || assignedCount === 0) && (
-                                                                <div className="grid gap-2 p-3 border rounded-md bg-background mt-4">
-                                                                    <Label htmlFor={`communeDocCount-${indicator.id}-${content.id}`}>Tổng số Kế hoạch đã ban hành</Label>
-                                                                    <Input 
-                                                                        id={`communeDocCount-${indicator.id}-${content.id}`} 
-                                                                        type="number" 
-                                                                        // **QUAN TRỌNG:** Lấy value từ parentIndicatorData.value
-                                                                        value={parentIndicatorData.value || ''} 
-                                                                        // **QUAN TRỌNG:** Gọi onValueChange với indicator.id (ID cha)
-                                                                        onChange={(e) => onValueChange(indicator.id, e.target.value)} 
-                                                                        placeholder="Nhập số lượng" 
-                                                                        className="w-48"
-                                                                    />
-                                                                </div>
-                                                            )}
-                                                            {/* KẾT THÚC CODE MỚI */}
-                                                             {/* Giao diện upload đặc biệt */}
-                                                             <div className="grid gap-2 mt-4">
-                                                                 <Label className="font-medium">Hồ sơ minh chứng</Label>
-                                                                  <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
-                                                                      <AlertTriangle className="h-4 w-4" />
-                                                                      <AlertTitle className="font-semibold text-amber-800">Lưu ý</AlertTitle>
-                                                                      <AlertDescription>Tệp PDF tải lên sẽ được kiểm tra chữ ký số.</AlertDescription>
-                                                                  </Alert>
-
-                                                                 {/* Phần hiển thị danh sách văn bản và ô upload */}
-                                                                 {docsToRender.length > 0 ? (
-                                                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                                                                         {docsToRender.map((doc, docIndex) => {
-                                                                             // Lấy evidence TỪ parentIndicatorData.filesPerDocument
-                                                                             const evidence = parentIndicatorData.filesPerDocument?.[docIndex] || [];
-                                                                             // Logic isRequired dựa trên contentData.status
-                                                                             const isRequired = contentData.status === 'not-achieved' && evidence.length === 0;
-
-                                                                             return (
-                                                                                 <div key={docIndex} className="p-3 border rounded-lg grid gap-2 bg-background">
-                                                                                    {/* BẮT ĐẦU CODE MỚI: RENDER Ô INPUT KHI XÃ TỰ ĐIỀN */}
-                                                                                    {assignmentType === 'quantity' && assignedCount === 0 && (
-                                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 border-b pb-4">
-                                                                                            <div className="grid gap-1.5"><Label htmlFor={`doc-name-${indicator.id}-${content.id}-${docIndex}`} className="text-xs font-semibold">Tên Kế hoạch</Label><Input id={`doc-name-${indicator.id}-${content.id}-${docIndex}`} value={doc.name || ''} onBlur={() => handleSaveDraft(localCommuneDefinedDocs)} onChange={(e) => handleLocalDocDetailChange(docIndex, 'name', e.target.value)} /></div>
-                                                                                            <div className="grid gap-1.5"><Label htmlFor={`doc-excerpt-${indicator.id}-${content.id}-${docIndex}`} className="text-xs font-semibold">Trích yếu</Label><Input id={`doc-excerpt-${indicator.id}-${content.id}-${docIndex}`} value={doc.excerpt || ''} onBlur={() => handleSaveDraft(localCommuneDefinedDocs)} onChange={(e) => handleLocalDocDetailChange(docIndex, 'excerpt', e.target.value)} /></div>
-                                                                                            <div className="grid gap-1.5"><Label htmlFor={`doc-issuedate-${indicator.id}-${content.id}-${docIndex}`} className="text-xs font-semibold">Ngày ban hành (DD/MM/YYYY)</Label><Input id={`doc-issuedate-${indicator.id}-${content.id}-${docIndex}`} value={doc.issueDate || ''} onBlur={() => handleSaveDraft(localCommuneDefinedDocs)} onChange={(e) => handleLocalDocDetailChange(docIndex, 'issueDate', e.target.value)} /></div>
-                                                                                            <div className="grid gap-1.5"><Label htmlFor={`doc-deadline-${indicator.id}-${content.id}-${docIndex}`} className="text-xs font-semibold">Thời hạn (ngày)</Label><Input type="number" id={`doc-deadline-${indicator.id}-${content.id}-${docIndex}`} value={doc.issuanceDeadlineDays ?? ''} onBlur={() => handleSaveDraft(localCommuneDefinedDocs)} onChange={(e) => handleLocalDocDetailChange(docIndex, 'issuanceDeadlineDays', e.target.value === '' ? undefined : Number(e.target.value))} /></div>
-                                                                                        </div>
-                                                                                    )}
-                                                                                    {/* KẾT THÚC CODE MỚI */}
-                                                                                    
-                                                                                    <Label className="font-medium text-center text-sm truncate">Minh chứng cho: <span className="font-bold text-primary">{doc.name || `Kế hoạch ${docIndex + 1}`}</span></Label>
-                                                                                     <CT4EvidenceUploader
-                                                                                         indicatorId={indicator.id}
-                                                                                         contentId={content.id} // Truyền contentId
-                                                                                         docIndex={docIndex} // Truyền docIndex
-                                                                                         evidence={evidence}
-                                                                                         onUploadComplete={handleContent1UploadComplete} // Dùng hàm helper
-                                                                                         onRemove={handleContent1RemoveFile}          // Dùng hàm helper
-                                                                                         onAddLink={handleContent1AddLink}            // Dùng hàm helper
-                                                                                         onPreview={onPreview}
-                                                                                         periodId={periodId}
-                                                                                         communeId={communeId}
-                                                                                         isRequired={isRequired}
-                                                                                         accept=".pdf"
-                                                                                     />
-                                                                                     {isRequired && (
-                                                                                        <p className="text-sm font-medium text-destructive mt-1">
-                                                                                            Yêu cầu ít nhất một minh chứng.
-                                                                                        </p>
-                                                                                    )}
-                                                                                 </div>
-                                                                             )
-                                                                         })}
-                                                                     </div>
-                                                                 ) : <p className="text-sm text-muted-foreground">Admin chưa cấu hình văn bản cụ thể hoặc xã chưa kê khai (nếu giao theo số lượng).</p>}
-                                                             </div>
-                                                              <div className="grid gap-2 mt-4">
-                                                                 <Label htmlFor={`note-${indicator.id}-${content.id}`}>Ghi chú/Giải trình</Label>
-                                                                 <textarea id={`note-${indicator.id}-${content.id}`} placeholder="Giải trình thêm..." value={contentData.note || ''} onChange={(e) => onNoteChange(indicator.id, e.target.value, content.id)} className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"/>
-                                                               </div>
-                                                        </div>
-                                                    );
-                                                } else if (content.id === 'CNT066117') {
-                                                    // ----- RENDER NỘI DUNG 2 (Tỷ lệ %) -----
-                                                    const valueObj = (typeof contentData.value === 'object' && contentData.value !== null) ? contentData.value : { total: '', completed: '' };
-                                                    const total = Number(valueObj.total || 0);
-                                                    const completed = Number(valueObj.completed || 0);
-                                                    const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
-
-                                                    return (
-                                                        <div key={content.id} className={subBlockClasses}>
-                                                            <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
-                                                            <div className="flex items-center gap-2 mb-4">
-                                                                <StatusBadge status={contentData.status} />
-                                                                <h5 className="font-semibold text-base flex-1">{content.name}</h5>
-                                                            </div>
-                                                             <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md">
-                                                                <div className="flex items-start gap-2 text-blue-800">
-                                                                   <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
-                                                                   <p className="text-sm">{content.description}</p>
-                                                                </div>
-                                                             </div>
-                                                             {/* Giao diện nhập liệu đặc biệt */}
-                                                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 items-end">
-                                                                <div className="grid gap-1.5">
-                                                                   <Label htmlFor={`ct4-total-${content.id}`}>Tổng số nhiệm vụ đề ra</Label>
-                                                                   <Input id={`ct4-total-${content.id}`} type="number" placeholder="VD: 10" value={valueObj.total} 
-                                                                          onChange={(e) => onValueChange(indicator.id, {...valueObj, total: e.target.value}, content.id)} />
-                                                                </div>
-                                                                 <div className="grid gap-1.5">
-                                                                   <Label htmlFor={`ct4-completed-${content.id}`}>Số nhiệm vụ hoàn thành</Label>
-                                                                   <Input id={`ct4-completed-${content.id}`} type="number" placeholder="VD: 8" value={valueObj.completed} 
-                                                                          onChange={(e) => onValueChange(indicator.id, {...valueObj, completed: e.target.value}, content.id)} />
-                                                                </div>
-                                                                 <div className="text-center md:text-left">
-                                                                   <Label className="text-xs font-normal">Tỷ lệ hoàn thành</Label>
-                                                                   <p className="text-2xl font-bold">{percentage}%</p>
-                                                                 </div>
-                                                             </div>
-                                                             {/* Minh chứng chung */}
-                                                             <div className="grid gap-2 mt-4">
-                                                                <Label className="font-medium">Hồ sơ minh chứng</Label>
-                                                                 <EvidenceUploaderComponent 
-                                                                    indicatorId={indicator.id} 
-                                                                    contentId={content.id} 
-                                                                    evidence={contentData.files || []} 
-                                                                    onEvidenceChange={onEvidenceChange} 
-                                                                    onPreview={onPreview} 
-                                                                    isRequired={contentData.status === 'not-achieved' && contentData.files.length === 0}
-                                                                    parentIndicatorId={indicator.id}
-                                                                  />
-                                                             </div>
-                                                             <div className="grid gap-2 mt-4">
-                                                                <Label htmlFor={`note-${indicator.id}-${content.id}`}>Ghi chú/Giải trình</Label>
-                                                                <textarea id={`note-${indicator.id}-${content.id}`} placeholder="Giải trình thêm..." value={contentData.note || ''} onChange={(e) => onNoteChange(indicator.id, e.target.value, content.id)} className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"/>
-                                                              </div>
-                                                        </div>
-                                                    );
-                                                } else {
-                                                    // ----- RENDER CONTENT THÔNG THƯỜNG (Fallback) -----
-                                                     return (
-                                                         <div key={content.id} className={subBlockClasses}>
-                                                            <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
-                                                            <IndicatorAssessment
-                                                                // Props cho logic đặc biệt (nếu có cho content này)
-                                                                specialIndicatorIds={specialLogicIndicatorIds}
-                                                                specialLabels={getSpecialIndicatorLabels(content.id, criteria)}
-                                                                customBooleanLabels={getCustomBooleanLabels(content.id, criteria)}
-                                                                checkboxOptions={getCheckboxOptions(content.id, criteria)}
-                                                                // Props chính
-                                                                indicator={content} // indicator giờ là content
-                                                                data={contentData} // data của content
-                                                                // Props callback (truyền ID cha và contentId)
-                                                                onValueChange={(id, value, cId) => onValueChange(indicator.id, value, content.id)}
-                                                                onNoteChange={(id, note, cId) => onNoteChange(indicator.id, note, content.id)}
-                                                                onEvidenceChange={(id, files, docIdx, fileToDel, cId) => onEvidenceChange(indicator.id, files, docIdx, fileToDel, content.id)}
-                                                                onIsTaskedChange={(id, isTasked) => handleIsTaskedChange(content.id, isTasked)} // Gọi handleIsTaskedChange với ID content
-                                                                // Props khác
-                                                                onPreview={onPreview}
-                                                                criteria={criteria}
-                                                                assessmentData={assessmentData} // assessmentData đầy đủ
-                                                                contentId={content.id} // ID của content này
-                                                                parentIndicatorId={indicator.id} // ID của chỉ tiêu cha
-                                                            />
-                                                         </div>
-                                                    );
-                                                }
-                                                // ================ KẾT THÚC LOGIC PHÂN LOẠI ================
+                                                return (
+                                                    <div key={content.id} className={subBlockClasses}>
+                                                        <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
+                                                        <IndicatorAssessment
+                                                            specialIndicatorIds={specialLogicIndicatorIds}
+                                                            specialLabels={getSpecialIndicatorLabels(content.id, criteria)}
+                                                            customBooleanLabels={getCustomBooleanLabels(content.id, criteria)}
+                                                            checkboxOptions={getCheckboxOptions(content.id, criteria)}
+                                                            indicator={content} // indicator giờ là content
+                                                            data={contentData} // data của content
+                                                            onValueChange={(id, value, cId) => onValueChange(indicator.id, value, content.id)}
+                                                            onNoteChange={(id, note, cId) => onNoteChange(indicator.id, note, content.id)}
+                                                            onEvidenceChange={(id, files, docIdx, fileToDel, cId) => onEvidenceChange(indicator.id, files, docIdx, fileToDel, content.id)}
+                                                            onIsTaskedChange={(id, isTasked) => handleIsTaskedChange(content.id, isTasked)} // Gọi handleIsTaskedChange với ID content
+                                                            onPreview={onPreview}
+                                                            criteria={criteria}
+                                                            assessmentData={assessmentData} // assessmentData đầy đủ
+                                                            contentId={content.id} // ID của content này
+                                                            parentIndicatorId={indicator.id} // ID của chỉ tiêu cha
+                                                        />
+                                                    </div>
+                                                );
                                           })}
                                         </div>
                                     </>
@@ -427,5 +182,3 @@ const GenericCriterionComponent = ({
 };
 
 export default GenericCriterionComponent;
-
-    

@@ -59,7 +59,7 @@ const Criterion1Component = ({
             const adminCount = criterion.assignedDocumentsCount || 0;
             if (adminCount > 0 && communeDefinedDocs.length !== adminCount) {
                 const newDocs = Array.from({ length: adminCount }, (_, i) =>
-                    communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 }
+                    communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 }
                 );
                 setCommuneDefinedDocs(newDocs);
             }
@@ -97,7 +97,7 @@ const Criterion1Component = ({
     const handleLocalDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const count = Math.max(0, Number(e.target.value));
         const newDocs = Array.from({ length: count }, (_, i) =>
-            communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 }
+            communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 }
         );
         setCommuneDefinedDocs(newDocs);
     };

@@ -94,20 +94,20 @@ const getCheckboxOptions = (indicatorId: string, criteria: Criterion[]) => {
 }
 
 const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus[], isTasked?: boolean | null, assignedCount?: number, filesPerDocument?: { [documentIndex: number]: FileWithStatus[] }, contentId?: string): AssessmentStatus => {
-    if (isTasked === false) {
-        return 'achieved';
-    }
-
     // LOGIC RIÊNG CHO NỘI DUNG 1 CỦA CHỈ TIÊU 4
     if (contentId === 'CNT033278') {
-        const hasValidFile = files.some(f => f.signatureStatus === 'valid');
+        const hasValidFile = (files || []).some(f => f.signatureStatus === 'valid');
         if (hasValidFile) return 'achieved';
 
-        const hasInvalidFile = files.some(f => f.signatureStatus === 'invalid' || f.signatureStatus === 'error');
+        const hasInvalidFile = (files || []).some(f => f.signatureStatus === 'invalid' || f.signatureStatus === 'error');
         if (hasInvalidFile) return 'not-achieved';
         
         // Nếu không có file hợp lệ hoặc không hợp lệ, thì là pending (chờ upload, hoặc đang validating)
         return 'pending';
+    }
+
+    if (isTasked === false) {
+        return 'achieved';
     }
 
     const hasFileEvidence = (files || []).length > 0;
@@ -561,7 +561,6 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         let fileList: FileWithStatus[];
         let currentValue: any;
 
-        // Ưu tiên khối này nếu có docIndex (TC1/CT4)
         if (docIndex !== undefined) {
              const filesPerDoc = { ...(indicatorData.filesPerDocument || {}) };
              fileList = [...(filesPerDoc[docIndex] || [])];
@@ -584,7 +583,6 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
             }
             indicatorData.status = evaluateStatus(currentValue, item.standardLevel, [], indicatorData.isTasked, assignedCount, filesPerDoc);
 
-        // Chỉ chạy khối này nếu CHỈ CÓ contentId (không có docIndex)
         } else if (contentId && docIndex === undefined) {
              const content = (item as Indicator).contents?.find(c => c.id === contentId);
              if (!content) return prev;
@@ -605,13 +603,18 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
              indicatorData.status = evaluateIndicatorByPassRule(item as Indicator, contentResults);
         
         } else {
-            // Logic cho các chỉ tiêu/content đơn giản
+            // Logic for other simple indicators/contents
             fileList = [...(indicatorData.files || [])];
             currentValue = indicatorData.value;
              if (fileToRemove) {
                 fileList = fileList.filter(f => f.name !== fileToRemove.name);
              } else {
                 fileList.push(...newFiles);
+                newFiles.forEach(file => {
+                    if (!(file instanceof File) && file.url) {
+                        unsavedFilesRef.current.push(file.url);
+                    }
+                });
              }
             indicatorData.files = fileList;
             indicatorData.status = evaluateStatus(currentValue, item.standardLevel, fileList, indicatorData.isTasked);
@@ -634,6 +637,8 @@ const handleSaveDraft = useCallback(async () => {
 
     try {
         const uploadPromises: Promise<void>[] = [];
+        const currentUnsavedUrls = [...unsavedFilesRef.current];
+        unsavedFilesRef.current = [];
 
         for (const indicatorId in assessmentData) {
             const indicatorState = assessmentData[indicatorId];
@@ -685,7 +690,6 @@ const handleSaveDraft = useCallback(async () => {
             if (indicatorState.files && !indicatorState.contentResults && Object.keys(indicatorState.filesPerDocument || {}).length === 0) {
                 processFileList(indicatorState.files);
             }
-
         }
 
         await Promise.all(uploadPromises);
@@ -700,6 +704,16 @@ const handleSaveDraft = useCallback(async () => {
         };
 
         await updateSingleAssessment(updatedAssessment);
+
+        // Cleanup successful uploads from unsaved ref
+        currentUnsavedUrls.forEach(async (url) => {
+            try {
+                await deleteFileByUrl(url);
+            } catch (error) {
+                // Ignore errors if file already deleted or moved
+            }
+        });
+
 
         savingToast.dismiss();
         toast({
@@ -718,7 +732,7 @@ const handleSaveDraft = useCallback(async () => {
     } finally {
         setIsSubmitting(false);
     }
-}, [activePeriod, currentUser, storage, assessmentData, assessments, updateSingleAssessment, toast]);
+}, [activePeriod, currentUser, storage, assessmentData, assessments, updateSingleAssessment, toast, deleteFileByUrl]);
 
   useEffect(() => {
     const hasUnsavedFiles = Object.values(assessmentData).some(indicator =>
@@ -899,8 +913,26 @@ const handleSaveDraft = useCallback(async () => {
                 <>
                 <CardContent>
                     <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
-                        {criteria.map((criterion) => {
+                        {criteria.map((criterion, index) => {
                             const criterionStatus = calculateCriterionStatus(criterion);
+                            if (criterion.id === 'TC01') {
+                                return (
+                                    <Criterion1Component
+                                        key={criterion.id}
+                                        criterion={criterion}
+                                        criterionStatus={criterionStatus}
+                                        assessmentData={assessmentData}
+                                        onValueChange={handleValueChange}
+                                        onNoteChange={handleNoteChange}
+                                        onEvidenceChange={handleEvidenceChange}
+                                        onIsTaskedChange={handleIsTaskedChange}
+                                        onPreview={handlePreview}
+                                        periodId={activePeriod!.id}
+                                        communeId={currentUser!.communeId}
+                                        handleCommuneDocsChange={handleCommuneDocsChange}
+                                    />
+                                );
+                            }
                             return (
                                 <GenericCriterionComponent
                                     key={criterion.id}
@@ -910,7 +942,7 @@ const handleSaveDraft = useCallback(async () => {
                                     onValueChange={handleValueChange}
                                     onNoteChange={handleNoteChange}
                                     onEvidenceChange={handleEvidenceChange}
-                                    onIsTaskedChange={handleIsTaskedChange}
+                                    onIsTaskedChange={onIsTaskedChange}
                                     onPreview={handlePreview}
                                     criteria={criteria}
                                     specialLogicIndicatorIds={specialLogicIndicatorIds}
@@ -983,8 +1015,3 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
-
-    
-
-    
-
