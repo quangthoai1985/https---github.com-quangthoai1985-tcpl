@@ -917,6 +917,7 @@ const handleSaveDraft = useCallback(async () => {
                         communeId={currentUser!.communeId}
                         handleCommuneDocsChange={handleCommuneDocsChange}
                         handleIsTaskedChange={handleIsTaskedChange}
+                        updateSingleAssessment={(assessment) => updateSingleAssessment({ id: myAssessment?.id, ...assessment })}
                     />
                 );
         }
