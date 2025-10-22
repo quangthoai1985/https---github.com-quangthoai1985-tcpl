@@ -1,20 +1,19 @@
 'use client';
 
-import React, { useCallback, useMemo, useState, useEffect } from 'react';
-import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { CornerDownRight, Info, AlertTriangle } from "lucide-react";
+import React, { useState, useEffect, useCallback } from 'react';
 import { cn } from "@/lib/utils";
-import type { Assessment, Criterion, Indicator, IndicatorResult } from "@/lib/data";
-import type { AssessmentStatus, AssessmentValues, FileWithStatus } from './types';
-import StatusBadge from './StatusBadge';
-import IndicatorAssessment from './IndicatorAssessment';
+import type { Assessment, AssessmentValues, FileWithStatus } from "./types";
+import type { Criterion, Indicator } from "@/lib/data";
+import { Info, AlertTriangle, CornerDownRight } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import CT4EvidenceUploader from './CT4EvidenceUploader';
+import StatusBadge from "./StatusBadge";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import EvidenceUploaderComponent from './EvidenceUploaderComponent';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import CT4EvidenceUploader from "./CT4EvidenceUploader";
+import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import IndicatorAssessment from './IndicatorAssessment';
+
 
 const GenericCriterionComponent = ({
     criterion,
@@ -111,14 +110,13 @@ const GenericCriterionComponent = ({
                                                 // ================ LOGIC PHÂN LOẠI CONTENT ================
                                                 if (content.id === 'CNT033278') {
                                                     // ----- RENDER NỘI DUNG 1 (Giống TC1) -----
-                                                     const parentIndicatorData = assessmentData[indicator.id];
-
+                                                    
                                                     // BẮT ĐẦU CODE MỚI: STATE VÀ EFFECT QUẢN LÝ DOCS CỦA XÃ
                                                     const [localCommuneDefinedDocs, setLocalCommuneDefinedDocs] = useState(
-                                                        () => parentIndicatorData?.communeDefinedDocuments || []
+                                                        () => assessmentData[indicator.id]?.communeDefinedDocuments || []
                                                     );
 
-                                                     const handleSaveDraft = useCallback(async (updatedDocs: any[]) => {
+                                                    const handleSaveDraft = useCallback(async (updatedDocs: any[]) => {
                                                         const newAssessmentData = {
                                                             ...assessmentData,
                                                             [indicator.id]: {
@@ -131,23 +129,35 @@ const GenericCriterionComponent = ({
 
                                                     // Đồng bộ state cục bộ với state cha khi state cha thay đổi
                                                     useEffect(() => {
-                                                        setLocalCommuneDefinedDocs(parentIndicatorData?.communeDefinedDocuments || []);
-                                                    }, [parentIndicatorData?.communeDefinedDocuments]);
+                                                        setLocalCommuneDefinedDocs(assessmentData[indicator.id]?.communeDefinedDocuments || []);
+                                                    }, [assessmentData[indicator.id]?.communeDefinedDocuments]);
 
-                                                    // Hàm cập nhật state cục bộ và trigger lưu
-                                                    const handleLocalDocDetailChange = (index: number, field: string, value: string | number) => {
-                                                        const newDocs = [...localCommuneDefinedDocs];
-                                                         if(newDocs[index]) {
-                                                            (newDocs[index] as any)[field] = value;
-                                                        } else {
-                                                             newDocs[index] = { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30, [field]: value };
+                                                    // Gọi hàm callback của cha khi state cục bộ thay đổi
+                                                    useEffect(() => {
+                                                        // Chỉ gọi khi đang trong mode xã tự điền và state cục bộ thực sự thay đổi
+                                                        if (indicator.assignmentType === 'quantity' && (!indicator.assignedDocumentsCount || indicator.assignedDocumentsCount === 0)) {
+                                                            handleCommuneDocsChange(indicator.id, localCommuneDefinedDocs);
                                                         }
-                                                        setLocalCommuneDefinedDocs(newDocs);
-                                                        handleCommuneDocsChange(indicator.id, newDocs);
+                                                        // Thêm dependency indicator.assignmentType và indicator.assignedDocumentsCount
+                                                    }, [localCommuneDefinedDocs, handleCommuneDocsChange, indicator.id, indicator.assignmentType, indicator.assignedDocumentsCount]);
+                                                    
+                                                    const handleLocalDocDetailChange = (index: number, field: string, value: string | number) => {
+                                                        setLocalCommuneDefinedDocs(prevDocs => {
+                                                            const newDocs = [...prevDocs];
+                                                            if(newDocs[index]) {
+                                                                (newDocs[index] as any)[field] = value;
+                                                            } else {
+                                                                 // Xử lý trường hợp mảng chưa đủ dài khi xã tăng số lượng
+                                                                 // Tạo object mới nếu index chưa tồn tại
+                                                                 newDocs[index] = { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7, [field]: value };
+                                                            }
+                                                            return newDocs;
+                                                        });
                                                     };
-                                                    // KẾT THÚC CODE MỚI
-
+                                                    // KẾT THÚC CODE MỚI: STATE VÀ EFFECT
+                                                    
                                                     // Lấy cấu hình đặc biệt từ indicator cha (CT033278)
+                                                    const parentIndicatorData = assessmentData[indicator.id];
                                                     // **QUAN TRỌNG:** Lấy assignmentType TỪ INDICATOR CHA
                                                     const assignmentType = indicator.assignmentType || 'specific'; 
                                                     // **QUAN TRỌNG:** Lấy assignedDocumentsCount TỪ INDICATOR CHA
@@ -161,13 +171,13 @@ const GenericCriterionComponent = ({
                                                         if (assignedCount > 0) {
                                                             // Nếu Admin đã định số lượng, dùng communeDefinedDocs từ state cha (có thể rỗng ban đầu)
                                                             // Cần đảm bảo mảng có đủ phần tử để render đúng số lượng ô
-                                                            docsToRender = Array.from({ length: assignedCount }, (_, i) => (parentIndicatorData.communeDefinedDocuments || [])[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
+                                                             docsToRender = Array.from({ length: assignedCount }, (_, i) => (parentIndicatorData.communeDefinedDocuments || [])[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 });
                                                         } else {
                                                             // Nếu Admin không định số lượng (Xã tự điền)
                                                             // Lấy số lượng từ parentIndicatorData.value
                                                             const communeEnteredCount = Number(parentIndicatorData.value || 0);
                                                             // Sử dụng state cục bộ localCommuneDefinedDocs
-                                                            docsToRender = Array.from({ length: communeEnteredCount }, (_, i) => localCommuneDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
+                                                             docsToRender = Array.from({ length: communeEnteredCount }, (_, i) => localCommuneDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 });
                                                         }
                                                     }
                                                     // --- KẾT THÚC LOGIC MỚI CHO docsToRender ---
