@@ -1,4 +1,5 @@
 
+
 'use client'
 
 import { Accordion } from "@/components/ui/accordion";
@@ -519,7 +520,25 @@ const handleNoteChange = useCallback((indicatorId: string, note: string, content
     });
 }, []);
 
-const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus, contentId?: string) => {
+const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus, contentId?: string) => {
+    if (fileToRemove?.url) {
+        try {
+            await deleteFileByUrl(fileToRemove.url);
+            toast({
+                title: "Đã xóa tệp",
+                description: `Tệp "${fileToRemove.name}" đã được xóa khỏi hệ thống.`,
+            });
+        } catch (error) {
+            console.error("Lỗi khi xóa tệp:", error);
+            toast({
+                variant: "destructive",
+                title: "Lỗi xóa tệp",
+                description: `Không thể xóa tệp "${fileToRemove.name}".`,
+            });
+            return; // Ngăn không cập nhật state nếu xóa file lỗi
+        }
+    }
+
     setAssessmentData(prev => {
         const newData = { ...prev };
         const item = findIndicator(indicatorId) as Indicator | Content | null;
@@ -589,7 +608,7 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
         newData[indicatorId] = indicatorData;
         return newData;
     });
-}, [criteria, findIndicator]);
+}, [criteria, deleteFileByUrl, findIndicator, toast]);
 
 
 const handleSaveDraft = useCallback(async () => {
@@ -980,5 +999,7 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
+
+    
 
     
