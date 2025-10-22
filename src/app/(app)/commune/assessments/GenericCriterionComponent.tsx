@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -109,28 +110,35 @@ const GenericCriterionComponent = ({
 
                                                 // ================ LOGIC PHÂN LOẠI CONTENT ================
                                                 if (content.id === 'CNT033278') {
-                                                    // ----- RENDER NỘI DUNG 1 (Giống TC1) -----
+                                                    // ----- RENDER NỘI DUNG 1 (Kế hoạch của CT4) -----
                                                     
-                                                    // BẮT ĐẦU CODE MỚI: STATE VÀ EFFECT QUẢN LÝ DOCS CỦA XÃ
+                                                     // BẮT ĐẦU CODE MỚI: STATE VÀ EFFECT QUẢN LÝ DOCS CỦA XÃ
                                                     const [localCommuneDefinedDocs, setLocalCommuneDefinedDocs] = useState(
                                                         () => assessmentData[indicator.id]?.communeDefinedDocuments || []
                                                     );
 
-                                                    const handleSaveDraft = useCallback(async (updatedDocs: any[]) => {
+                                                    const handleSaveDraft = useCallback(async (docsToSave: any[]) => {
+                                                        const sanitizedDocs = docsToSave.map(d => ({
+                                                            ...d,
+                                                            issuanceDeadlineDays: d.issuanceDeadlineDays || 7 // Đảm bảo có giá trị mặc định
+                                                        }));
+
                                                         const newAssessmentData = {
                                                             ...assessmentData,
                                                             [indicator.id]: {
                                                                 ...assessmentData[indicator.id],
-                                                                communeDefinedDocuments: updatedDocs,
+                                                                communeDefinedDocuments: sanitizedDocs,
                                                             },
                                                         };
                                                         await updateSingleAssessment({ assessmentData: newAssessmentData });
                                                     }, [assessmentData, indicator.id, updateSingleAssessment]);
 
+
                                                     // Đồng bộ state cục bộ với state cha khi state cha thay đổi
                                                     useEffect(() => {
                                                         setLocalCommuneDefinedDocs(assessmentData[indicator.id]?.communeDefinedDocuments || []);
                                                     }, [assessmentData[indicator.id]?.communeDefinedDocuments]);
+
 
                                                     // Gọi hàm callback của cha khi state cục bộ thay đổi
                                                     useEffect(() => {
@@ -141,22 +149,19 @@ const GenericCriterionComponent = ({
                                                         // Thêm dependency indicator.assignmentType và indicator.assignedDocumentsCount
                                                     }, [localCommuneDefinedDocs, handleCommuneDocsChange, indicator.id, indicator.assignmentType, indicator.assignedDocumentsCount]);
                                                     
-                                                    const handleLocalDocDetailChange = (index: number, field: string, value: string | number) => {
+                                                     const handleLocalDocDetailChange = (index: number, field: string, value: string | number | undefined) => {
                                                         setLocalCommuneDefinedDocs(prevDocs => {
                                                             const newDocs = [...prevDocs];
-                                                            if(newDocs[index]) {
+                                                            if (newDocs[index]) {
                                                                 (newDocs[index] as any)[field] = value;
                                                             } else {
-                                                                 // Xử lý trường hợp mảng chưa đủ dài khi xã tăng số lượng
-                                                                 // Tạo object mới nếu index chưa tồn tại
-                                                                 newDocs[index] = { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7, [field]: value };
+                                                                newDocs[index] = { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7, [field]: value };
                                                             }
                                                             return newDocs;
                                                         });
                                                     };
                                                     // KẾT THÚC CODE MỚI: STATE VÀ EFFECT
-                                                    
-                                                    // Lấy cấu hình đặc biệt từ indicator cha (CT033278)
+
                                                     const parentIndicatorData = assessmentData[indicator.id];
                                                     // **QUAN TRỌNG:** Lấy assignmentType TỪ INDICATOR CHA
                                                     const assignmentType = indicator.assignmentType || 'specific'; 
@@ -169,7 +174,7 @@ const GenericCriterionComponent = ({
                                                         docsToRender = indicator.documents || [];
                                                     } else { // assignmentType === 'quantity'
                                                         if (assignedCount > 0) {
-                                                            // Nếu Admin đã định số lượng, dùng communeDefinedDocs từ state cha (có thể rỗng ban đầu)
+                                                            // Nếu Admin đã định số lượng, dùng communeDefinedDocs (có thể rỗng ban đầu)
                                                             // Cần đảm bảo mảng có đủ phần tử để render đúng số lượng ô
                                                              docsToRender = Array.from({ length: assignedCount }, (_, i) => (parentIndicatorData.communeDefinedDocuments || [])[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 });
                                                         } else {
@@ -229,7 +234,7 @@ const GenericCriterionComponent = ({
                                                                   <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
                                                                       <AlertTriangle className="h-4 w-4" />
                                                                       <AlertTitle className="font-semibold text-amber-800">Lưu ý</AlertTitle>
-                                                                      <AlertDescription>Tệp PDF tải lên sẽ được kiểm tra chữ ký số (yêu cầu logic 7 ngày làm việc).</AlertDescription>
+                                                                      <AlertDescription>Tệp PDF tải lên sẽ được kiểm tra chữ ký số.</AlertDescription>
                                                                   </Alert>
 
                                                                  {/* Phần hiển thị danh sách văn bản và ô upload */}
@@ -239,17 +244,17 @@ const GenericCriterionComponent = ({
                                                                              // Lấy evidence TỪ parentIndicatorData.filesPerDocument
                                                                              const evidence = parentIndicatorData.filesPerDocument?.[docIndex] || [];
                                                                              // Logic isRequired dựa trên contentData.status
-                                                                             const isRequired = contentData.status !== 'pending' && evidence.length === 0;
+                                                                             const isRequired = contentData.status === 'not-achieved' && evidence.length === 0;
 
                                                                              return (
                                                                                  <div key={docIndex} className="p-3 border rounded-lg grid gap-2 bg-background">
                                                                                     {/* BẮT ĐẦU CODE MỚI: RENDER Ô INPUT KHI XÃ TỰ ĐIỀN */}
                                                                                     {assignmentType === 'quantity' && assignedCount === 0 && (
                                                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 border-b pb-4">
-                                                                                            <div className="grid gap-1.5"><Label htmlFor={`doc-name-${indicator.id}-${content.id}-${docIndex}`} className="text-xs font-semibold">Tên Kế hoạch</Label><Input id={`doc-name-${indicator.id}-${content.id}-${docIndex}`} value={doc.name} onBlur={() => handleSaveDraft(localCommuneDefinedDocs)} onChange={(e) => handleLocalDocDetailChange(docIndex, 'name', e.target.value)} /></div>
-                                                                                            <div className="grid gap-1.5"><Label htmlFor={`doc-excerpt-${indicator.id}-${content.id}-${docIndex}`} className="text-xs font-semibold">Trích yếu</Label><Input id={`doc-excerpt-${indicator.id}-${content.id}-${docIndex}`} value={doc.excerpt} onBlur={() => handleSaveDraft(localCommuneDefinedDocs)} onChange={(e) => handleLocalDocDetailChange(docIndex, 'excerpt', e.target.value)} /></div>
-                                                                                            <div className="grid gap-1.5"><Label htmlFor={`doc-issuedate-${indicator.id}-${content.id}-${docIndex}`} className="text-xs font-semibold">Ngày ban hành (DD/MM/YYYY)</Label><Input id={`doc-issuedate-${indicator.id}-${content.id}-${docIndex}`} value={doc.issueDate} onBlur={() => handleSaveDraft(localCommuneDefinedDocs)} onChange={(e) => handleLocalDocDetailChange(docIndex, 'issueDate', e.target.value)} /></div>
-                                                                                            <div className="grid gap-1.5"><Label htmlFor={`doc-deadline-${indicator.id}-${content.id}-${docIndex}`} className="text-xs font-semibold">Thời hạn (ngày)</Label><Input type="number" id={`doc-deadline-${indicator.id}-${content.id}-${docIndex}`} value={doc.issuanceDeadlineDays} onBlur={() => handleSaveDraft(localCommuneDefinedDocs)} onChange={(e) => handleLocalDocDetailChange(docIndex, 'issuanceDeadlineDays', Number(e.target.value))} /></div>
+                                                                                            <div className="grid gap-1.5"><Label htmlFor={`doc-name-${indicator.id}-${content.id}-${docIndex}`} className="text-xs font-semibold">Tên Kế hoạch</Label><Input id={`doc-name-${indicator.id}-${content.id}-${docIndex}`} value={doc.name || ''} onBlur={() => handleSaveDraft(localCommuneDefinedDocs)} onChange={(e) => handleLocalDocDetailChange(docIndex, 'name', e.target.value)} /></div>
+                                                                                            <div className="grid gap-1.5"><Label htmlFor={`doc-excerpt-${indicator.id}-${content.id}-${docIndex}`} className="text-xs font-semibold">Trích yếu</Label><Input id={`doc-excerpt-${indicator.id}-${content.id}-${docIndex}`} value={doc.excerpt || ''} onBlur={() => handleSaveDraft(localCommuneDefinedDocs)} onChange={(e) => handleLocalDocDetailChange(docIndex, 'excerpt', e.target.value)} /></div>
+                                                                                            <div className="grid gap-1.5"><Label htmlFor={`doc-issuedate-${indicator.id}-${content.id}-${docIndex}`} className="text-xs font-semibold">Ngày ban hành (DD/MM/YYYY)</Label><Input id={`doc-issuedate-${indicator.id}-${content.id}-${docIndex}`} value={doc.issueDate || ''} onBlur={() => handleSaveDraft(localCommuneDefinedDocs)} onChange={(e) => handleLocalDocDetailChange(docIndex, 'issueDate', e.target.value)} /></div>
+                                                                                            <div className="grid gap-1.5"><Label htmlFor={`doc-deadline-${indicator.id}-${content.id}-${docIndex}`} className="text-xs font-semibold">Thời hạn (ngày)</Label><Input type="number" id={`doc-deadline-${indicator.id}-${content.id}-${docIndex}`} value={doc.issuanceDeadlineDays ?? ''} onBlur={() => handleSaveDraft(localCommuneDefinedDocs)} onChange={(e) => handleLocalDocDetailChange(docIndex, 'issuanceDeadlineDays', e.target.value === '' ? undefined : Number(e.target.value))} /></div>
                                                                                         </div>
                                                                                     )}
                                                                                     {/* KẾT THÚC CODE MỚI */}
@@ -402,3 +407,5 @@ const GenericCriterionComponent = ({
 };
 
 export default GenericCriterionComponent;
+
+    
