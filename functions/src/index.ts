@@ -615,8 +615,26 @@ export const verifyCT4Signature = onObjectFinalized({
   try {
       await updateAssessmentFileStatus(contentId, docIndex, "validating");
       
-      const assessmentDoc = await assessmentRef.get();
-      if (!assessmentDoc.exists) throw new Error(`Assessment document ${assessmentId} does not exist.`);
+      // THÊM HÀM CHỜ (DELAY)
+      const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+      const MAX_RETRIES = 3; // Thử lại tối đa 3 lần
+      const RETRY_DELAY = 2000; // Chờ 2 giây giữa mỗi lần thử
+
+      let assessmentDoc: admin.firestore.DocumentSnapshot | null = null;
+      let attempt = 0;
+
+      // BẮT ĐẦU VÒNG LẶP THỬ LẠI
+      while (attempt < MAX_RETRIES && !assessmentDoc?.exists) {
+          if (attempt > 0) {
+              logger.info(`Retrying Firestore read for ${assessmentId}, attempt ${attempt + 1}/${MAX_RETRIES}...`);
+              await delay(RETRY_DELAY);
+          }
+          assessmentDoc = await assessmentRef.get();
+          attempt++;
+      }
+      // KẾT THÚC VÒNG LẶP THỬ LẠI
+
+      if (!assessmentDoc?.exists) throw new Error(`Assessment document ${assessmentId} does not exist after ${MAX_RETRIES} attempts.`);
       const assessmentData = assessmentDoc.data()?.assessmentData;
       if (!assessmentData) throw new Error("Assessment data is missing.");
       
