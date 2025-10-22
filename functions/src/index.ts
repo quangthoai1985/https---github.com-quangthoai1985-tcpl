@@ -580,6 +580,7 @@ export const verifyCT4Signature = onObjectFinalized({
               const assessmentData = data.assessmentData || {};
               // Lấy toàn bộ dữ liệu hiện có của indicator, bao gồm cả 'value'
               const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {}, contentResults: {}, status: 'pending', value: null };
+              const existingCommuneDocs = assessmentData[indicatorId]?.communeDefinedDocuments;
               const filesPerDocument = indicatorResult.filesPerDocument || {};
               const fileList: { name: string, url: string, signatureStatus?: string, signatureError?: string }[] = filesPerDocument[docIndex] || [];
 
@@ -602,6 +603,9 @@ export const verifyCT4Signature = onObjectFinalized({
               // Tạm thời chỉ cập nhật file status, logic status cha sẽ phức tạp hơn
               // và có thể cần trigger riêng hoặc thực hiện ở client-side khi dữ liệu thay đổi.
               // Logic cập nhật status cha bị comment ra để đơn giản hóa
+              if (existingCommuneDocs) {
+                  indicatorResult.communeDefinedDocuments = existingCommuneDocs;
+              }
               
               transaction.set(assessmentRef, { assessmentData: { [indicatorId]: indicatorResult } }, { merge: true });
           });
