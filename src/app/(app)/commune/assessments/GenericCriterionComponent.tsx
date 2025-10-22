@@ -36,12 +36,11 @@ const GenericCriterionComponent = ({
     periodId,
     communeId,
     handleCommuneDocsChange,
-    handleIsTaskedChange,
     updateSingleAssessment, // THÊM PROP NÀY
     ...props // Pass down the rest of the props for IndicatorAssessment
 }: {
     criterion: Criterion;
-    criterionStatus: AssessmentStatus;
+    criterionStatus: 'achieved' | 'not-achieved' | 'pending';
     assessmentData: AssessmentValues;
     onValueChange: (id: string, value: any, contentId?: string) => void;
     onNoteChange: (id: string, note: string, contentId?: string) => void;
@@ -56,7 +55,6 @@ const GenericCriterionComponent = ({
     periodId: string;
     communeId: string;
     handleCommuneDocsChange: (indicatorId: string, docs: any[]) => void;
-    handleIsTaskedChange: (id: string, isTasked: boolean) => void;
     updateSingleAssessment: (assessment: Partial<Assessment>) => Promise<void>; // THÊM PROP NÀY
 }) => {
     
@@ -143,7 +141,7 @@ const GenericCriterionComponent = ({
                                                             onValueChange={(id, value, cId) => onValueChange(indicator.id, value, content.id)}
                                                             onNoteChange={(id, note, cId) => onNoteChange(indicator.id, note, content.id)}
                                                             onEvidenceChange={(id, files, docIdx, fileToDel, cId) => onEvidenceChange(indicator.id, files, docIdx, fileToDel, content.id)}
-                                                            onIsTaskedChange={(id, isTasked) => handleIsTaskedChange(content.id, isTasked)} // Gọi handleIsTaskedChange với ID content
+                                                            onIsTaskedChange={onIsTaskedChange} // Truyền prop xuống
                                                             onPreview={onPreview}
                                                             criteria={criteria}
                                                             assessmentData={assessmentData} // assessmentData đầy đủ
@@ -182,3 +180,4 @@ const GenericCriterionComponent = ({
 };
 
 export default GenericCriterionComponent;
+

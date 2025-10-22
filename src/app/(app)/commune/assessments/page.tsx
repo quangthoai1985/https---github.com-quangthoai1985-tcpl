@@ -915,9 +915,9 @@ const handleSaveDraft = useCallback(async () => {
                     <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
                         {criteria.map((criterion, index) => {
                             const criterionStatus = calculateCriterionStatus(criterion);
-                            if (criterion.id === 'TC01') {
+                             if (index === 0) {
                                 return (
-                                    <Criterion1Component
+                                     <Criterion1Component
                                         key={criterion.id}
                                         criterion={criterion}
                                         criterionStatus={criterionStatus}
@@ -942,7 +942,7 @@ const handleSaveDraft = useCallback(async () => {
                                     onValueChange={handleValueChange}
                                     onNoteChange={handleNoteChange}
                                     onEvidenceChange={handleEvidenceChange}
-                                    onIsTaskedChange={onIsTaskedChange}
+                                    onIsTaskedChange={handleIsTaskedChange}
                                     onPreview={handlePreview}
                                     criteria={criteria}
                                     specialLogicIndicatorIds={specialLogicIndicatorIds}
@@ -952,7 +952,6 @@ const handleSaveDraft = useCallback(async () => {
                                     periodId={activePeriod!.id}
                                     communeId={currentUser!.communeId}
                                     handleCommuneDocsChange={handleCommuneDocsChange}
-                                    handleIsTaskedChange={handleIsTaskedChange}
                                     updateSingleAssessment={(assessment) => updateSingleAssessment({ id: myAssessment?.id, ...assessment })}
                                 />
                             );
@@ -1015,3 +1014,4 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
+
