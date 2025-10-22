@@ -581,8 +581,13 @@ export const verifyCT4Signature = onObjectFinalized({
               // Lấy toàn bộ dữ liệu hiện có của indicator, bao gồm cả 'value'
               const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {}, contentResults: {}, status: 'pending', value: null };
               const existingCommuneDocs = assessmentData[indicatorId]?.communeDefinedDocuments;
-              const filesPerDocument = indicatorResult.filesPerDocument || {};
+              
+              const contentResults = indicatorResult.contentResults || {};
+              const contentData = contentResults[contentId] || { files: [], status: 'pending', value: null };
+              
+              const filesPerDocument = contentData.filesPerDocument || {};
               const fileList: { name: string, url: string, signatureStatus?: string, signatureError?: string }[] = filesPerDocument[docIndex] || [];
+              
 
                let fileToUpdate = fileList.find((f) => f.name === fileName);
 
@@ -598,11 +603,19 @@ export const verifyCT4Signature = onObjectFinalized({
                else delete fileToUpdate.signatureError;
 
                filesPerDocument[docIndex] = fileList;
-               indicatorResult.filesPerDocument = filesPerDocument;
+               contentData.filesPerDocument = filesPerDocument;
+               
+                // BẮT ĐẦU SỬA LỖI: CẬP NHẬT TRẠNG THÁI CONTENT
+                if (fileStatus === 'valid') {
+                    contentData.status = "achieved";
+                } else if (fileStatus === 'invalid' || fileStatus === 'error') {
+                    contentData.status = "not-achieved";
+                }
+                // KẾT THÚC SỬA LỖI
 
-              // Tạm thời chỉ cập nhật file status, logic status cha sẽ phức tạp hơn
-              // và có thể cần trigger riêng hoặc thực hiện ở client-side khi dữ liệu thay đổi.
-              // Logic cập nhật status cha bị comment ra để đơn giản hóa
+               contentResults[contentId] = contentData;
+               indicatorResult.contentResults = contentResults;
+
               if (existingCommuneDocs) {
                   indicatorResult.communeDefinedDocuments = existingCommuneDocs;
               }
