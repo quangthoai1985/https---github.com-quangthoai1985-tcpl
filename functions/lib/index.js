@@ -513,6 +513,7 @@ exports.verifyCT4Signature = (0, storage_1.onObjectFinalized)({
     fileStatus, reason) => {
         try {
             await db.runTransaction(async (transaction) => {
+                var _a;
                 const doc = await transaction.get(assessmentRef);
                 if (!doc.exists)
                     throw new Error(`Assessment ${assessmentId} not found.`);
@@ -522,6 +523,7 @@ exports.verifyCT4Signature = (0, storage_1.onObjectFinalized)({
                 const assessmentData = data.assessmentData || {};
                 // Lấy toàn bộ dữ liệu hiện có của indicator, bao gồm cả 'value'
                 const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {}, contentResults: {}, status: 'pending', value: null };
+                const existingCommuneDocs = (_a = assessmentData[indicatorId]) === null || _a === void 0 ? void 0 : _a.communeDefinedDocuments;
                 const filesPerDocument = indicatorResult.filesPerDocument || {};
                 const fileList = filesPerDocument[docIndex] || [];
                 let fileToUpdate = fileList.find((f) => f.name === fileName);
@@ -541,6 +543,9 @@ exports.verifyCT4Signature = (0, storage_1.onObjectFinalized)({
                 // Tạm thời chỉ cập nhật file status, logic status cha sẽ phức tạp hơn
                 // và có thể cần trigger riêng hoặc thực hiện ở client-side khi dữ liệu thay đổi.
                 // Logic cập nhật status cha bị comment ra để đơn giản hóa
+                if (existingCommuneDocs) {
+                    indicatorResult.communeDefinedDocuments = existingCommuneDocs;
+                }
                 transaction.set(assessmentRef, { assessmentData: { [indicatorId]: indicatorResult } }, { merge: true });
             });
             v2_1.logger.info(`[CT4] Successfully updated file status for "${fileName}".`);

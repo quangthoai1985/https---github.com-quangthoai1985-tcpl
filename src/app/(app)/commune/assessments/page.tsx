@@ -540,13 +540,6 @@ const handleEvidenceChange = useCallback((indicatorId: string, newFiles: FileWit
                 fileList = fileList.filter(f => f.name !== fileToRemove.name);
              } else {
                 fileList.push(...newFiles);
-
-                // Chỉ thêm vào ref nếu là file vừa upload (có url)
-                newFiles.forEach(file => {
-                    if (!(file instanceof File) && file.url) {
-                        unsavedFilesRef.current.push(file.url);
-                    }
-                });
              }
 
             filesPerDoc[docIndex] = fileList;
@@ -986,3 +979,5 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
+
+    
