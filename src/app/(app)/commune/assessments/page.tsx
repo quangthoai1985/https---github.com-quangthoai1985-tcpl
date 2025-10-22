@@ -93,9 +93,21 @@ const getCheckboxOptions = (indicatorId: string, criteria: Criterion[]) => {
     return null;
 }
 
-const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus[], isTasked?: boolean | null, assignedCount?: number, filesPerDocument?: { [documentIndex: number]: FileWithStatus[] }): AssessmentStatus => {
+const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus[], isTasked?: boolean | null, assignedCount?: number, filesPerDocument?: { [documentIndex: number]: FileWithStatus[] }, contentId?: string): AssessmentStatus => {
     if (isTasked === false) {
         return 'achieved';
+    }
+
+    // LOGIC RIÊNG CHO NỘI DUNG 1 CỦA CHỈ TIÊU 4
+    if (contentId === 'CNT033278') {
+        const hasValidFile = files.some(f => f.signatureStatus === 'valid');
+        if (hasValidFile) return 'achieved';
+
+        const hasInvalidFile = files.some(f => f.signatureStatus === 'invalid' || f.signatureStatus === 'error');
+        if (hasInvalidFile) return 'not-achieved';
+        
+        // Nếu không có file hợp lệ hoặc không hợp lệ, thì là pending (chờ upload, hoặc đang validating)
+        return 'pending';
     }
 
     const hasFileEvidence = (files || []).length > 0;
@@ -448,7 +460,7 @@ const handleValueChange = useCallback((indicatorId: string, value: any, contentI
             const contentResults = { ...(newData[indicatorId].contentResults || {}) };
             const currentContentData = contentResults[contentId] || { files: [], status: 'pending', value: null };
             
-            const newContentStatus = evaluateStatus(value, content.standardLevel, currentContentData.files, true);
+            const newContentStatus = evaluateStatus(value, content.standardLevel, currentContentData.files, true, undefined, undefined, contentId);
 
             contentResults[contentId] = {
                 ...currentContentData,
@@ -549,7 +561,7 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         let fileList: FileWithStatus[];
         let currentValue: any;
 
-        // Ưu tiên khối này nếu có docIndex
+        // Ưu tiên khối này nếu có docIndex (TC1/CT4)
         if (docIndex !== undefined) {
              const filesPerDoc = { ...(indicatorData.filesPerDocument || {}) };
              fileList = [...(filesPerDoc[docIndex] || [])];
@@ -587,7 +599,7 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
                 fileList.push(...newFiles);
              }
 
-             const newContentStatus = evaluateStatus(currentValue, content.standardLevel, fileList, true);
+             const newContentStatus = evaluateStatus(currentValue, content.standardLevel, fileList, true, undefined, undefined, contentId);
              contentResults[contentId] = { ...(contentResults[contentId] || { value: null }), files: fileList, status: newContentStatus };
              indicatorData.contentResults = contentResults;
              indicatorData.status = evaluateIndicatorByPassRule(item as Indicator, contentResults);
@@ -975,3 +987,4 @@ const handleSaveDraft = useCallback(async () => {
     
 
     
+
