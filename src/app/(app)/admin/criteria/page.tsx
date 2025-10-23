@@ -74,138 +74,6 @@ function CriterionForm({ criterion, onSave, onCancel }: { criterion: Partial<Cri
   );
 }
 
-function IndicatorContentConfig({ indicator, onIndicatorChange }: { indicator: Indicator, onIndicatorChange: (indicator: Indicator) => void }) {
-    
-    const handleContentChange = (index: number, field: keyof Content, value: string) => {
-        const newContents = [...(indicator.contents || [])];
-        if (newContents[index]) {
-            (newContents[index] as any)[field] = value;
-            onIndicatorChange({ ...indicator, contents: newContents });
-        }
-    };
-
-    const addContent = () => {
-        const newContent: Content = {
-            id: `CNT${Date.now().toString().slice(-6)}`,
-            name: 'Nội dung mới',
-            description: '',
-            standardLevel: '',
-            inputType: 'boolean',
-            evidenceRequirement: ''
-        };
-        onIndicatorChange({ ...indicator, contents: [...(indicator.contents || []), newContent] });
-    };
-
-    const removeContent = (index: number) => {
-        const newContents = (indicator.contents || []).filter((_, i) => i !== index);
-        onIndicatorChange({ ...indicator, contents: newContents });
-    };
-
-    const handlePassRuleTypeChange = (type: 'all' | 'atLeast' | 'percentage') => {
-        onIndicatorChange({ ...indicator, passRule: { ...indicator.passRule, type } });
-    }
-
-    const handlePassRuleValueChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const { id, value } = e.target;
-        const numValue = Number(value);
-        if (id === 'minCount') {
-            onIndicatorChange({ ...indicator, passRule: { ...indicator.passRule, minCount: numValue } });
-        } else if (id === 'minPercent') {
-            onIndicatorChange({ ...indicator, passRule: { ...indicator.passRule, minPercent: numValue } });
-        }
-    }
-    
-    return (
-        <div className="p-4 border rounded-lg bg-slate-50 border-slate-200 mt-4 space-y-4">
-            <h5 className="font-semibold text-slate-800">Nội dung của chỉ tiêu</h5>
-            <p className="text-sm text-muted-foreground">Mỗi chỉ tiêu có thể gồm nhiều nội dung nhỏ. Chọn quy tắc đạt chuẩn: Tất cả phải đạt, Đạt ít nhất X nội dung, hoặc Đạt theo tỷ lệ %.</p>
-            
-            <div className="space-y-3">
-                {(indicator.contents || []).map((content, index) => (
-                    <div key={content.id} className="p-3 border rounded-md bg-white space-y-3">
-                        <div className="flex justify-between items-center">
-                            <Label htmlFor={`content-name-${index}`} className="font-medium">Nội dung {index + 1}</Label>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeContent(index)}>
-                                <Trash2 className="h-4 w-4" />
-                            </Button>
-                        </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                            <div className="grid gap-1.5">
-                                <Label htmlFor={`content-name-${index}`} className="text-xs">Tên nội dung</Label>
-                                <Textarea id={`content-name-${index}`} value={content.name} onChange={(e) => handleContentChange(index, 'name', e.target.value)} rows={2}/>
-                            </div>
-                            <div className="grid gap-1.5">
-                                <Label htmlFor={`content-desc-${index}`} className="text-xs">Mô tả</Label>
-                                <Textarea id={`content-desc-${index}`} value={content.description} onChange={(e) => handleContentChange(index, 'description', e.target.value)} rows={2}/>
-                            </div>
-
-                            {indicator.id !== 'CT033278' && (
-                                <>
-                                    <div className="grid gap-1.5">
-                                        <Label htmlFor={`content-input-${index}`} className="text-xs">Loại dữ liệu</Label>
-                                        <Select value={content.inputType} onValueChange={(value) => handleContentChange(index, 'inputType', value)}>
-                                            <SelectTrigger id={`content-input-${index}`}><SelectValue /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="boolean">Lựa chọn Đạt/Không đạt</SelectItem>
-                                                <SelectItem value="number">Nhập liệu số</SelectItem>
-                                                <SelectItem value="select">Lựa chọn nhiều mục</SelectItem>
-                                                <SelectItem value="text">Nhập liệu văn bản</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                     <div className="grid gap-1.5">
-                                        <Label htmlFor={`content-standard-${index}`} className="text-xs">Yêu cầu đạt chuẩn</Label>
-                                        <Input id={`content-standard-${index}`} value={content.standardLevel || ''} onChange={(e) => handleContentChange(index, 'standardLevel', e.target.value)} />
-                                    </div>
-                                </>
-                            )}
-
-                             <div className="md:col-span-2 grid gap-1.5">
-                                <Label htmlFor={`content-evidence-${index}`} className="text-xs">Yêu cầu hồ sơ minh chứng</Label>
-                                <Textarea id={`content-evidence-${index}`} value={content.evidenceRequirement || ''} onChange={(e) => handleContentChange(index, 'evidenceRequirement', e.target.value)} rows={2} placeholder="Ví dụ: Quyết định, Kế hoạch, Báo cáo..."/>
-                            </div>
-                        </div>
-                    </div>
-                ))}
-            </div>
-            <Button variant="outline" size="sm" onClick={addContent}><PlusCircle className="mr-2 h-4 w-4"/>Thêm nội dung</Button>
-            
-            <Separator />
-
-            <div>
-                <Label className="font-medium mb-2 block">Quy tắc đạt của chỉ tiêu</Label>
-                <RadioGroup value={indicator.passRule?.type || 'all'} onValueChange={handlePassRuleTypeChange} className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <Label className="flex items-center gap-2 p-3 border rounded-md cursor-pointer has-[:checked]:bg-blue-100 has-[:checked]:border-primary text-sm">
-                        <RadioGroupItem value="all" id="rule-all" /> Tất cả phải đạt
-                    </Label>
-                     <Label className="flex items-center gap-2 p-3 border rounded-md cursor-pointer has-[:checked]:bg-blue-100 has-[:checked]:border-primary text-sm">
-                        <RadioGroupItem value="atLeast" id="rule-atLeast" /> Đạt ít nhất
-                    </Label>
-                     <Label className="flex items-center gap-2 p-3 border rounded-md cursor-pointer has-[:checked]:bg-blue-100 has-[:checked]:border-primary text-sm">
-                        <RadioGroupItem value="percentage" id="rule-percentage" /> Đạt theo tỷ lệ %
-                    </Label>
-                </RadioGroup>
-                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-2">
-                    <div></div> {/* Spacer */}
-                    {indicator.passRule?.type === 'atLeast' && (
-                        <div className="grid gap-1.5">
-                            <Label htmlFor="minCount" className="text-xs">Số nội dung tối thiểu</Label>
-                            <Input id="minCount" type="number" value={indicator.passRule.minCount || ''} onChange={handlePassRuleValueChange} placeholder="VD: 3" />
-                        </div>
-                    )}
-                    {indicator.passRule?.type === 'percentage' && (
-                         <div className="grid gap-1.5">
-                            <Label htmlFor="minPercent" className="text-xs">Tỷ lệ % tối thiểu</Label>
-                            <Input id="minPercent" type="number" value={indicator.passRule.minPercent || ''} onChange={handlePassRuleValueChange} placeholder="VD: 80" />
-                        </div>
-                    )}
-                </div>
-            </div>
-        </div>
-    );
-}
-
-
 function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Indicator>, onSave: (indicator: Partial<Indicator>) => void, onCancel: () => void }) {
   const [formData, setFormData] = React.useState(indicator as Indicator);
 
@@ -214,10 +82,6 @@ function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Ind
     setFormData(prev => ({ ...prev, [id]: value }));
   };
   
-  const handleIndicatorChange = (updatedIndicator: Indicator) => {
-      setFormData(updatedIndicator);
-  }
-
   return (
     <>
       <DialogHeader>
@@ -232,8 +96,31 @@ function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Ind
           <Textarea id="name" value={formData.name || ''} onChange={handleChange} className="col-span-3" />
         </div>
         
-        <IndicatorContentConfig indicator={formData} onIndicatorChange={handleIndicatorChange} />
-
+        {/* Thêm các ô input này vào IndicatorForm */}
+        <div className="grid grid-cols-4 items-start gap-4">
+          <Label htmlFor="description" className="text-right pt-2">Mô tả</Label>
+          <Textarea id="description" value={formData.description || ''} onChange={handleChange} className="col-span-3" />
+        </div>
+        <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="inputType" className="text-right">Loại dữ liệu</Label>
+            <Select value={formData.inputType || 'boolean'} onValueChange={(value) => setFormData(prev => ({ ...prev, inputType: value as any}))}>
+                <SelectTrigger id="inputType" className="col-span-3"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="boolean">Lựa chọn Đạt/Không đạt</SelectItem>
+                    <SelectItem value="number">Nhập liệu số</SelectItem>
+                    <SelectItem value="select">Lựa chọn nhiều mục</SelectItem>
+                    <SelectItem value="text">Nhập liệu văn bản</SelectItem>
+                </SelectContent>
+            </Select>
+        </div>
+        <div className="grid grid-cols-4 items-center gap-4">
+            <Label htmlFor="standardLevel" className="text-right">Yêu cầu đạt chuẩn</Label>
+            <Input id="standardLevel" value={formData.standardLevel || ''} onChange={handleChange} className="col-span-3" />
+        </div>
+        <div className="grid grid-cols-4 items-start gap-4">
+            <Label htmlFor="evidenceRequirement" className="text-right pt-2">Yêu cầu hồ sơ minh chứng</Label>
+            <Textarea id="evidenceRequirement" value={formData.evidenceRequirement || ''} onChange={handleChange} className="col-span-3" placeholder="Ví dụ: Quyết định, Kế hoạch, Báo cáo..."/>
+        </div>
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Hủy</Button>
@@ -295,23 +182,11 @@ export default function CriteriaManagementPage() {
         if (c.id === editingIndicator.criterionId) {
           return {
             ...c,
-            indicators: c.indicators.map(i => {
-                if (i.id === indicatorToSave.id) {
-                    // Nếu là CT4, chỉ cập nhật name, contents, passRule
-                    if (i.id === 'CT033278') {
-                        return { 
-                            ...i, // Giữ lại assignmentType, documents... cũ
-                            name: indicatorToSave.name || i.name, 
-                            contents: indicatorToSave.contents || i.contents, 
-                            passRule: indicatorToSave.passRule || i.passRule 
-                        } as Indicator;
-                    } else {
-                        // Chỉ tiêu thường, cập nhật bình thường
-                        return { ...i, ...indicatorToSave } as Indicator;
-                    }
-                }
-                return i;
-            })
+            indicators: c.indicators.map(i => 
+                i.id === indicatorToSave.id ? 
+                { ...i, ...indicatorToSave } as Indicator // Cập nhật đơn giản
+                : i 
+            )
           }
         }
         return c;
@@ -321,9 +196,12 @@ export default function CriteriaManagementPage() {
        const newIndicator: Indicator = {
         id: `CT${Date.now().toString().slice(-6)}`,
         name: indicatorToSave.name || "Chỉ tiêu mới",
-        contents: indicatorToSave.contents || [],
-        passRule: indicatorToSave.passRule || { type: 'all' },
-      };
+        description: indicatorToSave.description || "", // Thêm lại
+        standardLevel: indicatorToSave.standardLevel || "", // Thêm lại
+        inputType: indicatorToSave.inputType || "boolean", // Thêm lại
+        evidenceRequirement: indicatorToSave.evidenceRequirement || "", // Thêm lại
+        // Xóa contents và passRule
+    };
 
       newCriteria = criteria.map(c => {
         if (c.id === addingIndicatorTo) {
