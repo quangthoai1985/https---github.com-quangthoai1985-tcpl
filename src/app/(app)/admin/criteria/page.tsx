@@ -33,7 +33,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Textarea } from '@/components/ui/textarea';
 import PageHeader from '@/components/layout/page-header';
 import { useData } from '@/context/DataContext';
-import type { Criterion, Indicator, Content } from '@/lib/data';
+import type { Criterion, Indicator } from '@/lib/data';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import Criterion1Config from './Criterion1Config';
@@ -200,7 +200,6 @@ export default function CriteriaManagementPage() {
         standardLevel: indicatorToSave.standardLevel || "", // Thêm lại
         inputType: indicatorToSave.inputType || "boolean", // Thêm lại
         evidenceRequirement: indicatorToSave.evidenceRequirement || "", // Thêm lại
-        // Xóa contents và passRule
     };
 
       newCriteria = criteria.map(c => {
