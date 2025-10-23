@@ -2,7 +2,7 @@
 
 Tài liệu này mô tả chi tiết về quy trình tự động kiểm tra chữ ký số trên các tệp PDF được tải lên hệ thống, một tính năng quan trọng để đảm bảo tính xác thực và hợp lệ của hồ sơ minh chứng.
 
-## Quy trình hoạt động
+## Quy trình hoạt động cho Chỉ tiêu 1 (Ban hành VBQPPL)
 
 Luồng hoạt động được chia thành các bước chính sau:
 
@@ -15,7 +15,7 @@ Luồng hoạt động được chia thành các bước chính sau:
 ### Bước 2: Kích hoạt Cloud Function (Phía Backend)
 
 1.  **Trigger:** Ngay khi một tệp mới được tải lên thành công vào Firebase Storage, một trigger sự kiện `onObjectFinalized` sẽ được kích hoạt.
-2.  **Hàm được gọi:** Sự kiện này sẽ tự động gọi thực thi Cloud Function `processSignedPDF` mà chúng ta đã viết trong `functions/src/index.ts`.
+2.  **Hàm được gọi:** Sự kiện này sẽ tự động gọi thực thi Cloud Function `verifyPDFSignature` mà chúng ta đã viết trong `functions/src/index.ts`.
 
 ### Bước 3: Xử lý và Phân tích trong Cloud Function
 
@@ -47,6 +47,34 @@ Hàm `processSignedPDF` là trung tâm của toàn bộ quy trình:
     *   Document này chứa tất cả các thông tin cần thiết: tên tệp, tên người ký, thời gian ký, và quan trọng nhất là `status`.
     *   `status` sẽ là **"valid"** nếu `signingTime` trước hoặc bằng `deadline`, và là **"expired"** nếu sau `deadline`.
 4.  **Xử lý lỗi:** Toàn bộ quy trình được bọc trong `try...catch`. Nếu có bất kỳ lỗi nào xảy ra (không tìm thấy chữ ký, tệp lỗi, không tìm thấy hồ sơ...), một document với `status` là **"error"** và `reason` là thông báo lỗi sẽ được ghi lại, giúp cho việc gỡ lỗi sau này.
+
+---
+
+## Quy trình hoạt động cho Chỉ tiêu 2 & 3 (Tiêu chí 1)
+
+Khác với Chỉ tiêu 1, các chỉ tiêu còn lại trong Tiêu chí 1 (ví dụ: Chỉ tiêu 2 - Truyền thông dự thảo, Chỉ tiêu 3 - Tự kiểm tra văn bản) có quy trình đơn giản hơn nhiều và không liên quan đến việc kiểm tra chữ ký số tự động.
+
+### 1. Bối cảnh & Nghiệp vụ
+
+*   **Mục tiêu:** Đánh giá việc thực hiện các hoạt động khác liên quan đến văn bản, như truyền thông hoặc tự kiểm tra.
+*   **Yêu cầu:** Cán bộ xã chỉ cần cung cấp minh chứng cho thấy hoạt động đã được thực hiện. Minh chứng này không yêu cầu chữ ký số.
+
+### 2. Thiết kế & Luồng dữ liệu
+
+1.  **Tải Minh chứng (Phía Client):**
+    *   Tại giao diện của Chỉ tiêu 2 hoặc 3, người dùng sử dụng component `EvidenceUploaderComponent` thông thường.
+    *   Component này cho phép tải lên nhiều loại tệp (Word, Excel, ảnh, video, PDF...).
+    *   Tệp được tải lên Firebase Storage với cấu trúc đường dẫn đơn giản hơn (không có `docIndex`):
+        `hoso/{communeId}/evidence/{periodId}/{indicatorId}/{fileName}`
+    *   URL của tệp được lưu vào mảng `files` trong `assessmentData` của chỉ tiêu tương ứng.
+
+2.  **Xử lý Phía Backend:**
+    *   **KHÔNG CÓ XỬ LÝ TỰ ĐỘNG:** Cloud Function `verifyPDFSignature` được thiết kế để bỏ qua các tệp được tải lên cho các chỉ tiêu này. Điều kiện `if (!pathInfo || !pathInfo.indicatorId.startsWith('CT1.1'))` (hoặc tương tự) sẽ không khớp, và function sẽ kết thúc sớm.
+    *   Việc xác minh tính hợp lệ của các minh chứng này hoàn toàn do **Admin thực hiện thủ công** khi xem xét, thẩm định hồ sơ đánh giá chi tiết.
+
+### 3. Tổng kết
+
+Quy trình cho Chỉ tiêu 2 và 3 là một luồng upload-lưu trữ thông thường, không có sự can thiệp tự động của backend để kiểm tra nội dung. Việc đánh giá "Đạt" hay "Không đạt" phụ thuộc vào việc xã có nộp minh chứng và sự thẩm định của Admin.
 
 ---
 
