@@ -33,21 +33,6 @@ export type IndicatorResult = {
         excerpt: string;
         issuanceDeadlineDays: number;
     }[] | null; // Allow null to be compatible with Firestore
-
-    // NEW FIELDS FOR N-of-M RULE
-    contentResults?: { 
-        [contentId: string]: { 
-            value: any, 
-            files: { name: string, url: string }[], 
-            status: 'achieved' | 'not-achieved' | 'pending', 
-            note?: string 
-        } 
-    };
-    meta?: { 
-        metCount?: number, 
-        totalCount?: number, 
-        computedAt?: string 
-    };
 };
 
 
@@ -72,27 +57,13 @@ export type Unit = {
   headquarters?: string;
 };
 
-// Renamed from SubIndicator for new terminology
-export type Content = {
+export type Indicator = {
   id: string;
   name: string;
   description: string;
   standardLevel: string;
-  inputType: 'number' | 'boolean' | 'select' | 'text'; // Added 'text'
+  inputType: 'number' | 'boolean' | 'select' | 'text';
   evidenceRequirement?: string;
-};
-
-export type Indicator = {
-  id: string;
-  name: string;
-  
-  // NEW FIELDS FOR N-of-M RULE
-  contents?: Content[];
-  passRule?: { 
-      type: 'all' | 'atLeast' | 'percentage', 
-      minCount?: number, 
-      minPercent?: number 
-  };
   
   // Fields for Criterion 1 / Criterion 4 logic
   assignmentType?: 'quantity' | 'specific'; 
