@@ -13,8 +13,6 @@ import {
     type LoginConfig,
     type IndicatorResult,
     type Indicator,
-    type SubIndicator,
-    type Content,
 } from '@/lib/data';
 import { initializeApp, getApp, getApps, FirebaseOptions, type FirebaseApp } from 'firebase/app';
 import { getFirestore, collection, getDocs, doc, setDoc, writeBatch, type Firestore, deleteDoc, getDoc, onSnapshot, query, where, Unsubscribe } from 'firebase/firestore';
@@ -235,16 +233,53 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                     const commonCollections = ['units', 'assessmentPeriods', 'criteria', 'guidanceDocuments'];
                     commonCollections.forEach(colName => {
                         const q = query(collection(db, colName));
-                        const unsub = onSnapshot(q, (snap) => {
-                            const data = snap.docs.map(d => d.data());
-                            switch(colName) {
-                                case 'units': setUnits(data as Unit[]); break;
-                                case 'assessmentPeriods': setAssessmentPeriods(data as AssessmentPeriod[]); break;
-                                case 'criteria': setCriteria(data as Criterion[]); break;
-                                case 'guidanceDocuments': setGuidanceDocuments(data as AppDocument[]); break;
-                            }
-                        });
-                        allUnsubs.push(unsub);
+                        let unsub;
+                        switch(colName) {
+                            case 'units': 
+                                unsub = onSnapshot(q, (snap) => setUnits(snap.docs.map(d => d.data() as Unit))); 
+                                allUnsubs.push(unsub);
+                                break;
+                            case 'assessmentPeriods': 
+                                unsub = onSnapshot(q, (snap) => setAssessmentPeriods(snap.docs.map(d => d.data() as AssessmentPeriod)));
+                                allUnsubs.push(unsub);
+                                break;
+                            case 'criteria': { // Bọc trong {} để tạo scope mới
+                                // Lắng nghe thay đổi của collection criteria chính (chỉ chứa TC01, TC02, TC03)
+                                const unsubCriteria = onSnapshot(query(collection(db, colName)), async (criteriaSnapshot) => {
+                                    const criteriaPromises = criteriaSnapshot.docs.map(async (criterionDoc) => {
+                                        const criterionData = criterionDoc.data() as Criterion; // Dữ liệu tiêu chí (id, name, assignmentType...)
+                                        
+                                        // Lấy tất cả documents từ subcollection 'indicators'
+                                        const indicatorsSnapshot = await getDocs(collection(criterionDoc.ref, 'indicators'));
+                                        
+                                        const indicators = indicatorsSnapshot.docs.map(indicatorDoc => indicatorDoc.data() as Indicator);
+                                        
+                                        // Gắn mảng indicators vào dữ liệu tiêu chí
+                                        return {
+                                            ...criterionData,
+                                            indicators: indicators.sort((a, b) => (a.order || 0) - (b.order || 0)) // Sắp xếp theo thứ tự
+                                        };
+                                    });
+                                    
+                                    // Chờ tất cả promise hoàn thành và cập nhật state criteria
+                                    const fullCriteriaData = await Promise.all(criteriaPromises);
+                                    setCriteria(fullCriteriaData);
+                                    console.log("Updated criteria with indicators:", fullCriteriaData); // Thêm log để kiểm tra
+                                    
+                                }, (error) => {
+                                    console.error("Error fetching criteria:", error);
+                                    // Optionally set criteria to an empty array or handle the error
+                                    setCriteria([]);
+                                });
+
+                                allUnsubs.push(unsubCriteria); // Thêm listener chính vào danh sách hủy
+                                break;
+                            } // Kết thúc scope của case
+                            case 'guidanceDocuments': 
+                                unsub = onSnapshot(q, (snap) => setGuidanceDocuments(snap.docs.map(d => d.data() as AppDocument))); 
+                                allUnsubs.push(unsub);
+                                break;
+                        }
                     });
 
                     if (loggedInUser.role === 'admin') {
