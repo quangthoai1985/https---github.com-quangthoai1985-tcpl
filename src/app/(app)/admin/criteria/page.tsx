@@ -239,7 +239,7 @@ export default function CriteriaManagementPage() {
                 </AccordionTrigger>
                 <div className="flex items-center gap-4 flex-shrink-0" onClick={(e) => e.stopPropagation()}>
                   <Badge variant="secondary" className="mr-4">
-                    {criterion.indicators.length} chỉ tiêu
+                    {criterion.indicators?.length ?? 0} chỉ tiêu
                   </Badge>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -267,7 +267,7 @@ export default function CriteriaManagementPage() {
                           onSave={(updatedCriterion) => updateCriteria(criteria.map(c => c.id === updatedCriterion.id ? updatedCriterion : c))} 
                       />
                   )}
-                  {criterion.indicators.map((indicator) => (
+                  {(criterion.indicators ?? []).map((indicator) => (
                     <React.Fragment key={indicator.id}>
                         {/* Luôn render dòng hiển thị chỉ tiêu thông thường */}
                         <div
