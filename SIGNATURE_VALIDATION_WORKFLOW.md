@@ -78,4 +78,43 @@ Quy trình cho Chỉ tiêu 2 và 3 là một luồng upload-lưu trữ thông th
 
 ---
 
+## Quy trình hoạt động cho Nội dung 1, Chỉ tiêu 4, Tiêu chí 2 (Ban hành Kế hoạch PBGDPL)
+
+Đây là một nội dung có logic đặc biệt, kết hợp giữa việc nhập liệu của người dùng và kiểm tra tự động của hệ thống.
+
+### 1. Bối cảnh & Nghiệp vụ
+
+*   **Mục tiêu:** Đánh giá việc UBND cấp xã có ban hành "Kế hoạch phổ biến, giáo dục pháp luật" (PBGDPL) của cấp mình đúng thời hạn hay không. Thời hạn ở đây được tính là **7 ngày làm việc** kể từ ngày cấp Tỉnh ban hành Kế hoạch của họ.
+*   **Yêu cầu cốt lõi:** Kế hoạch của cấp xã (dưới dạng tệp PDF) phải có chữ ký số hợp lệ và ngày ký phải nằm trong thời hạn 7 ngày làm việc đó.
+*   **Vai trò:**
+    *   **Admin:** Không trực tiếp giao nhiệm vụ này; logic được tích hợp sẵn vào hệ thống.
+    *   **Cán bộ cấp xã:** Chịu trách nhiệm cung cấp mốc thời gian đầu vào (ngày ban hành của Tỉnh) và tải lên minh chứng (Kế hoạch của xã).
+
+### 2. Thiết kế & Luồng dữ liệu
+
+1.  **Nhập liệu (Phía Client):**
+    *   Trên giao diện của "Nội dung 1" (thuộc Chỉ tiêu 4), cán bộ xã bắt buộc phải điền vào ô "Ngày ban hành Kế hoạch của Tỉnh" (ví dụ: 15/01/2024). Dữ liệu này được lưu vào `assessmentData` trong Firestore.
+    *   Tiếp theo, người dùng tải lên tệp PDF là "Kế hoạch PBGDPL" của xã mình. Tệp này được tải lên Storage với một đường dẫn đặc biệt:
+        `hoso/{communeId}/evidence/{periodId}/CT033278/CNT033278/{fileName}`
+
+2.  **Kích hoạt và Xử lý (Phía Backend):**
+    *   Cloud Function `verifyCT4Signature` (hoặc một nhánh logic trong function chính) được kích hoạt khi có tệp PDF được tải lên đúng đường dẫn trên.
+    *   **Lấy Dữ liệu Đầu vào:** Function truy cập vào document `assessments` tương ứng để đọc ra `provincialPlanDate` (ngày của Tỉnh) mà người dùng đã nhập.
+    *   **Tính Deadline:** Dựa vào `provincialPlanDate`, function sử dụng hàm `addBusinessDays` để cộng thêm **7 ngày làm việc**, từ đó tính ra `deadline` cuối cùng.
+    *   **Kiểm tra Chữ ký:** Quy trình kiểm tra chữ ký số trên tệp PDF của xã diễn ra tương tự như với Chỉ tiêu 1 (dùng `pdf-lib` để lấy `signingTime`).
+
+3.  **So sánh và Cập nhật:**
+    *   Function so sánh `signingTime` (thời gian ký của xã) với `deadline` (hạn chót sau 7 ngày làm việc).
+    *   Nó cập nhật trạng thái `signatureStatus` ("valid" hoặc "invalid") vào thông tin của chính tệp tin đó trong `assessmentData.contentResults`.
+    *   Dựa trên kết quả này, trạng thái chung (`status`) của toàn bộ "Nội dung 1" sẽ được tự động cập nhật thành "achieved" hoặc "not-achieved".
+
+### 3. Tổng kết
+
+Quy trình này là một ví dụ điển hình về việc kết hợp dữ liệu do người dùng cung cấp và logic kiểm tra tự động:
+**Client nhập ngày -> Client tải file -> Backend lấy ngày đã nhập -> Backend tính deadline -> Backend kiểm tra chữ ký -> Backend cập nhật kết quả.**
+
+Điều này đảm bảo việc tuân thủ thời gian được kiểm tra một cách khách quan và chính xác.
+
+---
+
 Như vậy, chúng ta đã xây dựng một hệ thống hoàn toàn tự động, giúp giảm tải công việc xác minh thủ công, tăng cường độ chính xác và minh bạch cho quy trình đánh giá.
