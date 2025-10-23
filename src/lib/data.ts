@@ -62,7 +62,7 @@ export type Indicator = {
   name: string;
   description: string;
   standardLevel: string;
-  inputType: 'number' | 'boolean' | 'select' | 'text';
+  inputType: 'number' | 'boolean' | 'select' | 'text' | 'percentage_ratio' | 'checkbox_group' | 'TC1_like';
   evidenceRequirement?: string;
   
   // Fields for Criterion 1 / Criterion 4 logic
@@ -74,6 +74,7 @@ export type Indicator = {
     excerpt: string;
     issuanceDeadlineDays: number;
   }[];
+  originalParentIndicatorId?: string;
 };
 
 

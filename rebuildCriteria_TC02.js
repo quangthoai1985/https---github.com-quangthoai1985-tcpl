@@ -25,106 +25,42 @@ const tc02Data = {
     criterionName: "Tiếp cận thông tin, phổ biến, giáo dục pháp luật", // Tên Tiêu chí 2
     indicators: [
         // Chỉ tiêu 1 cũ (gồm 2 nội dung) -> CT2.1.1, CT2.1.2
-        { 
-            id: "CT2.1.1", order: 1, name: "1. Thực hiện lập Danh mục thông tin...", description: "...", evidenceRequirement: "...", standardLevel: "Đạt", 
-            inputType: "boolean", // Hoặc type phù hợp khác
+        { id: "CT2.1.1", order: 1, name: "1. Thực hiện lập Danh mục thông tin...", description: "...", evidenceRequirement: "...", standardLevel: "Đạt", inputType: "boolean", parentCriterionId: "TC02", originalParentIndicatorId: "CT2.1" },
+        { id: "CT2.1.2", order: 2, name: "2. Đăng tải Danh mục thông tin...", description: "...", evidenceRequirement: "...", standardLevel: "Đạt", inputType: "boolean", parentCriterionId: "TC02", originalParentIndicatorId: "CT2.1" },
+        { id: "CT2.2", order: 3, name: "Chỉ tiêu 2: Thực hiện công khai văn bản...", description: "Số Nghị quyết của HĐND, Quyết định của UBND sau khi ban hành được công khai...", evidenceRequirement: "...", standardLevel: "100%", inputType: "number", parentCriterionId: "TC02" },
+        { id: "CT2.3", order: 4, name: "Chỉ tiêu 3: Thực hiện cung cấp thông tin...", description: "Tỷ lệ thông tin được cung cấp đúng hạn khi có yêu cầu...", evidenceRequirement: "...", standardLevel: "100%", inputType: "percentage_ratio", parentCriterionId: "TC02" }, // {total, provided}
+        {
+            id: "CT2.4.1", order: 5, name: "1. Ban hành kế hoạch phổ biến, giáo dục pháp luật...", description: "Kế hoạch được ban hành đáp ứng yêu cầu...", evidenceRequirement: "Kế hoạch PBGDPL năm...", standardLevel: "Đúng hạn (7 ngày làm việc)",
+            inputType: "TC1_like", // Logic đặc biệt
             parentCriterionId: "TC02",
-            originalParentIndicatorId: "CT2.1" // Tham chiếu cha ảo
-        },
-        { 
-            id: "CT2.1.2", order: 2, name: "2. Đăng tải Danh mục thông tin...", description: "...", evidenceRequirement: "...", standardLevel: "Đạt", 
-            inputType: "boolean", // Hoặc type phù hợp khác
-            parentCriterionId: "TC02",
-            originalParentIndicatorId: "CT2.1" // Tham chiếu cha ảo
-        },
-        // Chỉ tiêu 2 cũ -> CT2.2
-        { 
-            id: "CT2.2", order: 3, name: "Chỉ tiêu 2: Thực hiện công khai văn bản...", description: "...", evidenceRequirement: "...", standardLevel: "100%", 
-            inputType: "number", // Giả định là nhập số lượng
-            parentCriterionId: "TC02",
-        },
-        // Chỉ tiêu 3 cũ -> CT2.3
-        { 
-            id: "CT2.3", order: 4, name: "Chỉ tiêu 3: Thực hiện cung cấp thông tin...", description: "...", evidenceRequirement: "...", standardLevel: "100%", 
-            inputType: "percentage_ratio", // Giả định cần 2 ô nhập {total, provided}
-            parentCriterionId: "TC02",
-        },
-        // Chỉ tiêu 4 cũ (gồm 3 nội dung) -> CT2.4.1, CT2.4.2, CT2.4.3
-        { 
-            id: "CT2.4.1", order: 5, name: "1. Ban hành kế hoạch phổ biến...", // Nội dung 1 cũ
-            description: "...", evidenceRequirement: "...", standardLevel: "Đúng hạn", 
-            inputType: "TC1_like", // **LOGIC ĐẶC BIỆT GIỐNG TC1.1**
-            parentCriterionId: "TC02",
-            originalParentIndicatorId: "CT2.4", // Tham chiếu cha ảo
-            // Các trường đặc biệt cho TC1_like
-            assignmentType: "specific", // Mặc định
+            originalParentIndicatorId: "CT2.4",
+            assignmentType: "specific", // Cấu hình mặc định
             assignedDocumentsCount: 0,
             documents: []
-        },
-        { 
-            id: "CT2.4.2", order: 6, name: "2. Tỷ lệ hoàn thành nhiệm vụ theo Kế hoạch...", // Nội dung 2 cũ
-            description: "...", evidenceRequirement: "...", standardLevel: "100%", 
-            inputType: "percentage_ratio", // Giả định cần 2 ô nhập {total, completed}
+         },
+         {
+            id: "CT2.4.2", order: 6, name: "2. Tỷ lệ hoàn thành nhiệm vụ theo Kế hoạch phổ biến, giáo dục pháp luật hằng năm", description: "Tỷ lệ % = (Tổng số nhiệm vụ hoàn thành / Tổng số nhiệm vụ đề ra)...", evidenceRequirement: "Báo cáo kết quả thực hiện Kế hoạch...", standardLevel: "100%",
+            inputType: "percentage_ratio", // {total, completed}
             parentCriterionId: "TC02",
-            originalParentIndicatorId: "CT2.4" // Tham chiếu cha ảo
-        },
+            originalParentIndicatorId: "CT2.4"
+         },
          { 
-            id: "CT2.4.3", order: 7, name: "3. Nội dung thứ 3 của CT4 cũ...", // **ĐIỀN TÊN CHÍNH XÁC**
-            description: "...", evidenceRequirement: "...", standardLevel: "...", 
-            inputType: "...", // Chọn type phù hợp
+            id: "CT2.4.3", order: 7, name: "3. Tỷ lệ hoàn thành nhiệm vụ về phổ biến, giáo dục pháp luật phát sinh ngoài kế hoạch phổ biến, giáo dục pháp luật hằng năm", description: "Tỷ lệ % = (Tổng số nhiệm vụ hoàn thành / Tổng số nhiệm vụ đề ra)...", evidenceRequirement: "Báo cáo kết quả thực hiện Kế hoạch...", standardLevel: "100%",
+            inputType: "percentage_ratio",
             parentCriterionId: "TC02",
-            originalParentIndicatorId: "CT2.4" // Tham chiếu cha ảo
-        },
-        // Chỉ tiêu 5 cũ -> CT2.5
-         { 
-            id: "CT2.5", order: 8, name: "Chỉ tiêu 5: Thực hiện chuyển đổi số...", description: "...", evidenceRequirement: "...", standardLevel: "01 hoạt động", 
-            inputType: "checkbox_group", // Giả định là checkbox
+            originalParentIndicatorId: "CT2.4"},
+         {
+            id: "CT2.5", order: 8, name: "Chỉ tiêu 5: Thực hiện chuyển đổi số...", description: "Thực hiện ít nhất 01 hoạt động chuyển đổi số...", evidenceRequirement: "...", standardLevel: ">= 1 hoạt động",
+            inputType: "checkbox_group",
             parentCriterionId: "TC02",
+            // Options for checkbox group will be hardcoded in the frontend component
         },
-        // Chỉ tiêu 6 cũ (gồm 3 nội dung) -> CT2.6.1, CT2.6.2, CT2.6.3
-         { 
-            id: "CT2.6.1", order: 9, name: "1. Nội dung 1 của CT6 cũ...", // **ĐIỀN TÊN CHÍNH XÁC**
-            description: "...", evidenceRequirement: "...", standardLevel: "...", 
-            inputType: "...", // Chọn type phù hợp
-            parentCriterionId: "TC02",
-            originalParentIndicatorId: "CT2.6" // Tham chiếu cha ảo
-        },
-        { 
-            id: "CT2.6.2", order: 10, name: "2. Nội dung 2 của CT6 cũ...", // **ĐIỀN TÊN CHÍNH XÁC**
-            description: "...", evidenceRequirement: "...", standardLevel: "...", 
-            inputType: "...", // Chọn type phù hợp
-            parentCriterionId: "TC02",
-            originalParentIndicatorId: "CT2.6" // Tham chiếu cha ảo
-        },
-        { 
-            id: "CT2.6.3", order: 11, name: "3. Nội dung 3 của CT6 cũ...", // **ĐIỀN TÊN CHÍNH XÁC**
-            description: "...", evidenceRequirement: "...", standardLevel: "...", 
-            inputType: "...", // Chọn type phù hợp
-            parentCriterionId: "TC02",
-            originalParentIndicatorId: "CT2.6" // Tham chiếu cha ảo
-        },
-         // Chỉ tiêu 7 cũ (gồm 3 nội dung) -> CT2.7.1, CT2.7.2, CT2.7.3
-         { 
-            id: "CT2.7.1", order: 12, name: "1. Nội dung 1 của CT7 cũ...", // **ĐIỀN TÊN CHÍNH XÁC**
-            description: "...", evidenceRequirement: "...", standardLevel: "...", 
-            inputType: "...", // Chọn type phù hợp
-            parentCriterionId: "TC02",
-            originalParentIndicatorId: "CT2.7" // Tham chiếu cha ảo
-        },
-        { 
-            id: "CT2.7.2", order: 13, name: "2. Nội dung 2 của CT7 cũ...", // **ĐIỀN TÊN CHÍNH XÁC**
-            description: "...", evidenceRequirement: "...", standardLevel: "...", 
-            inputType: "...", // Chọn type phù hợp
-            parentCriterionId: "TC02",
-            originalParentIndicatorId: "CT2.7" // Tham chiếu cha ảo
-        },
-        { 
-            id: "CT2.7.3", order: 14, name: "3. Nội dung 3 của CT7 cũ...", // **ĐIỀN TÊN CHÍNH XÁC**
-            description: "...", evidenceRequirement: "...", standardLevel: "...", 
-            inputType: "...", // Chọn type phù hợp
-            parentCriterionId: "TC02",
-            originalParentIndicatorId: "CT2.7" // Tham chiếu cha ảo
-        },
+        { id: "CT2.6.1", order: 9, name: "1. Nội dung 1 của CT6...", description: "...", evidenceRequirement: "...", standardLevel: "...", inputType: "boolean", parentCriterionId: "TC02", originalParentIndicatorId: "CT2.6" }, // Xác nhận lại InputType
+        { id: "CT2.6.2", order: 10, name: "2. Nội dung 2 của CT6...", description: "...", evidenceRequirement: "...", standardLevel: "...", inputType: "boolean", parentCriterionId: "TC02", originalParentIndicatorId: "CT2.6" }, // Xác nhận lại InputType
+        { id: "CT2.6.3", order: 11, name: "3. Nội dung 3 của CT6...", description: "...", evidenceRequirement: "...", standardLevel: "...", inputType: "boolean", parentCriterionId: "TC02", originalParentIndicatorId: "CT2.6" }, // Xác nhận lại InputType
+        { id: "CT2.7.1", order: 12, name: "1. Nội dung 1 của CT7...", description: "...", evidenceRequirement: "...", standardLevel: "...", inputType: "boolean", parentCriterionId: "TC02", originalParentIndicatorId: "CT2.7" }, // Xác nhận lại InputType
+        { id: "CT2.7.2", order: 13, name: "2. Nội dung 2 của CT7...", description: "...", evidenceRequirement: "...", standardLevel: "...", inputType: "boolean", parentCriterionId: "TC02", originalParentIndicatorId: "CT2.7" }, // Xác nhận lại InputType
+        { id: "CT2.7.3", order: 14, name: "3. Nội dung 3 của CT7...", description: "...", evidenceRequirement: "...", standardLevel: "...", inputType: "boolean", parentCriterionId: "TC02", originalParentIndicatorId: "CT2.7" }, // Xác nhận lại InputType
     ]
 };
 
