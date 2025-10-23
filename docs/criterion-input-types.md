@@ -1,0 +1,26 @@
+# Ghi chú về InputType của các Chỉ tiêu trong Tiêu chí 2
+
+Tài liệu này ghi lại chi tiết `inputType` được thiết kế cho từng chỉ tiêu (và nội dung con đã được làm phẳng) của **Tiêu chí 2: Tiếp cận thông tin, phổ biến, giáo dục pháp luật**.
+
+## Tổng hợp InputType
+
+| ID        | Tên Chỉ tiêu/Nội dung                                   | InputType              | Ghi chú                                                                                                                                                                                                         |
+| :-------- | :------------------------------------------------------ | :--------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **CT2.1.1** | 1. Thực hiện lập Danh mục thông tin...                     | `boolean`              | Đánh giá Đạt/Không đạt.                                                                                                                                                                                        |
+| **CT2.1.2** | 2. Đăng tải Danh mục thông tin...                        | `boolean`              | Đánh giá Đạt/Không đạt.                                                                                                                                                                                        |
+| **CT2.2**   | Chỉ tiêu 2: Thực hiện công khai văn bản...                | `number`               | Người dùng nhập vào một số lượng (ví dụ: tỷ lệ % văn bản được công khai).                                                                                                                                      |
+| **CT2.3**   | Chỉ tiêu 3: Thực hiện cung cấp thông tin...                | `percentage_ratio`     | Yêu cầu giao diện có 2 ô nhập: "Tổng số yêu cầu" và "Số yêu cầu đã cung cấp", từ đó hệ thống tự tính tỷ lệ.                                                                                                    |
+| **CT2.4.1** | 1. Ban hành kế hoạch phổ biến...                           | `TC1_like`             | **Logic Đặc biệt**: Giao diện và quy trình xử lý tương tự Chỉ tiêu 1.1, yêu cầu kiểm tra chữ ký số và thời hạn ban hành.                                                                                         |
+| **CT2.4.2** | 2. Tỷ lệ hoàn thành nhiệm vụ theo Kế hoạch...                 | `percentage_ratio`     | Yêu cầu giao diện có 2 ô nhập: "Tổng số nhiệm vụ trong kế hoạch" và "Số nhiệm vụ đã hoàn thành".                                                                                                            |
+| **CT2.4.3** | 3. Nội dung thứ 3 của CT4 cũ...                             | `...`                  | *Chưa xác định rõ, cần điền type phù hợp.*                                                                                                                                                                     |
+| **CT2.5**   | Chỉ tiêu 5: Thực hiện chuyển đổi số...                     | `checkbox_group`       | Hiển thị một nhóm các checkbox cho phép người dùng chọn một hoặc nhiều hoạt động chuyển đổi số đã thực hiện.                                                                                               |
+| **CT2.6.1** | 1. Nội dung 1 của CT6 cũ...                               | `...`                  | *Chưa xác định rõ, cần điền type phù hợp.*                                                                                                                                                                     |
+| **CT2.6.2** | 2. Nội dung 2 của CT6 cũ...                               | `...`                  | *Chưa xác định rõ, cần điền type phù hợp.*                                                                                                                                                                     |
+| **CT2.6.3** | 3. Nội dung 3 của CT6 cũ...                               | `...`                  | *Chưa xác định rõ, cần điền type phù hợp.*                                                                                                                                                                     |
+| **CT2.7.1** | 1. Nội dung 1 của CT7 cũ...                               | `...`                  | *Chưa xác định rõ, cần điền type phù hợp.*                                                                                                                                                                     |
+| **CT2.7.2** | 2. Nội dung 2 của CT7 cũ...                               | `...`                  | *Chưa xác định rõ, cần điền type phù hợp.*                                                                                                                                                                     |
+| **CT2.7.3** | 3. Nội dung 3 của CT7 cũ...                               | `...`                  | *Chưa xác định rõ, cần điền type phù hợp.*                                                                                                                                                                     |
+
+---
+
+Tài liệu này sẽ là cơ sở để phát triển giao diện người dùng và logic xử lý dữ liệu cho từng loại chỉ tiêu một cách chính xác.
