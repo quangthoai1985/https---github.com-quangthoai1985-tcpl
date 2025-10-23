@@ -1,4 +1,3 @@
-
 'use client';
 import React from 'react';
 import { Label } from '@/components/ui/label';
@@ -30,7 +29,7 @@ const RenderPercentageRatioIndicator = ({
     // Lấy giá trị total/completed từ data.value (là object)
     const valueObj = (typeof data.value === 'object' && data.value !== null) ? data.value : { total: '', completed: '', provided: '' }; // Thêm provided cho CT2.3
     const total = Number(valueObj.total || 0);
-    // Ưu tiên 'completed' (CT4.2), nếu không có thì dùng 'provided' (CT2.3)
+    // Ưu tiên 'completed' (CT4.2, CT3.2.2), nếu không có thì dùng 'provided' (CT2.3)
     const completedOrProvided = Number(valueObj.completed || valueObj.provided || 0);
     const percentage = total > 0 ? Math.round((completedOrProvided / total) * 100) : 0;
 
