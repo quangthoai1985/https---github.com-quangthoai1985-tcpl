@@ -1,7 +1,7 @@
 
 'use client'
 
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Accordion } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, AlertTriangle, Download, Eye } from "lucide-react";
@@ -16,74 +16,74 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { AssessmentStatus, FileWithStatus, IndicatorValue, AssessmentValues } from './types';
 import Criterion1Component from "./Criterion1Component";
-import { cn } from "@/lib/utils";
-import StatusBadge from "./StatusBadge";
-import RenderBooleanIndicator from "./RenderBooleanIndicator";
-import RenderPercentageRatioIndicator from "./RenderPercentageRatioIndicator";
-import RenderNumberIndicator from "./RenderNumberIndicator";
-import RenderCheckboxGroupIndicator from "./RenderCheckboxGroupIndicator";
-import RenderTextIndicator from "./RenderTextIndicator";
-import RenderTC1LikeIndicator from "./RenderTC1LikeIndicator";
+import GenericCriterionComponent from "./GenericCriterionComponent";
 
-
-const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus[], isTasked?: boolean | null, assignedCount?: number, filesPerDocument?: { [documentIndex: number]: FileWithStatus[] }, contentId?: string): AssessmentStatus => {
-    // LOGIC RIÊNG CHO NỘI DUNG 1 CỦA CHỈ TIÊU 4
-    if (contentId === 'CNT033278') {
-        const hasValidFile = (files || []).some(f => f.signatureStatus === 'valid');
-        if (hasValidFile) return 'achieved';
-
-        const hasInvalidFile = (files || []).some(f => f.signatureStatus === 'invalid' || f.signatureStatus === 'error');
-        if (hasInvalidFile) return 'not-achieved';
-        
-        // Nếu không có file hợp lệ hoặc không hợp lệ, thì là pending (chờ upload, hoặc đang validating)
-        return 'pending';
-    }
-
+const evaluateStatus = (
+    value: any,
+    standardLevel: string,
+    files: FileWithStatus[],
+    isTasked?: boolean | null,
+    assignedCount?: number,
+    filesPerDocument?: { [documentIndex: number]: FileWithStatus[] },
+    contentId?: string,
+    inputType?: string, // Thêm inputType để xác định logic
+): AssessmentStatus => {
+    
+    // Luôn ưu tiên trạng thái "Không được giao"
     if (isTasked === false) {
         return 'achieved';
     }
 
-    const hasFileEvidence = (files || []).length > 0;
-
-    // Logic for Criterion 1 indicators
-    if (assignedCount && assignedCount > 0) {
-        const enteredValue = Number(value);
-        if (isNaN(enteredValue) || value === null || value === '') return 'pending';
-
-        const quantityMet = enteredValue >= assignedCount;
-
-        if (filesPerDocument) {
-            const allFiles = Object.values(filesPerDocument).flat();
-            const uploadedCount = allFiles.length;
-            const requiredFilesMet = uploadedCount >= enteredValue; 
-            const allSignaturesValid = allFiles.every(f => 'signatureStatus' in f && f.signatureStatus === 'valid');
-            
-            if (quantityMet && requiredFilesMet && allSignaturesValid) {
-                return 'achieved';
-            }
+    // Logic đặc biệt cho các file có kiểm tra chữ ký số
+    if (inputType === 'TC1_like' || (contentId && contentId === 'CNT033278')) {
+        const allFiles = Object.values(filesPerDocument || {}).flat();
+        if (allFiles.length === 0) return 'pending'; // Chưa có file thì chưa thể chấm
+        
+        const hasInvalid = allFiles.some(f => f.signatureStatus === 'invalid' || f.signatureStatus === 'error');
+        if (hasInvalid) return 'not-achieved';
+        
+        const hasValidating = allFiles.some(f => f.signatureStatus === 'validating');
+        if (hasValidating) return 'pending';
+        
+        const allValid = allFiles.every(f => f.signatureStatus === 'valid');
+        if (allValid && (Number(value) >= (assignedCount || 0))) {
+            return 'achieved';
         }
+        // Nếu không đủ file valid hoặc số lượng không đạt
         return 'not-achieved';
     }
 
-    // General logic for other indicators/contents
+
+    const hasFileEvidence = (files || []).length > 0;
+     if (!hasFileEvidence) {
+        // Nếu đã có giá trị nhưng thiếu file, coi như 'not-achieved'
+        if (value !== undefined && value !== null && value !== '' && !(Array.isArray(value) && value.length === 0) && !(typeof value === 'object' && Object.keys(value).length === 0)) {
+            return 'not-achieved';
+        }
+        // Nếu chưa có giá trị, là 'pending'
+        return 'pending';
+    }
+
     if (value === undefined || value === null || value === '') {
         return 'pending';
     }
     
-    if (!hasFileEvidence) {
-        return 'not-achieved';
-    }
-    
     // Logic for checkbox groups
     if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
-        if (value.hasOwnProperty('total') && value.hasOwnProperty('provided')) {
-            const total = Number(value.total);
-            const provided = Number(value.provided);
-            if (isNaN(total) || total === 0) return 'achieved'; // Không có yêu cầu thì coi như đạt
-            if (isNaN(provided)) return 'pending';
-            return (provided / total) >= 1 ? 'achieved' : 'not-achieved';
+        // Logic cho dạng tỷ lệ {total, completed/provided}
+        if (value.hasOwnProperty('total') || value.hasOwnProperty('completed') || value.hasOwnProperty('provided')) {
+             const total = Number(value.total || 0);
+             const completed = Number(value.completed || value.provided || 0);
+             if (total === 0) return 'achieved';
+             if (isNaN(total) || isNaN(completed)) return 'pending';
+             const requiredPercentageMatch = standardLevel.match(/(\d+)/);
+             if (requiredPercentageMatch) {
+                const requiredPercentage = parseInt(requiredPercentageMatch[0], 10);
+                return (completed / total) * 100 >= requiredPercentage ? 'achieved' : 'not-achieved';
+             }
         }
-
+        
+        // Logic cho checkbox thông thường
         const checkedCount = Object.values(value).filter(v => v === true).length;
         const requiredCountMatch = standardLevel.match(/(\d+)/);
         if (requiredCountMatch) {
@@ -129,8 +129,7 @@ const sanitizeDataForFirestore = (data: AssessmentValues): Record<string, Indica
     const sanitizedData: Record<string, IndicatorResult> = {};
     const sanitizeFiles = (files: FileWithStatus[]) => (files || []).map(f => {
         if (f instanceof File) {
-            // This case should ideally not happen if uploads are complete, but as a fallback:
-            return { name: f.name, url: '' }; // Don't save File objects
+            return { name: f.name, url: '' }; 
         }
         return {
             name: f.name,
@@ -195,31 +194,44 @@ export default function SelfAssessmentPage() {
       }
     };
   }, [deleteFileByUrl]);
-
+  
   const initializeState = useCallback((criteria: Criterion[], existingData?: Record<string, IndicatorResult>): AssessmentValues => {
-      const initialState: AssessmentValues = {};
-      criteria.forEach(criterion => {
-          (criterion.indicators || []).forEach(indicator => {
-              const savedIndicator = existingData?.[indicator.id];
-              
-              initialState[indicator.id] = {
-                isTasked: savedIndicator?.isTasked ?? null,
-                value: savedIndicator?.value ?? '',
-                files: savedIndicator?.files ?? [],
-                filesPerDocument: savedIndicator?.filesPerDocument ?? {},
-                note: savedIndicator?.note ?? '',
-                status: savedIndicator?.status ?? 'pending',
-                adminNote: savedIndicator?.adminNote ?? '',
-                communeNote: savedIndicator?.communeNote ?? '',
-                communeDefinedDocuments: savedIndicator?.communeDefinedDocuments ?? [],
-                contentResults: {},
-                meta: savedIndicator?.meta || {}
-            };
-          });
-      });
+    const initialState: AssessmentValues = {};
+    criteria.forEach(criterion => {
+        (criterion.indicators || []).forEach(indicator => {
+            const savedIndicator = existingData?.[indicator.id];
+            
+            const contentResults: { [key: string]: IndicatorValue } = {};
+            if (indicator.contents && indicator.contents.length > 0) {
+                indicator.contents.forEach(content => {
+                    const savedContent = savedIndicator?.contentResults?.[content.id];
+                    contentResults[content.id] = {
+                        value: savedContent?.value ?? '',
+                        files: savedContent?.files ?? [],
+                        note: savedContent?.note ?? '',
+                        status: savedContent?.status ?? 'pending'
+                    };
+                });
+            }
 
-      return initialState;
-  }, []);
+            initialState[indicator.id] = {
+              isTasked: savedIndicator?.isTasked ?? null,
+              value: savedIndicator?.value ?? '',
+              files: savedIndicator?.files ?? [],
+              filesPerDocument: savedIndicator?.filesPerDocument ?? {},
+              note: savedIndicator?.note ?? '',
+              status: savedIndicator?.status ?? 'pending',
+              adminNote: savedIndicator?.adminNote ?? '',
+              communeNote: savedIndicator?.communeNote ?? '',
+              communeDefinedDocuments: savedIndicator?.communeDefinedDocuments ?? [],
+              contentResults: contentResults,
+              meta: savedIndicator?.meta || {}
+          };
+        });
+    });
+    return initialState;
+}, []);
+
 
   const activePeriod = assessmentPeriods.find(p => p.isActive);
   const myAssessment = activePeriod && currentUser
@@ -235,42 +247,55 @@ export default function SelfAssessmentPage() {
     }
   }, [myAssessment, criteria, initializeState]);
 
-  const findIndicator = useCallback((indicatorId: string): Indicator | Content | null => {
+  const findItem = useCallback((itemId: string): Indicator | Content | null => {
       for (const criterion of criteria) {
           for (const indicator of (criterion.indicators || [])) {
-              if (indicator.id === indicatorId) return indicator;
+              if (indicator.id === itemId) return indicator;
+              if (indicator.contents) {
+                  const content = indicator.contents.find(c => c.id === itemId);
+                  if (content) return content;
+              }
           }
       }
       return null;
   }, [criteria]);
 
-  const calculateCompositeStatus = useCallback((originalParentId: string, assessmentData: AssessmentValues): AssessmentStatus => {
-    const childIndicators = criteria.flatMap(c => c.indicators).filter(i => i.originalParentIndicatorId === originalParentId);
+  const calculateCompositeStatus = useCallback((indicatorId: string, assessmentData: AssessmentValues): AssessmentStatus => {
+    const parentIndicator = findItem(indicatorId) as Indicator;
+    if (!parentIndicator || !parentIndicator.contents || parentIndicator.contents.length === 0) {
+        return assessmentData[indicatorId]?.status || 'pending';
+    }
     
-    if (childIndicators.length === 0) {
-        return 'pending'; 
-    }
-
+    const contentResults = assessmentData[indicatorId]?.contentResults || {};
     let hasPending = false;
-    for (const child of childIndicators) {
-        const childStatus = assessmentData[child.id]?.status;
-        if (childStatus === 'not-achieved') {
-            return 'not-achieved';
-        }
-        if (childStatus === 'pending') {
-            hasPending = true;
-        }
+    
+    // Logic "all": Tất cả nội dung phải "achieved"
+    if (parentIndicator.passRule?.type === 'all') {
+         for (const content of parentIndicator.contents) {
+             const contentStatus = contentResults[content.id]?.status;
+             if (contentStatus === 'not-achieved') return 'not-achieved';
+             if (contentStatus === 'pending') hasPending = true;
+         }
+         return hasPending ? 'pending' : 'achieved';
+    }
+    
+     // Logic "N-of-M": Đạt ít nhất N trong M nội dung
+    if (parentIndicator.passRule?.type === 'n-of-m') {
+        const requiredCount = parentIndicator.passRule.required;
+        const achievedCount = parentIndicator.contents.filter(content => {
+            return contentResults[content.id]?.status === 'achieved';
+        }).length;
+        return achievedCount >= requiredCount ? 'achieved' : 'not-achieved';
     }
 
-    return hasPending ? 'pending' : 'achieved';
-}, [criteria]);
+    return 'pending'; // Default
+}, [findItem]);
 
 const calculateCriterionStatus = useCallback((criterion: Criterion): AssessmentStatus => {
     if (!assessmentData || Object.keys(assessmentData).length === 0 || !criterion.indicators || criterion.indicators.length === 0) {
         return 'pending';
     }
 
-    // Xử lý riêng cho Tiêu chí 1
     if (criterion.id === 'TC01') {
         const firstIndicatorId = criterion.indicators[0]?.id;
         if (firstIndicatorId && assessmentData[firstIndicatorId]?.isTasked === false) {
@@ -278,22 +303,10 @@ const calculateCriterionStatus = useCallback((criterion: Criterion): AssessmentS
         }
     }
     
-    const compositeParents = ['CT2.1', 'CT2.4', 'CT2.6', 'CT2.7', 'CT3.1', 'CT3.2'];
     let hasPending = false;
 
     for (const indicator of criterion.indicators) {
-        // Bỏ qua các chỉ tiêu con, chúng sẽ được tính trong chỉ tiêu cha
-        if (indicator.originalParentIndicatorId) {
-            continue;
-        }
-        
-        let effectiveStatus: AssessmentStatus;
-
-        if (compositeParents.includes(indicator.id)) {
-            effectiveStatus = calculateCompositeStatus(indicator.id, assessmentData);
-        } else {
-            effectiveStatus = assessmentData[indicator.id]?.status || 'pending';
-        }
+        const effectiveStatus = calculateCompositeStatus(indicator.id, assessmentData);
         
         if (effectiveStatus === 'not-achieved') {
             return 'not-achieved';
@@ -308,7 +321,7 @@ const calculateCriterionStatus = useCallback((criterion: Criterion): AssessmentS
 
 const handleIsTaskedChange = useCallback((id: string, isTasked: boolean) => {
     setAssessmentData(prev => {
-        const item = findIndicator(id); 
+        const item = findItem(id); 
         if (!item) return prev;
 
         const newData = { ...prev };
@@ -316,20 +329,22 @@ const handleIsTaskedChange = useCallback((id: string, isTasked: boolean) => {
         const indicatorId = id;
         const indicatorData = { ...newData[indicatorId] }; 
         const valueToEvaluate = isTasked ? indicatorData.value : null;
-        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
         
         let assignedCount;
-        if (parentCriterion?.id === 'TC01' || (parentCriterion?.id === 'TC02' && indicatorId === 'CT033278')) {
+        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId || i.contents?.some(co => co.id === id)));
+
+        if (parentCriterion?.id === 'TC01' || indicatorId === 'CT033278') {
             const tc1Data = prev[criteria[0].indicators[0].id];
             assignedCount = (item as Indicator).assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
-        } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
-             const tc1Data = prev[criteria[0].indicators[0].id];
-             assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+        } else if (parentCriterion?.indicators?.some(i => i.id === id && i.inputType === 'TC1_like')) {
+             const tcData = prev[id];
+             assignedCount = (item as Indicator).assignedDocumentsCount || tcData.communeDefinedDocuments?.length || 0;
         }
+
         
         const files = isTasked ? indicatorData.files : [];
         const filesPerDocument = (parentCriterion?.id === 'TC01' || indicatorId === 'CT033278') ? indicatorData.filesPerDocument : undefined;
-        const newStatus = evaluateStatus(valueToEvaluate, item.standardLevel, files, isTasked, assignedCount, filesPerDocument);
+        const newStatus = evaluateStatus(valueToEvaluate, item.standardLevel, files, isTasked, assignedCount, filesPerDocument, item.inputType);
 
         newData[indicatorId] = {
             ...indicatorData,
@@ -342,39 +357,51 @@ const handleIsTaskedChange = useCallback((id: string, isTasked: boolean) => {
         
         return newData;
     });
-}, [criteria, findIndicator]);
+}, [criteria, findItem]);
 
 
 const handleValueChange = useCallback((indicatorId: string, value: any, contentId?: string) => {
     setAssessmentData(prev => {
-        const indicator = findIndicator(indicatorId) as Indicator | null;
-        if (!indicator) return prev;
-
         const newData = { ...prev };
-        const isTasked = prev[indicatorId].isTasked;
-        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
+        const indicatorData = { ...newData[indicatorId] };
+        
+        let targetItem;
+        let isTasked;
 
-        let assignedCount;
-        if (parentCriterion?.id === 'TC01' || (parentCriterion?.id === 'TC02' && indicatorId === 'CT033278')) {
-             const tc1Data = prev[criteria[0].indicators[0].id];
-             assignedCount = (indicator as Indicator).assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
-        } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
-             const tc1Data = prev[criteria[0].indicators[0].id];
-             assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+        if (contentId) {
+            targetItem = (findItem(indicatorId) as Indicator)?.contents?.find(c => c.id === contentId);
+            isTasked = indicatorData.isTasked; // Task status is at indicator level
+            if (!targetItem) return prev;
+
+            const contentResults = { ...(indicatorData.contentResults || {}) };
+            const contentData = { ...(contentResults[contentId] || {}) };
+            
+            contentData.value = value;
+            contentData.status = evaluateStatus(value, targetItem.standardLevel, contentData.files, true);
+            
+            contentResults[contentId] = contentData;
+            indicatorData.contentResults = contentResults;
+
+        } else {
+            targetItem = findItem(indicatorId);
+            isTasked = indicatorData.isTasked;
+            if (!targetItem) return prev;
+
+            indicatorData.value = value;
+            indicatorData.status = evaluateStatus(value, targetItem.standardLevel, indicatorData.files, isTasked);
+        }
+        
+        newData[indicatorId] = indicatorData;
+        
+        // Sau khi cập nhật, tính lại status tổng hợp của chỉ tiêu cha nếu có
+        const parentIndicator = findItem(indicatorId) as Indicator;
+        if (parentIndicator && parentIndicator.contents && parentIndicator.contents.length > 0) {
+            newData[indicatorId].status = calculateCompositeStatus(indicatorId, newData);
         }
 
-        const filesPerDocument = (parentCriterion?.id === 'TC01' || indicatorId === 'CT033278') ? prev[indicatorId].filesPerDocument : undefined;
-        const newStatus = evaluateStatus(value, indicator.standardLevel, prev[indicatorId].files, isTasked, assignedCount, filesPerDocument);
-
-        newData[indicatorId] = {
-            ...newData[indicatorId],
-            value: value,
-            status: newStatus
-        };
-        
         return newData;
     });
-}, [criteria, findIndicator]);
+}, [findItem, calculateCompositeStatus]);
 
 const handleCommuneDocsChange = useCallback((indicatorId: string, docs: any[]) => {
     setAssessmentData(prev => ({
@@ -389,10 +416,19 @@ const handleCommuneDocsChange = useCallback((indicatorId: string, docs: any[]) =
 const handleNoteChange = useCallback((indicatorId: string, note: string, contentId?: string) => {
     setAssessmentData(prev => {
         const newData = { ...prev };
-        newData[indicatorId] = {
-            ...newData[indicatorId],
-            note: note,
-        };
+        const indicatorData = { ...newData[indicatorId] };
+        
+        if(contentId) {
+            const contentResults = { ...(indicatorData.contentResults || {}) };
+            const contentData = { ...(contentResults[contentId] || {}) };
+            contentData.note = note;
+            contentResults[contentId] = contentData;
+            indicatorData.contentResults = contentResults;
+        } else {
+             indicatorData.note = note;
+        }
+        
+        newData[indicatorId] = indicatorData;
         return newData;
     });
 }, []);
@@ -402,7 +438,6 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
         return typeof file.url === 'string' && (file.url.startsWith('http://') || file.url.startsWith('https://'));
     };
 
-    // If removing a file, check if it's a real storage file or just a link
     if (fileToRemove?.url && !isLink(fileToRemove)) {
         try {
             await deleteFileByUrl(fileToRemove.url);
@@ -417,63 +452,67 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
                 title: "Lỗi xóa tệp",
                 description: `Không thể xóa tệp "${fileToRemove.name}".`,
             });
-            return; // Stop update if file deletion fails
+            return;
         }
     }
 
     setAssessmentData(prev => {
         const newData = { ...prev };
-        const item = findIndicator(indicatorId) as Indicator | Content | null;
-        if (!item) return prev;
-
         const indicatorData = { ...newData[indicatorId] };
         
-        let fileList: FileWithStatus[];
-        let currentValue: any;
+        if (contentId) {
+            // Cập nhật cho nội dung con
+            const contentResults = { ...(indicatorData.contentResults || {}) };
+            const contentData = { ...(contentResults[contentId] || {}) };
+            const currentFiles = contentData.files || [];
 
-        if (docIndex !== undefined) {
-             const filesPerDoc = { ...(indicatorData.filesPerDocument || {}) };
-             fileList = [...(filesPerDoc[docIndex] || [])];
-             currentValue = indicatorData.value;
-
-             if (fileToRemove) {
-                fileList = fileList.filter(f => f.name !== fileToRemove.name);
-             } else {
-                fileList.push(...newFiles);
-             }
-
-            filesPerDoc[docIndex] = fileList;
-            indicatorData.filesPerDocument = filesPerDoc;
-
-            const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
-            let assignedCount;
-            if (parentCriterion?.id === 'TC01' || (parentCriterion?.id === 'TC02' && indicatorId === 'CT033278')) {
-                const tc1Data = prev[criteria[0].indicators[0].id];
-                assignedCount = (item as Indicator).assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+            let updatedFiles;
+            if (fileToRemove) {
+                updatedFiles = currentFiles.filter(f => f.name !== fileToRemove.name);
+            } else {
+                updatedFiles = [...currentFiles, ...newFiles];
             }
-            indicatorData.status = evaluateStatus(currentValue, item.standardLevel, [], indicatorData.isTasked, assignedCount, filesPerDoc);
-
+            contentData.files = updatedFiles;
+            
+            const targetItem = (findItem(indicatorId) as Indicator)?.contents?.find(c => c.id === contentId);
+            contentData.status = evaluateStatus(contentData.value, targetItem!.standardLevel, updatedFiles, true);
+            
+            contentResults[contentId] = contentData;
+            indicatorData.contentResults = contentResults;
+            indicatorData.status = calculateCompositeStatus(indicatorId, newData); // Recalculate parent
+        } else if (docIndex !== undefined) {
+             // Cập nhật cho filesPerDocument (TC1, TC1_like)
+            const filesPerDoc = { ...(indicatorData.filesPerDocument || {}) };
+            const currentFiles = filesPerDoc[docIndex] || [];
+             let updatedFiles;
+            if (fileToRemove) {
+                updatedFiles = currentFiles.filter(f => f.name !== fileToRemove.name);
+            } else {
+                updatedFiles = [...currentFiles, ...newFiles];
+            }
+            filesPerDoc[docIndex] = updatedFiles;
+            indicatorData.filesPerDocument = filesPerDoc;
+            
+            const item = findItem(indicatorId) as Indicator;
+            indicatorData.status = evaluateStatus(indicatorData.value, item.standardLevel, [], indicatorData.isTasked, indicator.assignedDocumentsCount, filesPerDoc);
         } else {
-            fileList = [...(indicatorData.files || [])];
-            currentValue = indicatorData.value;
+             // Cập nhật cho mảng files (các chỉ tiêu thường)
+             const currentFiles = indicatorData.files || [];
+             let updatedFiles;
              if (fileToRemove) {
-                fileList = fileList.filter(f => f.name !== fileToRemove.name);
+                updatedFiles = currentFiles.filter(f => f.name !== fileToRemove.name);
              } else {
-                fileList.push(...newFiles);
-                newFiles.forEach(file => {
-                    if (!(file instanceof File) && file.url && !isLink(file)) {
-                        unsavedFilesRef.current.push(file.url);
-                    }
-                });
+                updatedFiles = [...currentFiles, ...newFiles];
              }
-            indicatorData.files = fileList;
-            indicatorData.status = evaluateStatus(currentValue, item.standardLevel, fileList, indicatorData.isTasked);
+             indicatorData.files = updatedFiles;
+             const item = findItem(indicatorId);
+             indicatorData.status = evaluateStatus(indicatorData.value, item!.standardLevel, updatedFiles, indicatorData.isTasked);
         }
 
         newData[indicatorId] = indicatorData;
         return newData;
     });
-}, [criteria, deleteFileByUrl, findIndicator, toast]);
+}, [deleteFileByUrl, toast, findItem, calculateCompositeStatus]);
 
 
 const handleSaveDraft = useCallback(async () => {
@@ -602,41 +641,53 @@ const handleSaveDraft = useCallback(async () => {
     const errors: string[] = [];
     let allItemsAssessed = true;
 
-    for (const id in assessmentData) {
-        const data = assessmentData[id];
-        const indicator = findIndicator(id) as Indicator;
-        if (!indicator) continue;
+    for (const indicator of criteria.flatMap(c => c.indicators)) {
+        const data = assessmentData[indicator.id];
+        if (!data) {
+            allItemsAssessed = false;
+            continue;
+        }
         
-        const checkEvidence = (itemData: any, itemName: string, isCriterion1: boolean) => {
-            if (itemData.status !== 'pending' && itemData.isTasked !== false) {
-                 if (isCriterion1) {
-                    const assignedDocsCount = (criteria.find(c=>c.id === 'TC01') as Criterion).assignedDocumentsCount || itemData.communeDefinedDocuments?.length || 0;
-                    if (assignedDocsCount > 0 && Number(itemData.value) > 0) {
-                        const docIndicesWithMissingFiles = Array.from({length: Number(itemData.value)}, (_, i) => i)
-                           .filter(i => (itemData.filesPerDocument?.[i] || []).length === 0);
-                        if (docIndicesWithMissingFiles.length > 0) {
-                            errors.push(`Chỉ tiêu "${itemName}" yêu cầu minh chứng cho mỗi văn bản đã ban hành.`);
-                        }
-                    }
-                 } else if ((itemData.files || []).length === 0) {
-                    errors.push(`Mục "${itemName}" yêu cầu minh chứng.`);
+        // Nếu chỉ tiêu có nội dung con, kiểm tra từng nội dung
+        if (indicator.contents && indicator.contents.length > 0) {
+            for (const content of indicator.contents) {
+                const contentData = data.contentResults?.[content.id];
+                if (!contentData || contentData.status === 'pending') {
+                    allItemsAssessed = false;
+                }
+                 if (contentData && contentData.status !== 'pending' && contentData.files.length === 0) {
+                     errors.push(`Nội dung "${content.name}" yêu cầu minh chứng.`);
                  }
             }
-        };
-        
-        if (data.status === 'pending') allItemsAssessed = false;
-        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === id));
-        const isCriterion1 = parentCriterion?.id === 'TC01' || (parentCriterion?.id === 'TC02' && id === 'CT033278');
-        checkEvidence(data, indicator.name, isCriterion1);
-        
+        } else { // Nếu không có nội dung con, kiểm tra chỉ tiêu
+            if (data.status === 'pending') {
+                allItemsAssessed = false;
+            }
+            if (data.status !== 'pending' && data.isTasked !== false) {
+                 if (indicator.inputType === 'TC1_like') {
+                     const assignedDocsCount = indicator.assignedDocumentsCount || data.communeDefinedDocuments?.length || 0;
+                     if (assignedDocsCount > 0 && Number(data.value) > 0) {
+                         const docIndicesWithMissingFiles = Array.from({length: Number(data.value)}, (_, i) => i)
+                            .filter(i => (data.filesPerDocument?.[i] || []).length === 0);
+                         if (docIndicesWithMissingFiles.length > 0) {
+                             errors.push(`Chỉ tiêu "${indicator.name}" yêu cầu minh chứng cho mỗi văn bản.`);
+                         }
+                     }
+                 } else if ((data.files || []).length === 0) {
+                     errors.push(`Chỉ tiêu "${indicator.name}" yêu cầu minh chứng.`);
+                 }
+            }
+        }
     }
+
 
     if (!allItemsAssessed) {
         errors.push("Bạn phải hoàn thành việc chấm điểm cho tất cả các chỉ tiêu/nội dung.");
     }
 
     return { canSubmit: errors.length === 0, submissionErrors: [...new Set(errors)] };
-}, [assessmentData, findIndicator, criteria]);
+}, [assessmentData, criteria]);
+
 
   const handleSubmit = async () => {
     if (!activePeriod || !currentUser || !storage) {
@@ -714,96 +765,46 @@ const handleSaveDraft = useCallback(async () => {
                 <CardContent>
                     <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
                         {criteria.map((criterion, index) => {
-                            const criterionStatus = calculateCriterionStatus(criterion); 
-
-                            // Xử lý riêng cho Tiêu chí 1 nếu bạn muốn giữ component riêng
-                            if (criterion.id === 'TC01') {
-                                return (
-                                    // Return trực tiếp Criterion1Component, không cần AccordionItem ở đây
-                                    <Criterion1Component
-                                        key={criterion.id} // Key đặt ở đây
-                                        criterion={criterion}
-                                        criterionStatus={criterionStatus}
-                                        assessmentData={assessmentData}
-                                        onValueChange={handleValueChange}
-                                        onNoteChange={handleNoteChange}
-                                        onEvidenceChange={handleEvidenceChange}
-                                        onIsTaskedChange={handleIsTaskedChange}
-                                        onPreview={handlePreview}
-                                        periodId={activePeriod!.id}
-                                        communeId={currentUser!.communeId}
-                                        handleCommuneDocsChange={handleCommuneDocsChange}
-                                    />
-                                );
-                            }
-
-                            const triggerClasses = cn(
-                                "font-headline text-lg rounded-md px-4 transition-colors hover:no-underline",
-                                criterionStatus === 'achieved' && 'bg-green-100 hover:bg-green-200/80',
-                                criterionStatus === 'not-achieved' && 'bg-red-100 hover:bg-red-200/80',
-                                criterionStatus === 'pending' && 'bg-amber-100 hover:bg-amber-200/80',
-                            );
+                            const criterionStatus = calculateCriterionStatus(criterion);
                             
-                            return (
-                                <AccordionItem value={criterion.id} key={criterion.id}>
-                                    <AccordionTrigger className={triggerClasses}>
-                                        <div className="flex items-center gap-4 flex-1">
-                                            <StatusBadge status={criterionStatus} isCriterion={true} />
-                                            <span className="text-xl font-semibold">Tiêu chí {index + 1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</span>
-                                        </div>
-                                    </AccordionTrigger>
-                                    <AccordionContent>
-                                        <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
-                                            {criterion.indicators?.map(indicator => {
-                                                const indicatorData = assessmentData[indicator.id];
-                                                if (!indicatorData) {
-                                                    return <div key={indicator.id}>Đang tải dữ liệu chỉ tiêu {indicator.name}...</div>;
-                                                }
-                                        
-                                                switch (indicator.inputType) {
-                                                    case 'boolean':
-                                                        return <RenderBooleanIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
-                                                    case 'percentage_ratio':
-                                                        return <RenderPercentageRatioIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
-                                                    case 'number':
-                                                         return <RenderNumberIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
-                                                    case 'checkbox_group':
-                                                         return <RenderCheckboxGroupIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} criteria={criteria} />;
-                                                    case 'text':
-                                                        return <RenderTextIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
-                                                    case 'TC1_like': // Xử lý CT1.1, CT1.2, CT1.3, CT2.4.1
-                                                         return (
-                                                            <RenderTC1LikeIndicator // Gọi component chuyên biệt
-                                                                key={indicator.id}
-                                                                indicator={indicator} // Truyền indicator chứa config (assignmentType...)
-                                                                data={indicatorData} // Truyền data chứa value, filesPerDocument...
-                                                                assessmentData={assessmentData} // Truyền assessmentData đầy đủ
-                                                                onValueChange={handleValueChange}
-                                                                onNoteChange={handleNoteChange}
-                                                                onEvidenceChange={handleEvidenceChange}
-                                                                onIsTaskedChange={handleIsTaskedChange} // Cần prop này
-                                                                onPreview={handlePreview}
-                                                                periodId={activePeriod!.id}
-                                                                communeId={currentUser!.communeId}
-                                                                handleCommuneDocsChange={handleCommuneDocsChange} // Cần prop này
-                                                            />
-                                                         );
-                                                    default:
-                                                        // Fallback nếu inputType không xác định
-                                                        return (
-                                                            <div key={indicator.id} className="p-4 border rounded bg-destructive text-white">
-                                                                Lỗi: Không thể render chỉ tiêu "{indicator.name}" (ID: {indicator.id}) với inputType không xác định: {indicator.inputType}
-                                                            </div>
-                                                        );
-                                                }
-                                            })}
-                                            {(!criterion.indicators || criterion.indicators.length === 0) && (
-                                                <p className="text-sm text-muted-foreground">Không có chỉ tiêu nào cho tiêu chí này.</p>
-                                            )}
-                                        </div>
-                                    </AccordionContent>
-                                </AccordionItem>
-                            );
+                            switch(criterion.id) {
+                                case 'TC01':
+                                    return (
+                                        <Criterion1Component
+                                            key={criterion.id}
+                                            criterion={criterion}
+                                            criterionStatus={criterionStatus}
+                                            assessmentData={assessmentData}
+                                            onValueChange={handleValueChange}
+                                            onNoteChange={handleNoteChange}
+                                            onEvidenceChange={handleEvidenceChange}
+                                            onIsTaskedChange={handleIsTaskedChange}
+                                            onPreview={handlePreview}
+                                            periodId={activePeriod.id}
+                                            communeId={currentUser.communeId}
+                                            handleCommuneDocsChange={handleCommuneDocsChange}
+                                        />
+                                    );
+                                default:
+                                    return (
+                                        <GenericCriterionComponent
+                                            key={criterion.id}
+                                            criterion={criterion}
+                                            criterionStatus={criterionStatus}
+                                            assessmentData={assessmentData}
+                                            onValueChange={handleValueChange}
+                                            onNoteChange={handleNoteChange}
+                                            onEvidenceChange={handleEvidenceChange}
+                                            onIsTaskedChange={handleIsTaskedChange}
+                                            onPreview={handlePreview}
+                                            criteria={criteria}
+                                            periodId={activePeriod.id}
+                                            communeId={currentUser.communeId}
+                                            handleCommuneDocsChange={handleCommuneDocsChange}
+                                            updateSingleAssessment={updateSingleAssessment} 
+                                        />
+                                    );
+                            }
                         })}
                     </Accordion>
                 </CardContent>
@@ -863,3 +864,4 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
+

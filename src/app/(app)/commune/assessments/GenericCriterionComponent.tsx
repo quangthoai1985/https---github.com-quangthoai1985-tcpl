@@ -1,21 +1,14 @@
 
-
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React from 'react';
 import { cn } from "@/lib/utils";
 import type { Assessment, AssessmentValues, FileWithStatus } from "./types";
 import type { Criterion, Indicator } from "@/lib/data";
-import { Info, AlertTriangle, CornerDownRight } from "lucide-react";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { CornerDownRight } from "lucide-react";
 import StatusBadge from "./StatusBadge";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import EvidenceUploaderComponent from './EvidenceUploaderComponent';
-import CT4EvidenceUploader from "./CT4EvidenceUploader";
 import { AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import IndicatorAssessment from './IndicatorAssessment';
-import Criterion1Component from './Criterion1Component';
 import Criterion4SpecialComponent from './Criterion4SpecialComponent';
 
 
@@ -29,15 +22,10 @@ const GenericCriterionComponent = ({
     onIsTaskedChange,
     onPreview,
     criteria,
-    specialLogicIndicatorIds,
-    getSpecialIndicatorLabels,
-    getCustomBooleanLabels,
-    getCheckboxOptions,
     periodId,
     communeId,
     handleCommuneDocsChange,
-    updateSingleAssessment, // THÊM PROP NÀY
-    ...props // Pass down the rest of the props for IndicatorAssessment
+    updateSingleAssessment,
 }: {
     criterion: Criterion;
     criterionStatus: 'achieved' | 'not-achieved' | 'pending';
@@ -48,14 +36,10 @@ const GenericCriterionComponent = ({
     onIsTaskedChange: (id: string, isTasked: boolean) => void;
     onPreview: (file: { name: string; url: string; }) => void;
     criteria: Criterion[];
-    specialLogicIndicatorIds: string[];
-    getSpecialIndicatorLabels: (indicatorId: string, criteria: Criterion[]) => { no: string; yes: string; };
-    getCustomBooleanLabels: (indicatorId: string, criteria: Criterion[]) => { true: string, false: string } | null;
-    getCheckboxOptions: (indicatorId: string, criteria: Criterion[]) => string[] | null;
     periodId: string;
     communeId: string;
     handleCommuneDocsChange: (indicatorId: string, docs: any[]) => void;
-    updateSingleAssessment: (assessment: Partial<Assessment>) => Promise<void>; // THÊM PROP NÀY
+    updateSingleAssessment: (assessment: Partial<Assessment>) => Promise<void>;
 }) => {
     
     const triggerClasses = cn(
@@ -65,6 +49,11 @@ const GenericCriterionComponent = ({
         criterionStatus === 'pending' && 'bg-amber-100 hover:bg-amber-200/80',
     );
     const index = criteria.findIndex(c => c.id === criterion.id);
+
+    // Dummy functions for props that are not needed by GenericCriterionComponent's children
+    const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) => ({ no: 'Không', yes: 'Có' });
+    const getCustomBooleanLabels = (indicatorId: string, criteria: Criterion[]) => null;
+    const getCheckboxOptions = (indicatorId: string, criteria: Criterion[]) => null;
 
     return (
         <AccordionItem value={criterion.id} key={criterion.id}>
@@ -79,25 +68,6 @@ const GenericCriterionComponent = ({
                     {(criterion.indicators || []).map(indicator => {
                         
                         if (!assessmentData[indicator.id]) return null;
-
-                        // LOGIC MỚI: Xử lý riêng cho Chỉ tiêu 4
-                        if (indicator.id === 'CT033278') {
-                            return (
-                                <Criterion4SpecialComponent
-                                    key={indicator.id}
-                                    indicator={indicator}
-                                    assessmentData={assessmentData}
-                                    onValueChange={onValueChange}
-                                    onNoteChange={onNoteChange}
-                                    onEvidenceChange={onEvidenceChange}
-                                    onIsTaskedChange={onIsTaskedChange}
-                                    onPreview={onPreview}
-                                    periodId={periodId}
-                                    communeId={communeId}
-                                    handleCommuneDocsChange={handleCommuneDocsChange}
-                                />
-                            )
-                        }
 
                         const indicatorBlockClasses = cn(
                             "grid gap-6 p-4 rounded-lg bg-card shadow-sm border transition-colors",
@@ -122,7 +92,7 @@ const GenericCriterionComponent = ({
                                                 if (!contentData) return <div key={content.id}>Đang tải nội dung {content.name}...</div>;
 
                                                 const subBlockClasses = cn(
-                                                    "relative pl-6 transition-colors rounded-r-lg py-4 border-l-2 border-dashed mt-6", // Thêm mt-6
+                                                    "relative pl-6 transition-colors rounded-r-lg py-4 border-l-2 border-dashed mt-6", 
                                                      contentData.status === 'achieved' && 'bg-green-50',
                                                      contentData.status === 'not-achieved' && 'bg-red-50',
                                                      contentData.status === 'pending' && 'bg-amber-50 border-l-amber-200'
@@ -132,21 +102,21 @@ const GenericCriterionComponent = ({
                                                     <div key={content.id} className={subBlockClasses}>
                                                         <CornerDownRight className="absolute -left-3 top-5 h-5 w-5 text-muted-foreground"/>
                                                         <IndicatorAssessment
-                                                            specialIndicatorIds={specialLogicIndicatorIds}
+                                                            specialIndicatorIds={[]}
                                                             specialLabels={getSpecialIndicatorLabels(content.id, criteria)}
                                                             customBooleanLabels={getCustomBooleanLabels(content.id, criteria)}
                                                             checkboxOptions={getCheckboxOptions(content.id, criteria)}
-                                                            indicator={content} // indicator giờ là content
-                                                            data={contentData} // data của content
+                                                            indicator={content}
+                                                            data={contentData}
                                                             onValueChange={(id, value, cId) => onValueChange(indicator.id, value, content.id)}
                                                             onNoteChange={(id, note, cId) => onNoteChange(indicator.id, note, content.id)}
                                                             onEvidenceChange={(id, files, docIdx, fileToDel, cId) => onEvidenceChange(indicator.id, files, docIdx, fileToDel, content.id)}
-                                                            onIsTaskedChange={onIsTaskedChange} // Truyền prop xuống
+                                                            onIsTaskedChange={onIsTaskedChange}
                                                             onPreview={onPreview}
                                                             criteria={criteria}
-                                                            assessmentData={assessmentData} // assessmentData đầy đủ
-                                                            contentId={content.id} // ID của content này
-                                                            parentIndicatorId={indicator.id} // ID của chỉ tiêu cha
+                                                            assessmentData={assessmentData}
+                                                            contentId={content.id}
+                                                            parentIndicatorId={indicator.id}
                                                         />
                                                     </div>
                                                 );
@@ -155,7 +125,7 @@ const GenericCriterionComponent = ({
                                     </>
                                 ) : (
                                     <IndicatorAssessment
-                                        specialIndicatorIds={specialLogicIndicatorIds}
+                                        specialIndicatorIds={[]}
                                         specialLabels={getSpecialIndicatorLabels(indicator.id, criteria)}
                                         customBooleanLabels={getCustomBooleanLabels(indicator.id, criteria)}
                                         checkboxOptions={getCheckboxOptions(indicator.id, criteria)}
@@ -180,4 +150,3 @@ const GenericCriterionComponent = ({
 };
 
 export default GenericCriterionComponent;
-
