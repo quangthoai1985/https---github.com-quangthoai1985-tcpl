@@ -397,7 +397,12 @@ const handleNoteChange = useCallback((indicatorId: string, note: string, content
 }, []);
 
 const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus, contentId?: string) => {
-    if (fileToRemove?.url) {
+    const isLink = (file: any): file is { name: string; url: string } => {
+        return typeof file.url === 'string' && (file.url.startsWith('http://') || file.url.startsWith('https://'));
+    };
+
+    // If removing a file, check if it's a real storage file or just a link
+    if (fileToRemove?.url && !isLink(fileToRemove)) {
         try {
             await deleteFileByUrl(fileToRemove.url);
             toast({
@@ -411,7 +416,7 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
                 title: "Lỗi xóa tệp",
                 description: `Không thể xóa tệp "${fileToRemove.name}".`,
             });
-            return; // Ngăn không cập nhật state nếu xóa file lỗi
+            return; // Stop update if file deletion fails
         }
     }
 
@@ -455,7 +460,7 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
              } else {
                 fileList.push(...newFiles);
                 newFiles.forEach(file => {
-                    if (!(file instanceof File) && file.url) {
+                    if (!(file instanceof File) && file.url && !isLink(file)) {
                         unsavedFilesRef.current.push(file.url);
                     }
                 });
@@ -765,7 +770,7 @@ const handleSaveDraft = useCallback(async () => {
                                                     case 'text':
                                                         return <RenderTextIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
                                                     case 'TC1_like': // Xử lý CT1.1 và CT2.4.1
-                                                         return <div key={indicator.id}>TODO: Render TC1 Like</div>
+                                                         return <div key={indicator.id}>TODO: Render TC1 Like</div>;
                                                     default:
                                                         // Fallback nếu inputType không xác định
                                                         return (
