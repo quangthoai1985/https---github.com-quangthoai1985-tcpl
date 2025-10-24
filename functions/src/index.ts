@@ -313,6 +313,21 @@ export const verifyPDFSignature = onObjectFinalized({
   const filePath = event.data.name;
   const contentType = event.data.contentType;
   const fileName = filePath.split("/").pop() || "unknownfile";
+  
+  // Format: hoso/{communeId}/evidence/{periodId}/{indicatorId}/{docIndex}/{fileName}
+  const tc1PathRegex = /^hoso\/([^\/]+)\/evidence\/([^\/]+)\/(CT1\.[1-3])\/(\d+)\//;
+  const match = filePath.match(tc1PathRegex);
+  
+  if (!contentType || !contentType.startsWith("application/pdf") || !match) {
+    // Không log ở đây để tránh spam, vì hàm này chạy cho mọi file upload
+    return null;
+  }
+  
+  const [, communeId, periodId, indicatorId, docIndexStr] = match;
+  const docIndex = parseInt(docIndexStr, 10);
+  
+  const assessmentId = `assess_${periodId}_${communeId}`;
+  const assessmentRef = db.collection("assessments").doc(assessmentId);
 
   const saveCheckResult = async (
       status: "valid" | "expired" | "error",
@@ -332,31 +347,7 @@ export const verifyPDFSignature = onObjectFinalized({
       processedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
   };
-
-  if (!contentType || !contentType.startsWith("application/pdf")) return null;
-
-  const pathInfo = parseAssessmentPath(filePath);
-  if (!pathInfo || !pathInfo.indicatorId.startsWith("CT1")) {
-    logger.log(`File ${filePath} is not a TC01 evidence file. Skipping signature check.`);
-    return null;
-  }
   
-  if (pathInfo.isContent) {
-      logger.log(`File ${filePath} is a content file, not a TC01 document. Skipping signature check.`);
-      return null;
-  }
-
-
-  const { communeId, periodId, indicatorId } = pathInfo;
-  const docIndex = parseInt(pathInfo.subId, 10);
-  if (isNaN(docIndex)) {
-    logger.log(`Invalid docIndex from path: ${pathInfo.subId}`);
-    return null;
-  }
-
-  const assessmentId = `assess_${periodId}_${communeId}`;
-  const assessmentRef = db.collection("assessments").doc(assessmentId);
-
   const updateAssessmentFileStatus = async (
       fileStatus: "validating" | "valid" | "invalid" | "error",
       reason?: string,
@@ -427,14 +418,22 @@ export const verifyPDFSignature = onObjectFinalized({
   await updateAssessmentFileStatus("validating");
 
   try {
-    const criterionDoc = await db.collection("criteria").doc("TC01").get();
-    const assessmentDoc = await assessmentRef.get();
+    // Lấy document chỉ tiêu (CT1.1, CT1.2, hoặc CT1.3) từ subcollection
+    const indicatorDocRef = db.collection("criteria").doc("TC01").collection("indicators").doc(indicatorId);
+    const indicatorDoc = await indicatorDocRef.get();
+    if (!indicatorDoc.exists) throw new Error(`Indicator config ${indicatorId} not found in criteria/TC01/indicators.`);
+    const indicatorConfig = indicatorDoc.data() as any; // Cast to any to access dynamic properties
 
-    if (!criterionDoc.exists) throw new Error("Không tìm thấy cấu hình Tiêu chí 1.");
-    if (!assessmentDoc.exists) throw new Error(`Không tìm thấy hồ sơ đánh giá: ${assessmentId}`);
-
+    // Lấy config của Tiêu chí cha (TC01) để đọc assignmentType, documents
+    const criterionDocRef = db.collection("criteria").doc("TC01");
+    const criterionDoc = await criterionDocRef.get();
+    if (!criterionDoc.exists) throw new Error(`Criterion config TC01 not found.`);
     const criterionData = criterionDoc.data();
+    
+    const assessmentDoc = await assessmentRef.get();
+    if (!assessmentDoc.exists) throw new Error(`Không tìm thấy hồ sơ đánh giá: ${assessmentId}`);
     const assessmentData = assessmentDoc.data()?.assessmentData;
+
     const assignmentType = criterionData?.assignmentType || "specific";
 
     let issueDate: Date;
@@ -442,12 +441,13 @@ export const verifyPDFSignature = onObjectFinalized({
 
     if (assignmentType === "specific") {
       const documentConfig = criterionData?.documents?.[docIndex];
-      if (!documentConfig || !documentConfig.issueDate || !documentConfig.issuanceDeadlineDays) {
+      if (!documentConfig || !documentConfig.issueDate) {
         throw new Error(`Không tìm thấy cấu hình văn bản cụ thể cho index ${docIndex}.`);
       }
+      const issuanceDeadlineDays = documentConfig?.issuanceDeadlineDays ?? indicatorConfig?.issuanceDeadlineDays ?? 7;
       issueDate = parse(documentConfig.issueDate, "dd/MM/yyyy", new Date());
-      deadline = addDays(issueDate, documentConfig.issuanceDeadlineDays);
-    } else {
+      deadline = addDays(issueDate, issuanceDeadlineDays);
+    } else { // assignmentType === 'quantity'
       const communeDocs = assessmentData?.[indicatorId]?.communeDefinedDocuments;
       const communeDocumentConfig = Array.isArray(communeDocs) ? communeDocs[docIndex] : undefined;
       if (
@@ -490,6 +490,7 @@ export const verifyPDFSignature = onObjectFinalized({
   }
   return null;
 });
+
 
 // ===== HÀM 4: getSignedUrlForFile =====
 export const getSignedUrlForFile = onCall({ region: "asia-east1" }, async (request) => {
