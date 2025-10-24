@@ -528,9 +528,8 @@ export const verifyCT4Signature = onObjectFinalized({
   const contentType = event.data.contentType;
   const fileName = filePath.split("/").pop() || "unknownfile";
 
-  // Định dạng: hoso/{communeId}/evidence/{periodId}/{indicatorId}/{contentId}/{docIndex}/{fileName}
-  // indicatorId phải là CT033278, contentId phải là CNT033278
-  const ct4PathRegex = /^hoso\/([^\/]+)\/evidence\/([^\/]+)\/(CT033278)\/(CNT033278)\/(\d+)\//;
+  // Format: hoso/{communeId}/evidence/{periodId}/{indicatorId}/{docIndex}/{fileName}
+  const ct4PathRegex = /^hoso\/([^\/]+)\/evidence\/([^\/]+)\/(CT2\.4\.1)\/(\d+)\//;
   const match = filePath.match(ct4PathRegex);
   
   if (!contentType || !contentType.startsWith("application/pdf") || !match) {
@@ -538,7 +537,7 @@ export const verifyCT4Signature = onObjectFinalized({
     return null;
   }
   
-  const [, communeId, periodId, indicatorId, contentId, docIndexStr] = match;
+  const [, communeId, periodId, indicatorId, docIndexStr] = match;
   const docIndex = parseInt(docIndexStr, 10);
   
   const assessmentId = `assess_${periodId}_${communeId}`;
@@ -713,3 +712,4 @@ export const verifyCT4Signature = onObjectFinalized({
 
 
     
+
