@@ -80,75 +80,38 @@ function parseAssessmentPath(filePath: string):
   return null;
 }
 
-interface FileWithUrl {
-    url: string;
-}
-
-interface ContentData {
-    files?: FileWithUrl[];
-    filesPerDocument?: Record<string, FileWithUrl[]>;
-}
-
-interface IndicatorData {
-    files?: FileWithUrl[];
-    filesPerDocument?: Record<string, FileWithUrl[]>;
-    contentResults?: Record<string, ContentData>;
-}
-
-function collectAllFileUrls(assessmentData: unknown): Set<string> {
-  const urls = new Set<string>();
-  if (!assessmentData || typeof assessmentData !== 'object') return urls;
-
-  const data = assessmentData as Record<string, unknown>;
-
-  for (const indicatorId in data) {
-    const indicator = data[indicatorId] as IndicatorData;
-    if (!indicator) continue;
-
-    if (Array.isArray(indicator.files)) {
-      indicator.files.forEach((file) => {
-        if (file && typeof file.url === "string" && file.url) urls.add(file.url);
-      });
+const collectAllFileUrls = (data: admin.firestore.DocumentData | undefined): Set<string> => {
+    const urls = new Set<string>();
+    if (!data || !data.assessmentData) {
+        return urls;
     }
+    const assessmentData = data.assessmentData;
 
-    if (indicator.filesPerDocument && typeof indicator.filesPerDocument === "object") {
-      for (const docIndex in indicator.filesPerDocument) {
-        const fileList = indicator.filesPerDocument[docIndex];
-        if (Array.isArray(fileList)) {
-          fileList.forEach((file) => {
-            if (file && typeof file.url === "string" && file.url) urls.add(file.url);
-          });
-        }
-      }
-    }
+    for (const indicatorId in assessmentData) {
+        const indicator = assessmentData[indicatorId];
+        if (!indicator) continue;
 
-    if (indicator.contentResults && typeof indicator.contentResults === "object") {
-      for (const contentId in indicator.contentResults) {
-        const content = indicator.contentResults[contentId];
-        if (content && Array.isArray(content.files)) {
-          content.files.forEach((file) => {
-            if (file && typeof file.url === "string" && file.url) urls.add(file.url);
-          });
+        // 1. Check 'files' array (for simple indicators)
+        if (Array.isArray(indicator.files)) {
+            indicator.files.forEach((file: { url: string; }) => {
+                if (file && typeof file.url === 'string' && file.url) urls.add(file.url);
+            });
         }
 
-        // START: NEWLY ADDED IF BLOCK
-        // Check filesPerDocument inside contentResults (For CT4 - Content 1)
-        if (content && content.filesPerDocument && typeof content.filesPerDocument === 'object') {
-            for (const docIndex in content.filesPerDocument) {
-                const fileList = content.filesPerDocument[docIndex];
+        // 2. Check 'filesPerDocument' object (for TC1_like indicators)
+        if (indicator.filesPerDocument && typeof indicator.filesPerDocument === 'object') {
+            for (const docIndex in indicator.filesPerDocument) {
+                const fileList = indicator.filesPerDocument[docIndex];
                 if (Array.isArray(fileList)) {
-                    fileList.forEach((file) => {
+                    fileList.forEach((file: { url: string; }) => {
                         if (file && typeof file.url === 'string' && file.url) urls.add(file.url);
                     });
                 }
             }
         }
-        // END: NEWLY ADDED IF BLOCK
-      }
     }
-  }
-  return urls;
-}
+    return urls;
+};
 
 // ===== HÀM 2: onAssessmentFileDeleted =====
 export const onAssessmentFileDeleted = onDocumentUpdated({
@@ -162,8 +125,8 @@ export const onAssessmentFileDeleted = onDocumentUpdated({
     return null;
   }
 
-  const filesBefore = collectAllFileUrls(dataBefore.assessmentData);
-  const filesAfter = collectAllFileUrls(dataAfter.assessmentData);
+  const filesBefore = collectAllFileUrls(dataBefore);
+  const filesAfter = collectAllFileUrls(dataAfter);
 
   const deletionPromises: Promise<void>[] = [];
   const bucket = admin.storage().bucket();
@@ -697,4 +660,5 @@ export const verifyCT4Signature = onObjectFinalized({
   }
   return null;
 });
+
 
