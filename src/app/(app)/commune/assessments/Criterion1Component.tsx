@@ -47,17 +47,6 @@ const Criterion1Component = ({
 }) => {
     const firstIndicatorId = criterion.indicators?.[0]?.id;
     
-    // This state is now managed in the parent page.tsx
-    // const [communeDefinedDocs, setCommuneDefinedDocs] = useState<any[]>([]);
-
-    // useEffect(() => {
-    //     const initialDocs = assessmentData[firstIndicatorId]?.communeDefinedDocuments;
-    //     if(Array.isArray(initialDocs)) {
-    //         setCommuneDefinedDocs(initialDocs);
-    //     }
-    // }, [assessmentData, firstIndicatorId]);
-
-
     if (!firstIndicatorId || !assessmentData || !assessmentData[firstIndicatorId]) {
          return null;
     }
@@ -84,27 +73,6 @@ const Criterion1Component = ({
         criterionStatus === 'pending' && 'bg-amber-100 hover:bg-amber-200/80',
     );
     
-    // These functions are now managed by the parent page.tsx
-    // const handleLocalDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    //     const count = Math.max(0, Number(e.target.value));
-    //     const currentDocs = communeDefinedDocs || [];
-    //     const newDocs = Array.from({ length: count }, (_, i) =>
-    //         currentDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 }
-    //     );
-    //     setCommuneDefinedDocs(newDocs);
-    //     handleCommuneDocsChange(firstIndicatorId, newDocs);
-    // };
-
-    // const handleLocalDocDetailChange = (index: number, field: string, value: string | number) => {
-    //     const currentDocs = communeDefinedDocs || [];
-    //     const newDocs = [...currentDocs];
-    //     if (newDocs[index]) {
-    //         (newDocs[index] as any)[field] = value;
-    //         setCommuneDefinedDocs(newDocs);
-    //         handleCommuneDocsChange(firstIndicatorId, newDocs);
-    //     }
-    // };
-
 
     return (
         <AccordionItem value={criterion.id} key={criterion.id}>
@@ -148,7 +116,14 @@ const Criterion1Component = ({
                                          {assignmentType === 'quantity' && (!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) && (
                                             <div className="grid gap-2 p-3 border rounded-md bg-background">
                                                 <Label htmlFor="communeDocCount">Tổng số VBQPPL đã ban hành</Label>
-                                                <Input id="communeDocCount" type="number" value={Array.isArray(docsToRender) ? docsToRender.length : 0} onChange={(e) => handleCommuneDocsChange(firstIndicatorId, Array.from({length: Number(e.target.value)}))} placeholder="Nhập số lượng" className="w-48"/>
+                                                <Input 
+                                                    id="communeDocCount" 
+                                                    type="number" 
+                                                    value={assessmentData[firstIndicatorId]?.value || ''} 
+                                                    onChange={(e) => onValueChange(firstIndicatorId, e.target.value)} 
+                                                    placeholder="Nhập số lượng" 
+                                                    className="w-48"
+                                                />
                                             </div>
                                         )}
                                         {Array.isArray(docsToRender) && docsToRender.length > 0 ? (
