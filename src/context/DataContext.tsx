@@ -244,37 +244,48 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
                                 allUnsubs.push(unsub);
                                 break;
                             case 'criteria': { // Bọc trong {} để tạo scope mới
-                                // Lắng nghe thay đổi của collection criteria chính (chỉ chứa TC01, TC02, TC03)
                                 const unsubCriteria = onSnapshot(query(collection(db, colName)), async (criteriaSnapshot) => {
                                     const criteriaPromises = criteriaSnapshot.docs.map(async (criterionDoc) => {
-                                        const criterionData = criterionDoc.data() as Criterion; // Dữ liệu tiêu chí (id, name, assignmentType...)
-                                        
-                                        // Lấy tất cả documents từ subcollection 'indicators'
-                                        const indicatorsSnapshot = await getDocs(collection(criterionDoc.ref, 'indicators'));
-                                        
-                                        const indicators = indicatorsSnapshot.docs.map(indicatorDoc => indicatorDoc.data() as Indicator);
-                                        
-                                        // Gắn mảng indicators vào dữ liệu tiêu chí
+                                        const criterionData = criterionDoc.data() as Criterion;
+                                        const criterionId = criterionDoc.id; // Lấy ID để log
+                                        let indicators: Indicator[] = []; // Khởi tạo mảng rỗng
+
+                                        try {
+                                            console.log(`DataContext: Fetching indicators for ${criterionId}...`);
+                                            const indicatorsSnapshot = await getDocs(collection(criterionDoc.ref, 'indicators'));
+
+                                            if (indicatorsSnapshot.empty) {
+                                                console.warn(`DataContext: No indicators found in subcollection for ${criterionId}.`);
+                                            } else {
+                                                indicators = indicatorsSnapshot.docs.map(indicatorDoc => indicatorDoc.data() as Indicator);
+                                                console.log(`DataContext: Successfully fetched ${indicators.length} indicators for ${criterionId}.`);
+                                            }
+
+                                        } catch (error) {
+                                            console.error(`DataContext: Error fetching indicators for ${criterionId}:`, error);
+                                            // Vẫn trả về criterionData nhưng với mảng indicators rỗng
+                                            indicators = []; 
+                                        }
+
+                                        // Gắn mảng indicators (có thể rỗng nếu lỗi) vào dữ liệu tiêu chí
                                         return {
                                             ...criterionData,
-                                            indicators: indicators.sort((a, b) => (a.order || 0) - (b.order || 0)) // Sắp xếp theo thứ tự
+                                            // Đảm bảo indicators luôn là mảng, sắp xếp nếu có
+                                            indicators: indicators.sort((a, b) => (a.order || 0) - (b.order || 0)) 
                                         };
                                     });
-                                    
-                                    // Chờ tất cả promise hoàn thành và cập nhật state criteria
+
                                     const fullCriteriaData = await Promise.all(criteriaPromises);
                                     setCriteria(fullCriteriaData);
-                                    console.log("Updated criteria with indicators:", fullCriteriaData); // Thêm log để kiểm tra
-                                    
+                                    console.log("Updated criteria with indicators:", fullCriteriaData);
                                 }, (error) => {
                                     console.error("Error fetching criteria:", error);
-                                    // Optionally set criteria to an empty array or handle the error
                                     setCriteria([]);
                                 });
 
-                                allUnsubs.push(unsubCriteria); // Thêm listener chính vào danh sách hủy
+                                allUnsubs.push(unsubCriteria);
                                 break;
-                            } // Kết thúc scope của case
+                            }
                             case 'guidanceDocuments': 
                                 unsub = onSnapshot(q, (snap) => setGuidanceDocuments(snap.docs.map(d => d.data() as AppDocument))); 
                                 allUnsubs.push(unsub);
