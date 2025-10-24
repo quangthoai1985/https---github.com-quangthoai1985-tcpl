@@ -715,23 +715,23 @@ const handleSaveDraft = useCallback(async () => {
                         {criteria.map((criterion, index) => {
                             const criterionStatus = calculateCriterionStatus(criterion); 
 
-                            // Xử lý riêng cho Tiêu chí 1 nếu bạn muốn giữ component riêng
                             if (criterion.id === 'TC01') {
                                 return (
-                                    <Criterion1Component
-                                        key={criterion.id}
-                                        criterion={criterion}
-                                        criterionStatus={criterionStatus}
-                                        assessmentData={assessmentData}
-                                        onValueChange={handleValueChange}
-                                        onNoteChange={handleNoteChange}
-                                        onEvidenceChange={handleEvidenceChange}
-                                        onIsTaskedChange={handleIsTaskedChange}
-                                        onPreview={handlePreview}
-                                        periodId={activePeriod!.id}
-                                        communeId={currentUser!.communeId}
-                                        handleCommuneDocsChange={handleCommuneDocsChange}
-                                    />
+                                     <AccordionItem value={criterion.id} key={criterion.id}>
+                                         <Criterion1Component
+                                            criterion={criterion}
+                                            criterionStatus={criterionStatus}
+                                            assessmentData={assessmentData}
+                                            onValueChange={handleValueChange}
+                                            onNoteChange={handleNoteChange}
+                                            onEvidenceChange={handleEvidenceChange}
+                                            onIsTaskedChange={handleIsTaskedChange}
+                                            onPreview={handlePreview}
+                                            periodId={activePeriod!.id}
+                                            communeId={currentUser!.communeId}
+                                            handleCommuneDocsChange={handleCommuneDocsChange}
+                                        />
+                                     </AccordionItem>
                                 );
                             }
 
@@ -769,7 +769,7 @@ const handleSaveDraft = useCallback(async () => {
                                                          return <RenderCheckboxGroupIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
                                                     case 'text':
                                                         return <RenderTextIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
-                                                    case 'TC1_like': // Xử lý CT1.1 và CT2.4.1
+                                                    case 'TC1_like':
                                                          return <div key={indicator.id}>TODO: Render TC1 Like</div>;
                                                     default:
                                                         // Fallback nếu inputType không xác định
