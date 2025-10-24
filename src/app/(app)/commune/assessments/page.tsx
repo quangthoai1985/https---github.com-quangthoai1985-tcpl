@@ -765,7 +765,7 @@ const handleSaveDraft = useCallback(async () => {
                                                     case 'text':
                                                         return <RenderTextIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
                                                     case 'TC1_like': // Xử lý CT1.1 và CT2.4.1
-                                                         return <div>TODO: Render TC1 Like</div>
+                                                         return <div key={indicator.id}>TODO: Render TC1 Like</div>
                                                     default:
                                                         // Fallback nếu inputType không xác định
                                                         return (
@@ -841,4 +841,3 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
-
