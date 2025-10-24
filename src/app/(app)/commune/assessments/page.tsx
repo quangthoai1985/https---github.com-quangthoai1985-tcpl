@@ -17,13 +17,13 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { AssessmentStatus, FileWithStatus, IndicatorValue, AssessmentValues } from './types';
 import Criterion1Component from "./Criterion1Component";
-import RenderBooleanIndicator from './RenderBooleanIndicator';
-import RenderPercentageRatioIndicator from './RenderPercentageRatioIndicator';
-import RenderNumberIndicator from './RenderNumberIndicator';
-import RenderCheckboxGroupIndicator from './RenderCheckboxGroupIndicator';
-import RenderTextIndicator from "./RenderTextIndicator";
 import { cn } from "@/lib/utils";
 import StatusBadge from "./StatusBadge";
+import RenderBooleanIndicator from "./RenderBooleanIndicator";
+import RenderPercentageRatioIndicator from "./RenderPercentageRatioIndicator";
+import RenderNumberIndicator from "./RenderNumberIndicator";
+import RenderCheckboxGroupIndicator from "./RenderCheckboxGroupIndicator";
+import RenderTextIndicator from "./RenderTextIndicator";
 
 const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus[], isTasked?: boolean | null, assignedCount?: number, filesPerDocument?: { [documentIndex: number]: FileWithStatus[] }, contentId?: string): AssessmentStatus => {
     // LOGIC RIÊNG CHO NỘI DUNG 1 CỦA CHỈ TIÊU 4
@@ -620,63 +620,67 @@ const handleSaveDraft = useCallback(async () => {
   };
   
   const calculateCompositeStatus = useCallback((originalParentId: string, assessmentData: AssessmentValues): AssessmentStatus => {
-    const childIndicators = criteria.flatMap(c => c.indicators).filter(i => i.originalParentIndicatorId === originalParentId);
-    
-    if (childIndicators.length === 0) {
-        return 'pending'; // Hoặc 'achieved' nếu logic là không có con thì đạt
-    }
+      const childIndicators = criteria.flatMap(c => c.indicators).filter(i => i.originalParentIndicatorId === originalParentId);
+      
+      if (childIndicators.length === 0) {
+          return 'pending'; 
+      }
 
-    let hasPending = false;
-    for (const child of childIndicators) {
-        const childStatus = assessmentData[child.id]?.status;
-        if (childStatus === 'not-achieved') {
-            return 'not-achieved';
-        }
-        if (childStatus === 'pending') {
-            hasPending = true;
-        }
-    }
+      let hasPending = false;
+      for (const child of childIndicators) {
+          const childStatus = assessmentData[child.id]?.status;
+          if (childStatus === 'not-achieved') {
+              return 'not-achieved';
+          }
+          if (childStatus === 'pending') {
+              hasPending = true;
+          }
+      }
 
-    return hasPending ? 'pending' : 'achieved';
-}, [criteria]);
+      return hasPending ? 'pending' : 'achieved';
+  }, [criteria]);
 
 
   const calculateCriterionStatus = (criterion: Criterion): AssessmentStatus => {
-    if (!assessmentData || Object.keys(assessmentData).length === 0 || !criterion.indicators || criterion.indicators.length === 0) {
-        return 'pending';
-    }
+      if (!assessmentData || Object.keys(assessmentData).length === 0 || !criterion.indicators || criterion.indicators.length === 0) {
+          return 'pending';
+      }
 
-    if (criterion.id === 'TC01') {
-        const firstIndicatorId = criterion.indicators[0]?.id;
-        if (firstIndicatorId && assessmentData[firstIndicatorId]?.isTasked === false) {
-            return 'achieved';
-        }
-    }
+      // Xử lý riêng cho Tiêu chí 1
+      if (criterion.id === 'TC01') {
+          const firstIndicatorId = criterion.indicators[0]?.id;
+          if (firstIndicatorId && assessmentData[firstIndicatorId]?.isTasked === false) {
+              return 'achieved';
+          }
+      }
+      
+      const compositeParents = ['CT2.1', 'CT2.4', 'CT2.6', 'CT2.7', 'CT3.1', 'CT3.2'];
+      let hasPending = false;
 
-    let hasPending = false;
+      for (const indicator of criterion.indicators) {
+          // Bỏ qua các chỉ tiêu con, chúng sẽ được tính trong chỉ tiêu cha
+          if (indicator.originalParentIndicatorId) {
+              continue;
+          }
+          
+          let effectiveStatus: AssessmentStatus;
 
-    for (const indicator of criterion.indicators) {
-        if (!assessmentData[indicator.id] || !assessmentData[indicator.id].status) {
-            return 'pending';
-        }
-        
-        const status = assessmentData[indicator.id].status;
-        
-        if (status === 'not-achieved') {
-            return 'not-achieved';
-        }
+          if (compositeParents.includes(indicator.id)) {
+              effectiveStatus = calculateCompositeStatus(indicator.id, assessmentData);
+          } else {
+              effectiveStatus = assessmentData[indicator.id]?.status || 'pending';
+          }
+          
+          if (effectiveStatus === 'not-achieved') {
+              return 'not-achieved';
+          }
+          if (effectiveStatus === 'pending') {
+              hasPending = true;
+          }
+      }
 
-        if (status === 'pending') {
-            hasPending = true;
-        }
-    }
-
-    if (hasPending) {
-        return 'pending';
-    }
-
-    return 'achieved';
-};
+      return hasPending ? 'pending' : 'achieved';
+  };
 
   const handlePreview = (file: { name: string, url: string }) => {
     setPreviewFile(file);
@@ -712,6 +716,7 @@ const handleSaveDraft = useCallback(async () => {
                         {criteria.map((criterion, index) => {
                             const criterionStatus = calculateCriterionStatus(criterion); 
 
+                            // Xử lý riêng cho Tiêu chí 1 nếu bạn muốn giữ component riêng
                             if (criterion.id === 'TC01') {
                                 return (
                                      <Criterion1Component
@@ -760,12 +765,13 @@ const handleSaveDraft = useCallback(async () => {
                                                     case 'percentage_ratio':
                                                         return <RenderPercentageRatioIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
                                                     case 'number':
-                                                        return <RenderNumberIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
+                                                         return <RenderNumberIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
                                                     case 'checkbox_group':
-                                                        return <RenderCheckboxGroupIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
+                                                         return <RenderCheckboxGroupIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
                                                     case 'text':
-                                                         return <RenderTextIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
+                                                        return <RenderTextIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
                                                     default:
+                                                        // Fallback nếu inputType không xác định
                                                         return (
                                                             <div key={indicator.id} className="p-4 border rounded bg-destructive text-white">
                                                                 Lỗi: Không thể render chỉ tiêu "{indicator.name}" (ID: {indicator.id}) với inputType không xác định: {indicator.inputType}
@@ -839,4 +845,3 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
-
