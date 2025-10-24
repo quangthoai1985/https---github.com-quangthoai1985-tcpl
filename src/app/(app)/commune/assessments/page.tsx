@@ -1,4 +1,3 @@
-
 'use client'
 
 import { Accordion } from "@/components/ui/accordion";
@@ -16,6 +15,12 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { AssessmentStatus, FileWithStatus, IndicatorValue, AssessmentValues } from './types';
 import CriterionRenderer from "./CriterionRenderer";
+import RenderBooleanIndicator from "./RenderBooleanIndicator";
+import RenderPercentageRatioIndicator from "./RenderPercentageRatioIndicator";
+import RenderNumberIndicator from "./RenderNumberIndicator";
+import RenderCheckboxGroupIndicator from "./RenderCheckboxGroupIndicator";
+import RenderTextIndicator from "./RenderTextIndicator";
+import RenderTC1LikeIndicator from "./RenderTC1LikeIndicator";
 
 
 const evaluateStatus = (
@@ -178,6 +183,8 @@ export default function SelfAssessmentPage() {
   const [previewFile, setPreviewFile] = useState<{name: string, url: string} | null>(null);
 
   const unsavedFilesRef = useRef<string[]>([]);
+  
+  const [communeDefinedDocsMap, setCommuneDefinedDocsMap] = useState<Record<string, any[]>>({}); 
 
   useEffect(() => {
     return () => {
@@ -197,10 +204,16 @@ export default function SelfAssessmentPage() {
   
   const initializeState = useCallback((criteria: Criterion[], existingData?: Record<string, IndicatorResult>): AssessmentValues => {
     const initialState: AssessmentValues = {};
+    const initialCommuneDocsMap: Record<string, any[]> = {};
+
     criteria.forEach(criterion => {
         (criterion.indicators || []).forEach(indicator => {
             const savedIndicator = existingData?.[indicator.id];
             
+            if (indicator.inputType === 'TC1_like' && savedIndicator?.communeDefinedDocuments) {
+                initialCommuneDocsMap[indicator.id] = savedIndicator.communeDefinedDocuments;
+            }
+
             const contentResults: { [key: string]: IndicatorValue } = {};
             if (indicator.contents && indicator.contents.length > 0) {
                 indicator.contents.forEach(content => {
@@ -229,6 +242,8 @@ export default function SelfAssessmentPage() {
           };
         });
     });
+    
+    setCommuneDefinedDocsMap(initialCommuneDocsMap);
     return initialState;
 }, []);
 
@@ -244,6 +259,15 @@ export default function SelfAssessmentPage() {
     if (myAssessment?.assessmentData) {
         const newState = initializeState(criteria, myAssessment.assessmentData);
         setAssessmentData(newState);
+        
+        const newCommuneDocsMap: Record<string, any[]> = {};
+        for(const indicatorId in myAssessment.assessmentData) {
+            const indicatorData = myAssessment.assessmentData[indicatorId];
+            if(indicatorData.communeDefinedDocuments) {
+                 newCommuneDocsMap[indicatorId] = indicatorData.communeDefinedDocuments;
+            }
+        }
+        setCommuneDefinedDocsMap(newCommuneDocsMap);
     }
   }, [myAssessment, criteria, initializeState]);
 
@@ -404,10 +428,15 @@ const handleValueChange = useCallback((indicatorId: string, value: any, contentI
 }, [findItem, calculateCompositeStatus]);
 
 const handleCommuneDocsChange = useCallback((indicatorId: string, docs: any[]) => {
+    setCommuneDefinedDocsMap(prevMap => ({
+        ...prevMap,
+        [indicatorId]: docs,
+    }));
+    // Also update assessmentData for draft saving
     setAssessmentData(prev => ({
         ...prev,
         [indicatorId]: {
-            ...prev[indicatorId],
+            ...(prev[indicatorId] || { status: 'pending', value: null, files: [], note: '' }), // Ensure object exists
             communeDefinedDocuments: docs,
         }
     }));
@@ -764,26 +793,57 @@ const handleSaveDraft = useCallback(async () => {
                 <>
                 <CardContent>
                     <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
-                       {criteria.map((criterion) => {
+                       {criteria.map((criterion, index) => {
                           const criterionStatus = calculateCriterionStatus(criterion);
-                          return (
-                            <CriterionRenderer
-                                key={criterion.id}
-                                criterion={criterion}
-                                criterionStatus={criterionStatus}
-                                assessmentData={assessmentData}
-                                onValueChange={handleValueChange}
-                                onNoteChange={handleNoteChange}
-                                onEvidenceChange={handleEvidenceChange}
-                                onIsTaskedChange={handleIsTaskedChange}
-                                onPreview={handlePreview}
-                                criteria={criteria}
-                                periodId={activePeriod.id}
-                                communeId={currentUser.communeId}
-                                handleCommuneDocsChange={handleCommuneDocsChange}
-                                updateSingleAssessment={updateSingleAssessment}
-                            />
-                          );
+
+                            if (criterion.id === 'TC01') {
+                                const firstIndicatorId = criterion.indicators[0].id;
+                                const docsToRenderForTC1 = criterion.assignmentType === 'specific'
+                                    ? (criterion.documents || [])
+                                    : (communeDefinedDocsMap[firstIndicatorId] || []);
+                                const assignedCountForTC1 = criterion.assignedDocumentsCount || docsToRenderForTC1.length || 0;
+
+                                return (
+                                    <CriterionRenderer
+                                        key={criterion.id}
+                                        criterion={criterion}
+                                        criterionStatus={criterionStatus}
+                                        assessmentData={assessmentData}
+                                        onValueChange={handleValueChange}
+                                        onNoteChange={handleNoteChange}
+                                        onEvidenceChange={handleEvidenceChange}
+                                        onIsTaskedChange={handleIsTaskedChange}
+                                        onPreview={handlePreview}
+                                        criteria={criteria}
+                                        periodId={activePeriod!.id}
+                                        communeId={currentUser!.communeId}
+                                        handleCommuneDocsChange={handleCommuneDocsChange}
+                                        updateSingleAssessment={updateSingleAssessment}
+                                        // Specific props for TC01 moved here
+                                        docsToRender={docsToRenderForTC1}
+                                        assignedCount={assignedCountForTC1}
+                                    />
+                                );
+                            }
+
+                            return (
+                               <CriterionRenderer
+                                    key={criterion.id}
+                                    criterion={criterion}
+                                    criterionStatus={criterionStatus}
+                                    assessmentData={assessmentData}
+                                    onValueChange={handleValueChange}
+                                    onNoteChange={handleNoteChange}
+                                    onEvidenceChange={handleEvidenceChange}
+                                    onIsTaskedChange={handleIsTaskedChange}
+                                    onPreview={handlePreview}
+                                    criteria={criteria}
+                                    periodId={activePeriod!.id}
+                                    communeId={currentUser!.communeId}
+                                    handleCommuneDocsChange={handleCommuneDocsChange}
+                                    updateSingleAssessment={updateSingleAssessment}
+                                />
+                            );
                        })}
                     </Accordion>
                 </CardContent>
