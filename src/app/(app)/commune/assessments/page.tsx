@@ -15,8 +15,8 @@ import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { AssessmentStatus, FileWithStatus, IndicatorValue, AssessmentValues } from './types';
-import Criterion1Component from "./Criterion1Component";
-import GenericCriterionComponent from "./GenericCriterionComponent";
+import CriterionRenderer from "./CriterionRenderer";
+
 
 const evaluateStatus = (
     value: any,
@@ -764,48 +764,27 @@ const handleSaveDraft = useCallback(async () => {
                 <>
                 <CardContent>
                     <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
-                        {criteria.map((criterion, index) => {
-                            const criterionStatus = calculateCriterionStatus(criterion);
-                            
-                            switch(criterion.id) {
-                                case 'TC01':
-                                    return (
-                                        <Criterion1Component
-                                            key={criterion.id}
-                                            criterion={criterion}
-                                            criterionStatus={criterionStatus}
-                                            assessmentData={assessmentData}
-                                            onValueChange={handleValueChange}
-                                            onNoteChange={handleNoteChange}
-                                            onEvidenceChange={handleEvidenceChange}
-                                            onIsTaskedChange={handleIsTaskedChange}
-                                            onPreview={handlePreview}
-                                            periodId={activePeriod.id}
-                                            communeId={currentUser.communeId}
-                                            handleCommuneDocsChange={handleCommuneDocsChange}
-                                        />
-                                    );
-                                default:
-                                    return (
-                                        <GenericCriterionComponent
-                                            key={criterion.id}
-                                            criterion={criterion}
-                                            criterionStatus={criterionStatus}
-                                            assessmentData={assessmentData}
-                                            onValueChange={handleValueChange}
-                                            onNoteChange={handleNoteChange}
-                                            onEvidenceChange={handleEvidenceChange}
-                                            onIsTaskedChange={handleIsTaskedChange}
-                                            onPreview={handlePreview}
-                                            criteria={criteria}
-                                            periodId={activePeriod.id}
-                                            communeId={currentUser.communeId}
-                                            handleCommuneDocsChange={handleCommuneDocsChange}
-                                            updateSingleAssessment={updateSingleAssessment} 
-                                        />
-                                    );
-                            }
-                        })}
+                       {criteria.map((criterion) => {
+                          const criterionStatus = calculateCriterionStatus(criterion);
+                          return (
+                            <CriterionRenderer
+                                key={criterion.id}
+                                criterion={criterion}
+                                criterionStatus={criterionStatus}
+                                assessmentData={assessmentData}
+                                onValueChange={handleValueChange}
+                                onNoteChange={handleNoteChange}
+                                onEvidenceChange={handleEvidenceChange}
+                                onIsTaskedChange={handleIsTaskedChange}
+                                onPreview={handlePreview}
+                                criteria={criteria}
+                                periodId={activePeriod.id}
+                                communeId={currentUser.communeId}
+                                handleCommuneDocsChange={handleCommuneDocsChange}
+                                updateSingleAssessment={updateSingleAssessment}
+                            />
+                          );
+                       })}
                     </Accordion>
                 </CardContent>
                 <CardFooter className="flex flex-col items-end gap-4 border-t pt-6">
@@ -864,4 +843,3 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
-
