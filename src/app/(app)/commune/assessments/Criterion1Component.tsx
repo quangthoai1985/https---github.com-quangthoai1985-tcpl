@@ -28,8 +28,6 @@ const Criterion1Component = ({
     periodId,
     communeId,
     handleCommuneDocsChange,
-    docsToRender: docsToRenderFromProp,
-    assignedCount: assignedCountFromProp,
 }: {
     criterion: Criterion;
     criterionStatus: AssessmentStatus;
@@ -42,8 +40,6 @@ const Criterion1Component = ({
     periodId: string;
     communeId: string;
     handleCommuneDocsChange: (indicatorId: string, docs: any[]) => void;
-    docsToRender: any[];
-    assignedCount: number;
 }) => {
     const firstIndicatorId = criterion.indicators?.[0]?.id;
     
@@ -54,9 +50,34 @@ const Criterion1Component = ({
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
     const assignmentType = criterion.assignmentType || 'specific';
     
-    // Logic is now handled in page.tsx and passed as props
-    const docsToRender = docsToRenderFromProp;
-    const assignedCount = assignedCountFromProp;
+    // --- BẮT ĐẦU LOGIC MỚI CHO docsToRender ---
+    const docsToRender = useMemo(() => {
+        const firstIndicatorData = assessmentData[firstIndicatorId];
+        const currentCommuneDocs = firstIndicatorData?.communeDefinedDocuments || [];
+        
+        if (assignmentType === 'specific') {
+            return criterion.documents || [];
+        } else { // assignmentType === 'quantity'
+            const adminCount = criterion.assignedDocumentsCount || 0;
+            if (adminCount > 0) {
+                // Nếu Admin định số lượng, dùng communeDefinedDocs (pad nếu cần)
+                return Array.from({ length: adminCount }, (_, i) => currentCommuneDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
+            } else {
+                // Nếu Xã tự điền, dùng value từ state cha
+                const communeEnteredCount = Number(firstIndicatorData?.value || 0);
+                // Dùng communeDefinedDocs hiện có, pad nếu cần
+                return Array.from({ length: communeEnteredCount }, (_, i) => currentCommuneDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
+            }
+        }
+    // Thêm assessmentData[firstIndicatorId] vào dependencies
+    }, [assignmentType, criterion.documents, criterion.assignedDocumentsCount, assessmentData[firstIndicatorId]]); 
+    // --- KẾT THÚC LOGIC MỚI CHO docsToRender ---
+
+    // --- LOGIC MỚI CHO assignedCount ---
+    const assignedCount = useMemo(() => {
+        // Ưu tiên số lượng Admin đặt, nếu không thì dùng độ dài docsToRender (đã tính theo value xã nhập)
+        return criterion.assignedDocumentsCount || (Array.isArray(docsToRender) ? docsToRender.length : 0) || 0;
+    }, [criterion.assignedDocumentsCount, docsToRender]);
 
 
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
@@ -119,8 +140,8 @@ const Criterion1Component = ({
                                                 <Input 
                                                     id="communeDocCount" 
                                                     type="number" 
-                                                    value={assessmentData[firstIndicatorId]?.value || ''} 
-                                                    onChange={(e) => onValueChange(firstIndicatorId, e.target.value)} 
+                                                    value={assessmentData[firstIndicatorId]?.value || ''}
+                                                    onChange={(e) => onValueChange(firstIndicatorId, e.target.value)}
                                                     placeholder="Nhập số lượng" 
                                                     className="w-48"
                                                 />
