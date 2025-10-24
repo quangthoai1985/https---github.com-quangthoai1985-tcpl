@@ -718,7 +718,7 @@ const handleSaveDraft = useCallback(async () => {
                             // Xử lý riêng cho Tiêu chí 1 nếu bạn muốn giữ component riêng
                             if (criterion.id === 'TC01') {
                                 return (
-                                     <Criterion1Component
+                                    <Criterion1Component
                                         key={criterion.id}
                                         criterion={criterion}
                                         criterionStatus={criterionStatus}
