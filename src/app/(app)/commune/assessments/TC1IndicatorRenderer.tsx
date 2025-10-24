@@ -40,9 +40,9 @@ const TC1IndicatorRenderer = ({
 }) => {
 
     const valueAsNumber = Number(data.value);
-    const docsToRenderSafe = docsToRender || [];
-    const progress = (assignedCount > 0 || docsToRenderSafe.length > 0) && !isNaN(valueAsNumber)
-        ? Math.round((valueAsNumber / (assignedCount || docsToRenderSafe.length || 1)) * 100)
+    const renderLength = Array.isArray(docsToRender) ? docsToRender.length : 0;
+    const progress = (assignedCount > 0 || renderLength > 0) && !isNaN(valueAsNumber)
+        ? Math.round((valueAsNumber / (assignedCount || renderLength || 1)) * 100)
         : 0;
     const progressColor = progress >= 100 ? "bg-green-500" : "bg-yellow-500";
 
@@ -61,7 +61,6 @@ const TC1IndicatorRenderer = ({
               <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
             </div>
             
-             {/* Info Box */}
              <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
                 <div className="flex items-start gap-2 text-blue-800">
                     <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
@@ -72,7 +71,6 @@ const TC1IndicatorRenderer = ({
                 </div>
             </div>
 
-            {/* Input Số lượng */}
             <div className="grid gap-2 mt-4">
               <div className="flex items-center gap-4">
                 <Label htmlFor={`${indicator.id}-input`} className="shrink-0">
@@ -88,10 +86,10 @@ const TC1IndicatorRenderer = ({
                     value={typeof data.value === 'object' ? '' : (data.value || '')}
                     onChange={(e) => onValueChange(indicator.id, e.target.value)}
                 />
-                {(indicatorIndex === 0 && (assignedCount > 0 || docsToRenderSafe.length > 0)) && (
+                {indicatorIndex === 0 && (
                     <div className="flex-1">
                         <div className="flex justify-between items-center mb-1">
-                            <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount || docsToRenderSafe.length} được giao)</Label>
+                            <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount || renderLength} được giao)</Label>
                             <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
                         </div>
                         <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
@@ -100,7 +98,6 @@ const TC1IndicatorRenderer = ({
               </div>
             </div>
 
-            {/* Hồ sơ minh chứng */}
             <div className="grid gap-2 mt-4">
                 <Label className="font-medium">Hồ sơ minh chứng</Label>
                 <p className="text-sm text-muted-foreground">{indicator.evidenceRequirement || 'Không yêu cầu cụ thể.'}</p>
@@ -112,10 +109,10 @@ const TC1IndicatorRenderer = ({
                             <AlertTitle className="font-semibold text-amber-800">Lưu ý quan trọng</AlertTitle>
                             <AlertDescription>Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số.</AlertDescription>
                         </Alert>
-
-                        {docsToRenderSafe.length > 0 ? (
+                        
+                        {Array.isArray(docsToRender) && docsToRender.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                                {docsToRenderSafe.map((doc, docIndex) => {
+                                {docsToRender.map((doc, docIndex) => {
                                     const evidence = data.filesPerDocument?.[docIndex] || [];
                                     const isRequired = data.status !== 'pending' && data.isTasked !== false && evidence.length === 0 && Number(data.value || 0) > docIndex;
 
@@ -126,9 +123,9 @@ const TC1IndicatorRenderer = ({
                                                 indicatorId={indicator.id}
                                                 docIndex={docIndex} 
                                                 evidence={evidence} 
-                                                onUploadComplete={(docIdx, newFile) => onEvidenceChange(indicator.id, [newFile], docIdx)}
-                                                onRemove={(docIdx, fileToRemove) => onEvidenceChange(indicator.id, [], docIdx, fileToRemove)}
-                                                onAddLink={(docIdx, newLink) => onEvidenceChange(indicator.id, [newLink], docIdx)}
+                                                onUploadComplete={(docIndex, newFile) => onEvidenceChange(indicator.id, [newFile], docIndex)}
+                                                onRemove={(docIndex, fileToRemove) => onEvidenceChange(indicator.id, [], docIndex, fileToRemove)}
+                                                onAddLink={(docIndex, newLink) => onEvidenceChange(indicator.id, [newLink], docIndex)}
                                                 onPreview={onPreview} 
                                                 periodId={periodId} 
                                                 communeId={communeId} 
@@ -158,7 +155,6 @@ const TC1IndicatorRenderer = ({
                 )}
             </div>
 
-            {/* Ghi chú */}
             <div className="grid gap-2 mt-4">
                 <Label htmlFor={`note-${indicator.id}`}>Ghi chú/Giải trình</Label>
                 <textarea id={`note-${indicator.id}`} placeholder="Giải trình thêm..." value={data.note || ''} onChange={(e) => onNoteChange(indicator.id, e.target.value)} className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"/>

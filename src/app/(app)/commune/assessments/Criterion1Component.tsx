@@ -46,14 +46,16 @@ const Criterion1Component = ({
     assignedCount: number;
 }) => {
     const firstIndicatorId = criterion.indicators?.[0]?.id;
-    const [communeDefinedDocs, setCommuneDefinedDocs] = useState<any[]>([]);
+    
+    // This state is now managed in the parent page.tsx
+    // const [communeDefinedDocs, setCommuneDefinedDocs] = useState<any[]>([]);
 
-    useEffect(() => {
-        const initialDocs = assessmentData[firstIndicatorId]?.communeDefinedDocuments;
-        if(Array.isArray(initialDocs)) {
-            setCommuneDefinedDocs(initialDocs);
-        }
-    }, [assessmentData, firstIndicatorId]);
+    // useEffect(() => {
+    //     const initialDocs = assessmentData[firstIndicatorId]?.communeDefinedDocuments;
+    //     if(Array.isArray(initialDocs)) {
+    //         setCommuneDefinedDocs(initialDocs);
+    //     }
+    // }, [assessmentData, firstIndicatorId]);
 
 
     if (!firstIndicatorId || !assessmentData || !assessmentData[firstIndicatorId]) {
@@ -63,12 +65,9 @@ const Criterion1Component = ({
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
     const assignmentType = criterion.assignmentType || 'specific';
     
-    // Đảm bảo docsToRender luôn là mảng
-    const docsToRender = useMemo(() => {
-        return assignmentType === 'specific'
-            ? (criterion.documents || [])
-            : (communeDefinedDocs || []);
-    }, [assignmentType, criterion.documents, communeDefinedDocs]);
+    // Logic is now handled in page.tsx and passed as props
+    const docsToRender = docsToRenderFromProp;
+    const assignedCount = assignedCountFromProp;
 
 
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
@@ -85,30 +84,26 @@ const Criterion1Component = ({
         criterionStatus === 'pending' && 'bg-amber-100 hover:bg-amber-200/80',
     );
     
-    const handleLocalDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const count = Math.max(0, Number(e.target.value));
-        const currentDocs = communeDefinedDocs || [];
-        const newDocs = Array.from({ length: count }, (_, i) =>
-            currentDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 }
-        );
-        setCommuneDefinedDocs(newDocs);
-        handleCommuneDocsChange(firstIndicatorId, newDocs);
-    };
+    // These functions are now managed by the parent page.tsx
+    // const handleLocalDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    //     const count = Math.max(0, Number(e.target.value));
+    //     const currentDocs = communeDefinedDocs || [];
+    //     const newDocs = Array.from({ length: count }, (_, i) =>
+    //         currentDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 }
+    //     );
+    //     setCommuneDefinedDocs(newDocs);
+    //     handleCommuneDocsChange(firstIndicatorId, newDocs);
+    // };
 
-    const handleLocalDocDetailChange = (index: number, field: string, value: string | number) => {
-        const currentDocs = communeDefinedDocs || [];
-        const newDocs = [...currentDocs];
-        if (newDocs[index]) {
-            (newDocs[index] as any)[field] = value;
-            setCommuneDefinedDocs(newDocs);
-            handleCommuneDocsChange(firstIndicatorId, newDocs);
-        }
-    };
-    
-    const assignedCount = useMemo(() => {
-        const renderLength = Array.isArray(docsToRender) ? docsToRender.length : 0;
-        return criterion.assignedDocumentsCount || renderLength || 0;
-    }, [criterion.assignedDocumentsCount, docsToRender]);
+    // const handleLocalDocDetailChange = (index: number, field: string, value: string | number) => {
+    //     const currentDocs = communeDefinedDocs || [];
+    //     const newDocs = [...currentDocs];
+    //     if (newDocs[index]) {
+    //         (newDocs[index] as any)[field] = value;
+    //         setCommuneDefinedDocs(newDocs);
+    //         handleCommuneDocsChange(firstIndicatorId, newDocs);
+    //     }
+    // };
 
 
     return (
@@ -153,10 +148,10 @@ const Criterion1Component = ({
                                          {assignmentType === 'quantity' && (!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) && (
                                             <div className="grid gap-2 p-3 border rounded-md bg-background">
                                                 <Label htmlFor="communeDocCount">Tổng số VBQPPL đã ban hành</Label>
-                                                <Input id="communeDocCount" type="number" value={Array.isArray(communeDefinedDocs) ? communeDefinedDocs.length : 0} onChange={handleLocalDocCountChange} placeholder="Nhập số lượng" className="w-48"/>
+                                                <Input id="communeDocCount" type="number" value={Array.isArray(docsToRender) ? docsToRender.length : 0} onChange={(e) => handleCommuneDocsChange(firstIndicatorId, Array.from({length: Number(e.target.value)}))} placeholder="Nhập số lượng" className="w-48"/>
                                             </div>
                                         )}
-                                        {docsToRender.length > 0 ? (
+                                        {Array.isArray(docsToRender) && docsToRender.length > 0 ? (
                                             <div className="space-y-3">
                                                 {docsToRender.map((doc, index) => (
                                                     <div key={index} className="p-3 border-l-4 border-blue-300 rounded-r-md bg-background text-sm">
@@ -169,10 +164,10 @@ const Criterion1Component = ({
                                                             </div>
                                                         ) : (
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-name-${index}`}>Tên VBQPPL</Label><Input id={`doc-name-${index}`} value={doc.name} onChange={(e) => handleLocalDocDetailChange(index, 'name', e.target.value)} /></div>
-                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-excerpt-${index}`}>Trích yếu</Label><Input id={`doc-excerpt-${index}`} value={doc.excerpt} onChange={(e) => handleLocalDocDetailChange(index, 'excerpt', e.target.value)} /></div>
-                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-issuedate-${index}`}>Ngày ban hành (DD/MM/YYYY)</Label><Input id={`doc-issuedate-${index}`} value={doc.issueDate} onChange={(e) => handleLocalDocDetailChange(index, 'issueDate', e.target.value)} /></div>
-                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-deadline-${index}`}>Thời hạn (ngày)</Label><Input type="number" id={`doc-deadline-${index}`} value={doc.issuanceDeadlineDays} onChange={(e) => handleLocalDocDetailChange(index, 'issuanceDeadlineDays', Number(e.target.value))} /></div>
+                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-name-${index}`}>Tên VBQPPL</Label><Input id={`doc-name-${index}`} value={doc.name} onChange={(e) => handleCommuneDocsChange(firstIndicatorId, docsToRender.map((d, i) => i === index ? {...d, name: e.target.value} : d))} /></div>
+                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-excerpt-${index}`}>Trích yếu</Label><Input id={`doc-excerpt-${index}`} value={doc.excerpt} onChange={(e) => handleCommuneDocsChange(firstIndicatorId, docsToRender.map((d, i) => i === index ? {...d, excerpt: e.target.value} : d))} /></div>
+                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-issuedate-${index}`}>Ngày ban hành (DD/MM/YYYY)</Label><Input id={`doc-issuedate-${index}`} value={doc.issueDate} onChange={(e) => handleCommuneDocsChange(firstIndicatorId, docsToRender.map((d, i) => i === index ? {...d, issueDate: e.target.value} : d))} /></div>
+                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-deadline-${index}`}>Thời hạn (ngày)</Label><Input type="number" id={`doc-deadline-${index}`} value={doc.issuanceDeadlineDays} onChange={(e) => handleCommuneDocsChange(firstIndicatorId, docsToRender.map((d, i) => i === index ? {...d, issuanceDeadlineDays: Number(e.target.value)} : d))} /></div>
                                                             </div>
                                                         )}
                                                     </div>
