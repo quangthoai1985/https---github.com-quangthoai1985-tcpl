@@ -77,36 +77,7 @@ const Criterion1Component = ({
             onIsTaskedChange(indicator.id, !notTasked);
         });
     };
-
-    const handleUploadComplete = useCallback((indicatorId: string, docIndex: number, newFile: { name: string; url: string; }) => {
-        onEvidenceChange(indicatorId, [newFile], docIndex);
-    }, [onEvidenceChange]);
-
-    const handleAddLink = useCallback((indicatorId: string, docIndex: number, newLink: { name: string; url: string; }) => {
-        onEvidenceChange(indicatorId, [newLink], docIndex);
-    }, [onEvidenceChange]);
-
-
-    const handleRemoveFile = useCallback((indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => {
-        onEvidenceChange(indicatorId, [], docIndex, fileToRemove);
-    }, [onEvidenceChange]);
-
-    const handleLocalDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const count = Math.max(0, Number(e.target.value));
-        const newDocs = Array.from({ length: count }, (_, i) =>
-            communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 }
-        );
-        setCommuneDefinedDocs(newDocs);
-    };
-
-    const handleLocalDocDetailChange = (index: number, field: string, value: string | number) => {
-        const newDocs = [...communeDefinedDocs];
-        if(newDocs[index]) {
-            (newDocs[index] as any)[field] = value;
-            setCommuneDefinedDocs(newDocs);
-        }
-    };
-
+    
     const assignedCount = useMemo(() => {
         return criterion.assignedDocumentsCount || docsToRender.length || 0;
     }, [criterion.assignedDocumentsCount, docsToRender.length]);
@@ -161,7 +132,7 @@ const Criterion1Component = ({
                                          {assignmentType === 'quantity' && (!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) && (
                                             <div className="grid gap-2 p-3 border rounded-md bg-background">
                                                 <Label htmlFor="communeDocCount">Tổng số VBQPPL đã ban hành</Label>
-                                                <Input id="communeDocCount" type="number" value={communeDefinedDocs.length} onChange={handleLocalDocCountChange} placeholder="Nhập số lượng" className="w-48"/>
+                                                <Input id="communeDocCount" type="number" value={communeDefinedDocs.length} placeholder="Nhập số lượng" className="w-48"/>
                                             </div>
                                         )}
                                         {docsToRender.length > 0 ? (
@@ -177,10 +148,10 @@ const Criterion1Component = ({
                                                             </div>
                                                         ) : (
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-name-${index}`}>Tên VBQPPL</Label><Input id={`doc-name-${index}`} value={doc.name} onChange={(e) => handleLocalDocDetailChange(index, 'name', e.target.value)} /></div>
-                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-excerpt-${index}`}>Trích yếu</Label><Input id={`doc-excerpt-${index}`} value={doc.excerpt} onChange={(e) => handleLocalDocDetailChange(index, 'excerpt', e.target.value)} /></div>
-                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-issuedate-${index}`}>Ngày ban hành (DD/MM/YYYY)</Label><Input id={`doc-issuedate-${index}`} value={doc.issueDate} onChange={(e) => handleLocalDocDetailChange(index, 'issueDate', e.target.value)} /></div>
-                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-deadline-${index}`}>Thời hạn (ngày)</Label><Input type="number" id={`doc-deadline-${index}`} value={doc.issuanceDeadlineDays} onChange={(e) => handleLocalDocDetailChange(index, 'issuanceDeadlineDays', Number(e.target.value))} /></div>
+                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-name-${index}`}>Tên VBQPPL</Label><Input id={`doc-name-${index}`} value={doc.name} /></div>
+                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-excerpt-${index}`}>Trích yếu</Label><Input id={`doc-excerpt-${index}`} value={doc.excerpt} /></div>
+                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-issuedate-${index}`}>Ngày ban hành (DD/MM/YYYY)</Label><Input id={`doc-issuedate-${index}`} value={doc.issueDate} /></div>
+                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-deadline-${index}`}>Thời hạn (ngày)</Label><Input type="number" id={`doc-deadline-${index}`} value={doc.issuanceDeadlineDays} /></div>
                                                             </div>
                                                         )}
                                                     </div>
@@ -201,14 +172,11 @@ const Criterion1Component = ({
                                                 indicator={indicator}
                                                 indicatorIndex={indicatorIndex}
                                                 data={data}
-                                                docsToRender={docsToRender} // Truyền docsToRender đã tính toán
-                                                assignedCount={assignedCount} // Truyền assignedCount đã tính toán
+                                                docsToRender={docsToRender}
+                                                assignedCount={assignedCount}
                                                 onValueChange={onValueChange}
                                                 onNoteChange={onNoteChange}
-                                                handleUploadComplete={handleUploadComplete} // Truyền hàm helper
-                                                handleRemoveFile={handleRemoveFile}         // Truyền hàm helper
-                                                handleAddLink={handleAddLink}            // Truyền hàm helper
-                                                onEvidenceChange={onEvidenceChange}         // Truyền callback gốc
+                                                onEvidenceChange={onEvidenceChange}
                                                 onPreview={onPreview}
                                                 periodId={periodId}
                                                 communeId={communeId}

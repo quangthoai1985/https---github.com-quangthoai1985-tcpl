@@ -8,7 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { AlertTriangle, Info } from "lucide-react";
 import type { Indicator } from "@/lib/data";
 import Criterion1EvidenceUploader from "./Criterion1EvidenceUploader";
-import EvidenceUploaderComponent from "./EvidenceUploaderComponent";
+import EvidenceUploaderComponent from "./EvidenceUploaderComponent"; // Cho CT1.2, CT1.3
 import StatusBadge from "./StatusBadge";
 import type { IndicatorValue, FileWithStatus } from "./types";
 
@@ -50,19 +50,6 @@ const TC1IndicatorRenderer = ({
         data.status === 'not-achieved' && 'bg-red-50 border-red-200',
         data.status === 'pending' && 'bg-amber-50 border-amber-200'
     );
-    
-    // Bọc các callback cho Criterion1EvidenceUploader
-    const handleUploadComplete = (docIndex: number, newFile: { name: string; url: string; }) => {
-        onEvidenceChange(indicator.id, [newFile], docIndex);
-    };
-
-    const handleRemoveFile = (docIndex: number, fileToRemove: FileWithStatus) => {
-        onEvidenceChange(indicator.id, [], docIndex, fileToRemove);
-    };
-
-    const handleAddLink = (docIndex: number, newLink: { name: string; url: string; }) => {
-        onEvidenceChange(indicator.id, [newLink], docIndex);
-    };
 
     return (
          <div className={blockClasses}>
@@ -137,9 +124,9 @@ const TC1IndicatorRenderer = ({
                                                 indicatorId={indicator.id}
                                                 docIndex={docIndex} 
                                                 evidence={evidence} 
-                                                onUploadComplete={handleUploadComplete} 
-                                                onRemove={handleRemoveFile} 
-                                                onAddLink={handleAddLink}
+                                                onUploadComplete={(docIdx, newFile) => onEvidenceChange(indicator.id, [newFile], docIdx)}
+                                                onRemove={(docIdx, fileToRemove) => onEvidenceChange(indicator.id, [], docIdx, fileToRemove)}
+                                                onAddLink={(docIdx, newLink) => onEvidenceChange(indicator.id, [newLink], docIdx)}
                                                 onPreview={onPreview} 
                                                 periodId={periodId} 
                                                 communeId={communeId} 
