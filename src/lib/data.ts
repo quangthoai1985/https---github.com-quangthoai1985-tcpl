@@ -1,5 +1,4 @@
 
-
 // Define a structure for how the self-assessment data for each indicator will be stored.
 export type IndicatorResult = {
     isTasked?: boolean | null;
@@ -64,6 +63,9 @@ export type Indicator = {
   standardLevel: string;
   inputType: 'number' | 'boolean' | 'select' | 'text' | 'percentage_ratio' | 'checkbox_group' | 'TC1_like';
   evidenceRequirement?: string;
+  order?: number;
+  parentCriterionId?: string;
+  originalParentIndicatorId?: string;
   
   // Fields for Criterion 1 / Criterion 4 logic
   assignmentType?: 'quantity' | 'specific'; 
@@ -74,7 +76,6 @@ export type Indicator = {
     excerpt: string;
     issuanceDeadlineDays: number;
   }[];
-  originalParentIndicatorId?: string;
 };
 
 

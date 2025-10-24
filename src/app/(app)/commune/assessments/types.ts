@@ -27,20 +27,5 @@ export type IndicatorValue = {
         excerpt: string;
         issuanceDeadlineDays: number;
     }[] | null; // Allow null to be compatible with Firestore
-
-    // NEW FIELDS FOR N-of-M RULE
-    contentResults?: { 
-        [contentId: string]: { 
-            value: any, 
-            files: FileWithStatus[], 
-            status: 'achieved' | 'not-achieved' | 'pending', 
-            note?: string 
-        } 
-    };
-    meta?: { 
-        metCount?: number, 
-        totalCount?: number, 
-        computedAt?: string 
-    };
 };
 export type AssessmentValues = Record<string, IndicatorValue>;
