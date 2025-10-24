@@ -243,10 +243,67 @@ export default function SelfAssessmentPage() {
       return null;
   }, [criteria]);
 
-    const evaluateIndicatorByPassRule = (indicator: Indicator, contentResults: AssessmentValues[string]['contentResults']): AssessmentStatus => {
-        return 'pending';
-    };
+    const calculateCompositeStatus = useCallback((originalParentId: string, assessmentData: AssessmentValues): AssessmentStatus => {
+      const childIndicators = criteria.flatMap(c => c.indicators).filter(i => i.originalParentIndicatorId === originalParentId);
+      
+      if (childIndicators.length === 0) {
+          return 'pending'; 
+      }
 
+      let hasPending = false;
+      for (const child of childIndicators) {
+          const childStatus = assessmentData[child.id]?.status;
+          if (childStatus === 'not-achieved') {
+              return 'not-achieved';
+          }
+          if (childStatus === 'pending') {
+              hasPending = true;
+          }
+      }
+
+      return hasPending ? 'pending' : 'achieved';
+  }, [criteria]);
+
+  const calculateCriterionStatus = useCallback((criterion: Criterion): AssessmentStatus => {
+      if (!assessmentData || Object.keys(assessmentData).length === 0 || !criterion.indicators || criterion.indicators.length === 0) {
+          return 'pending';
+      }
+
+      // Xử lý riêng cho Tiêu chí 1
+      if (criterion.id === 'TC01') {
+          const firstIndicatorId = criterion.indicators[0]?.id;
+          if (firstIndicatorId && assessmentData[firstIndicatorId]?.isTasked === false) {
+              return 'achieved';
+          }
+      }
+      
+      const compositeParents = ['CT2.1', 'CT2.4', 'CT2.6', 'CT2.7', 'CT3.1', 'CT3.2'];
+      let hasPending = false;
+
+      for (const indicator of criterion.indicators) {
+          // Bỏ qua các chỉ tiêu con, chúng sẽ được tính trong chỉ tiêu cha
+          if (indicator.originalParentIndicatorId) {
+              continue;
+          }
+          
+          let effectiveStatus: AssessmentStatus;
+
+          if (compositeParents.includes(indicator.id)) {
+              effectiveStatus = calculateCompositeStatus(indicator.id, assessmentData);
+          } else {
+              effectiveStatus = assessmentData[indicator.id]?.status || 'pending';
+          }
+          
+          if (effectiveStatus === 'not-achieved') {
+              return 'not-achieved';
+          }
+          if (effectiveStatus === 'pending') {
+              hasPending = true;
+          }
+      }
+
+      return hasPending ? 'pending' : 'achieved';
+  }, [assessmentData, calculateCompositeStatus]);
 
 const handleIsTaskedChange = useCallback((id: string, isTasked: boolean) => {
     setAssessmentData(prev => {
@@ -618,69 +675,6 @@ const handleSaveDraft = useCallback(async () => {
         setIsSubmitting(false);
     }
   };
-  
-  const calculateCompositeStatus = useCallback((originalParentId: string, assessmentData: AssessmentValues): AssessmentStatus => {
-      const childIndicators = criteria.flatMap(c => c.indicators).filter(i => i.originalParentIndicatorId === originalParentId);
-      
-      if (childIndicators.length === 0) {
-          return 'pending'; 
-      }
-
-      let hasPending = false;
-      for (const child of childIndicators) {
-          const childStatus = assessmentData[child.id]?.status;
-          if (childStatus === 'not-achieved') {
-              return 'not-achieved';
-          }
-          if (childStatus === 'pending') {
-              hasPending = true;
-          }
-      }
-
-      return hasPending ? 'pending' : 'achieved';
-  }, [criteria]);
-
-
-  const calculateCriterionStatus = (criterion: Criterion): AssessmentStatus => {
-      if (!assessmentData || Object.keys(assessmentData).length === 0 || !criterion.indicators || criterion.indicators.length === 0) {
-          return 'pending';
-      }
-
-      // Xử lý riêng cho Tiêu chí 1
-      if (criterion.id === 'TC01') {
-          const firstIndicatorId = criterion.indicators[0]?.id;
-          if (firstIndicatorId && assessmentData[firstIndicatorId]?.isTasked === false) {
-              return 'achieved';
-          }
-      }
-      
-      const compositeParents = ['CT2.1', 'CT2.4', 'CT2.6', 'CT2.7', 'CT3.1', 'CT3.2'];
-      let hasPending = false;
-
-      for (const indicator of criterion.indicators) {
-          // Bỏ qua các chỉ tiêu con, chúng sẽ được tính trong chỉ tiêu cha
-          if (indicator.originalParentIndicatorId) {
-              continue;
-          }
-          
-          let effectiveStatus: AssessmentStatus;
-
-          if (compositeParents.includes(indicator.id)) {
-              effectiveStatus = calculateCompositeStatus(indicator.id, assessmentData);
-          } else {
-              effectiveStatus = assessmentData[indicator.id]?.status || 'pending';
-          }
-          
-          if (effectiveStatus === 'not-achieved') {
-              return 'not-achieved';
-          }
-          if (effectiveStatus === 'pending') {
-              hasPending = true;
-          }
-      }
-
-      return hasPending ? 'pending' : 'achieved';
-  };
 
   const handlePreview = (file: { name: string, url: string }) => {
     setPreviewFile(file);
@@ -758,7 +752,7 @@ const handleSaveDraft = useCallback(async () => {
                                                 if (!indicatorData) {
                                                     return <div key={indicator.id}>Đang tải dữ liệu chỉ tiêu {indicator.name}...</div>;
                                                 }
-
+                                        
                                                 switch (indicator.inputType) {
                                                     case 'boolean':
                                                         return <RenderBooleanIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
