@@ -1,7 +1,6 @@
-
 'use client';
 
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -27,7 +26,9 @@ const Criterion1Component = ({
     onPreview,
     periodId,
     communeId,
-    handleCommuneDocsChange
+    handleCommuneDocsChange,
+    docsToRender, // Prop mới
+    assignedCount // Prop mới
 }: {
     criterion: Criterion;
     criterionStatus: AssessmentStatus;
@@ -40,37 +41,16 @@ const Criterion1Component = ({
     periodId: string;
     communeId: string;
     handleCommuneDocsChange: (indicatorId: string, docs: any[]) => void;
+    docsToRender: any[];
+    assignedCount: number;
 }) => {
     const firstIndicatorId = criterion.indicators?.[0]?.id;
     if (!firstIndicatorId || !assessmentData || !assessmentData[firstIndicatorId]) {
+         console.log("Criterion1Component returning null due to missing data.");
          return null;
     }
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
     const assignmentType = criterion.assignmentType || 'specific';
-
-    const [communeDefinedDocs, setCommuneDefinedDocs] = useState(
-        () => assessmentData[firstIndicatorId]?.communeDefinedDocuments || []
-    );
-
-    useEffect(() => {
-        if (assignmentType === 'quantity') {
-            const adminCount = criterion.assignedDocumentsCount || 0;
-            if (adminCount > 0 && communeDefinedDocs.length !== adminCount) {
-                const newDocs = Array.from({ length: adminCount }, (_, i) =>
-                    communeDefinedDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 }
-                );
-                setCommuneDefinedDocs(newDocs);
-            }
-        }
-    }, [criterion.assignedDocumentsCount, assignmentType, communeDefinedDocs.length]);
-
-    useEffect(() => {
-        handleCommuneDocsChange(firstIndicatorId, communeDefinedDocs);
-    }, [communeDefinedDocs, firstIndicatorId, handleCommuneDocsChange]);
-
-    const docsToRender = assignmentType === 'specific'
-        ? (criterion.documents || [])
-        : communeDefinedDocs;
 
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
         const notTasked = checked === true;
@@ -79,16 +59,31 @@ const Criterion1Component = ({
         });
     };
     
-    const assignedCount = useMemo(() => {
-        return criterion.assignedDocumentsCount || docsToRender.length || 0;
-    }, [criterion.assignedDocumentsCount, docsToRender.length]);
-
      const triggerClasses = cn(
         "font-headline text-lg rounded-md px-4 transition-colors hover:no-underline",
         criterionStatus === 'achieved' && 'bg-green-100 hover:bg-green-200/80',
         criterionStatus === 'not-achieved' && 'bg-red-100 hover:bg-red-200/80',
         criterionStatus === 'pending' && 'bg-amber-100 hover:bg-amber-200/80',
     );
+    
+    // Logic để cập nhật state ở component cha khi xã tự điền
+    const handleLocalDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const count = Math.max(0, Number(e.target.value));
+        const currentDocs = docsToRender || [];
+        const newDocs = Array.from({ length: count }, (_, i) =>
+            currentDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 }
+        );
+        handleCommuneDocsChange(firstIndicatorId, newDocs);
+    };
+
+    const handleLocalDocDetailChange = (index: number, field: string, value: string | number) => {
+        const currentDocs = docsToRender || [];
+        const newDocs = [...currentDocs];
+        if (newDocs[index]) {
+            (newDocs[index] as any)[field] = value;
+            handleCommuneDocsChange(firstIndicatorId, newDocs);
+        }
+    };
 
 
     return (
@@ -133,7 +128,7 @@ const Criterion1Component = ({
                                          {assignmentType === 'quantity' && (!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) && (
                                             <div className="grid gap-2 p-3 border rounded-md bg-background">
                                                 <Label htmlFor="communeDocCount">Tổng số VBQPPL đã ban hành</Label>
-                                                <Input id="communeDocCount" type="number" value={communeDefinedDocs.length} placeholder="Nhập số lượng" className="w-48"/>
+                                                <Input id="communeDocCount" type="number" value={docsToRender.length} onChange={handleLocalDocCountChange} placeholder="Nhập số lượng" className="w-48"/>
                                             </div>
                                         )}
                                         {docsToRender.length > 0 ? (
@@ -149,10 +144,10 @@ const Criterion1Component = ({
                                                             </div>
                                                         ) : (
                                                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-name-${index}`}>Tên VBQPPL</Label><Input id={`doc-name-${index}`} value={doc.name} /></div>
-                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-excerpt-${index}`}>Trích yếu</Label><Input id={`doc-excerpt-${index}`} value={doc.excerpt} /></div>
-                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-issuedate-${index}`}>Ngày ban hành (DD/MM/YYYY)</Label><Input id={`doc-issuedate-${index}`} value={doc.issueDate} /></div>
-                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-deadline-${index}`}>Thời hạn (ngày)</Label><Input type="number" id={`doc-deadline-${index}`} value={doc.issuanceDeadlineDays} /></div>
+                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-name-${index}`}>Tên VBQPPL</Label><Input id={`doc-name-${index}`} value={doc.name} onChange={(e) => handleLocalDocDetailChange(index, 'name', e.target.value)} /></div>
+                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-excerpt-${index}`}>Trích yếu</Label><Input id={`doc-excerpt-${index}`} value={doc.excerpt} onChange={(e) => handleLocalDocDetailChange(index, 'excerpt', e.target.value)} /></div>
+                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-issuedate-${index}`}>Ngày ban hành (DD/MM/YYYY)</Label><Input id={`doc-issuedate-${index}`} value={doc.issueDate} onChange={(e) => handleLocalDocDetailChange(index, 'issueDate', e.target.value)} /></div>
+                                                                <div className="grid gap-1.5"><Label htmlFor={`doc-deadline-${index}`}>Thời hạn (ngày)</Label><Input type="number" id={`doc-deadline-${index}`} value={doc.issuanceDeadlineDays} onChange={(e) => handleLocalDocDetailChange(index, 'issuanceDeadlineDays', Number(e.target.value))} /></div>
                                                             </div>
                                                         )}
                                                     </div>
