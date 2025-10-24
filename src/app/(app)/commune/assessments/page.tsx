@@ -2,7 +2,7 @@
 
 'use client'
 
-import { Accordion } from "@/components/ui/accordion";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, AlertTriangle, Download, Eye } from "lucide-react";
@@ -17,81 +17,13 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import type { AssessmentStatus, FileWithStatus, IndicatorValue, AssessmentValues } from './types';
 import Criterion1Component from "./Criterion1Component";
-import GenericCriterionComponent from "./GenericCriterionComponent";
-
-
-const getSpecialLogicIndicatorIds = (criteria: Criterion[]): string[] => {
-    if (!criteria || criteria.length < 3) return [];
-
-    const secondCriterion = criteria[1];
-    let specialIdsFromSecondCriterion: string[] = [];
-    if (secondCriterion.indicators?.length >= 2) specialIdsFromSecondCriterion.push(secondCriterion.indicators[1].id);
-    if (secondCriterion.indicators?.length >= 3) specialIdsFromSecondCriterion.push(secondCriterion.indicators[2].id);
-    if (secondCriterion.indicators?.length > 3 && secondCriterion.indicators[3].contents?.length > 2) specialIdsFromSecondCriterion.push(secondCriterion.indicators[3].contents[2].id);
-    
-    const thirdCriterion = criteria[2];
-    let specialIdsFromThirdCriterion: string[] = [];
-    if (thirdCriterion.indicators?.length > 0 && thirdCriterion.indicators[0].contents?.length > 0) specialIdsFromThirdCriterion.push(thirdCriterion.indicators[0].contents[0].id);
-    if (thirdCriterion.indicators?.length > 0 && thirdCriterion.indicators[0].contents?.length > 1) specialIdsFromThirdCriterion.push(thirdCriterion.indicators[0].contents[1].id);
-    if (thirdCriterion.indicators?.length > 1 && thirdCriterion.indicators[1].contents?.length > 0) specialIdsFromThirdCriterion.push(thirdCriterion.indicators[1].contents[0].id);
-
-    return [...specialIdsFromSecondCriterion, ...specialIdsFromThirdCriterion];
-}
-
-const getSpecialIndicatorLabels = (indicatorId: string, criteria: Criterion[]) => {
-    if (!criteria || criteria.length < 3) return { no: 'Không được giao nhiệm vụ', yes: 'Được giao nhiệm vụ' };
-
-    const indicator3_tc2_id = criteria[1].indicators?.length >= 3 ? criteria[1].indicators[2].id : null;
-    const indicator4Criterion2Contents = criteria[1].indicators?.length > 3 ? criteria[1].indicators[3].contents : [];
-    const subIndicator3_tc2_i4_id = indicator4Criterion2Contents && indicator4Criterion2Contents.length > 2 ? indicator4Criterion2Contents[2].id : null;
-
-    const criterion3Indicator1Contents = criteria[2].indicators?.length > 0 ? criteria[2].indicators[0].contents : [];
-    const subIndicator1_tc3_i1_id = criterion3Indicator1Contents && criterion3Indicator1Contents.length > 0 ? criterion3Indicator1Contents[0].id : null;
-    const subIndicator2_tc3_i1_id = criterion3Indicator1Contents && criterion3Indicator1Contents.length > 1 ? criterion3Indicator1Contents[1].id : null;
-
-    const criterion3Indicator2Contents = criteria[2].indicators?.length > 1 ? criteria[2].indicators[1].contents : [];
-    const subIndicator1_tc3_i2_id = criterion3Indicator2Contents && criterion3Indicator2Contents.length > 0 ? criterion3Indicator2Contents[0].id : null;
-    
-    if (indicatorId === indicator3_tc2_id) return { no: "Không yêu cầu cung cấp", yes: "Có yêu cầu cung cấp" };
-    if (indicatorId === subIndicator3_tc2_i4_id) return { no: "Không phát sinh nhiệm vụ ngoài kế hoạch", yes: "Có phát sinh nhiệm vụ ngoài kế hoạch" };
-    if (indicatorId === subIndicator1_tc3_i1_id) return { no: "Không phát sinh yêu cầu thành lập", yes: "Có phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên" };
-    if (indicatorId === subIndicator2_tc3_i1_id) return { no: "Không phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên", yes: "Có phát sinh yêu cầu kiện toàn, công nhận, cho thôi hòa giải viên" };
-    if (indicatorId === subIndicator1_tc3_i2_id) return { no: "Không phát sinh vụ, việc hòa giải", yes: "Có phát sinh vụ, việc hòa giải" };
-
-    return { no: 'Không được giao nhiệm vụ', yes: 'Được giao nhiệm vụ' };
-}
-
-const getCustomBooleanLabels = (indicatorId: string, criteria: Criterion[]) => {
-    if (!criteria || criteria.length < 2) return null;
-    const criterion2 = criteria[1];
-    if (criterion2.indicators?.length > 3 && criterion2.indicators[3].contents?.length > 0) {
-        const subIndicator1_tc2_i4_id = criterion2.indicators[3].contents[0].id;
-        if (indicatorId === subIndicator1_tc2_i4_id) {
-            return { true: 'Ban hành đúng thời hạn', false: 'Ban hành không đúng thời hạn' };
-        }
-    }
-    return null;
-}
-
-const getCheckboxOptions = (indicatorId: string, criteria: Criterion[]) => {
-    if (!criteria || criteria.length < 3) return null;
-    const criterion2 = criteria[1];
-    const criterion3 = criteria[2];
-
-    if (criterion2.indicators?.length > 4) {
-        const targetIndicator = criterion2.indicators[4];
-        if (indicatorId === targetIndicator.id || targetIndicator.contents?.some(c => c.id === indicatorId)) {
-            return ["Tổ chức cuộc thi tìm hiểu pháp luật trực tuyến","Tổ chức tập huấn phổ biến kiến thức pháp luật và kỹ năng phổ biến, giáo dục pháp luật cho đội ngũ nhân lực làm công tác phổ biến, giáo dục pháp luật bằng hình thức trực tuyến","Phổ biến, giáo dục pháp luật trên Cổng Thông tin điện tử/Trang Thông tin điện tử của Hội đồng nhân dân, Uỷ ban nhân dân cấp xã và có sự kết nối với Cổng Pháp luật Quốc gia (đối với cấp xã đã có Cổng/Trang thông tin điện tử)","Sử dụng mạng xã hội và các nền tảng cộng đồng trực tuyến khác để thực hiện phổ biến, giáo dục pháp luật","Xây dựng, số hoá các tài liệu, sản phẩm truyền thông, phổ biến, giáo dục pháp luật như video clip, podcast, audio...","Xây dựng chatbox giải đáp pháp luật","Phổ biến, giáo dục pháp luật thông qua tin nhắn điện thoại","Hoạt động khác về chuyển đổi số, ứng dụng công nghệ số bảo đảm phù hợp"];
-        }
-    }
-    if (criterion3.indicators?.length > 2) {
-        const targetIndicator = criterion3.indicators[2];
-        if (indicatorId === targetIndicator.id || targetIndicator.contents?.some(c => c.id === indicatorId)) {
-            return ["Huy động đội ngũ luật sư, luật gia, Hội thẩm nhân dân, lực lượng Công an nhân dân, Bộ đội Biên phòng, báo cáo viên pháp luật, tuyên truyền viên pháp luật, lực lượng tham gia bảo vệ an ninh, trật tự ở cơ sở, người đã từng là Thẩm phán, Kiểm sát viên, Điều tra viên, người đã hoặc đang công tác trong lĩnh vực pháp luật tham gia làm hòa giải viên ở cơ sở.","Huy động đội ngũ nêu trên hỗ trợ pháp lý, tư vấn cho tổ hoà giải để giải quyết vụ, việc thuộc phạm vi hoà giải ở cơ sở.","Huy động đội ngũ nêu trên tham gia tập huấn, bồi dưỡng cho hoà giải viên.","Các hoạt động phối hợp, hỗ trợ hiệu quả của cá nhân, tổ chức khác trong triển khai công tác hòa giải ở cơ sở."];
-        }
-    }
-    return null;
-}
+import RenderBooleanIndicator from './RenderBooleanIndicator';
+import RenderPercentageRatioIndicator from './RenderPercentageRatioIndicator';
+import RenderNumberIndicator from './RenderNumberIndicator';
+import RenderCheckboxGroupIndicator from './RenderCheckboxGroupIndicator';
+import RenderTextIndicator from "./RenderTextIndicator";
+import { cn } from "@/lib/utils";
+import StatusBadge from "./StatusBadge";
 
 const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus[], isTasked?: boolean | null, assignedCount?: number, filesPerDocument?: { [documentIndex: number]: FileWithStatus[] }, contentId?: string): AssessmentStatus => {
     // LOGIC RIÊNG CHO NỘI DUNG 1 CỦA CHỈ TIÊU 4
@@ -268,21 +200,7 @@ export default function SelfAssessmentPage() {
       criteria.forEach(criterion => {
           (criterion.indicators || []).forEach(indicator => {
               const savedIndicator = existingData?.[indicator.id];
-              const hasNewContents = indicator.contents && indicator.contents.length > 0;
-
-              const contentResults: AssessmentValues[string]['contentResults'] = {};
-              if (hasNewContents) {
-                  indicator.contents!.forEach(content => {
-                      const savedContent = savedIndicator?.contentResults?.[content.id];
-                      contentResults[content.id] = {
-                          value: savedContent?.value ?? '',
-                          files: savedContent?.files ?? [],
-                          status: savedContent?.status ?? 'pending',
-                          note: savedContent?.note ?? '',
-                      };
-                  });
-              }
-
+              
               initialState[indicator.id] = {
                 isTasked: savedIndicator?.isTasked ?? null,
                 value: savedIndicator?.value ?? '',
@@ -293,7 +211,7 @@ export default function SelfAssessmentPage() {
                 adminNote: savedIndicator?.adminNote ?? '',
                 communeNote: savedIndicator?.communeNote ?? '',
                 communeDefinedDocuments: savedIndicator?.communeDefinedDocuments ?? [],
-                contentResults: contentResults,
+                contentResults: {},
                 meta: savedIndicator?.meta || {}
             };
           });
@@ -316,131 +234,54 @@ export default function SelfAssessmentPage() {
     }
   }, [myAssessment, criteria, initializeState]);
 
-  const specialLogicIndicatorIds = React.useMemo(() => getSpecialLogicIndicatorIds(criteria), [criteria]);
-
   const findIndicator = useCallback((indicatorId: string): Indicator | Content | null => {
       for (const criterion of criteria) {
           for (const indicator of (criterion.indicators || [])) {
               if (indicator.id === indicatorId) return indicator;
-              
-              if (indicator.contents) {
-                  const matchedContent = indicator.contents.find(content => content.id === indicatorId);
-                  if (matchedContent) return matchedContent;
-              }
           }
       }
       return null;
   }, [criteria]);
 
     const evaluateIndicatorByPassRule = (indicator: Indicator, contentResults: AssessmentValues[string]['contentResults']): AssessmentStatus => {
-        if (!indicator.contents || indicator.contents.length === 0 || !contentResults) {
-            return 'pending';
-        }
-
-        const passRule = indicator.passRule || { type: 'all' };
-        const totalContents = indicator.contents.length;
-        let metCount = 0;
-        let hasPending = false;
-
-        for (const content of indicator.contents) {
-            const result = contentResults[content.id];
-            if (!result || result.status === 'pending') {
-                hasPending = true;
-            } else if (result.status === 'achieved') {
-                metCount++;
-            }
-        }
-        
-        if (hasPending) return 'pending';
-
-        switch (passRule.type) {
-            case 'all':
-                return metCount === totalContents ? 'achieved' : 'not-achieved';
-            case 'atLeast':
-                return metCount >= (passRule.minCount || 1) ? 'achieved' : 'not-achieved';
-            case 'percentage':
-                 const percentage = (metCount / totalContents) * 100;
-                return percentage >= (passRule.minPercent || 100) ? 'achieved' : 'not-achieved';
-            default:
-                return 'pending';
-        }
+        return 'pending';
     };
 
 
 const handleIsTaskedChange = useCallback((id: string, isTasked: boolean) => {
-    // 'id' có thể là indicator.id (đơn giản) hoặc content.id (phức tạp)
     setAssessmentData(prev => {
-        const item = findIndicator(id); // item là Indicator hoặc Content
+        const item = findIndicator(id); 
         if (!item) return prev;
 
         const newData = { ...prev };
         
-        // Kiểm tra xem đây là Content hay Indicator
-        const parentIndicator = criteria.flatMap(c => c.indicators).find(i => i.contents?.some(c => c.id === id));
-
-        if (parentIndicator) { 
-            // ============ ĐÂY LÀ LOGIC SỬA CHO CONTENT ITEM ============
-            const contentId = id;
-            
-            // 1. Lấy dữ liệu của CHỈ TIÊU CHA
-            const parentData = { ...newData[parentIndicator.id] }; 
-            const contentResults = { ...(parentData.contentResults || {}) };
-            
-            // 2. Đảm bảo nội dung con này tồn tại trong state
-            if (contentResults[contentId]) {
-                const currentContentData = contentResults[contentId];
-                const valueToEvaluate = isTasked ? currentContentData.value : null;
-                // 'item' ở đây chính là object 'content'
-                const newStatus = evaluateStatus(valueToEvaluate, item.standardLevel, isTasked ? currentContentData.files : [], isTasked);
-                
-                // 3. Cập nhật nội dung con (thêm/cập nhật trường isTasked)
-                contentResults[contentId] = {
-                    ...currentContentData,
-                    isTasked: isTasked, 
-                    status: newStatus,
-                    value: isTasked ? currentContentData.value : null,
-                    files: isTasked ? currentContentData.files : [],
-                };
-
-                // 4. Tính toán lại trạng thái cha
-                const newParentStatus = evaluateIndicatorByPassRule(parentIndicator, contentResults);
-                
-                // 5. Cập nhật state của cha
-                newData[parentIndicator.id] = {
-                    ...parentData,
-                    contentResults: contentResults,
-                    status: newParentStatus,
-                };
-            }
-        } else { 
-            // ============ LOGIC CHO INDICATOR ĐƠN GIẢN (KHÔNG THAY ĐỔI) ============
-            const indicatorId = id;
-            const indicatorData = { ...newData[indicatorId] }; 
-            const valueToEvaluate = isTasked ? indicatorData.value : null;
-            const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
-            
-            let assignedCount;
-            if (parentCriterion?.id === 'TC01' || (parentCriterion?.id === 'TC02' && indicatorId === 'CT033278')) {
-                const tc1Data = prev[criteria[0].indicators[0].id];
-                assignedCount = (item as Indicator).assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
-            } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
-                 const tc1Data = prev[criteria[0].indicators[0].id];
-                 assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
-            }
-            
-            const files = isTasked ? indicatorData.files : [];
-            const filesPerDocument = (parentCriterion?.id === 'TC01' || indicatorId === 'CT033278') ? indicatorData.filesPerDocument : undefined;
-            const newStatus = evaluateStatus(valueToEvaluate, item.standardLevel, files, isTasked, assignedCount, filesPerDocument);
-
-            newData[indicatorId] = {
-                ...indicatorData,
-                isTasked: isTasked,
-                status: newStatus,
-                value: isTasked ? indicatorData.value : null,
-                files: isTasked ? indicatorData.files : [],
-                filesPerDocument: isTasked ? indicatorData.filesPerDocument : {},
-            };
+        const indicatorId = id;
+        const indicatorData = { ...newData[indicatorId] }; 
+        const valueToEvaluate = isTasked ? indicatorData.value : null;
+        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
+        
+        let assignedCount;
+        if (parentCriterion?.id === 'TC01' || (parentCriterion?.id === 'TC02' && indicatorId === 'CT033278')) {
+            const tc1Data = prev[criteria[0].indicators[0].id];
+            assignedCount = (item as Indicator).assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+        } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
+             const tc1Data = prev[criteria[0].indicators[0].id];
+             assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
         }
+        
+        const files = isTasked ? indicatorData.files : [];
+        const filesPerDocument = (parentCriterion?.id === 'TC01' || indicatorId === 'CT033278') ? indicatorData.filesPerDocument : undefined;
+        const newStatus = evaluateStatus(valueToEvaluate, item.standardLevel, files, isTasked, assignedCount, filesPerDocument);
+
+        newData[indicatorId] = {
+            ...indicatorData,
+            isTasked: isTasked,
+            status: newStatus,
+            value: isTasked ? indicatorData.value : null,
+            files: isTasked ? indicatorData.files : [],
+            filesPerDocument: isTasked ? indicatorData.filesPerDocument : {},
+        };
+        
         return newData;
     });
 }, [criteria, findIndicator]);
@@ -452,53 +293,27 @@ const handleValueChange = useCallback((indicatorId: string, value: any, contentI
         if (!indicator) return prev;
 
         const newData = { ...prev };
-        
-        if (contentId) { // Updating a content item within an indicator
-            const content = indicator.contents?.find(c => c.id === contentId);
-            if (!content) return prev;
+        const isTasked = prev[indicatorId].isTasked;
+        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
 
-            const contentResults = { ...(newData[indicatorId].contentResults || {}) };
-            const currentContentData = contentResults[contentId] || { files: [], status: 'pending', value: null };
-            
-            const newContentStatus = evaluateStatus(value, content.standardLevel, currentContentData.files, true, undefined, undefined, contentId);
-
-            contentResults[contentId] = {
-                ...currentContentData,
-                value: value,
-                status: newContentStatus,
-            };
-
-            const newIndicatorStatus = evaluateIndicatorByPassRule(indicator, contentResults);
-            
-            newData[indicatorId] = {
-                ...newData[indicatorId],
-                contentResults: contentResults,
-                status: newIndicatorStatus
-            };
-
-        } else { // Updating a simple indicator
-            const isTasked = prev[indicatorId].isTasked;
-            const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === indicatorId));
-
-            let assignedCount;
-            if (parentCriterion?.id === 'TC01' || (parentCriterion?.id === 'TC02' && indicatorId === 'CT033278')) {
-                 const tc1Data = prev[criteria[0].indicators[0].id];
-                 assignedCount = (indicator as Indicator).assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
-            } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
-                 const tc1Data = prev[criteria[0].indicators[0].id];
-                 assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
-            }
-
-            const filesPerDocument = (parentCriterion?.id === 'TC01' || indicatorId === 'CT033278') ? prev[indicatorId].filesPerDocument : undefined;
-            const newStatus = evaluateStatus(value, indicator.standardLevel, prev[indicatorId].files, isTasked, assignedCount, filesPerDocument);
-
-            newData[indicatorId] = {
-                ...newData[indicatorId],
-                value: value,
-                status: newStatus
-            };
+        let assignedCount;
+        if (parentCriterion?.id === 'TC01' || (parentCriterion?.id === 'TC02' && indicatorId === 'CT033278')) {
+             const tc1Data = prev[criteria[0].indicators[0].id];
+             assignedCount = (indicator as Indicator).assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
+        } else if (criteria[1]?.indicators?.[1]?.id === indicatorId) {
+             const tc1Data = prev[criteria[0].indicators[0].id];
+             assignedCount = criteria[0]?.assignedDocumentsCount || tc1Data.communeDefinedDocuments?.length || 0;
         }
 
+        const filesPerDocument = (parentCriterion?.id === 'TC01' || indicatorId === 'CT033278') ? prev[indicatorId].filesPerDocument : undefined;
+        const newStatus = evaluateStatus(value, indicator.standardLevel, prev[indicatorId].files, isTasked, assignedCount, filesPerDocument);
+
+        newData[indicatorId] = {
+            ...newData[indicatorId],
+            value: value,
+            status: newStatus
+        };
+        
         return newData;
     });
 }, [criteria, findIndicator]);
@@ -516,18 +331,10 @@ const handleCommuneDocsChange = useCallback((indicatorId: string, docs: any[]) =
 const handleNoteChange = useCallback((indicatorId: string, note: string, contentId?: string) => {
     setAssessmentData(prev => {
         const newData = { ...prev };
-        if (contentId) {
-             const contentResults = { ...(newData[indicatorId].contentResults || {}) };
-             if(contentResults[contentId]) {
-                 contentResults[contentId].note = note;
-                 newData[indicatorId] = { ...newData[indicatorId], contentResults };
-             }
-        } else {
-            newData[indicatorId] = {
-                ...newData[indicatorId],
-                note: note,
-            };
-        }
+        newData[indicatorId] = {
+            ...newData[indicatorId],
+            note: note,
+        };
         return newData;
     });
 }, []);
@@ -583,27 +390,7 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
             }
             indicatorData.status = evaluateStatus(currentValue, item.standardLevel, [], indicatorData.isTasked, assignedCount, filesPerDoc);
 
-        } else if (contentId && docIndex === undefined) {
-             const content = (item as Indicator).contents?.find(c => c.id === contentId);
-             if (!content) return prev;
-             const contentResults = { ...(indicatorData.contentResults || {}) };
-             const contentData = { ...(contentResults[contentId] || { files: [], status: 'pending', value: null }) };
-             fileList = [...(contentData.files || [])];
-             currentValue = contentData.value;
-             
-             if (fileToRemove) {
-                fileList = fileList.filter(f => f.name !== fileToRemove.name);
-             } else {
-                fileList.push(...newFiles);
-             }
-
-             const newContentStatus = evaluateStatus(currentValue, content.standardLevel, fileList, true, undefined, undefined, contentId);
-             contentResults[contentId] = { ...(contentResults[contentId] || { value: null }), files: fileList, status: newContentStatus };
-             indicatorData.contentResults = contentResults;
-             indicatorData.status = evaluateIndicatorByPassRule(item as Indicator, contentResults);
-        
         } else {
-            // Logic for other simple indicators/contents
             fileList = [...(indicatorData.files || [])];
             currentValue = indicatorData.value;
              if (fileToRemove) {
@@ -705,12 +492,10 @@ const handleSaveDraft = useCallback(async () => {
 
         await updateSingleAssessment(updatedAssessment);
 
-        // Cleanup successful uploads from unsaved ref
         currentUnsavedUrls.forEach(async (url) => {
             try {
                 await deleteFileByUrl(url);
             } catch (error) {
-                // Ignore errors if file already deleted or moved
             }
         });
 
@@ -776,22 +561,11 @@ const handleSaveDraft = useCallback(async () => {
             }
         };
         
-        if (indicator.contents && indicator.contents.length > 0) {
-            if (data.status === 'pending') allItemsAssessed = false;
-            
-            for(const content of indicator.contents) {
-                const contentResult = data.contentResults?.[content.id];
-                if (!contentResult || contentResult.status === 'pending') {
-                    allItemsAssessed = false;
-                }
-                checkEvidence(contentResult || { status: 'pending'}, content.name, false);
-            }
-        } else {
-            if (data.status === 'pending') allItemsAssessed = false;
-            const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === id));
-            const isCriterion1 = parentCriterion?.id === 'TC01' || (parentCriterion?.id === 'TC02' && id === 'CT033278');
-            checkEvidence(data, indicator.name, isCriterion1);
-        }
+        if (data.status === 'pending') allItemsAssessed = false;
+        const parentCriterion = criteria.find(c => c.indicators.some(i => i.id === id));
+        const isCriterion1 = parentCriterion?.id === 'TC01' || (parentCriterion?.id === 'TC02' && id === 'CT033278');
+        checkEvidence(data, indicator.name, isCriterion1);
+        
     }
 
     if (!allItemsAssessed) {
@@ -844,6 +618,28 @@ const handleSaveDraft = useCallback(async () => {
         setIsSubmitting(false);
     }
   };
+  
+  const calculateCompositeStatus = useCallback((originalParentId: string, assessmentData: AssessmentValues): AssessmentStatus => {
+    const childIndicators = criteria.flatMap(c => c.indicators).filter(i => i.originalParentIndicatorId === originalParentId);
+    
+    if (childIndicators.length === 0) {
+        return 'pending'; // Hoặc 'achieved' nếu logic là không có con thì đạt
+    }
+
+    let hasPending = false;
+    for (const child of childIndicators) {
+        const childStatus = assessmentData[child.id]?.status;
+        if (childStatus === 'not-achieved') {
+            return 'not-achieved';
+        }
+        if (childStatus === 'pending') {
+            hasPending = true;
+        }
+    }
+
+    return hasPending ? 'pending' : 'achieved';
+}, [criteria]);
+
 
   const calculateCriterionStatus = (criterion: Criterion): AssessmentStatus => {
     if (!assessmentData || Object.keys(assessmentData).length === 0 || !criterion.indicators || criterion.indicators.length === 0) {
@@ -914,8 +710,9 @@ const handleSaveDraft = useCallback(async () => {
                 <CardContent>
                     <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
                         {criteria.map((criterion, index) => {
-                            const criterionStatus = calculateCriterionStatus(criterion);
-                             if (index === 0) {
+                            const criterionStatus = calculateCriterionStatus(criterion); 
+
+                            if (criterion.id === 'TC01') {
                                 return (
                                      <Criterion1Component
                                         key={criterion.id}
@@ -933,27 +730,55 @@ const handleSaveDraft = useCallback(async () => {
                                     />
                                 );
                             }
+
+                            const triggerClasses = cn(
+                                "font-headline text-lg rounded-md px-4 transition-colors hover:no-underline",
+                                criterionStatus === 'achieved' && 'bg-green-100 hover:bg-green-200/80',
+                                criterionStatus === 'not-achieved' && 'bg-red-100 hover:bg-red-200/80',
+                                criterionStatus === 'pending' && 'bg-amber-100 hover:bg-amber-200/80',
+                            );
+                            
                             return (
-                                <GenericCriterionComponent
-                                    key={criterion.id}
-                                    criterion={criterion}
-                                    criterionStatus={criterionStatus}
-                                    assessmentData={assessmentData}
-                                    onValueChange={handleValueChange}
-                                    onNoteChange={handleNoteChange}
-                                    onEvidenceChange={handleEvidenceChange}
-                                    onIsTaskedChange={handleIsTaskedChange}
-                                    onPreview={handlePreview}
-                                    criteria={criteria}
-                                    specialLogicIndicatorIds={specialLogicIndicatorIds}
-                                    getSpecialIndicatorLabels={getSpecialIndicatorLabels}
-                                    getCustomBooleanLabels={getCustomBooleanLabels}
-                                    getCheckboxOptions={getCheckboxOptions}
-                                    periodId={activePeriod!.id}
-                                    communeId={currentUser!.communeId}
-                                    handleCommuneDocsChange={handleCommuneDocsChange}
-                                    updateSingleAssessment={(assessment) => updateSingleAssessment({ id: myAssessment?.id, ...assessment })}
-                                />
+                                <AccordionItem value={criterion.id} key={criterion.id}>
+                                    <AccordionTrigger className={triggerClasses}>
+                                        <div className="flex items-center gap-4 flex-1">
+                                            <StatusBadge status={criterionStatus} isCriterion={true} />
+                                            <span className="text-xl font-semibold">Tiêu chí {index + 1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</span>
+                                        </div>
+                                    </AccordionTrigger>
+                                    <AccordionContent>
+                                        <div className="space-y-8 pl-4 border-l-2 border-primary/20 ml-2 py-4">
+                                            {criterion.indicators?.map(indicator => {
+                                                const indicatorData = assessmentData[indicator.id];
+                                                if (!indicatorData) {
+                                                    return <div key={indicator.id}>Đang tải dữ liệu chỉ tiêu {indicator.name}...</div>;
+                                                }
+
+                                                switch (indicator.inputType) {
+                                                    case 'boolean':
+                                                        return <RenderBooleanIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
+                                                    case 'percentage_ratio':
+                                                        return <RenderPercentageRatioIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
+                                                    case 'number':
+                                                        return <RenderNumberIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
+                                                    case 'checkbox_group':
+                                                        return <RenderCheckboxGroupIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
+                                                    case 'text':
+                                                         return <RenderTextIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
+                                                    default:
+                                                        return (
+                                                            <div key={indicator.id} className="p-4 border rounded bg-destructive text-white">
+                                                                Lỗi: Không thể render chỉ tiêu "{indicator.name}" (ID: {indicator.id}) với inputType không xác định: {indicator.inputType}
+                                                            </div>
+                                                        );
+                                                }
+                                            })}
+                                            {(!criterion.indicators || criterion.indicators.length === 0) && (
+                                                <p className="text-sm text-muted-foreground">Không có chỉ tiêu nào cho tiêu chí này.</p>
+                                            )}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
                             );
                         })}
                     </Accordion>
