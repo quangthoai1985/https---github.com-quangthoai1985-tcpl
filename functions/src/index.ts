@@ -566,7 +566,7 @@ export const verifyCT4Signature = onObjectFinalized({
 
   const updateAssessmentFileStatus = async (
     contentId: string,
-    docIndex: number, // THÊM THAM SỐ NÀY
+    docIndex: number,
     fileStatus: "validating" | "valid" | "invalid" | "error",
     reason?: string,
   ) => {
@@ -579,17 +579,12 @@ export const verifyCT4Signature = onObjectFinalized({
               if (!data) return;
 
               const assessmentData = data.assessmentData || {};
-              // Lấy toàn bộ dữ liệu hiện có của indicator, bao gồm cả 'value'
-              const indicatorResult = assessmentData[indicatorId] || { filesPerDocument: {}, contentResults: {}, status: 'pending', value: null };
-              const existingCommuneDocs = assessmentData[indicatorId]?.communeDefinedDocuments;
-              
+              const indicatorResult = assessmentData[indicatorId] || { contentResults: {} };
               const contentResults = indicatorResult.contentResults || {};
-              const contentData = contentResults[contentId] || { files: [], status: 'pending', value: null };
-              
+              const contentData = contentResults[contentId] || { filesPerDocument: {}, status: 'pending' };
               const filesPerDocument = contentData.filesPerDocument || {};
               const fileList: { name: string, url: string, signatureStatus?: string, signatureError?: string }[] = filesPerDocument[docIndex] || [];
               
-
                let fileToUpdate = fileList.find((f) => f.name === fileName);
 
                if (!fileToUpdate) {
@@ -606,20 +601,14 @@ export const verifyCT4Signature = onObjectFinalized({
                filesPerDocument[docIndex] = fileList;
                contentData.filesPerDocument = filesPerDocument;
                
-                // BẮT ĐẦU SỬA LỖI: CẬP NHẬT TRẠNG THÁI CONTENT
                 if (fileStatus === 'valid') {
                     contentData.status = "achieved";
                 } else if (fileStatus === 'invalid' || fileStatus === 'error') {
                     contentData.status = "not-achieved";
                 }
-                // KẾT THÚC SỬA LỖI
 
                contentResults[contentId] = contentData;
                indicatorResult.contentResults = contentResults;
-
-              if (existingCommuneDocs) {
-                  indicatorResult.communeDefinedDocuments = existingCommuneDocs;
-              }
               
               transaction.set(assessmentRef, { assessmentData: { [indicatorId]: indicatorResult } }, { merge: true });
           });
@@ -631,48 +620,48 @@ export const verifyCT4Signature = onObjectFinalized({
 
 
   try {
+      // Lấy config của chỉ tiêu từ subcollection
+      const indicatorDocRef = db.collection("criteria").doc("TC02").collection("indicators").doc(indicatorId);
+      const indicatorDoc = await indicatorDocRef.get();
+      if (!indicatorDoc.exists) throw new Error(`Indicator config ${indicatorId} not found.`);
+      const indicatorConfig = indicatorDoc.data() as any;
+      
+      const contentId = indicatorConfig.contents?.[0]?.id;
+      if (!contentId) throw new Error("Could not find content ID for CT2.4.1");
+      
       await updateAssessmentFileStatus(contentId, docIndex, "validating");
       
-      // THÊM HÀM CHỜ (DELAY)
-      const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-      const MAX_RETRIES = 3; // Thử lại tối đa 3 lần
-      const RETRY_DELAY = 2000; // Chờ 2 giây giữa mỗi lần thử
-
-      let assessmentDoc: admin.firestore.DocumentSnapshot | null = null;
-      let attempt = 0;
-
-      // BẮT ĐẦU VÒNG LẶP THỬ LẠI
-      while (attempt < MAX_RETRIES && !assessmentDoc?.exists) {
-          if (attempt > 0) {
-              logger.info(`Retrying Firestore read for ${assessmentId}, attempt ${attempt + 1}/${MAX_RETRIES}...`);
-              await delay(RETRY_DELAY);
-          }
-          assessmentDoc = await assessmentRef.get();
-          attempt++;
-      }
-      // KẾT THÚC VÒNG LẶP THỬ LẠI
-
-      if (!assessmentDoc?.exists) throw new Error(`Assessment document ${assessmentId} does not exist after ${MAX_RETRIES} attempts.`);
+      const assessmentDoc = await assessmentRef.get();
+      if (!assessmentDoc.exists) throw new Error(`Assessment document ${assessmentId} does not exist.`);
       const assessmentData = assessmentDoc.data()?.assessmentData;
       if (!assessmentData) throw new Error("Assessment data is missing.");
       
-      const indicatorData = assessmentData[indicatorId];
-      if (!indicatorData) throw new Error(`Indicator data for ${indicatorId} not found.`);
+      const assignmentType = indicatorConfig.assignmentType || "specific";
 
-      // Lấy thông tin văn bản từ communeDefinedDocuments (do xã tự kê khai)
-      const communeDocs = indicatorData.communeDefinedDocuments;
-      const communeDocumentConfig = Array.isArray(communeDocs) ? communeDocs[docIndex] : undefined;
-      
-      if (!communeDocumentConfig || !communeDocumentConfig.issueDate || !communeDocumentConfig.issuanceDeadlineDays) {
-        throw new Error(`Không tìm thấy thông tin Kế hoạch do xã kê khai cho index ${docIndex}.`);
+      let issueDate: Date;
+      let deadline: Date;
+
+      if (assignmentType === "specific") {
+          const documentConfig = indicatorConfig.documents?.[docIndex];
+          if (!documentConfig || !documentConfig.issueDate) {
+              throw new Error(`Không tìm thấy cấu hình văn bản cụ thể cho index ${docIndex} trong CT2.4.1`);
+          }
+          issueDate = parse(documentConfig.issueDate, "dd/MM/yyyy", new Date());
+          const issuanceDeadlineDays = documentConfig.issuanceDeadlineDays ?? indicatorConfig.issuanceDeadlineDays ?? 7;
+          deadline = addBusinessDays(issueDate, issuanceDeadlineDays);
+      } else { // assignmentType === 'quantity'
+          const communeDocs = assessmentData[indicatorId]?.communeDefinedDocuments;
+          const communeDocumentConfig = Array.isArray(communeDocs) ? communeDocs[docIndex] : undefined;
+          if (!communeDocumentConfig || !communeDocumentConfig.issueDate || !communeDocumentConfig.issuanceDeadlineDays) {
+              throw new Error(`Không tìm thấy thông tin Kế hoạch do xã kê khai cho index ${docIndex}.`);
+          }
+          issueDate = parse(communeDocumentConfig.issueDate, "dd/MM/yyyy", new Date());
+          deadline = addBusinessDays(issueDate, communeDocumentConfig.issuanceDeadlineDays);
       }
       
-      const issueDate = parse(communeDocumentConfig.issueDate, "dd/MM/yyyy", new Date());
       if (isNaN(issueDate.getTime())) {
-          throw new Error(`Invalid provincial plan date format: ${communeDocumentConfig.issueDate}. Use DD/MM/YYYY.`);
+          throw new Error(`Invalid provincial plan date format. Use DD/MM/YYYY.`);
       }
-      
-      const deadline = addBusinessDays(issueDate, communeDocumentConfig.issuanceDeadlineDays);
 
       const bucket = admin.storage().bucket(fileBucket);
       const [fileBuffer] = await bucket.file(filePath).download();
@@ -694,7 +683,7 @@ export const verifyCT4Signature = onObjectFinalized({
           contentId,
           docIndex,
           isValid ? "valid" : "invalid",
-          isValid ? undefined : `Ký sau thời hạn ${communeDocumentConfig.issuanceDeadlineDays} ngày làm việc (Hạn chót: ${deadline.toLocaleDateString("vi-VN")})`
+          isValid ? undefined : `Ký sau thời hạn ${indicatorConfig.issuanceDeadlineDays || 7} ngày làm việc (Hạn chót: ${deadline.toLocaleDateString("vi-VN")})`
       );
   } catch (error: unknown) {
       logger.error(`[CT4 Signature] Error processing ${filePath}:`, error);
@@ -702,14 +691,10 @@ export const verifyCT4Signature = onObjectFinalized({
       const userFriendlyMessage = translateErrorMessage(message);
 
       await saveCheckResult("error", userFriendlyMessage);
-      if (contentId) {
-        await updateAssessmentFileStatus(contentId, docIndex, "error", userFriendlyMessage);
-      }
+      // We don't know contentId here if it fails early, so we can't reliably update the status.
+      // This might need a more robust error handling strategy if early failures are common.
       return null;
   }
   return null;
 });
-
-
-    
 

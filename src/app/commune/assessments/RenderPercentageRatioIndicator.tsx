@@ -8,6 +8,7 @@ import StatusBadge from './StatusBadge';
 import EvidenceUploaderComponent from './EvidenceUploaderComponent';
 import type { Indicator } from '@/lib/data';
 import type { AssessmentValues, FileWithStatus, IndicatorValue } from './types';
+import { Progress } from '@/components/ui/progress';
 
 // Component render chung cho các chỉ tiêu dạng Tỷ lệ % (2 ô input)
 const RenderPercentageRatioIndicator = ({
@@ -89,6 +90,9 @@ const RenderPercentageRatioIndicator = ({
                        <Label className="text-xs font-normal">Tỷ lệ hoàn thành</Label>
                        <p className="text-2xl font-bold">{percentage}%</p>
                      </div>
+                 </div>
+                 <div className="md:col-span-3">
+                     <Progress value={percentage} className="h-2" />
                  </div>
                   {/* Evidence */}
                  <div className="grid gap-2 mt-4">
