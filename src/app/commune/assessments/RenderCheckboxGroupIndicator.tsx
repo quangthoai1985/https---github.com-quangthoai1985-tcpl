@@ -5,33 +5,28 @@ import { Textarea } from '@/components/ui/textarea';
 import { Info } from 'lucide-react';
 import StatusBadge from './StatusBadge';
 import EvidenceUploaderComponent from './EvidenceUploaderComponent';
-import type { Indicator } from '@/lib/data';
+import type { Criterion, Indicator } from '@/lib/data';
 import type { FileWithStatus, IndicatorValue } from './types';
 import { Checkbox } from '@/components/ui/checkbox';
 
 // Function to get hardcoded options based on indicator ID
-const getCheckboxOptions = (indicatorId: string): string[] => {
+const getCheckboxOptions = (indicatorId: string, criteria: Criterion[]): string[] => {
     // ID for "Chỉ tiêu 5: Thực hiện chuyển đổi số..."
-    if (indicatorId === 'CT2.5') { 
-        return [
-            "Tổ chức cuộc thi tìm hiểu pháp luật trực tuyến", 
-            "Tổ chức tập huấn phổ biến kiến thức pháp luật và kỹ năng phổ biến, giáo dục pháp luật cho đội ngũ nhân lực làm công tác phổ biến, giáo dục pháp luật bằng hình thức trực tuyến", 
-            "Phổ biến, giáo dục pháp luật trên Cổng Thông tin điện tử/Trang Thông tin điện tử của Hội đồng nhân dân, Uỷ ban nhân dân cấp xã và có sự kết nối với Cổng Pháp luật Quốc gia (đối với cấp xã đã có Cổng/Trang thông tin điện tử)", 
-            "Sử dụng mạng xã hội và các nền tảng cộng đồng trực tuyến khác để thực hiện phổ biến, giáo dục pháp luật", 
-            "Xây dựng, số hoá các tài liệu, sản phẩm truyền thông, phổ biến, giáo dục pháp luật như video clip, podcast, audio...", 
-            "Xây dựng chatbox giải đáp pháp luật", 
-            "Phổ biến, giáo dục pháp luật thông qua tin nhắn điện thoại", 
-            "Hoạt động khác về chuyển đổi số, ứng dụng công nghệ số bảo đảm phù hợp"
-        ];
+    const criterion2 = criteria.find(c => c.id === 'TC02');
+    if (criterion2) {
+        const indicator5 = criterion2.indicators.find(i => i.id === 'CT2.5');
+        if (indicator5 && indicatorId === 'CT2.5') {
+            return indicator5.contents?.map(c => c.name) || [];
+        }
     }
+    
     // ID for "Chỉ tiêu 3: Có sự phối hợp, huy động các tổ chức..."
-    if (indicatorId === 'CT3.3') { 
-        return [
-            "Huy động đội ngũ luật sư, luật gia, Hội thẩm nhân dân, lực lượng Công an nhân dân, Bộ đội Biên phòng, báo cáo viên pháp luật, tuyên truyền viên pháp luật, lực lượng tham gia bảo vệ an ninh, trật tự ở cơ sở, người đã từng là Thẩm phán, Kiểm sát viên, Điều tra viên, người đã hoặc đang công tác trong lĩnh vực pháp luật tham gia làm hòa giải viên ở cơ sở.",
-            "Huy động đội ngũ nêu trên hỗ trợ pháp lý, tư vấn cho tổ hoà giải để giải quyết vụ, việc thuộc phạm vi hoà giải ở cơ sở.",
-            "Huy động đội ngũ nêu trên tham gia tập huấn, bồi dưỡng cho hoà giải viên.",
-            "Các hoạt động phối hợp, hỗ trợ hiệu quả của cá nhân, tổ chức khác trong triển khai công tác hòa giải ở cơ sở."
-        ];
+    const criterion3 = criteria.find(c => c.id === 'TC03');
+     if (criterion3) {
+        const indicator3 = criterion3.indicators.find(i => i.id === 'CT3.3');
+        if (indicator3 && indicatorId === 'CT3.3') {
+             return indicator3.contents?.map(c => c.name) || [];
+        }
     }
     return [];
 };
@@ -44,7 +39,8 @@ const RenderCheckboxGroupIndicator = ({
     onValueChange,
     onNoteChange,
     onEvidenceChange,
-    onPreview
+    onPreview,
+    criteria
 }: {
     indicator: Indicator;
     data: IndicatorValue;
@@ -52,9 +48,10 @@ const RenderCheckboxGroupIndicator = ({
     onNoteChange: (id: string, note: string) => void;
     onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => void;
     onPreview: (file: { name: string; url: string; }) => void;
+    criteria: Criterion[];
 }) => {
 
-    const checkboxOptions = getCheckboxOptions(indicator.id);
+    const checkboxOptions = getCheckboxOptions(indicator.id, criteria);
     const valueObj = (typeof data.value === 'object' && data.value !== null && !Array.isArray(data.value)) ? data.value : {};
 
     const handleCheckboxChange = (option: string, checked: boolean) => {
@@ -132,3 +129,5 @@ const RenderCheckboxGroupIndicator = ({
 };
 
 export default RenderCheckboxGroupIndicator;
+
+    

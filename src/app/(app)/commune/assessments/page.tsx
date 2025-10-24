@@ -23,6 +23,7 @@ import RenderPercentageRatioIndicator from "./RenderPercentageRatioIndicator";
 import RenderNumberIndicator from "./RenderNumberIndicator";
 import RenderCheckboxGroupIndicator from "./RenderCheckboxGroupIndicator";
 import RenderTextIndicator from "./RenderTextIndicator";
+import RenderTC1LikeIndicator from "./RenderTC1LikeIndicator";
 
 
 const evaluateStatus = (value: any, standardLevel: string, files: FileWithStatus[], isTasked?: boolean | null, assignedCount?: number, filesPerDocument?: { [documentIndex: number]: FileWithStatus[] }, contentId?: string): AssessmentStatus => {
@@ -715,7 +716,7 @@ const handleSaveDraft = useCallback(async () => {
                         {criteria.map((criterion, index) => {
                             const criterionStatus = calculateCriterionStatus(criterion); 
 
-                            if (criterion.id === 'TC01') {
+                             if (criterion.id === 'TC01') {
                                 return (
                                      <AccordionItem value={criterion.id} key={criterion.id}>
                                          <Criterion1Component
@@ -766,11 +767,26 @@ const handleSaveDraft = useCallback(async () => {
                                                     case 'number':
                                                          return <RenderNumberIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
                                                     case 'checkbox_group':
-                                                         return <RenderCheckboxGroupIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
+                                                         return <RenderCheckboxGroupIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} criteria={criteria} />;
                                                     case 'text':
                                                         return <RenderTextIndicator key={indicator.id} indicator={indicator} data={indicatorData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />;
-                                                    case 'TC1_like':
-                                                         return <div key={indicator.id}>TODO: Render TC1 Like</div>;
+                                                    case 'TC1_like': // Xử lý CT1.1, CT1.2, CT1.3, CT2.4.1
+                                                         return (
+                                                            <RenderTC1LikeIndicator // Gọi component chuyên biệt
+                                                                key={indicator.id}
+                                                                indicator={indicator} // Truyền indicator chứa config (assignmentType...)
+                                                                data={indicatorData} // Truyền data chứa value, filesPerDocument...
+                                                                assessmentData={assessmentData} // Truyền assessmentData đầy đủ
+                                                                onValueChange={handleValueChange}
+                                                                onNoteChange={handleNoteChange}
+                                                                onEvidenceChange={handleEvidenceChange}
+                                                                onIsTaskedChange={handleIsTaskedChange} // Cần prop này
+                                                                onPreview={handlePreview}
+                                                                periodId={activePeriod!.id}
+                                                                communeId={currentUser!.communeId}
+                                                                handleCommuneDocsChange={handleCommuneDocsChange} // Cần prop này
+                                                            />
+                                                         );
                                                     default:
                                                         // Fallback nếu inputType không xác định
                                                         return (
@@ -846,3 +862,5 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
+
+    
