@@ -716,23 +716,24 @@ const handleSaveDraft = useCallback(async () => {
                         {criteria.map((criterion, index) => {
                             const criterionStatus = calculateCriterionStatus(criterion); 
 
-                             if (criterion.id === 'TC01') {
+                            // Xử lý riêng cho Tiêu chí 1 nếu bạn muốn giữ component riêng
+                            if (criterion.id === 'TC01') {
                                 return (
-                                     <AccordionItem value={criterion.id} key={criterion.id}>
-                                         <Criterion1Component
-                                            criterion={criterion}
-                                            criterionStatus={criterionStatus}
-                                            assessmentData={assessmentData}
-                                            onValueChange={handleValueChange}
-                                            onNoteChange={handleNoteChange}
-                                            onEvidenceChange={handleEvidenceChange}
-                                            onIsTaskedChange={handleIsTaskedChange}
-                                            onPreview={handlePreview}
-                                            periodId={activePeriod!.id}
-                                            communeId={currentUser!.communeId}
-                                            handleCommuneDocsChange={handleCommuneDocsChange}
-                                        />
-                                     </AccordionItem>
+                                    // Return trực tiếp Criterion1Component, không cần AccordionItem ở đây
+                                    <Criterion1Component
+                                        key={criterion.id} // Key đặt ở đây
+                                        criterion={criterion}
+                                        criterionStatus={criterionStatus}
+                                        assessmentData={assessmentData}
+                                        onValueChange={handleValueChange}
+                                        onNoteChange={handleNoteChange}
+                                        onEvidenceChange={handleEvidenceChange}
+                                        onIsTaskedChange={handleIsTaskedChange}
+                                        onPreview={handlePreview}
+                                        periodId={activePeriod!.id}
+                                        communeId={currentUser!.communeId}
+                                        handleCommuneDocsChange={handleCommuneDocsChange}
+                                    />
                                 );
                             }
 
@@ -862,5 +863,3 @@ const handleSaveDraft = useCallback(async () => {
     </>
   );
 }
-
-    
