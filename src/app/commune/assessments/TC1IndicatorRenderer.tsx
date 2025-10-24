@@ -8,22 +8,19 @@ import { Progress } from "@/components/ui/progress";
 import { AlertTriangle, Info } from "lucide-react";
 import type { Indicator } from "@/lib/data";
 import Criterion1EvidenceUploader from "./Criterion1EvidenceUploader";
-import EvidenceUploaderComponent from "./EvidenceUploaderComponent"; // Cho CT1.2, CT1.3
+import EvidenceUploaderComponent from "./EvidenceUploaderComponent";
 import StatusBadge from "./StatusBadge";
 import type { IndicatorValue, FileWithStatus } from "./types";
 
 const TC1IndicatorRenderer = ({
     indicator,
-    indicatorIndex, // Cần index để phân biệt CT1.1 với CT1.2/1.3
+    indicatorIndex,
     data,
     docsToRender,
     assignedCount,
     onValueChange,
     onNoteChange,
-    handleUploadComplete, // Callback đã được bọc
-    handleRemoveFile,     // Callback đã được bọc
-    handleAddLink,        // Callback đã được bọc
-    onEvidenceChange,     // Callback gốc cho CT1.2/1.3
+    onEvidenceChange,
     onPreview,
     periodId,
     communeId
@@ -35,9 +32,6 @@ const TC1IndicatorRenderer = ({
     assignedCount: number;
     onValueChange: (id: string, value: any) => void;
     onNoteChange: (id: string, note: string) => void;
-    handleUploadComplete: (docIndex: number, newFile: { name: string; url: string; }) => void;
-    handleRemoveFile: (docIndex: number, fileToRemove: FileWithStatus) => void;
-    handleAddLink: (docIndex: number, newLink: { name: string; url: string; }) => void;
     onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => void;
     onPreview: (file: { name: string; url: string; }) => void;
     periodId: string;
@@ -56,20 +50,29 @@ const TC1IndicatorRenderer = ({
         data.status === 'not-achieved' && 'bg-red-50 border-red-200',
         data.status === 'pending' && 'bg-amber-50 border-amber-200'
     );
+    
+    // Bọc các callback cho Criterion1EvidenceUploader
+    const handleUploadComplete = (docIndex: number, newFile: { name: string; url: string; }) => {
+        onEvidenceChange(indicator.id, [newFile], docIndex);
+    };
 
-     // Mặc định deadline cho hiển thị (logic tính toán nằm ở backend)
-    const defaultDeadline = 30; 
+    const handleRemoveFile = (docIndex: number, fileToRemove: FileWithStatus) => {
+        onEvidenceChange(indicator.id, [], docIndex, fileToRemove);
+    };
+
+    const handleAddLink = (docIndex: number, newLink: { name: string; url: string; }) => {
+        onEvidenceChange(indicator.id, [newLink], docIndex);
+    };
 
     return (
          <div className={blockClasses}>
             {/* Header */}
             <div className="flex items-center gap-2">
               <StatusBadge status={data.status} />
-              {/* Sử dụng tên của chỉ tiêu con (CT1.1, CT1.2, CT1.3) */}
               <h4 className="font-semibold text-base flex-1">{indicator.name}</h4>
             </div>
             
-             {/* Info Box (Sử dụng description, standardLevel của chỉ tiêu con) */}
+             {/* Info Box */}
              <div className="p-3 bg-blue-50/50 border-l-4 border-blue-300 rounded-r-md mt-3">
                 <div className="flex items-start gap-2 text-blue-800">
                     <Info className="h-5 w-5 mt-0.5 flex-shrink-0"/>
@@ -96,8 +99,7 @@ const TC1IndicatorRenderer = ({
                     value={typeof data.value === 'object' ? '' : (data.value || '')}
                     onChange={(e) => onValueChange(indicator.id, e.target.value)}
                 />
-                {/* Progress Bar (Chỉ hiển thị cho CT1.1 nếu cần) */}
-                {indicatorIndex === 0 && (
+                {(indicatorIndex === 0 && (assignedCount > 0 || docsToRender.length > 0)) && (
                     <div className="flex-1">
                         <div className="flex justify-between items-center mb-1">
                             <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount || docsToRender.length} được giao)</Label>
@@ -114,9 +116,7 @@ const TC1IndicatorRenderer = ({
                 <Label className="font-medium">Hồ sơ minh chứng</Label>
                 <p className="text-sm text-muted-foreground">{indicator.evidenceRequirement || 'Không yêu cầu cụ thể.'}</p>
                 
-                {/* Logic chọn Uploader */}
                 {indicatorIndex === 0 ? ( 
-                    // ----- Logic cho Chỉ tiêu 1.1 (index 0) -----
                     <>
                         <Alert variant="destructive" className="border-amber-500 text-amber-900 bg-amber-50 [&>svg]:text-amber-600">
                             <AlertTriangle className="h-4 w-4" />
@@ -127,24 +127,16 @@ const TC1IndicatorRenderer = ({
                         {docsToRender.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
                                 {docsToRender.map((doc, docIndex) => {
-                                    // Lấy evidence từ data (filesPerDocument của chỉ tiêu hiện tại)
                                     const evidence = data.filesPerDocument?.[docIndex] || [];
                                     const isRequired = data.status !== 'pending' && data.isTasked !== false && evidence.length === 0 && Number(data.value || 0) > docIndex;
 
                                     return (
                                         <div key={docIndex} className="p-3 border rounded-lg grid gap-2 bg-background">
-                                            {/* Input chi tiết khi xã tự điền */}
-                                            {(indicator.assignmentType === 'quantity' && (indicator.assignedDocumentsCount || 0) === 0) && (
-                                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4 border-b pb-4">
-                                                    {/* ... Inputs for name, excerpt, issueDate, deadline ... */}
-                                                 </div>
-                                            )}
                                             <Label className="font-medium text-center text-sm truncate">Minh chứng cho: <span className="font-bold text-primary">{doc.name || `Văn bản ${docIndex + 1}`}</span></Label>
                                             <Criterion1EvidenceUploader 
-                                                indicatorId={indicator.id} // ID của CT1.1
+                                                indicatorId={indicator.id}
                                                 docIndex={docIndex} 
                                                 evidence={evidence} 
-                                                // Dùng các hàm helper đã bọc từ cha
                                                 onUploadComplete={handleUploadComplete} 
                                                 onRemove={handleRemoveFile} 
                                                 onAddLink={handleAddLink}
@@ -153,7 +145,11 @@ const TC1IndicatorRenderer = ({
                                                 communeId={communeId} 
                                                 accept=".pdf"
                                             />
-                                            {isRequired && ( /* ... */ )}
+                                            {isRequired && (
+                                                 <p className="text-sm font-medium text-destructive mt-1">
+                                                    Yêu cầu ít nhất một minh chứng.
+                                                </p>
+                                            )}
                                         </div>
                                     )
                                 })}
@@ -163,11 +159,10 @@ const TC1IndicatorRenderer = ({
                             : <p className="text-sm text-muted-foreground">Admin chưa cấu hình văn bản cụ thể.</p>}
                     </>
                 ) : (
-                    // ----- Logic cho Chỉ tiêu 1.2 và 1.3 (index > 0) -----
                     <EvidenceUploaderComponent 
-                        indicatorId={indicator.id} // ID của CT1.2 hoặc CT1.3
-                        evidence={data.files || []} // Dùng mảng files thông thường
-                        onEvidenceChange={onEvidenceChange} // Dùng callback gốc
+                        indicatorId={indicator.id}
+                        evidence={data.files || []}
+                        onEvidenceChange={onEvidenceChange}
                         onPreview={onPreview} 
                         isRequired={data.status !== 'pending' && data.isTasked !== false && (data.files || []).length === 0}
                     />
