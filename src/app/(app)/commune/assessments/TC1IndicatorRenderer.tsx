@@ -40,8 +40,9 @@ const TC1IndicatorRenderer = ({
 }) => {
 
     const valueAsNumber = Number(data.value);
-    const progress = (assignedCount > 0 || docsToRender.length > 0) && !isNaN(valueAsNumber)
-        ? Math.round((valueAsNumber / (assignedCount || docsToRender.length || 1)) * 100)
+    const docsToRenderSafe = docsToRender || [];
+    const progress = (assignedCount > 0 || docsToRenderSafe.length > 0) && !isNaN(valueAsNumber)
+        ? Math.round((valueAsNumber / (assignedCount || docsToRenderSafe.length || 1)) * 100)
         : 0;
     const progressColor = progress >= 100 ? "bg-green-500" : "bg-yellow-500";
 
@@ -87,10 +88,10 @@ const TC1IndicatorRenderer = ({
                     value={typeof data.value === 'object' ? '' : (data.value || '')}
                     onChange={(e) => onValueChange(indicator.id, e.target.value)}
                 />
-                {(indicatorIndex === 0 && (assignedCount > 0 || docsToRender.length > 0)) && (
+                {(indicatorIndex === 0 && (assignedCount > 0 || docsToRenderSafe.length > 0)) && (
                     <div className="flex-1">
                         <div className="flex justify-between items-center mb-1">
-                            <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount || docsToRender.length} được giao)</Label>
+                            <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount || docsToRenderSafe.length} được giao)</Label>
                             <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
                         </div>
                         <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
@@ -112,9 +113,9 @@ const TC1IndicatorRenderer = ({
                             <AlertDescription>Các tệp PDF được tải lên sẽ được hệ thống tự động kiểm tra chữ ký số.</AlertDescription>
                         </Alert>
 
-                        {docsToRender.length > 0 ? (
+                        {docsToRenderSafe.length > 0 ? (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
-                                {docsToRender.map((doc, docIndex) => {
+                                {docsToRenderSafe.map((doc, docIndex) => {
                                     const evidence = data.filesPerDocument?.[docIndex] || [];
                                     const isRequired = data.status !== 'pending' && data.isTasked !== false && evidence.length === 0 && Number(data.value || 0) > docIndex;
 

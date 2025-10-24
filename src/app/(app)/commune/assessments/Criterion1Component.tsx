@@ -1,8 +1,8 @@
+
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,7 @@ import StatusBadge from "./StatusBadge";
 import type { AssessmentValues, FileWithStatus, AssessmentStatus } from "./types";
 import TC1IndicatorRenderer from './TC1IndicatorRenderer';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+
 
 const Criterion1Component = ({ 
     criterion,
@@ -27,8 +28,8 @@ const Criterion1Component = ({
     periodId,
     communeId,
     handleCommuneDocsChange,
-    docsToRender, // Prop mới
-    assignedCount // Prop mới
+    docsToRender: docsToRenderFromProp,
+    assignedCount: assignedCountFromProp,
 }: {
     criterion: Criterion;
     criterionStatus: AssessmentStatus;
@@ -45,12 +46,30 @@ const Criterion1Component = ({
     assignedCount: number;
 }) => {
     const firstIndicatorId = criterion.indicators?.[0]?.id;
+    const [communeDefinedDocs, setCommuneDefinedDocs] = useState<any[]>([]);
+
+    useEffect(() => {
+        const initialDocs = assessmentData[firstIndicatorId]?.communeDefinedDocuments;
+        if(Array.isArray(initialDocs)) {
+            setCommuneDefinedDocs(initialDocs);
+        }
+    }, [assessmentData, firstIndicatorId]);
+
+
     if (!firstIndicatorId || !assessmentData || !assessmentData[firstIndicatorId]) {
-         console.log("Criterion1Component returning null due to missing data.");
          return null;
     }
+
     const isNotTasked = assessmentData[firstIndicatorId]?.isTasked === false;
     const assignmentType = criterion.assignmentType || 'specific';
+    
+    // Đảm bảo docsToRender luôn là mảng
+    const docsToRender = useMemo(() => {
+        return assignmentType === 'specific'
+            ? (criterion.documents || [])
+            : (communeDefinedDocs || []);
+    }, [assignmentType, criterion.documents, communeDefinedDocs]);
+
 
     const handleNoTaskChange = (checked: boolean | 'indeterminate') => {
         const notTasked = checked === true;
@@ -66,24 +85,30 @@ const Criterion1Component = ({
         criterionStatus === 'pending' && 'bg-amber-100 hover:bg-amber-200/80',
     );
     
-    // Logic để cập nhật state ở component cha khi xã tự điền
     const handleLocalDocCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const count = Math.max(0, Number(e.target.value));
-        const currentDocs = docsToRender || [];
+        const currentDocs = communeDefinedDocs || [];
         const newDocs = Array.from({ length: count }, (_, i) =>
             currentDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 7 }
         );
+        setCommuneDefinedDocs(newDocs);
         handleCommuneDocsChange(firstIndicatorId, newDocs);
     };
 
     const handleLocalDocDetailChange = (index: number, field: string, value: string | number) => {
-        const currentDocs = docsToRender || [];
+        const currentDocs = communeDefinedDocs || [];
         const newDocs = [...currentDocs];
         if (newDocs[index]) {
             (newDocs[index] as any)[field] = value;
+            setCommuneDefinedDocs(newDocs);
             handleCommuneDocsChange(firstIndicatorId, newDocs);
         }
     };
+    
+    const assignedCount = useMemo(() => {
+        const renderLength = Array.isArray(docsToRender) ? docsToRender.length : 0;
+        return criterion.assignedDocumentsCount || renderLength || 0;
+    }, [criterion.assignedDocumentsCount, docsToRender]);
 
 
     return (
@@ -128,7 +153,7 @@ const Criterion1Component = ({
                                          {assignmentType === 'quantity' && (!criterion.assignedDocumentsCount || criterion.assignedDocumentsCount === 0) && (
                                             <div className="grid gap-2 p-3 border rounded-md bg-background">
                                                 <Label htmlFor="communeDocCount">Tổng số VBQPPL đã ban hành</Label>
-                                                <Input id="communeDocCount" type="number" value={docsToRender.length} onChange={handleLocalDocCountChange} placeholder="Nhập số lượng" className="w-48"/>
+                                                <Input id="communeDocCount" type="number" value={Array.isArray(communeDefinedDocs) ? communeDefinedDocs.length : 0} onChange={handleLocalDocCountChange} placeholder="Nhập số lượng" className="w-48"/>
                                             </div>
                                         )}
                                         {docsToRender.length > 0 ? (
