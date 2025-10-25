@@ -14,9 +14,13 @@ import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import { useRouter } from "next/navigation";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import type { AssessmentStatus, FileWithStatus, IndicatorValue, AssessmentValues } from './types';
+import type { AssessmentStatus, FileWithStatus, AssessmentValues } from './types';
 import Criterion1Component from "./Criterion1Component";
-
+import RenderBooleanIndicator from "./RenderBooleanIndicator";
+import RenderNumberIndicator from "./RenderNumberIndicator";
+import RenderPercentageRatioIndicator from "./RenderPercentageRatioIndicator";
+import RenderCheckboxGroupIndicator from "./RenderCheckboxGroupIndicator";
+import RenderTC1LikeIndicator from "./RenderTC1LikeIndicator";
 
 const evaluateStatus = (
     value: any,
@@ -25,7 +29,7 @@ const evaluateStatus = (
     isTasked?: boolean | null,
     assignedCount?: number,
     filesPerDocument?: { [documentIndex: number]: FileWithStatus[] },
-    inputType?: string, // Thêm inputType để xác định logic
+    inputType?: string,
 ): AssessmentStatus => {
     
     // Luôn ưu tiên trạng thái "Không được giao"
@@ -633,55 +637,53 @@ const handleSaveDraft = useCallback(async () => {
                 <CardContent>
                     <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
                        {criteria.map((criterion, index) => {
-                          const criterionStatus = calculateCriterionStatus(criterion);
-                          const firstIndicatorId = criterion.indicators[0]?.id;
+                           const criterionStatus = calculateCriterionStatus(criterion);
 
-                          if (criterion.id === 'TC01' && firstIndicatorId) {
-                                const docsToRenderForTC1 = useMemo(() => {
-                                    const firstIndicatorData = assessmentData[firstIndicatorId];
-                                    const currentCommuneDocs = firstIndicatorData?.communeDefinedDocuments || [];
-                                    
-                                    if (criterion.assignmentType === 'specific') {
-                                        return criterion.documents || [];
-                                    } else { // assignmentType === 'quantity'
-                                        const adminCount = criterion.assignedDocumentsCount || 0;
-                                        if (adminCount > 0) {
-                                            return Array.from({ length: adminCount }, (_, i) => currentCommuneDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
-                                        } else {
-                                            const communeEnteredCount = Number(firstIndicatorData?.value || 0);
-                                            return Array.from({ length: communeEnteredCount }, (_, i) => currentCommuneDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
+                           if (criterion.id === 'TC01') {
+                               const firstIndicatorId = criterion.indicators[0]?.id;
+                               if (!firstIndicatorId) return null;
+                               return (
+                                   <Criterion1Component
+                                       key={criterion.id}
+                                       criterion={criterion}
+                                       criterionStatus={criterionStatus}
+                                       assessmentData={assessmentData}
+                                       onValueChange={handleValueChange}
+                                       onNoteChange={handleNoteChange}
+                                       onEvidenceChange={handleEvidenceChange}
+                                       onIsTaskedChange={handleIsTaskedChange}
+                                       onPreview={handlePreview}
+                                       periodId={activePeriod!.id}
+                                       communeId={currentUser!.communeId}
+                                       handleCommuneDocsChange={handleCommuneDocsChange}
+                                   />
+                               );
+                           }
+                           
+                           // Fallback for other criteria
+                           return (
+                                <div key={criterion.id}>
+                                    {criterion.indicators.map(indicator => {
+                                        const data = assessmentData[indicator.id];
+                                        if (!data) return <div key={indicator.id}>Đang tải dữ liệu cho {indicator.name}...</div>
+
+                                        switch (indicator.inputType) {
+                                            case 'boolean':
+                                                return <RenderBooleanIndicator key={indicator.id} indicator={indicator} data={data} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />
+                                            case 'number':
+                                                return <RenderNumberIndicator key={indicator.id} indicator={indicator} data={data} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />
+                                            case 'percentage_ratio':
+                                                return <RenderPercentageRatioIndicator key={indicator.id} indicator={indicator} data={data} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />
+                                            case 'checkbox_group':
+                                                return <RenderCheckboxGroupIndicator key={indicator.id} indicator={indicator} data={data} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />
+                                            case 'TC1_like':
+                                                return <RenderTC1LikeIndicator key={indicator.id} indicator={indicator} data={data} assessmentData={assessmentData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onIsTaskedChange={handleIsTaskedChange} onPreview={handlePreview} periodId={activePeriod!.id} communeId={currentUser!.communeId} handleCommuneDocsChange={handleCommuneDocsChange} />
+                                            default:
+                                                return null;
                                         }
-                                    }
-                                }, [criterion.assignmentType, criterion.documents, criterion.assignedDocumentsCount, assessmentData[firstIndicatorId]]);
-
-                                const assignedCountForTC1 = useMemo(() => {
-                                    return criterion.assignedDocumentsCount || (Array.isArray(docsToRenderForTC1) ? docsToRenderForTC1.length : 0) || 0;
-                                }, [criterion.assignedDocumentsCount, docsToRenderForTC1]);
-
-                                return (
-                                    <Criterion1Component
-                                        key={criterion.id}
-                                        criterion={criterion}
-                                        criterionStatus={criterionStatus}
-                                        assessmentData={assessmentData}
-                                        onValueChange={handleValueChange}
-                                        onNoteChange={handleNoteChange}
-                                        onEvidenceChange={handleEvidenceChange}
-                                        onIsTaskedChange={handleIsTaskedChange}
-                                        onPreview={handlePreview}
-                                        periodId={activePeriod!.id}
-                                        communeId={currentUser!.communeId}
-                                        handleCommuneDocsChange={handleCommuneDocsChange}
-                                        docsToRender={docsToRenderForTC1}
-                                        assignedCount={assignedCountForTC1}
-                                    />
-                                );
-                            }
-
-                            // Fallback for other criteria - will be replaced
-                            return (
-                               <div key={criterion.id}>Render cho {criterion.name}</div>
-                            );
+                                    })}
+                                </div>
+                           )
                        })}
                     </Accordion>
                 </CardContent>
