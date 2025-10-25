@@ -23,7 +23,6 @@ export type IndicatorResult = {
     status: 'achieved' | 'not-achieved' | 'pending';
     adminNote?: string; // Ghi chú của admin cho từng chỉ tiêu
     communeNote?: string; // Nội dung giải trình của xã cho từng chỉ tiêu
-    statusByAdmin?: 'approved' | 'rejected' | 'pending'; // Trạng thái admin duyệt cho từng chỉ tiêu
     
     // Thêm trường này để lưu chi tiết văn bản do xã nhập khi admin chọn 'quantity'
     communeDefinedDocuments?: {

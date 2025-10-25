@@ -18,7 +18,6 @@ export type IndicatorValue = {
     status: AssessmentStatus;
     adminNote?: string;
     communeNote?: string;
-    statusByAdmin?: 'approved' | 'rejected' | 'pending';
     
     // Thêm trường này để lưu chi tiết văn bản do xã nhập khi admin chọn 'quantity'
     communeDefinedDocuments?: {
