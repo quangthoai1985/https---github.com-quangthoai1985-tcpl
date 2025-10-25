@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Accordion } from "@/components/ui/accordion";
@@ -305,19 +306,19 @@ const handleIsTaskedChange = useCallback((id: string, isTasked: boolean) => {
 }, [criteria]);
 
 
-const handleValueChange = useCallback((indicatorId: string, value: any) => {
+const handleValueChange = useCallback((id: string, value: any) => {
     setAssessmentData(prev => {
         const newData = { ...prev };
-        const indicatorData = { ...newData[indicatorId] };
+        const indicatorData = { ...newData[id] };
         
-        const targetItem = criteria.flatMap(c => c.indicators).find(i => i.id === indicatorId);
+        const targetItem = criteria.flatMap(c => c.indicators).find(i => i.id === id);
         const isTasked = indicatorData.isTasked;
         if (!targetItem) return prev;
 
         indicatorData.value = value;
         indicatorData.status = evaluateStatus(value, targetItem.standardLevel, indicatorData.files, isTasked, targetItem.assignedDocumentsCount, indicatorData.filesPerDocument, targetItem.inputType);
         
-        newData[indicatorId] = indicatorData;
+        newData[id] = indicatorData;
 
         return newData;
     });
@@ -633,13 +634,29 @@ const handleSaveDraft = useCallback(async () => {
                     <Accordion type="multiple" defaultValue={criteria.map(c => c.id)} className="w-full">
                        {criteria.map((criterion, index) => {
                           const criterionStatus = calculateCriterionStatus(criterion);
+                          const firstIndicatorId = criterion.indicators[0]?.id;
 
-                            if (criterion.id === 'TC01') {
-                                const firstIndicatorId = criterion.indicators[0].id;
-                                const docsToRenderForTC1 = criterion.assignmentType === 'specific'
-                                    ? (criterion.documents || [])
-                                    : (communeDefinedDocsMap[firstIndicatorId] || []);
-                                const assignedCountForTC1 = criterion.assignedDocumentsCount || docsToRenderForTC1.length || 0;
+                          if (criterion.id === 'TC01' && firstIndicatorId) {
+                                const docsToRenderForTC1 = useMemo(() => {
+                                    const firstIndicatorData = assessmentData[firstIndicatorId];
+                                    const currentCommuneDocs = firstIndicatorData?.communeDefinedDocuments || [];
+                                    
+                                    if (criterion.assignmentType === 'specific') {
+                                        return criterion.documents || [];
+                                    } else { // assignmentType === 'quantity'
+                                        const adminCount = criterion.assignedDocumentsCount || 0;
+                                        if (adminCount > 0) {
+                                            return Array.from({ length: adminCount }, (_, i) => currentCommuneDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
+                                        } else {
+                                            const communeEnteredCount = Number(firstIndicatorData?.value || 0);
+                                            return Array.from({ length: communeEnteredCount }, (_, i) => currentCommuneDocs[i] || { name: '', issueDate: '', excerpt: '', issuanceDeadlineDays: 30 });
+                                        }
+                                    }
+                                }, [criterion.assignmentType, criterion.documents, criterion.assignedDocumentsCount, assessmentData[firstIndicatorId]]);
+
+                                const assignedCountForTC1 = useMemo(() => {
+                                    return criterion.assignedDocumentsCount || (Array.isArray(docsToRenderForTC1) ? docsToRenderForTC1.length : 0) || 0;
+                                }, [criterion.assignedDocumentsCount, docsToRenderForTC1]);
 
                                 return (
                                     <Criterion1Component
@@ -655,7 +672,6 @@ const handleSaveDraft = useCallback(async () => {
                                         periodId={activePeriod!.id}
                                         communeId={currentUser!.communeId}
                                         handleCommuneDocsChange={handleCommuneDocsChange}
-                                        // Specific props for TC01
                                         docsToRender={docsToRenderForTC1}
                                         assignedCount={assignedCountForTC1}
                                     />
