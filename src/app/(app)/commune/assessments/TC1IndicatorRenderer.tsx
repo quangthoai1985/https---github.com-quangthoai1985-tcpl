@@ -86,15 +86,17 @@ const TC1IndicatorRenderer = ({
                     value={typeof data.value === 'object' ? '' : (data.value || '')}
                     onChange={(e) => onValueChange(indicator.id, e.target.value)}
                 />
-                {indicatorIndex === 0 && (
-                    <div className="flex-1">
-                        <div className="flex justify-between items-center mb-1">
-                            <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">Tiến độ đạt chuẩn (so với {assignedCount || renderLength} được giao)</Label>
-                            <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
-                        </div>
-                        <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
+                <div className="flex-1">
+                    <div className="flex justify-between items-center mb-1">
+                        <Label htmlFor={`progress-${indicator.id}`} className="text-xs font-normal">
+                            {indicatorIndex === 0 && `Tiến độ đạt chuẩn (so với ${assignedCount || renderLength} được giao)`}
+                            {indicatorIndex === 1 && `Tiến độ truyền thông dự thảo (so với ${assignedCount || renderLength} được giao)`}
+                            {indicatorIndex === 2 && `Tiến độ tự kiểm tra (so với ${assignedCount || renderLength} được giao)`}
+                        </Label>
+                        <span className="text-xs font-semibold">{progress.toFixed(0)}%</span>
                     </div>
-                )}
+                    <Progress id={`progress-${indicator.id}`} value={progress} indicatorClassName={progressColor} className="h-2"/>
+                </div>
               </div>
             </div>
 
