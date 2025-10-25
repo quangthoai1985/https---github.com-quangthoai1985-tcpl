@@ -119,12 +119,6 @@ const RenderTC1LikeIndicator = ({
         data.status === 'pending' && 'bg-amber-50 border-amber-200'
     );
     
-    // Determine which evidence uploader to use
-    const UploaderComponent = indicator.id.startsWith('CT1.') ? Criterion1EvidenceUploader : CT4EvidenceUploader;
-    // For CT4, we need to pass a placeholder contentId if it's not available
-    const contentIdForUploader = indicator.id.startsWith('CT1.') ? undefined : (indicator.contents?.[0]?.id || 'defaultContent');
-
-
     return (
         <div className={blockClasses}>
             <div className="flex items-center gap-2">
@@ -245,9 +239,8 @@ const RenderTC1LikeIndicator = ({
                                         return (
                                             <div key={docIndex} className="p-3 border rounded-lg grid gap-2 bg-background">
                                                 <Label className="font-medium text-center text-sm truncate">Minh chứng cho: <span className="font-bold text-primary">{doc.name || `Văn bản ${docIndex + 1}`}</span></Label>
-                                                <UploaderComponent
+                                                <CT4EvidenceUploader
                                                     indicatorId={indicator.id}
-                                                    contentId={contentIdForUploader}
                                                     docIndex={docIndex}
                                                     evidence={evidence}
                                                     onUploadComplete={handleUploadComplete}

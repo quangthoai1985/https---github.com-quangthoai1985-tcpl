@@ -20,7 +20,6 @@ const CT4EvidenceUploader = ({
   periodId,
   communeId,
   accept,
-  contentId,
   isRequired,
   docIndex,
   onUploadComplete,
@@ -33,7 +32,6 @@ const CT4EvidenceUploader = ({
   periodId: string;
   communeId: string;
   accept?: string;
-  contentId: string;
   isRequired: boolean;
   docIndex: number;
   onUploadComplete: (docIndex: number, newFile: { name: string, url: string }) => void;
@@ -57,7 +55,8 @@ const CT4EvidenceUploader = ({
         });
 
         try {
-            const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${contentId}/${docIndex}/${file.name}`;
+            // Đã xóa contentId khỏi đường dẫn
+            const filePath = `hoso/${communeId}/evidence/${periodId}/${indicatorId}/${docIndex}/${file.name}`;
             const storageRef = ref(storage, filePath);
             const snapshot = await uploadBytes(storageRef, file);
             const downloadURL = await getDownloadURL(snapshot.ref);

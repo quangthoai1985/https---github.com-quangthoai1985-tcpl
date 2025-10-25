@@ -9,27 +9,26 @@ import { FileUp, LinkIcon, File as FileIcon, X, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { FileWithStatus } from './types';
 
-const EvidenceUploaderComponent = ({ indicatorId, parentIndicatorId, evidence, onEvidenceChange, isRequired, onPreview, docIndex, accept, contentId }: {
+const EvidenceUploaderComponent = ({ indicatorId, parentIndicatorId, evidence, onEvidenceChange, isRequired, onPreview, docIndex, accept }: {
     indicatorId: string;
     parentIndicatorId?: string;
     evidence: FileWithStatus[];
-    onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus, contentId?: string) => void;
+    onEvidenceChange: (id: string, files: FileWithStatus[], docIndex?: number, fileToRemove?: FileWithStatus) => void;
     isRequired: boolean;
     onPreview: (file: { name: string, url: string }) => void;
     docIndex?: number;
     accept?: string;
-    contentId?: string;
 }) => {
     const [linkInput, setLinkInput] = useState('');
     const { toast } = useToast();
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newFiles = Array.from(e.target.files || []);
-        onEvidenceChange(parentIndicatorId || indicatorId, [...evidence, ...newFiles], docIndex, undefined, contentId);
+        onEvidenceChange(parentIndicatorId || indicatorId, [...evidence, ...newFiles], docIndex);
     };
 
     const handleEvidenceRemove = (itemToRemove: FileWithStatus) => {
-        onEvidenceChange(parentIndicatorId || indicatorId, [], docIndex, itemToRemove, contentId);
+        onEvidenceChange(parentIndicatorId || indicatorId, [], docIndex, itemToRemove);
     };
 
     const handleAddLink = () => {
@@ -38,7 +37,7 @@ const EvidenceUploaderComponent = ({ indicatorId, parentIndicatorId, evidence, o
             return;
         }
         const newLink = { name: linkInput.trim(), url: linkInput.trim() };
-        onEvidenceChange(parentIndicatorId || indicatorId, [...evidence, newLink], docIndex, undefined, contentId);
+        onEvidenceChange(parentIndicatorId || indicatorId, [...evidence, newLink], docIndex);
         setLinkInput('');
     };
 
@@ -63,10 +62,10 @@ const EvidenceUploaderComponent = ({ indicatorId, parentIndicatorId, evidence, o
              <p className="text-xs text-muted-foreground mt-1">{acceptedFileText} Dung lượng tối đa: 5MB.</p>
 
             <div className="grid gap-1">
-                 <Label htmlFor={`link-${indicatorId}-${docIndex}-${contentId}`} className="text-xs">Hoặc thêm liên kết</Label>
+                 <Label htmlFor={`link-${indicatorId}-${docIndex}`} className="text-xs">Hoặc thêm liên kết</Label>
                  <div className="flex gap-2">
                     <Input
-                        id={`link-${indicatorId}-${docIndex}-${contentId}`}
+                        id={`link-${indicatorId}-${docIndex}`}
                         value={linkInput}
                         onChange={(e) => setLinkInput(e.target.value)}
                         placeholder="Dán đường dẫn vào đây"
