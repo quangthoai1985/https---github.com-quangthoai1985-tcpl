@@ -1,8 +1,8 @@
+
 'use client';
 
 import React from 'react';
 import Criterion1Component from './Criterion1Component';
-import GenericCriterionComponent from './GenericCriterionComponent';
 import type { Assessment, AssessmentStatus, AssessmentValues } from './types';
 import type { Criterion } from '@/lib/data';
 
@@ -54,28 +54,12 @@ const CriterionRenderer = ({
                     handleCommuneDocsChange={handleCommuneDocsChange}
                 />
             );
-        // Add other special cases here if needed in the future
-        // case 'TC0X':
-        //     return <AnotherSpecialComponent ... />;
-        default:
-            return (
-                <GenericCriterionComponent
-                    criterion={criterion}
-                    criterionStatus={criterionStatus}
-                    assessmentData={assessmentData}
-                    onValueChange={onValueChange}
-                    onNoteChange={onNoteChange}
-                    onEvidenceChange={onEvidenceChange}
-                    onIsTaskedChange={onIsTaskedChange}
-                    onPreview={onPreview}
-                    criteria={criteria}
-                    periodId={periodId}
-                    communeId={communeId}
-                    handleCommuneDocsChange={handleCommuneDocsChange}
-                    updateSingleAssessment={updateSingleAssessment}
-                />
-            );
+        // Other criteria will be rendered with specialized components based on inputType
     }
+
+    // Return null or a placeholder if no component matches
+    return null;
 };
 
 export default CriterionRenderer;
+
