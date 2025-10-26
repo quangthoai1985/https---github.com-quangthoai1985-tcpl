@@ -1,3 +1,4 @@
+
 'use client'
 
 import { Accordion } from "@/components/ui/accordion";
@@ -55,7 +56,7 @@ const evaluateStatus = (
         return 'not-achieved';
     }
 
-    // --- SỬA BUG 1: Xử lý các chỉ tiêu có standardLevel dạng % ---
+    // Xử lý các chỉ tiêu có standardLevel dạng %
     if (standardLevel && standardLevel.includes('%') && assignedCount && assignedCount > 0) {
         const requiredPercentageMatch = standardLevel.match(/(\d+)/);
         if (requiredPercentageMatch) {
@@ -67,7 +68,6 @@ const evaluateStatus = (
             return actualPercentage >= requiredPercentage ? 'achieved' : 'not-achieved';
         }
     }
-    // --- KẾT THÚC SỬA BUG 1 ---
 
 
     const hasFileEvidence = (files || []).length > 0;
@@ -334,13 +334,26 @@ const handleValueChange = useCallback((id: string, value: any) => {
 
         indicatorData.value = value;
         
-        // Pass assignedCount for percentage-based status evaluation
-        const parentCriterion = criteria.find(c => c.id === targetItem.parentCriterionId);
         let assignedCount = targetItem.assignedDocumentsCount;
-        if (parentCriterion && parentCriterion.assignmentType === 'quantity') {
-             assignedCount = parentCriterion.assignedDocumentsCount || 0;
-        } else if (parentCriterion && parentCriterion.assignmentType === 'specific') {
-            assignedCount = parentCriterion.documents?.length || 0;
+
+        if (targetItem.parentCriterionId === 'TC01') {
+            const ct1_1_indicator = criteria
+                .find(c => c.id === 'TC01')
+                ?.indicators.find(i => i.id === 'CT1.1');
+            
+            if (ct1_1_indicator) {
+                const ct1_1_value = newData['CT1.1']?.value;
+                assignedCount = Number(ct1_1_value) || 0;
+            }
+            
+            if (id === 'CT1.1') {
+                const parentCriterion = criteria.find(c => c.id === 'TC01');
+                if (parentCriterion?.assignmentType === 'quantity') {
+                    assignedCount = parentCriterion.assignedDocumentsCount || 0;
+                } else if (parentCriterion?.assignmentType === 'specific') {
+                    assignedCount = parentCriterion.documents?.length || 0;
+                }
+            }
         }
 
         indicatorData.status = evaluateStatus(value, targetItem.standardLevel, indicatorData.files, isTasked, assignedCount, indicatorData.filesPerDocument, targetItem.inputType);
@@ -416,7 +429,7 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
             } else {
                 updatedFiles = [...currentFiles, ...newFiles];
             }
-            // Sửa Bug 2: Loại bỏ file/link trùng lặp
+            // Loại bỏ file/link trùng lặp
             const uniqueFiles = updatedFiles.filter((file, index, self) => 
                 index === self.findIndex(f => f.name === file.name)
             );
@@ -434,7 +447,7 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
              } else {
                 updatedFiles = [...currentFiles, ...newFiles];
              }
-             // Sửa Bug 2: Loại bỏ file/link trùng lặp
+             // Loại bỏ file/link trùng lặp
             const uniqueFiles = updatedFiles.filter((file, index, self) => 
                 index === self.findIndex(f => f.name === file.name)
             );
@@ -695,27 +708,32 @@ const handleSaveDraft = useCallback(async () => {
                            
                            // Fallback for other criteria
                            return (
-                                <div key={criterion.id}>
-                                    {criterion.indicators.map(indicator => {
-                                        const data = assessmentData[indicator.id];
-                                        if (!data) return <div key={indicator.id}>Đang tải dữ liệu cho {indicator.name}...</div>
+                                <AccordionItem value={criterion.id} key={criterion.id}>
+                                    <AccordionTrigger>Tiêu chí {index + 1}: {criterion.name.replace(`Tiêu chí ${index + 1}: `, '')}</AccordionTrigger>
+                                    <AccordionContent>
+                                        <div className="space-y-6">
+                                        {criterion.indicators.map(indicator => {
+                                            const data = assessmentData[indicator.id];
+                                            if (!data) return <div key={indicator.id}>Đang tải dữ liệu cho {indicator.name}...</div>
 
-                                        switch (indicator.inputType) {
-                                            case 'boolean':
-                                                return <RenderBooleanIndicator key={indicator.id} indicator={indicator} data={data} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />
-                                            case 'number':
-                                                return <RenderNumberIndicator key={indicator.id} indicator={indicator} data={data} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />
-                                            case 'percentage_ratio':
-                                                return <RenderPercentageRatioIndicator key={indicator.id} indicator={indicator} data={data} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />
-                                            case 'checkbox_group':
-                                                return <RenderCheckboxGroupIndicator key={indicator.id} indicator={indicator} data={data} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />
-                                            case 'TC1_like':
-                                                return <RenderTC1LikeIndicator key={indicator.id} indicator={indicator} data={data} assessmentData={assessmentData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onIsTaskedChange={handleIsTaskedChange} onPreview={handlePreview} periodId={activePeriod!.id} communeId={currentUser!.communeId} handleCommuneDocsChange={handleCommuneDocsChange} />
-                                            default:
-                                                return null;
-                                        }
-                                    })}
-                                </div>
+                                            switch (indicator.inputType) {
+                                                case 'boolean':
+                                                    return <RenderBooleanIndicator key={indicator.id} indicator={indicator} data={data} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />
+                                                case 'number':
+                                                    return <RenderNumberIndicator key={indicator.id} indicator={indicator} data={data} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />
+                                                case 'percentage_ratio':
+                                                    return <RenderPercentageRatioIndicator key={indicator.id} indicator={indicator} data={data} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />
+                                                case 'checkbox_group':
+                                                    return <RenderCheckboxGroupIndicator key={indicator.id} indicator={indicator} data={data} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onPreview={handlePreview} />
+                                                case 'TC1_like':
+                                                    return <RenderTC1LikeIndicator key={indicator.id} indicator={indicator} data={data} assessmentData={assessmentData} onValueChange={handleValueChange} onNoteChange={handleNoteChange} onEvidenceChange={handleEvidenceChange} onIsTaskedChange={handleIsTaskedChange} onPreview={handlePreview} periodId={activePeriod!.id} communeId={currentUser!.communeId} handleCommuneDocsChange={handleCommuneDocsChange} />
+                                                default:
+                                                    return null;
+                                            }
+                                        })}
+                                        </div>
+                                    </AccordionContent>
+                                </AccordionItem>
                            )
                        })}
                     </Accordion>
