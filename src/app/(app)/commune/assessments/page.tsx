@@ -1,7 +1,7 @@
 
 'use client'
 
-import { Accordion } from "@/components/ui/accordion";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, AlertTriangle, Download, Eye } from "lucide-react";
@@ -334,27 +334,30 @@ const handleValueChange = useCallback((id: string, value: any) => {
 
         indicatorData.value = value;
         
-        let assignedCount = targetItem.assignedDocumentsCount;
-
-        if (targetItem.parentCriterionId === 'TC01') {
-            const ct1_1_indicator = criteria
-                .find(c => c.id === 'TC01')
-                ?.indicators.find(i => i.id === 'CT1.1');
-            
-            if (ct1_1_indicator) {
-                const ct1_1_value = newData['CT1.1']?.value;
-                assignedCount = Number(ct1_1_value) || 0;
-            }
-            
-            if (id === 'CT1.1') {
-                const parentCriterion = criteria.find(c => c.id === 'TC01');
-                if (parentCriterion?.assignmentType === 'quantity') {
-                    assignedCount = parentCriterion.assignedDocumentsCount || 0;
-                } else if (parentCriterion?.assignmentType === 'specific') {
-                    assignedCount = parentCriterion.documents?.length || 0;
-                }
-            }
-        }
+       let assignedCount = targetItem.assignedDocumentsCount;
+   
+       // Xử lý đặc biệt cho các chỉ tiêu con của TC01
+       if (targetItem.parentCriterionId === 'TC01') {
+           const ct1_1_indicator = criteria
+               .find(c => c.id === 'TC01')
+               ?.indicators.find(i => i.id === 'CT1.1');
+           
+           if (ct1_1_indicator) {
+               // CT1.2 và CT1.3 so sánh với VALUE của CT1.1
+               const ct1_1_value = newData['CT1.1']?.value;
+               assignedCount = Number(ct1_1_value) || 0;
+           }
+           
+           // Nếu là chính CT1.1, dùng logic cũ
+           if (id === 'CT1.1') {
+               const parentCriterion = criteria.find(c => c.id === 'TC01');
+               if (parentCriterion?.assignmentType === 'quantity') {
+                   assignedCount = parentCriterion.assignedDocumentsCount || 0;
+               } else if (parentCriterion?.assignmentType === 'specific') {
+                   assignedCount = parentCriterion.documents?.length || 0;
+               }
+           }
+       }
 
         indicatorData.status = evaluateStatus(value, targetItem.standardLevel, indicatorData.files, isTasked, assignedCount, indicatorData.filesPerDocument, targetItem.inputType);
         
@@ -793,4 +796,5 @@ const handleSaveDraft = useCallback(async () => {
     </Dialog>
     </>
   );
-}
+
+    
