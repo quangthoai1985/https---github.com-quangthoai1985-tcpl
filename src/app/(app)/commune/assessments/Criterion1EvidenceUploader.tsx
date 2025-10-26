@@ -29,7 +29,7 @@ const Criterion1EvidenceUploader = ({
   docIndex: number;
   evidence: FileWithStatus[];
   onUploadComplete: (indicatorId: string, docIndex: number, newFile: { name: string, url: string }) => void;
-  onRemove: (indicatorId: string, docIndex: number, fileToRemove: FileWithStatus) => void;
+  onRemove: (docIndex: number, fileToRemove: FileWithStatus) => void;
   onPreview: (file: { name: string; url: string; }) => void;
   periodId: string;
   communeId: string;
@@ -176,7 +176,7 @@ const Criterion1EvidenceUploader = ({
                                     <Eye className="h-4 w-4" />
                                 </Button>
                             )}
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemove(indicatorId, docIndex, file)}>
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => onRemove(docIndex, file)}>
                                 <X className="h-4 w-4" />
                             </Button>
                         </div>

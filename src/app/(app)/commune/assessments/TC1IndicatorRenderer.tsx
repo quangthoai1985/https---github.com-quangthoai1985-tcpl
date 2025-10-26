@@ -125,9 +125,9 @@ const TC1IndicatorRenderer = ({
                                                 indicatorId={indicator.id}
                                                 docIndex={docIndex} 
                                                 evidence={evidence} 
-                                                onUploadComplete={(docIndex, newFile) => onEvidenceChange(indicator.id, [newFile], docIndex)}
+                                                onUploadComplete={(indicatorId, docIndex, newFile) => onEvidenceChange(indicatorId, [newFile], docIndex)}
                                                 onRemove={(docIndex, fileToRemove) => onEvidenceChange(indicator.id, [], docIndex, fileToRemove)}
-                                                onAddLink={(docIndex, newLink) => onEvidenceChange(indicator.id, [newLink], docIndex)}
+                                                onAddLink={(indicatorId, docIndex, newLink) => onEvidenceChange(indicator.id, [newLink], docIndex)}
                                                 onPreview={onPreview} 
                                                 periodId={periodId} 
                                                 communeId={communeId} 
