@@ -36,6 +36,13 @@ const EvidenceUploaderComponent = ({ indicatorId, parentIndicatorId, evidence, o
             toast({ variant: 'destructive', title: 'Lỗi', description: 'Vui lòng nhập một đường dẫn hợp lệ (bắt đầu bằng http hoặc https).' });
             return;
         }
+        
+        const isDuplicate = evidence.some(f => f.name === linkInput.trim());
+        if (isDuplicate) {
+            toast({ variant: 'destructive', title: 'Lỗi', description: 'Đường dẫn này đã tồn tại trong danh sách.' });
+            return;
+        }
+
         const newLink = { name: linkInput.trim(), url: linkInput.trim() };
         onEvidenceChange(parentIndicatorId || indicatorId, [...evidence, newLink], docIndex);
         setLinkInput('');

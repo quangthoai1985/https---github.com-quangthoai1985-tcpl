@@ -1,4 +1,3 @@
-
 'use client'
 
 import { Accordion } from "@/components/ui/accordion";
@@ -55,6 +54,20 @@ const evaluateStatus = (
         // Nếu không đủ file valid hoặc số lượng không đạt
         return 'not-achieved';
     }
+
+    // --- SỬA BUG 1: Xử lý các chỉ tiêu có standardLevel dạng % ---
+    if (standardLevel && standardLevel.includes('%') && assignedCount && assignedCount > 0) {
+        const requiredPercentageMatch = standardLevel.match(/(\d+)/);
+        if (requiredPercentageMatch) {
+            const requiredPercentage = parseInt(requiredPercentageMatch[0], 10);
+            const actualPercentage = (Number(value) / assignedCount) * 100;
+            if (isNaN(actualPercentage)) return 'pending';
+             // Yêu cầu phải có minh chứng nếu đã nhập liệu
+            if ((files || []).length === 0) return 'not-achieved';
+            return actualPercentage >= requiredPercentage ? 'achieved' : 'not-achieved';
+        }
+    }
+    // --- KẾT THÚC SỬA BUG 1 ---
 
 
     const hasFileEvidence = (files || []).length > 0;
@@ -320,7 +333,17 @@ const handleValueChange = useCallback((id: string, value: any) => {
         if (!targetItem) return prev;
 
         indicatorData.value = value;
-        indicatorData.status = evaluateStatus(value, targetItem.standardLevel, indicatorData.files, isTasked, targetItem.assignedDocumentsCount, indicatorData.filesPerDocument, targetItem.inputType);
+        
+        // Pass assignedCount for percentage-based status evaluation
+        const parentCriterion = criteria.find(c => c.id === targetItem.parentCriterionId);
+        let assignedCount = targetItem.assignedDocumentsCount;
+        if (parentCriterion && parentCriterion.assignmentType === 'quantity') {
+             assignedCount = parentCriterion.assignedDocumentsCount || 0;
+        } else if (parentCriterion && parentCriterion.assignmentType === 'specific') {
+            assignedCount = parentCriterion.documents?.length || 0;
+        }
+
+        indicatorData.status = evaluateStatus(value, targetItem.standardLevel, indicatorData.files, isTasked, assignedCount, indicatorData.filesPerDocument, targetItem.inputType);
         
         newData[id] = indicatorData;
 
@@ -393,7 +416,12 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
             } else {
                 updatedFiles = [...currentFiles, ...newFiles];
             }
-            filesPerDoc[docIndex] = updatedFiles;
+            // Sửa Bug 2: Loại bỏ file/link trùng lặp
+            const uniqueFiles = updatedFiles.filter((file, index, self) => 
+                index === self.findIndex(f => f.name === file.name)
+            );
+
+            filesPerDoc[docIndex] = uniqueFiles;
             indicatorData.filesPerDocument = filesPerDoc;
             
             indicatorData.status = evaluateStatus(indicatorData.value, targetItem.standardLevel, [], indicatorData.isTasked, targetItem.assignedDocumentsCount, filesPerDoc, targetItem.inputType);
@@ -406,8 +434,13 @@ const handleEvidenceChange = useCallback(async (indicatorId: string, newFiles: F
              } else {
                 updatedFiles = [...currentFiles, ...newFiles];
              }
-             indicatorData.files = updatedFiles;
-             indicatorData.status = evaluateStatus(indicatorData.value, targetItem.standardLevel, updatedFiles, indicatorData.isTasked);
+             // Sửa Bug 2: Loại bỏ file/link trùng lặp
+            const uniqueFiles = updatedFiles.filter((file, index, self) => 
+                index === self.findIndex(f => f.name === file.name)
+            );
+
+             indicatorData.files = uniqueFiles;
+             indicatorData.status = evaluateStatus(indicatorData.value, targetItem.standardLevel, uniqueFiles, indicatorData.isTasked);
         }
 
         newData[indicatorId] = indicatorData;
