@@ -178,20 +178,23 @@ export default function CriteriaManagementPage() {
     let newCriteria: Criterion[] = [];
 
     if (editingIndicator) { // Editing existing indicator
-      newCriteria = criteria.map(c => {
-        if (c.id === editingIndicator.criterionId) {
-          return {
-            ...c,
-            indicators: c.indicators.map(i => 
-                i.id === indicatorToSave.id ? 
-                { ...i, ...indicatorToSave } as Indicator // Cập nhật đơn giản
-                : i 
-            )
-          }
-        }
-        return c;
-      });
-      toast({ title: "Thành công!", description: "Đã cập nhật thông tin chỉ tiêu."});
+        const updatedIndicator = {
+            ...editingIndicator.indicator, // Giữ tất cả field cũ (bao gồm id, order, v.v.)
+            ...indicatorToSave, // Ghi đè bằng dữ liệu mới từ form
+        } as Indicator;
+
+        newCriteria = criteria.map(c => {
+            if (c.id === editingIndicator.criterionId) {
+                return {
+                    ...c,
+                    indicators: c.indicators.map(i =>
+                        i.id === updatedIndicator.id ? updatedIndicator : i
+                    )
+                };
+            }
+            return c;
+        });
+        toast({ title: "Thành công!", description: "Đã cập nhật thông tin chỉ tiêu."});
     } else if (addingIndicatorTo) { // Adding new indicator
        const newIndicator: Indicator = {
         id: `CT${Date.now().toString().slice(-6)}`,
@@ -200,6 +203,7 @@ export default function CriteriaManagementPage() {
         standardLevel: indicatorToSave.standardLevel || "", // Thêm lại
         inputType: indicatorToSave.inputType || "boolean", // Thêm lại
         evidenceRequirement: indicatorToSave.evidenceRequirement || "", // Thêm lại
+        order: 0,
     };
 
       newCriteria = criteria.map(c => {
@@ -336,3 +340,4 @@ export default function CriteriaManagementPage() {
     </>
   );
 }
+
