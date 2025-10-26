@@ -38,6 +38,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import Criterion1Config from './Criterion1Config';
 import CT4Content1Config from './CT4Content1Config';
+import { doc } from 'firebase/firestore';
+import { setDoc } from 'firebase/firestore';
 
 
 function CriterionForm({ criterion, onSave, onCancel }: { criterion: Partial<Criterion>, onSave: (criterion: Partial<Criterion>) => void, onCancel: () => void }) {
@@ -132,7 +134,7 @@ function IndicatorForm({ indicator, onSave, onCancel }: { indicator: Partial<Ind
 
 
 export default function CriteriaManagementPage() {
-  const { criteria, updateCriteria } = useData();
+  const { criteria, updateCriteria, db } = useData();
   const [editingCriterion, setEditingCriterion] = React.useState<Partial<Criterion> | null>(null);
   const [addingCriterion, setAddingCriterion] = React.useState<boolean>(false);
   const [editingIndicator, setEditingIndicator] = React.useState<{criterionId: string, indicator: Partial<Indicator>} | null>(null);
@@ -175,26 +177,42 @@ export default function CriteriaManagementPage() {
   const handleCancelEditIndicator = () => { setEditingIndicator(null); setAddingIndicatorTo(null); };
 
   const handleSaveIndicator = async (indicatorToSave: Partial<Indicator>) => {
-    let newCriteria: Criterion[] = [];
+    if (!db) {
+        toast({ variant: "destructive", title: "Lỗi!", description: "Không thể kết nối tới cơ sở dữ liệu." });
+        return;
+    }
 
-    if (editingIndicator) { // Editing existing indicator
+    if (editingIndicator) {
+        // Đảm bảo giữ lại ID và các field cũ
         const updatedIndicator = {
             ...editingIndicator.indicator, // Giữ tất cả field cũ (bao gồm id, order, v.v.)
             ...indicatorToSave, // Ghi đè bằng dữ liệu mới từ form
         } as Indicator;
 
-        newCriteria = criteria.map(c => {
-            if (c.id === editingIndicator.criterionId) {
-                return {
-                    ...c,
-                    indicators: c.indicators.map(i =>
-                        i.id === updatedIndicator.id ? updatedIndicator : i
-                    )
-                };
-            }
-            return c;
-        });
-        toast({ title: "Thành công!", description: "Đã cập nhật thông tin chỉ tiêu."});
+        // Lưu trực tiếp vào Firestore subcollection
+        try {
+            const indicatorRef = doc(
+                db,
+                'criteria',
+                editingIndicator.criterionId,
+                'indicators',
+                updatedIndicator.id
+            );
+            
+            await setDoc(indicatorRef, updatedIndicator, { merge: true });
+            
+            toast({ 
+                title: "Thành công!", 
+                description: "Đã cập nhật thông tin chỉ tiêu." 
+            });
+        } catch (error) {
+            console.error("Lỗi khi cập nhật chỉ tiêu:", error);
+            toast({ 
+                variant: "destructive",
+                title: "Lỗi!", 
+                description: "Không thể cập nhật chỉ tiêu." 
+            });
+        }
     } else if (addingIndicatorTo) { // Adding new indicator
        const newIndicator: Indicator = {
         id: `CT${Date.now().toString().slice(-6)}`,
@@ -206,7 +224,7 @@ export default function CriteriaManagementPage() {
         order: 0,
     };
 
-      newCriteria = criteria.map(c => {
+      const newCriteria = criteria.map(c => {
         if (c.id === addingIndicatorTo) {
           return {
             ...c,
@@ -215,12 +233,10 @@ export default function CriteriaManagementPage() {
         }
         return c;
       });
+      await updateCriteria(newCriteria);
       toast({ title: "Thành công!", description: "Đã thêm chỉ tiêu mới." });
     }
 
-    if (newCriteria.length > 0) {
-        await updateCriteria(newCriteria);
-    }
     handleCancelEditIndicator();
   };
 
@@ -340,4 +356,3 @@ export default function CriteriaManagementPage() {
     </>
   );
 }
-

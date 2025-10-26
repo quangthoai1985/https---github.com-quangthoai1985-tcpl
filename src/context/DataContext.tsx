@@ -77,6 +77,7 @@ interface DataContextType {
   logout: () => Promise<void>;
   storage: FirebaseStorage | null;
   functions: FirebaseFunctions | null;
+  db: Firestore | null;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -473,6 +474,7 @@ export const DataProvider = ({ children }: { children: ReactNode }) => {
         logout,
         storage,
         functions,
+        db,
     }}>
       {children}
     </DataContext.Provider>
