@@ -200,6 +200,20 @@ export default function CriteriaManagementPage() {
             );
             
             await setDoc(indicatorRef, updatedIndicator, { merge: true });
+
+            // Optimistic update
+            const newCriteria = criteria.map(c => {
+                if (c.id === editingIndicator.criterionId) {
+                    return {
+                        ...c,
+                        indicators: c.indicators.map(i =>
+                            i.id === updatedIndicator.id ? updatedIndicator : i
+                        )
+                    };
+                }
+                return c;
+            });
+            await updateCriteria(newCriteria);
             
             toast({ 
                 title: "Thành công!", 
