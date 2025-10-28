@@ -335,19 +335,53 @@ const handleValueChange = useCallback((id: string, value: any) => {
         indicatorData.value = value;
         
        let assignedCount = targetItem.assignedDocumentsCount;
-   
-       // Xử lý đặc biệt cho các chỉ tiêu con của TC01
-       if (targetItem.parentCriterionId === 'TC01') {
+
+       // Xử lý đặc biệt cho CT2.2 - Logic ưu tiên 1→2→3
+       if (id === 'CT2.2' && targetItem.parentCriterionId === 'TC01') {
+           const tc01Criterion = criteria.find(c => c.id === 'TC01');
+           const ct1_1_data = newData['CT1.1'];
+           const communeDefinedDocuments = ct1_1_data?.communeDefinedDocuments;
+
+           // ƯU TIÊN 1: Admin giao cụ thể (specific documents)
+           if (tc01Criterion?.assignmentType === 'specific' &&
+               tc01Criterion?.documents &&
+               tc01Criterion.documents.length > 0) {
+               assignedCount = tc01Criterion.documents.length;
+           }
+           // ƯU TIÊN 2: Admin giao số lượng (quantity with count)
+           else if (tc01Criterion?.assignmentType === 'quantity' &&
+                    tc01Criterion?.assignedDocumentsCount &&
+                    tc01Criterion.assignedDocumentsCount > 0) {
+               assignedCount = tc01Criterion.assignedDocumentsCount;
+           }
+           // ƯU TIÊN 3: Xã tự khai báo
+           else {
+               // Option 3a: Lấy từ CT1.1 value
+               const ct1_1_value = ct1_1_data?.value;
+               if (ct1_1_value && Number(ct1_1_value) > 0) {
+                   assignedCount = Number(ct1_1_value);
+               }
+               // Option 3b: Lấy từ communeDefinedDocuments
+               else if (communeDefinedDocuments && communeDefinedDocuments.length > 0) {
+                   assignedCount = communeDefinedDocuments.length;
+               }
+               else {
+                   assignedCount = 0;
+               }
+           }
+       }
+       // Xử lý đặc biệt cho các chỉ tiêu con của TC01 (CT1.1, CT1.2, CT1.3)
+       else if (targetItem.parentCriterionId === 'TC01') {
            const ct1_1_indicator = criteria
                .find(c => c.id === 'TC01')
                ?.indicators.find(i => i.id === 'CT1.1');
-           
+
            if (ct1_1_indicator) {
                // CT1.2 và CT1.3 so sánh với VALUE của CT1.1
                const ct1_1_value = newData['CT1.1']?.value;
                assignedCount = Number(ct1_1_value) || 0;
            }
-           
+
            // Nếu là chính CT1.1, dùng logic cũ
            if (id === 'CT1.1') {
                const parentCriterion = criteria.find(c => c.id === 'TC01');
